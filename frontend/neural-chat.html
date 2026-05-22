@@ -5,49 +5,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neural Chat — Hermes Fusion V1.0</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;900&family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         :root {
-            --bg-deep: #050505;
-            --bg-card: rgba(25, 25, 25, 0.65);
-            --border-subtle: rgba(255, 255, 255, 0.06);
-            --border-primary: rgba(255, 255, 255, 0.12);
+            --bg-deep: #050508;
+            --bg-grad-start: #0a0a10;
+            --bg-grad-end: #040407;
+            
+            --glass-bg: rgba(13, 13, 20, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --glass-border-active: rgba(34, 211, 238, 0.25);
+            
             --text-main: #ffffff;
             --text-dim: #9ca3af;
-            --text-muted: #555;
+            --text-muted: #4b5563;
+            
             --accent: #22d3ee;
-            --accent-glow: rgba(34, 211, 238, 0.3);
+            --accent-violet: #a855f7;
+            --accent-glow: rgba(34, 211, 238, 0.15);
+            --accent-violet-glow: rgba(168, 85, 247, 0.15);
         }
 
         html, body {
             height: 100%;
             overflow: hidden;
             background: var(--bg-deep);
+            background: radial-gradient(circle at 50% 50%, var(--bg-grad-start) 0%, var(--bg-grad-end) 100%);
             color: var(--text-main);
             font-family: 'Inter', sans-serif;
         }
 
         /* ================================================================
-           LAYOUT: SPLIT 60/40
+           LAYOUT: GEMINI GLASS FUSION & FULLSCREEN NEURAL CANVAS
            ================================================================ */
         #app {
-            display: flex;
-            flex-direction: column;
+            position: relative;
             height: 100vh;
             width: 100vw;
-            position: relative;
+            overflow: hidden;
         }
 
-        /* --- Neural Graph Section (Top 60%) --- */
+        /* Background Animated Auras (Gemini Style) */
+        .aura {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(140px);
+            opacity: 0.12;
+            transition: all 1s ease-in-out;
+        }
+
+        .aura-cyan {
+            top: -10%;
+            left: 10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent), transparent 70%);
+            animation: float-slow 20s infinite alternate;
+        }
+
+        .aura-violet {
+            bottom: -10%;
+            right: 10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-violet), transparent 70%);
+            animation: float-slow-reverse 25s infinite alternate;
+        }
+
+        @keyframes float-slow {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(50px) scale(1.1); }
+        }
+
+        @keyframes float-slow-reverse {
+            0% { transform: translateY(0) scale(1.1); }
+            100% { transform: translateY(-60px) scale(0.9); }
+        }
+
+        /* --- Neural Graph Section (Fullscreen Background by Default) --- */
         #neural-section {
-            position: relative;
-            flex: 6;
-            min-height: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.22;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), z-index 0.5s step-end;
             overflow: hidden;
-            border-bottom: 1.5px solid rgba(34, 211, 238, 0.15);
-            box-shadow: 0 4px 30px rgba(34, 211, 238, 0.03);
+        }
+
+        #neural-section.focus-mode {
+            opacity: 0.95;
+            z-index: 10;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), z-index 0.5s step-start;
         }
 
         #neural-section canvas {
@@ -59,47 +115,62 @@
         /* Graph UI Overlay */
         #graph-ui {
             position: absolute;
-            top: 16px;
-            left: 20px;
+            top: 20px;
+            left: 24px;
             font-family: 'Outfit', sans-serif;
             pointer-events: none;
-            z-index: 10;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #neural-section.focus-mode #graph-ui {
+            opacity: 1;
         }
 
         #graph-ui h1 {
-            font-size: 11px;
-            color: #888;
+            font-size: 13px;
+            color: #fff;
             text-transform: uppercase;
             letter-spacing: 3px;
-            font-weight: 300;
+            font-weight: 600;
             margin: 0;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
 
         #graph-ui .subtitle {
             font-size: 9px;
             margin-top: 4px;
-            color: #444;
+            color: var(--text-dim);
             letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
 
         /* Graph Status Badge */
         #graph-status {
             position: absolute;
-            top: 16px;
-            right: 20px;
-            z-index: 10;
+            top: 20px;
+            right: 24px;
+            z-index: 15;
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 9px;
+            font-size: 10px;
             color: var(--text-dim);
             font-family: 'JetBrains Mono', monospace;
-            background: rgba(0,0,0,0.6);
-            padding: 6px 12px;
+            background: var(--glass-bg);
+            padding: 8px 16px;
             border-radius: 20px;
-            border: 1px solid var(--border-subtle);
-            backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #neural-section.focus-mode #graph-status {
+            opacity: 1;
         }
 
         #graph-status .dot {
@@ -120,53 +191,76 @@
         #tooltip {
             position: absolute;
             pointer-events: none;
-            background: rgba(0,0,0,0.9);
-            padding: 6px 10px;
-            border-radius: 6px;
+            background: rgba(8, 8, 12, 0.95);
+            padding: 8px 12px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
+            font-size: 11px;
             display: none;
             color: #fff;
-            border: 1px solid #333;
-            backdrop-filter: blur(5px);
-            z-index: 20;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 25;
             white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
         }
 
         /* Click hint */
         #click-hint {
             position: absolute;
-            bottom: 16px;
+            bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10;
-            font-size: 9px;
-            color: #444;
+            z-index: 15;
+            font-size: 10px;
+            color: var(--text-dim);
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: 1px;
             text-transform: uppercase;
-            background: rgba(0,0,0,0.5);
-            padding: 4px 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.03);
+            background: rgba(8, 8, 12, 0.7);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
             pointer-events: none;
-            transition: opacity 2s;
+            transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
         }
 
-        /* --- Chat Section (Bottom 40%) --- */
+        #neural-section.focus-mode #click-hint {
+            opacity: 0.8;
+        }
+
+        /* --- Chat Section (Premium Gemini Glass Panel) --- */
         #chat-section {
-            flex: 4;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 850px;
+            height: 80vh;
+            max-height: 700px;
+            z-index: 2;
             display: flex;
             flex-direction: column;
-            min-height: 0;
-            background: rgba(8, 8, 12, 0.85);
-            backdrop-filter: blur(12px);
-            position: relative;
-            border-top: 1px solid rgba(34, 211, 238, 0.06);
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
         }
 
-        /* Background Glows */
+        #chat-section.hidden {
+            opacity: 0;
+            transform: translate(-50%, -46%) scale(0.95);
+            pointer-events: none;
+        }
+
+        /* Background glow sutil atrás do chat */
         #chat-section::before {
             content: '';
             position: absolute;
@@ -174,7 +268,7 @@
             right: -10%;
             width: 50%;
             height: 50%;
-            background: radial-gradient(ellipse, rgba(34, 211, 238, 0.03), transparent);
+            background: radial-gradient(ellipse, rgba(34, 211, 238, 0.05), transparent);
             pointer-events: none;
         }
 
@@ -183,43 +277,50 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             flex-shrink: 0;
-            background: rgba(0,0,0,0.25);
+            background: rgba(0,0,0,0.15);
         }
 
         #chat-header .left {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         #chat-header .hermes-icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
             background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(168, 85, 247, 0.15));
             border: 1px solid rgba(34, 211, 238, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         #chat-header h2 {
-            font-size: 11px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
             color: var(--text-main);
         }
 
+        #chat-header .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
         #chat-header .hermes-status {
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 9px;
+            font-size: 10px;
             color: var(--text-dim);
             font-family: 'JetBrains Mono', monospace;
         }
@@ -235,6 +336,60 @@
         #chat-header .hermes-status .dot.offline {
             background: #ef4444;
             box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+        }
+
+        .focus-graph-btn {
+            background: rgba(34, 211, 238, 0.08);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            color: var(--accent);
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .focus-graph-btn:hover {
+            background: rgba(34, 211, 238, 0.15);
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+            color: #fff;
+        }
+
+        #exit-focus-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            color: var(--accent);
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 12px 28px;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(34, 211, 238, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: fade-up 0.5s ease;
+        }
+
+        #exit-focus-btn:hover {
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7), 0 0 30px rgba(34, 211, 238, 0.35);
+            background: rgba(13, 13, 20, 0.7);
+            color: #fff;
         }
 
         /* Messages Area */
@@ -424,54 +579,50 @@
         #chat-input-area {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 14px 16px 14px;
-            border-top: 1.5px solid rgba(255,255,255,0.12);
+            gap: 12px;
+            padding: 16px 24px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
             flex-shrink: 0;
-            background: rgba(0,0,0,0.6);
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
-            border-top: 1.5px solid rgba(34, 211, 238, 0.15);
+            background: transparent;
         }
-
+ 
         #chat-input {
             flex: 1;
-            background: rgba(255,255,255,0.08);
-            border: 2.5px solid rgba(255,255,255,0.55);
-            border-radius: 24px;
-            padding: 11px 16px;
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 30px;
+            padding: 14px 22px;
+            font-size: 13px;
             font-family: 'Inter', sans-serif;
             color: var(--text-main);
             outline: none;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
+ 
         #chat-input:hover {
-            border-color: rgba(255,255,255,0.7);
-            background: rgba(255,255,255,0.12);
-            box-shadow: 0 0 12px rgba(255,255,255,0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
         }
-
+ 
         #chat-input:focus {
-            border-color: #22d3ee;
-            background: rgba(255,255,255,0.15);
-            box-shadow: 0 0 28px rgba(34, 211, 238, 0.25), 0 0 4px rgba(34, 211, 238, 0.3);
+            border-color: rgba(34, 211, 238, 0.4);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.15), inset 0 0 10px rgba(34, 211, 238, 0.05);
         }
-
+ 
         #chat-input::placeholder {
-            color: #999;
-            font-size: 11px;
+            color: var(--text-muted);
+            font-size: 12px;
             letter-spacing: 0.3px;
-            font-weight: 400;
         }
-
+ 
         #chat-input:disabled {
-            opacity: 0.4;
+            opacity: 0.3;
         }
-
+ 
         #chat-send {
-            width: 38px;
-            height: 38px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             border: 1px solid rgba(34, 211, 238, 0.25);
             background: rgba(34, 211, 238, 0.12);
@@ -481,18 +632,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             flex-shrink: 0;
         }
-
+ 
         #chat-send:hover:not(:disabled) {
             background: rgba(34, 211, 238, 0.25);
             border-color: var(--accent);
-            box-shadow: 0 0 24px rgba(34, 211, 238, 0.25);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+            transform: scale(1.05);
         }
-
+ 
         #chat-send:disabled {
-            opacity: 0.35;
+            opacity: 0.3;
+            cursor: default;
             cursor: default;
         }
 
@@ -745,44 +898,53 @@
     </style>
 </head>
 <body>
+    <!-- Background Auras -->
+    <div class="aura aura-cyan"></div>
+    <div class="aura aura-violet"></div>
+
     <div id="app">
         <!-- ============================================================
              NEURAL GRAPH SECTION (60%)
              ============================================================ -->
         <div id="neural-section">
             <canvas id="graph"></canvas>
-
+ 
             <div id="graph-ui">
                 <h1>🧬 Consciência Neural</h1>
                 <div class="subtitle">Hermes Fusion — Supervisão Viva</div>
             </div>
-
+ 
             <div id="graph-status">
                 <span class="dot"></span>
                 <span id="nodes-count">0 nós</span>
             </div>
-
+ 
             <div id="tooltip"></div>
             <div id="click-hint">Clique em um nó para perguntar ao Hermes</div>
             <canvas id="orbi"></canvas>
             <button id="mobile-graph-toggle" aria-label="Alternar gráfico">🌐</button>
         </div>
-
+ 
         <!-- ============================================================
              CHAT SECTION (40%)
              ============================================================ -->
         <div id="chat-section">
             <div id="chat-header">
                 <div class="left">
-                    <div class="hermes-icon">🪶</div>
+                    <div class="hermes-icon"><i class="fa-solid fa-feather-pointed"></i></div>
                     <h2>Hermes</h2>
                 </div>
-                <div class="hermes-status">
-                    <span class="dot" id="hermes-dot"></span>
-                    <span id="hermes-status-text">conectando...</span>
+                <div class="right-controls">
+                    <div class="hermes-status">
+                        <span class="dot" id="hermes-dot"></span>
+                        <span id="hermes-status-text">conectando...</span>
+                    </div>
+                    <button class="focus-graph-btn" onclick="toggleFocusMode(true)">
+                        <i class="fa-solid fa-expand"></i> Focar Grafo
+                    </button>
                 </div>
             </div>
-
+ 
             <div id="chat-messages">
                 <div class="welcome-message" id="welcome-msg">
                     <div class="icon">🪶</div>
@@ -800,12 +962,17 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div id="chat-input-area">
                 <input id="chat-input" type="text" placeholder="Pergunte ao Hermes sobre o grafo neural..." autocomplete="off" />
                 <button id="chat-send" disabled>⚡</button>
             </div>
         </div>
+ 
+        <!-- Exit Focus Mode Button -->
+        <button id="exit-focus-btn" onclick="toggleFocusMode(false)" style="display: none;">
+            <i class="fa-solid fa-comments"></i> Voltar ao Chat
+        </button>
 
         <!-- Compliance Toast -->
         <div id="compliance-toast"></div>
@@ -1744,6 +1911,34 @@
             complianceToast.classList.add('show');
             setTimeout(() => complianceToast.classList.remove('show'), 4000);
         }
+
+        function toggleFocusMode(showGraph) {
+            const neuralSection = document.getElementById('neural-section');
+            const chatSection = document.getElementById('chat-section');
+            const exitBtn = document.getElementById('exit-focus-btn');
+            
+            if (showGraph) {
+                neuralSection.classList.add('focus-mode');
+                chatSection.classList.add('hidden');
+                exitBtn.style.display = 'flex';
+                
+                setTimeout(() => {
+                    resize();
+                    reinitOrbiIfNeeded();
+                }, 50);
+            } else {
+                neuralSection.classList.remove('focus-mode');
+                chatSection.classList.remove('hidden');
+                exitBtn.style.display = 'none';
+                
+                setTimeout(() => {
+                    resize();
+                    reinitOrbiIfNeeded();
+                    if (chatInput) chatInput.focus();
+                }, 50);
+            }
+        }
+        window.toggleFocusMode = toggleFocusMode;
 
         // Mobile toggle: alterna entre graph-mode e chat-mode com transição suave
         if (mobileToggle) {

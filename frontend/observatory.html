@@ -6,23 +6,32 @@
     <meta name="theme-color" content="#000000">
     <meta name="color-scheme" content="dark">
     <title>10D SNIPER - OBSERVATÓRIO V5.8 DUAL</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700;900&family=Material+Icons+Round" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@700;900&family=Material+Icons+Round" rel="stylesheet">
     <style>
 :root {
-    --bg: #000000;
-    --card: #050505;
-    --border: rgba(255,255,255,0.08);
+    --bg: #060608;
+    --card: rgba(13, 13, 20, 0.45);
+    --border: rgba(255, 255, 255, 0.04);
+    --border-glow: rgba(0, 242, 254, 0.15);
     --green: #10b981;
     --red: #ef4444;
     --amber: #f59e0b;
-    --t1: #ffffff;
-    --t2: #94a3b8;
-    --glow-g: 0 0 15px rgba(16,185,129,0.4);
-    --glow-a: 0 0 15px rgba(245,158,11,0.4);
+    --t1: #f3f4f6;
+    --t2: #9ca3af;
+    --glow-g: 0 0 15px rgba(16,185,129,0.3);
+    --glow-a: 0 0 15px rgba(245,158,11,0.3);
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
-html, body { background: #000000 !important; background-color: #000000 !important; color: var(--t1); font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
+html, body { 
+    background: #060608 !important; 
+    background-color: #060608 !important; 
+    color: var(--t1); 
+    font-family: 'Outfit', 'Inter', sans-serif; 
+    overflow: hidden; 
+    height: 100vh; 
+    position: relative;
+}
 
 /* Global HUD */
 .global-hud {
@@ -403,9 +412,95 @@ html, body { background: #000000 !important; background-color: #000000 !importan
      border-radius: 3px;
      font-weight: 700;
  }
+
+/* Efeito de auras neon de fundo inspirados no Gemini */
+.aura {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(140px);
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 0;
+    animation: float 20s ease-in-out infinite;
+}
+.aura-cyan {
+    width: 500px;
+    height: 500px;
+    background: #00f2fe;
+    top: -150px;
+    left: -100px;
+}
+.aura-violet {
+    width: 600px;
+    height: 600px;
+    background: #7f00ff;
+    bottom: -150px;
+    right: -100px;
+    animation-delay: -10s;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-40px) scale(1.1); }
+}
+
+/* Glassmorphism premium em painéis e sidebar */
+.sidebar {
+    background: rgba(13, 13, 20, 0.45) !important;
+    backdrop-filter: blur(24px) !important;
+    position: relative;
+    z-index: 10;
+}
+
+.strategy-control {
+    background: rgba(13, 13, 20, 0.45) !important;
+    backdrop-filter: blur(24px) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+    position: relative;
+    z-index: 10;
+}
+
+.pane {
+    background: rgba(13, 13, 20, 0.35) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--border) !important;
+    transition: border-color 0.3s, box-shadow 0.3s, background 0.3s !important;
+    z-index: 10;
+}
+.pane:hover {
+    border-color: rgba(0, 242, 254, 0.2) !important;
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.08) !important;
+    background: rgba(13, 13, 20, 0.55) !important;
+}
+
+.global-hud {
+    background: rgba(6, 6, 8, 0.8) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid var(--border) !important;
+    position: relative;
+    z-index: 100;
+}
+
+.sb-search input {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    color: #fff !important;
+    font-family: 'Outfit', sans-serif !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+.sb-search input:focus {
+    outline: none !important;
+    border-color: #00f2fe !important;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2) !important;
+}
     </style>
 </head>
 <body>
+<div class="aura aura-cyan"></div>
+<div class="aura aura-violet"></div>
 
 <header class="global-hud">
     <img src="/logo10DTrasp.png?v=4" style="height:24px; margin-right:10px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.4)); position: relative; z-index: 100;">
@@ -954,11 +1049,11 @@ function initCharts(isReset = false) {
    });
 
   const common = {
-    layout: { background: { color: '#000000' }, textColor: '#94a3b8', fontFamily: 'Inter', fontSize: 11 },
+    layout: { background: { color: '#060608' }, textColor: '#9ca3af', fontFamily: 'Outfit, sans-serif', fontSize: 11 },
     grid: { vertLines: { color: 'rgba(255,255,255,0.02)' }, horzLines: { color: 'rgba(255,255,255,0.02)' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     timeScale: { 
-      borderColor: 'rgba(255,255,255,0.08)', 
+      borderColor: 'rgba(255,255,255,0.04)', 
       timeVisible: true, 
       rightOffset: 25, // Aumentado de 15 para 25 para um recuo e respiro visual profissional
       barSpacing: 12, 
@@ -970,7 +1065,7 @@ function initCharts(isReset = false) {
       visible: true,
       width: 100, // Largura sólida dedicada para evitar que velas e curvas escorreguem por baixo
       borderVisible: true, 
-      borderColor: 'rgba(255,255,255,0.08)',
+      borderColor: 'rgba(255,255,255,0.04)',
       scaleMargins: { top: 0.1, bottom: 0.15 } 
     },
   };

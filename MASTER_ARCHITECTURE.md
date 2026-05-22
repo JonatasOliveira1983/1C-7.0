@@ -1,7 +1,15 @@
-# MASTER_ARCHITECTURE.md — V110.650 "Descentralização (Actor Model)"
+# MASTER_ARCHITECTURE.md — V110.700 "SaaS v5.5.0"
 # Fonte da Verdade Arquitetural — Sincronizado com RULES.md
 
 ## 🚀 ROADMAP DE VERSÕES & MARCOS TÉCNICOS
+
+*   **V110.700: INTEGRATION SAAS V5.5.0 & OKX PORTFOLIO GUARDIAN [MAY 22]**
+    - **OKX Suite Migration**: Transição completa da conta Master da Bybit para o **OKX (Portfolio Margin Mode)**. Conexão WebSocket privada resiliente em `okx_ws.py` com watchdog de silêncio de 45s e autenticação HMAC-SHA256 robusta no `okx_service.py`.
+    - **Portfolio Guardian & Knife-Drop**: Máquina de estados atômica unificada monitorando o ROI consolidado da conta Master. Ativação automática em 70% ROI, acompanhamento de pico e fechamento concorrente em lote ultra-rápido via `/api/v5/trade/batch-orders` (Algoritmo **Knife-Drop** / "O Facão") se houver recuo de 15% a partir do pico, emitindo sinal de pânico global.
+    - **Hermes Broker (MQTT/gRPC)**: Servidor gRPC HTTP/2 assíncrono na porta `50051` provendo tenancy em tempo real. Cliente MQTT conectado de forma resiliente ao broker nuvem HiveMQ (`broker.hivemq.com`) para despacho leve de sinais de cohorts com QoS 2.
+    - **Anti-Slippage Engine**: Algoritmo *Greedy Snake Sharding* distribuindo dinamicamente as contas dos usuários em 4 Cohorts balanceados e despacho escalonado com Random Jitter de 0 a 350ms para pulverizar as ordens no book da exchange.
+    - **Fortress Auth Bypass ('123')**: Payload flexível em `backend/routes/auth.py` suportando requisições JSON e x-www-form-urlencoded. Bypass inteligente seguro: se o Firebase estiver desativado ou local offline e a senha for `"123"`, a autenticação é instantaneamente aprovada com JWT sob o usuário administrador `"Sovereign"`.
+    - **Aesthetics Gemini & Auto-CORS**: Consistência estética ultra-premium baseada no Google Gemini (glassmorphism, auras azuis/violetas neon desfocadas, fonte Outfit e tela cheia de fusão neural com partículas Orbi e Grafo D3). Script de auto-resolução de rede em tempo de execução no frontend (eliminando URLs estáticas e curando CORS).
 
 *   **V110.650: DECENTRALIZED SLOT OPERATORS (ACTOR MODEL) [MAY 11]**
     - **Slot Independence**: Migração total da arquitetura monolítica para 4 instâncias independentes de `SlotOperatorAgent`. Cada slot agora gerencia seu próprio ciclo de vida (Gênesis, Escadinha e Arquivamento).

@@ -608,6 +608,11 @@ if settings.SERVE_STATIC_FRONTEND:
         """Serves the Neural Chat Fusion — 60% Neural Graph + 40% Chat Hermes."""
         return FileResponse(os.path.join(FRONTEND_DIR, "neural-chat.html"))
 
+    @app.get("/user")
+    async def serve_user_dashboard():
+        """Serves the premium UBI dashboard for retail subscribers."""
+        return FileResponse(os.path.join(FRONTEND_DIR, "user.html"))
+
 
 
 

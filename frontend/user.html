@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1CRYPTEN — Renda Básica Universal</title>
+    
+    <!-- Google Fonts Premium: Outfit (Títulos/Métricas) & Inter (Leitura/Textos) -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para ícones premium e limpos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* =================================================================
+           DESIGN SYSTEM & VARS (Tailored Dark Theme & HSL Harmonized Colors)
+           ================================================================= */
+        :root {
+            --bg-deep: #050508;
+            --bg-grad-start: #0a0a10;
+            --bg-grad-end: #040407;
+            
+            --glass-bg: rgba(13, 13, 20, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --glass-border-active: rgba(34, 211, 238, 0.25);
+            
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --text-muted: #4b5563;
+            
+            --accent-cyan: #22d3ee;
+            --accent-violet: #a855f7;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            
+            --glow-cyan: rgba(34, 211, 238, 0.15);
+            --glow-violet: rgba(168, 85, 247, 0.15);
+            --glow-green: rgba(16, 185, 129, 0.2);
+            --glow-red: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Basic Reset & Typography */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            background: radial-gradient(circle at 50% 50%, var(--bg-grad-start) 0%, var(--bg-grad-end) 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background Animated Auras (Gemini Style) */
+        .aura {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(140px);
+            opacity: 0.14;
+            transition: all 1s ease-in-out;
+        }
+
+        .aura-cyan {
+            top: -10%;
+            left: 10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-cyan), transparent 70%);
+            animation: float-slow 20s infinite alternate;
+        }
+
+        .aura-violet {
+            bottom: -10%;
+            right: 10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-violet), transparent 70%);
+            animation: float-slow-reverse 25s infinite alternate;
+        }
+
+        @keyframes float-slow {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(50px) scale(1.1); }
+        }
+
+        @keyframes float-slow-reverse {
+            0% { transform: translateY(0) scale(1.1); }
+            100% { transform: translateY(-60px) scale(0.9); }
+        }
+
+        /* App Wrapper */
+        #app {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 30px;
+        }
+
+        /* =================================================================
+           HEADER & REGIONAL SELECTOR
+           ================================================================= */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            animation: fade-down 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #000;
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(45deg);
+            animation: shine 4s infinite;
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .logo-text h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #ffffff 60%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 10px;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* Region Selector - Premium Pill design */
+        .region-selector {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 4px;
+            border-radius: 30px;
+            display: flex;
+            gap: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .region-btn {
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .region-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .region-btn.active {
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(168, 85, 247, 0.15));
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.1);
+        }
+
+        /* =================================================================
+           MAIN HERO: SOCIAL PURPOSE COPY
+           ================================================================= */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 40px;
+            align-items: center;
+            margin-top: 20px;
+            flex: 1;
+            z-index: 2;
+        }
+
+        .hero-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            animation: fade-right 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hero-badge {
+            align-self: flex-start;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(168, 85, 247, 0.1));
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(34, 211, 238, 0.05);
+        }
+
+        .hero-badge i {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.15); }
+        }
+
+        .hero-copy h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 42px;
+            font-weight: 900;
+            line-height: 1.15;
+            background: linear-gradient(135deg, #ffffff 40%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-copy p.subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-weight: 300;
+        }
+
+        /* Bullet Points Area */
+        .features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-cyan);
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .feature-content h4 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .feature-content p {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* =================================================================
+           DASHBOARD PANEL (Glassmorphism & Progress Rings)
+           ================================================================= */
+        .dashboard-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 30px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            animation: fade-left 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Glow background inside panel */
+        .dashboard-panel::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            width: 120px;
+            height: 120px;
+            background: var(--accent-cyan);
+            filter: blur(60px);
+            opacity: 0.08;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        /* Banca & Yield Header */
+        .banca-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 16px;
+        }
+
+        .banca-stat h3 {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .banca-stat .value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .banca-stat .value span.unit {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .banca-growth {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-green);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+        }
+
+        /* UBI Progress Tracker */
+        .ubi-tracker {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* SVG Circle Progress */
+        .progress-circle-container {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            flex-shrink: 0;
+        }
+
+        .progress-circle {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .progress-circle-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.04);
+            stroke-width: 8;
+        }
+
+        .progress-circle-fill {
+            fill: none;
+            stroke: url(#cyan-purple-grad);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 251.2; /* 2 * PI * r (r=40) */
+            stroke-dashoffset: 175.84; /* Ex: 30% progress = 251.2 * (1 - 0.3) */
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+
+        .progress-percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-percentage span.label {
+            font-size: 8px;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: -2px;
+        }
+
+        .ubi-details {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ubi-details h4 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .ubi-details p {
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .ubi-details .meta-values {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin-top: 4px;
+        }
+
+        /* Protection Status Shield Widget */
+        .status-widget {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(34, 211, 238, 0.03);
+            border: 1px solid rgba(34, 211, 238, 0.08);
+            border-radius: 20px;
+            padding: 16px 20px;
+            transition: all 0.3s ease;
+        }
+
+        .status-widget.active {
+            background: rgba(16, 185, 129, 0.03);
+            border-color: rgba(16, 185, 129, 0.12);
+        }
+
+        .status-widget.paused {
+            background: rgba(239, 68, 68, 0.03);
+            border-color: rgba(239, 68, 68, 0.12);
+            color: var(--text-secondary);
+        }
+
+        .shield-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .status-widget.active .shield-icon {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+            animation: shield-pulse 2s infinite;
+        }
+
+        .status-widget.paused .shield-icon {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+        }
+
+        @keyframes shield-pulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.15); }
+            50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.35); }
+        }
+
+        .status-text h5 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .status-widget.active .status-text h5 { color: var(--text-primary); }
+        .status-widget.paused .status-text h5 { color: var(--text-secondary); }
+
+        .status-text p {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Yield Timeline List */
+        .timeline-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .timeline-title {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .timeline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.01);
+            border: 1px solid rgba(255,255,255,0.02);
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .timeline-day {
+            color: var(--text-primary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timeline-day i {
+            color: var(--text-secondary);
+            font-size: 10px;
+        }
+
+        .timeline-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        /* Actions Button Row */
+        .action-row {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 12px;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border-radius: 16px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+            border: none;
+            color: #000;
+            box-shadow: 0 8px 25px rgba(34, 211, 238, 0.15);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(34, 211, 238, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        /* =================================================================
+           FOOTER SECTION
+           ================================================================= */
+        footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 40px;
+            z-index: 2;
+            animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+            margin-right: 12px;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-secondary);
+        }
+
+        .compliance-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            padding: 4px 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .compliance-badge i {
+            color: var(--accent-cyan);
+        }
+
+        /* =================================================================
+           ANIMATION KEYFRAMES (Cubic Bezier and Smooth Entries)
+           ================================================================= */
+        @keyframes fade-down {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fade-right {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fade-left {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .hero-copy {
+                text-align: center;
+                align-items: center;
+            }
+
+            .hero-copy h2 {
+                font-size: 34px;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .logo-area {
+                flex-direction: column;
+            }
+            
+            footer {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .footer-left {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Gradient Color Definition for SVG Progress Circle -->
+    <svg style="width:0;height:0;position:absolute;">
+        <defs>
+            <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#22d3ee" />
+                <stop offset="100%" stop-color="#a855f7" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <!-- Background Auras -->
+    <div class="aura aura-cyan"></div>
+    <div class="aura aura-violet"></div>
+
+    <div id="app">
+        
+        <!-- HEADER & REGION CONTROLLER -->
+        <header>
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-feather-pointed"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>1CRYPTEN</h1>
+                    <p>Hermes Fusion SaaS</p>
+                </div>
+            </div>
+            
+            <!-- Dynamic Country Switcher -->
+            <div class="region-selector" id="regionSelector">
+                <button class="region-btn active" data-region="BR" onclick="setRegion('BR')">
+                    <i class="fa-solid fa-earth-americas"></i> Brasil
+                </button>
+                <button class="region-btn" data-region="US" onclick="setRegion('US')">
+                    <i class="fa-solid fa-earth-americas"></i> USA
+                </button>
+                <button class="region-btn" data-region="ES" onclick="setRegion('ES')">
+                    <i class="fa-solid fa-earth-europe"></i> España
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT GRID -->
+        <main class="main-grid">
+            
+            <!-- LEFT: INSTITUTIONAL SOCIAL PURPOSE AND COPY -->
+            <section class="hero-copy">
+                <div class="hero-badge">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span id="badgeText">RENDA BÁSICA UNIVERSAL ATIVA</span>
+                </div>
+                
+                <h2 id="heroTitle">Renda complementar estável de R$ 5.000 por mês.</h2>
+                
+                <p class="subtitle" id="heroDesc">
+                    Projetado para democratizar os lucros do mercado financeiro global. O 1CRYPTEN converte alta complexidade técnica em estabilidade para a sua família, blindando sua banca e gerando renda automática.
+                </p>
+
+                <!-- Clean Bullets -->
+                <div class="features-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fa-solid fa-seedling"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4 id="feat1Title">Banca de Apenas $100</h4>
+                            <p id="feat1Desc">Você não precisa de grandes capitais. O robô foi otimizado para atuar de forma segura com um investimento inicial acessível de 100 dólares.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fa-solid fa-shield-cat"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4 id="feat2Title">Proteção Guardian Ativa</h4>
+                            <p id="feat2Desc">Nossos algoritmos do Portfolio Guardian monitoram o PnL em tempo real, travando o lucro acumulado na Escadinha e blindando contra quedas.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h4 id="feat3Title">Simplicidade de um Toque</h4>
+                            <p id="feat3Desc">Nenhum conhecimento sobre gráficos ou configurações técnicas é necessário. O Hermes cuida de tudo de maneira automatizada.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT: PREMIUM USER SIMPLIFIED DASHBOARD -->
+            <section class="dashboard-panel">
+                
+                <!-- Balance & PnL Overview -->
+                <div class="banca-header">
+                    <div class="banca-stat">
+                        <h3>Sua Banca Ativa</h3>
+                        <div class="value" id="balanceValue">
+                            <span class="unit">$</span>104.50
+                        </div>
+                    </div>
+                    <div class="banca-growth" id="growthPercent">
+                        <i class="fa-solid fa-arrow-up-right-dots"></i> +4.50%
+                    </div>
+                </div>
+
+                <!-- UBI Progress Ring Widget -->
+                <div class="ubi-tracker">
+                    <div class="progress-circle-container">
+                        <svg class="progress-circle" viewBox="0 0 100 100">
+                            <circle class="progress-circle-bg" cx="50" cy="50" r="40"/>
+                            <circle class="progress-circle-fill" id="progressFill" cx="50" cy="50" r="40"/>
+                        </svg>
+                        <div class="progress-percentage">
+                            <span id="percentText">32%</span>
+                            <span class="label">UBI</span>
+                        </div>
+                    </div>
+                    <div class="ubi-details">
+                        <h4 id="ubiGoalTitle">Progresso da Renda Universal</h4>
+                        <p id="ubiGoalDesc">Sua meta complementar mensal deste mês:</p>
+                        <div class="meta-values" id="ubiGoalVal">
+                            Acumulado: R$ 1.600,00 / R$ 5.000,00
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shield Status Banner -->
+                <div class="status-widget active" id="statusWidget">
+                    <div class="shield-icon">
+                        <i class="fa-solid fa-shield-halved" id="shieldIcon"></i>
+                    </div>
+                    <div class="status-text">
+                        <h5 id="statusTitle">Proteção Hermes Ativa</h5>
+                        <p id="statusDesc">Monitorando posições na OKX e protegendo o capital.</p>
+                    </div>
+                </div>
+
+                <!-- Earnings History Timeline -->
+                <div class="timeline-container">
+                    <div class="timeline-title" id="timelineTitle">Rendimentos Recentes</div>
+                    <div class="timeline-list" id="timelineList">
+                        <div class="timeline-item">
+                            <div class="timeline-day">
+                                <i class="fa-solid fa-circle-check"></i> Hoje
+                            </div>
+                            <div class="timeline-val">+$1.85</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-day">
+                                <i class="fa-solid fa-circle-check"></i> Ontem
+                            </div>
+                            <div class="timeline-val">+$2.65</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Control CTA Buttons -->
+                <div class="action-row">
+                    <button class="btn btn-primary" id="btnToggleStatus" onclick="toggleSystemStatus()">
+                        <i class="fa-solid fa-pause"></i> <span id="btnToggleText">Pausar Proteção</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="openOKXLink()">
+                        <i class="fa-solid fa-up-right-from-square"></i> OKX Vault
+                    </button>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- FOOTER & REGULATORY FOOTNOTES -->
+        <footer>
+            <div class="footer-left">
+                <span>&copy; 2026 1CRYPTEN Labs. Proteção e Legado.</span>
+                <div class="footer-links">
+                    <a href="#" onclick="showPropósito()">O Propósito</a>
+                    <a href="#" onclick="alert('Sistema seguro com criptografia de ponta a ponta e chaves API locais.')">Segurança</a>
+                </div>
+            </div>
+            <div class="compliance-badge">
+                <i class="fa-solid fa-scroll"></i> <span id="complianceVersion">Hermes Protocol V5.5.0 STABLE</span>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- =================================================================
+       DYNAMIC INTERACTIVE JAVASCRIPT
+       ================================================================= */ -->
+    <script>
+        // Setup Regional Parameters
+        const REGIONS = {
+            BR: {
+                badge: "RENDA BÁSICA UNIVERSAL · BRASIL",
+                title: "Renda complementar estável de R$ 5.000 por mês.",
+                desc: "Projetado para democratizar os lucros do mercado financeiro global. O 1CRYPTEN converte alta complexidade técnica em estabilidade para a sua família, blindando sua banca e gerando renda automática.",
+                feat1Title: "Banca de Apenas $100",
+                feat1Desc: "Você não precisa de grandes capitais. O robô foi otimizado para atuar de forma segura com um investimento inicial acessível de 100 dólares.",
+                feat2Title: "Proteção Guardian Ativa",
+                feat2Desc: "Nossos algoritmos do Portfolio Guardian monitoram o PnL em tempo real, travando o lucro acumulado na Escadinha e blindando contra quedas.",
+                feat3Title: "Simplicidade de um Toque",
+                feat3Desc: "Nenhum conhecimento sobre gráficos ou configurações técnicas é necessário. O Hermes cuida de tudo de maneira automatizada.",
+                goalValText: "Acumulado: R$ 1.600,00 / R$ 5.000,00",
+                percent: 32,
+                symbol: "R$ ",
+                target: 5000,
+                accumulated: 1600
+            },
+            US: {
+                badge: "UNIVERSAL BASIC INCOME · USA",
+                title: "Stable basic income target of $1,000 per month.",
+                desc: "Engineered to democratize global financial markets. 1CRYPTEN transforms sophisticated algorithmic trading into absolute stability for your family, shielding your bankroll and generating automatic yield.",
+                feat1Title: "Only $100 Starting Capital",
+                feat1Desc: "No deep pockets required. The engine is finely tuned to operate highly efficiently with a minimal initial capital of $100.",
+                feat2Title: "Active Guardian Shield",
+                feat2Desc: "Our built-in Portfolio Guardian tracks unified PnL in real-time, locking dynamic gains via trailing stop protocols.",
+                feat3Title: "One-Click Simplicity",
+                feat3Desc: "No trading charts, no parameters, no complexity. The Hermes framework orchestrates execution automatically in the background.",
+                goalValText: "Accumulated: $320.00 / $1,000.00",
+                percent: 32,
+                symbol: "$",
+                target: 1000,
+                accumulated: 320
+            },
+            ES: {
+                badge: "RENTA BÁSICA UNIVERSAL · ESPAÑA & LATAM",
+                title: "Renta complementaria estable de 1.000€ al mes.",
+                desc: "Diseñado para democratizar los beneficios del mercado financiero global. 1CRYPTEN convierte la alta complejidad técnica en estabilidad para su familia, blindando su capital y generando ingresos automáticos.",
+                feat1Title: "Capital Inicial de sólo $100",
+                feat1Desc: "No necesita grandes capitales. El motor está optimizado para actuar con un capital inicial mínimo y accesible de 100 dólares.",
+                feat2Title: "Protección Guardian Activa",
+                feat2Desc: "Nuestros algoritmos de Portfolio Guardian rastrean el PnL unificado en tiempo real, bloqueando las ganancias automáticamente.",
+                feat3Title: "Simplicidad de un Solo Toque",
+                feat3Desc: "Sin gráficos de trading, sin complejidades. La infraestructura de Hermes gestiona todo de forma autónoma.",
+                goalValText: "Acumulado: 320,00€ / 1.000,00€",
+                percent: 32,
+                symbol: "€",
+                target: 1000,
+                accumulated: 320
+            }
+        };
+
+        let currentRegion = 'BR';
+        let isSystemActive = true;
+        let ubiPercent = 32;
+
+        // Auto-detect dynamic Backend URLs
+        const API_BASE = (() => {
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                return `${window.location.protocol}//${window.location.host}`;
+            }
+            return `${window.location.protocol}//${window.location.hostname}:8085`;
+        })();
+
+        // Update view when region changes
+        function setRegion(regionCode) {
+            currentRegion = regionCode;
+            
+            // Toggle active classes on buttons
+            document.querySelectorAll('#regionSelector .region-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = document.querySelector(`#regionSelector .region-btn[data-region="${regionCode}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const info = REGIONS[regionCode];
+            
+            // Text copy transitions
+            document.getElementById('badgeText').textContent = info.badge;
+            document.getElementById('heroTitle').textContent = info.title;
+            document.getElementById('heroDesc').textContent = info.desc;
+            
+            document.getElementById('feat1Title').textContent = info.feat1Title;
+            document.getElementById('feat1Desc').textContent = info.feat1Desc;
+            
+            document.getElementById('feat2Title').textContent = info.feat2Title;
+            document.getElementById('feat2Desc').textContent = info.feat2Desc;
+            
+            document.getElementById('feat3Title').textContent = info.feat3Title;
+            document.getElementById('feat3Desc').textContent = info.feat3Desc;
+
+            // Goal tracker updates
+            document.getElementById('percentText').textContent = `${info.percent}%`;
+            
+            let formattedAccumulated = info.accumulated.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            let formattedTarget = info.target.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            if (regionCode === 'BR') {
+                document.getElementById('ubiGoalVal').textContent = `Acumulado: R$ ${formattedAccumulated} / R$ ${formattedTarget}`;
+                document.getElementById('timelineTitle').textContent = "Rendimentos Recentes";
+                document.getElementById('timelineList').innerHTML = `
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Hoje</div>
+                        <div class="timeline-val">+$1.85</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Ontem</div>
+                        <div class="timeline-val">+$2.65</div>
+                    </div>
+                `;
+            } else if (regionCode === 'US') {
+                document.getElementById('ubiGoalVal').textContent = `Accumulated: $${formattedAccumulated} / $${formattedTarget}`;
+                document.getElementById('timelineTitle').textContent = "Recent Yields";
+                document.getElementById('timelineList').innerHTML = `
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Today</div>
+                        <div class="timeline-val">+$1.85</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Yesterday</div>
+                        <div class="timeline-val">+$2.65</div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('ubiGoalVal').textContent = `Acumulado: ${formattedAccumulated}€ / ${formattedTarget}€`;
+                document.getElementById('timelineTitle').textContent = "Rendimientos Recientes";
+                document.getElementById('timelineList').innerHTML = `
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Hoy</div>
+                        <div class="timeline-val">+$1.85</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-day"><i class="fa-solid fa-circle-check"></i> Ayer</div>
+                        <div class="timeline-val">+$2.65</div>
+                    </div>
+                `;
+            }
+
+            // Update Progress Circle Offset
+            updateProgressCircle(info.percent);
+            updateStatusText();
+        }
+
+        function updateProgressCircle(percent) {
+            const fill = document.getElementById('progressFill');
+            const r = 40;
+            const c = 2 * Math.PI * r; // 251.2
+            const offset = c * (1 - (percent / 100));
+            fill.style.strokeDashoffset = offset;
+        }
+
+        // Toggle Robô (Active / Paused)
+        async function toggleSystemStatus() {
+            isSystemActive = !isSystemActive;
+            
+            const btnText = document.getElementById('btnToggleText');
+            const btnIcon = document.getElementById('btnToggleStatus').querySelector('i');
+            const widget = document.getElementById('statusWidget');
+            const shield = document.getElementById('shieldIcon');
+            
+            if (isSystemActive) {
+                widget.className = "status-widget active";
+                shield.className = "fa-solid fa-shield-halved";
+                btnText.textContent = currentRegion === 'US' ? "Pause Protection" : currentRegion === 'ES' ? "Pausar Protección" : "Pausar Proteção";
+                btnIcon.className = "fa-solid fa-pause";
+                
+                // Call backend API if running
+                try {
+                    await fetch(`${API_BASE}/api/system/resume`, { method: 'POST' });
+                } catch(e) {}
+            } else {
+                widget.className = "status-widget paused";
+                shield.className = "fa-solid fa-shield";
+                btnText.textContent = currentRegion === 'US' ? "Resume Protection" : currentRegion === 'ES' ? "Activar Protección" : "Ativar Proteção";
+                btnIcon.className = "fa-solid fa-play";
+                
+                // Call backend API if running
+                try {
+                    await fetch(`${API_BASE}/api/system/pause`, { method: 'POST' });
+                } catch(e) {}
+            }
+            updateStatusText();
+        }
+
+        function updateStatusText() {
+            const title = document.getElementById('statusTitle');
+            const desc = document.getElementById('statusDesc');
+            
+            if (isSystemActive) {
+                if (currentRegion === 'BR') {
+                    title.textContent = "Proteção Hermes Ativa";
+                    desc.textContent = "Monitorando posições na OKX e protegendo o capital.";
+                } else if (currentRegion === 'US') {
+                    title.textContent = "Hermes Shield Active";
+                    desc.textContent = "Tracking positions on OKX and securing capital.";
+                } else {
+                    title.textContent = "Protección Hermes Activa";
+                    desc.textContent = "Monitoreando posiciones en OKX y protegiendo capital.";
+                }
+            } else {
+                if (currentRegion === 'BR') {
+                    title.textContent = "Proteção em Pausa";
+                    desc.textContent = "As posições atuais continuam no mercado, mas sem novos disparos.";
+                } else if (currentRegion === 'US') {
+                    title.textContent = "Shield Paused";
+                    desc.textContent = "Current positions remain, but no new trades will execute.";
+                } else {
+                    title.textContent = "Protección en Pausa";
+                    desc.textContent = "Las posiciones actuales siguen abiertas, sin nuevos disparos.";
+                }
+            }
+        }
+
+        function openOKXLink() {
+            window.open('https://www.okx.com', '_blank');
+        }
+
+        function showPropósito() {
+            alert("1CRYPTEN tem como meta social gerar uma Renda Básica Universal (UBI) distribuída. Um ecossistema tecnológico robusto a serviço das pessoas comuns.");
+        }
+
+        // Fetch Live balance if running integrated
+        async function fetchLiveBalance() {
+            try {
+                const res = await fetch(`${API_BASE}/api/trading/banca`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.total_equity) {
+                        const total = data.total_equity;
+                        document.getElementById('balanceValue').innerHTML = `<span class="unit">$</span>${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        
+                        // Calculo simples de crescimento baseado em $100 inicial
+                        const growth = ((total - 100) / 100) * 100;
+                        const sign = growth >= 0 ? '+' : '';
+                        const growEl = document.getElementById('growthPercent');
+                        growEl.innerHTML = `<i class="fa-solid fa-arrow-up-right-dots"></i> ${sign}${growth.toFixed(2)}%`;
+                        if (growth < 0) {
+                            growEl.style.color = 'var(--accent-red)';
+                            growEl.style.background = 'rgba(239, 68, 68, 0.08)';
+                            growEl.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                        }
+                    }
+                }
+            } catch(e) {
+                // Keep default values if offline
+            }
+        }
+
+        // Init page
+        setTimeout(() => {
+            setRegion('BR');
+            fetchLiveBalance();
+            setInterval(fetchLiveBalance, 30000);
+        }, 100);
+    </script>
+</body>
+</html>
