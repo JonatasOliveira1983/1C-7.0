@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>10D Neural Intel Map — High-Fidelity Obsidian Edition</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;900&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; cursor: crosshair; }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 25px; left: 25px;
+            font-family: 'Outfit', sans-serif; color: #555;
+            background: rgba(13, 17, 23, 0.8); backdrop-filter: blur(10px);
+            padding: 20px; border-radius: 15px;
+            pointer-events: none; border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h1 { margin: 0; font-size: 13px; color: #aaa; text-transform: uppercase; letter-spacing: 3px; }
+        #tooltip {
+            position: absolute; pointer-events: none; background: rgba(0,0,0,0.9);
+            padding: 8px 12px; border-radius: 8px; font-family: sans-serif;
+            font-size: 11px; display: none; color: #fff; border: 1px solid #444;
+            backdrop-filter: blur(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>Consciência Neural</h1>
+        <div style="font-size: 10px; margin-top: 8px; color: #666;">Obsidian High-Fidelity Engine v5.0</div>
+    </div>
+    <div id="tooltip"></div>
+    <canvas id="graph"></canvas>
+
+    <script>
+        const canvas = document.querySelector("#graph");
+        const ctx = canvas.getContext("2d");
+        const tooltip = document.querySelector("#tooltip");
+
+        let width, height, nodes, links, simulation;
+        let transform = d3.zoomIdentity;
+        let hoveredNode = null;
+
+        const COLORS = {
+            link: "rgba(255, 255, 255, 0.12)", // Mais visível
+            node: "#262626",
+            elite: "#22d3ee", // Ciano Elétrico
+            glow: "rgba(34, 211, 238, 0.5)"
+        };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        d3.json("/intel/map/graph.json").then(data => {
+            nodes = data.nodes.map(d => ({
+                ...d,
+                radius: Math.max(1.2, Math.sqrt(d.size || 5) * 0.7)
+            }));
+            links = data.links;
+
+            // --- MOTOR DE FÍSICA ORGÂNICA (ALTA FIDELIDADE) ---
+            simulation = d3.forceSimulation(nodes)
+                // Links mais elásticos (Dão o balanço do Obsidian)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(35).strength(0.8))
+                // Repulsão moderada (Cria espaço entre os nós)
+                .force("charge", d3.forceManyBody().strength(-40).distanceMax(300))
+                // Gravidade Central Suave (Mantém a esfera sem esmagar)
+                .force("x", d3.forceX(width / 2).strength(0.08))
+                .force("y", d3.forceY(height / 2).strength(0.08))
+                // Força de Colisão (Impede sobreposição no centro)
+                .force("collision", d3.forceCollide().radius(d => d.radius + 4))
+                // Força Radial (Para o formato de globo)
+                .force("radial", d3.forceRadial(180, width / 2, height / 2).strength(0.2))
+                .alphaDecay(0.005) // Simulação dura mais tempo (mais fluida)
+                .on("tick", render);
+
+            d3.select(canvas).call(d3.zoom().scaleExtent([0.05, 50]).on("zoom", e => {
+                transform = e.transform;
+                render();
+            }));
+
+            function render() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.save();
+                ctx.translate(transform.x, transform.y);
+                ctx.scale(transform.k, transform.k);
+
+                // 1. Links (Teia Visível)
+                ctx.beginPath();
+                ctx.strokeStyle = COLORS.link;
+                ctx.lineWidth = 0.3 / transform.k;
+                links.forEach(l => {
+                    ctx.moveTo(l.source.x, l.source.y);
+                    ctx.lineTo(l.target.x, l.target.y);
+                });
+                ctx.stroke();
+
+                // 2. Nós (Esferas Pulsantes com Hierarquia Cirúrgica)
+                nodes.forEach(n => {
+                    let color = "#1e293b"; // AZUL OBSIDIAN PADRÃO (Bolinhas pequenas)
+                    let r = n.radius;
+                    let isElite = false;
+                    let glowColor = "rgba(34, 211, 238, 0.5)";
+                    
+                    const id = n.id.toLowerCase();
+                    const label = (n.label || "").toLowerCase();
+
+                    // --- SÓ DESTACA SE FOR O ARQUIVO PRINCIPAL (.PY) ---
+                    const isMainFile = label.endsWith(".py") || id.endsWith("_py");
+
+                    if (isMainFile) {
+                        if (id.includes("captain")) {
+                            color = "#fbbf24"; // DOURADO
+                            glowColor = "rgba(251, 191, 36, 0.8)";
+                            r = 22; isElite = true;
+                        } else if (id.includes("slot_operator")) {
+                            color = "#22d3ee"; // CIANO
+                            glowColor = "rgba(34, 211, 238, 0.8)";
+                            r = 16; isElite = true;
+                        } else if (id.includes("librarian")) {
+                            color = "#a855f7"; // ROXO
+                            glowColor = "rgba(168, 85, 247, 0.8)";
+                            r = 16; isElite = true;
+                        } else if (id.includes("vision")) {
+                            color = "#10b981"; // ESMERALDA
+                            glowColor = "rgba(16, 185, 129, 0.8)";
+                            r = 16; isElite = true;
+                        } else if (id.includes("ambush")) {
+                            color = "#f43f5e"; // ROSA
+                            glowColor = "rgba(244, 63, 94, 0.8)";
+                            r = 16; isElite = true;
+                        }
+                    }
+
+                    const isHovered = hoveredNode && hoveredNode.id === n.id;
+                    
+                    ctx.beginPath();
+                    ctx.fillStyle = isHovered ? "#fff" : color;
+                    ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+                    
+                    if (isElite) {
+                        ctx.shadowBlur = 25 * transform.k;
+                        ctx.shadowColor = COLORS.glow;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    } else {
+                        ctx.fill();
+                    }
+
+                    // 3. Labels Dinâmicos
+                    if (isHovered || (isElite && transform.k > 1.5)) {
+                        ctx.font = `${(isElite ? 10 : 6) / transform.k}px 'Outfit'`;
+                        ctx.fillStyle = isElite ? "#fff" : "rgba(255,255,255,0.7)";
+                        ctx.textAlign = "center";
+                        const label = n.id.split("/").pop().replace(".py", "");
+                        ctx.fillText((isElite ? "★ " : "") + label, n.x, n.y + r + (12/transform.k));
+                    }
+                });
+
+                ctx.restore();
+            }
+
+            canvas.addEventListener("mousemove", e => {
+                const [mx, my] = [ (e.clientX - transform.x) / transform.k, (e.clientY - transform.y) / transform.k ];
+                hoveredNode = nodes.find(n => Math.hypot(n.x - mx, n.y - my) < n.radius + 8);
+                if (hoveredNode) {
+                    tooltip.style.display = "block";
+                    tooltip.style.left = e.clientX + 15 + "px";
+                    tooltip.style.top = e.clientY + 15 + "px";
+                    tooltip.innerText = hoveredNode.id;
+                } else {
+                    tooltip.style.display = "none";
+                }
+                render();
+            });
+        });
+    </script>
+</body>
+</html>

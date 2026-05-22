@@ -1,0 +1,75 @@
+# Backend
+backend/.env
+backend/venv/
+backend/__pycache__/
+backend/data/images/
+backend/data/prospecton.db
+backend/data/browser_profile/
+backend/static/vistorias/
+backend/reports/
+
+# Root Reports
+reports/
+data/*.db
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+*.log
+
+# System
+.DS_Store
+*.pyc
+nul
+
+# Agent and tool caches
+.gsd/
+.aios/
+.qwen/
+.obsidian_intel/
+_reversa_sdd/
+brain/
+tools/
+graphify-out/
+
+# Other projects or temporary trade robot files
+# 1CRYPTEN_SPACE_V4.0/ — REMOVIDO: pasta precisa ser incluída no deploy Railway
+absolute_nuke_v3.py
+absolute_wipe_v4.py
+audit_market.py
+audit_orders_v110.py
+audit_output.txt
+banca_val.txt
+backtest_data.db
+emergency_trades.json
+scan_result.json
+leads_jundiai_v2.json.bak
+leads_jundiai.json
+final_startup_veritas.log
+final_startup_veritas_utf8.log
+final_startup_fix_v2.log
+check_current_reality.py
+check_db_state.py
+check_reset.py
+check_servers.py
+clean_cockpit.py
+clean_reset_log.txt
+clear_slots.py
+debug_api_response.py
+diag_all.py
+diag_engine.py
+diagnose_trades.py
+emergency_db_wipe.py
+extract_classes.py
+extract_jsx.py
+fast_reset.py
+fast_reset_v2.py
+fix_db_schema.py
+fix_stuck_slots.py
+force_oracle_sync.py
+go_paper_reset.py
+go_real_reset.py
+verify_v3.py
+
+1CRYPTEN_SPACE_V4.0/backend/serviceAccountKey.json
+1CRYPTEN_SPACE_V4.0/backend/.env

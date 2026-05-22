@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        name="viewport" />
+    <title>1CRYPTEN — Offline</title>
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" href="logo10D.png">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050505;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            overflow: hidden;
+        }
+
+        /* Background effect */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(circle at 50% 40%, rgba(255, 215, 0, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 20% 80%, rgba(0, 31, 63, 0.08) 0%, transparent 40%);
+            z-index: -1;
+        }
+
+        .offline-container {
+            max-width: 400px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Pulsing orb */
+        .orb-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .orb {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 40%, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.05));
+            border: 2px solid rgba(255, 215, 0, 0.25);
+            animation: orbPulse 3s ease-in-out infinite;
+        }
+
+        .orb::before,
+        .orb::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border: 1px solid rgba(255, 215, 0, 0.12);
+            border-radius: 50%;
+            animation: ringExpand 3s ease-in-out infinite;
+        }
+
+        .orb::after {
+            animation-delay: 1.5s;
+        }
+
+        @keyframes orbPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
+                transform: scale(1);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(255, 215, 0, 0.25);
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes ringExpand {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        /* Wifi icon */
+        .wifi-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            opacity: 0.6;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #FFD700 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.02em;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: #94A3B8;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 215, 0, 0.12);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            font-size: 0.85rem;
+        }
+
+        .status-label {
+            color: #64748B;
+        }
+
+        .status-value {
+            color: #FFD700;
+            font-weight: 600;
+        }
+
+        .status-value.offline {
+            color: #FF4D4D;
+        }
+
+        .retry-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%);
+            color: #000;
+            border: none;
+            padding: 0.85rem 2rem;
+            border-radius: 12px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(218, 165, 32, 0.3);
+        }
+
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(218, 165, 32, 0.5);
+        }
+
+        .retry-btn:active {
+            transform: translateY(0);
+        }
+
+        .footer-hint {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="offline-container">
+        <div class="orb-container">
+            <div class="orb"></div>
+            <div class="wifi-icon">📡</div>
+        </div>
+
+        <h1>Conexão Perdida</h1>
+        <p class="subtitle">
+            O Capitão está temporariamente fora de alcance.<br>
+            Verifique sua conexão e tente novamente.
+        </p>
+
+        <div class="status-card">
+            <div class="status-row">
+                <span class="status-label">Status</span>
+                <span class="status-value offline">● OFFLINE</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Última Sync</span>
+                <span class="status-value" id="lastSync">—</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Cache</span>
+                <span class="status-value">Disponível</span>
+            </div>
+        </div>
+
+        <button class="retry-btn" onclick="location.reload()">
+            ↻ Reconectar
+        </button>
+
+        <p class="footer-hint">
+            Dados em cache permanecem disponíveis até a reconexão.
+        </p>
+    </div>
+
+    <script>
+        // Show last sync time from localStorage if available
+        try {
+            const lastPulse = localStorage.getItem('1crypten_last_pulse');
+            if (lastPulse) {
+                const d = new Date(parseInt(lastPulse));
+                document.getElementById('lastSync').textContent =
+                    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            }
+        } catch (e) { }
+
+        // Auto-retry every 30s
+        let retryInterval = setInterval(() => {
+            fetch('/api/health', { method: 'HEAD', cache: 'no-store' })
+                .then(() => { clearInterval(retryInterval); location.reload(); })
+                .catch(() => { });
+        }, 30000);
+    </script>
+</body>
+
+</html>

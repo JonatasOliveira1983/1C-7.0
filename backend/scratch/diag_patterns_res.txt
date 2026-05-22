@@ -1,0 +1,41 @@
+--- DIAGNÓSTICO DE ESTRATÉGIAS 30M (PURO E ISOLADO) ---
+
+=== ANALISANDO AVAXUSDT (30) ===
+Carregados 600 candles do DB local.
+Formatados 600 candles para klines_list.
+Zonas MOLA detectadas: 242
+Exemplo MOLA: {'timestamp': 1779028200.0, 'compression': 0.22, 'price': 9.292}
+Padrões ABCD detectados: 22
+Exemplo ABCD: {'time': 1779004800, 'side': 'buy', 'points': {'A': {'index': 557, 'val': 9.366, 'time': 1778952600}, 'B': {'index': 563, 'val': 9.292, 'time': 1778963400}, 'C': {'index': 584, 'val': 9.353, 'time': 1779001200}, 'D': {'index': 586, 'val': 9.29, 'time': 1779004800}}, 'ratio': 0.85, 'rsi_b': 42.37, 'rsi_d': 50.84}
+Padrões 1-2-3 detectados: 25
+Exemplo 1-2-3: {'detected': True, 'side': 'sell', 'points': {'1': {'idx': 589, 'price': 9.376}, '2': {'idx': 590, 'price': 9.417}, '3': {'idx': 591, 'price': 9.398}}, 'trigger_price': 9.359}
+
+=== ANALISANDO IMXUSDT (30) ===
+Carregados 600 candles do DB local.
+Formatados 600 candles para klines_list.
+Zonas MOLA detectadas: 210
+Exemplo MOLA: {'timestamp': 1779028200.0, 'compression': 0.131, 'price': 0.17714}
+Padrões ABCD detectados: 13
+Exemplo ABCD: {'time': 1778956200, 'side': 'buy', 'points': {'A': {'index': 513, 'val': 0.19204, 'time': 1778873400}, 'B': {'index': 527, 'val': 0.18543, 'time': 1778898600}, 'C': {'index': 551, 'val': 0.1874, 'time': 1778941800}, 'D': {'index': 559, 'val': 0.18131, 'time': 1778956200}}, 'ratio': 0.92, 'rsi_b': 39.24, 'rsi_d': 44.03}
+Padrões 1-2-3 detectados: 26
+Exemplo 1-2-3: {'detected': True, 'side': 'buy', 'points': {'1': {'idx': 573, 'price': 0.17536}, '2': {'idx': 574, 'price': 0.17526}, '3': {'idx': 575, 'price': 0.17581}}, 'trigger_price': 0.17672}
+
+=== ANALISANDO SUIUSDT (30) ===
+Carregados 600 candles do DB local.
+Formatados 600 candles para klines_list.
+Zonas MOLA detectadas: 294
+Exemplo MOLA: {'timestamp': 1779028200.0, 'compression': 0.382, 'price': 1.0618}
+Padrões ABCD detectados: 15
+Exemplo ABCD: {'time': 1778914800, 'side': 'buy', 'points': {'A': {'index': 488, 'val': 1.1597, 'time': 1778828400}, 'B': {'index': 517, 'val': 1.0913, 'time': 1778880600}, 'C': {'index': 523, 'val': 1.1061, 'time': 1778891400}, 'D': {'index': 536, 'val': 1.0518, 'time': 1778914800}}, 'ratio': 0.79, 'rsi_b': 28.59, 'rsi_d': 29.17}
+Padrões 1-2-3 detectados: 27
+Exemplo 1-2-3: {'detected': True, 'side': 'sell', 'points': {'1': {'idx': 578, 'price': 1.0848}, '2': {'idx': 590, 'price': 1.0894}, '3': {'idx': 591, 'price': 1.0859}}, 'trigger_price': 1.0782}
+
+=== ANALISANDO LINKUSDT (30) ===
+Carregados 600 candles do DB local.
+Formatados 600 candles para klines_list.
+Zonas MOLA detectadas: 233
+Exemplo MOLA: {'timestamp': 1779028200.0, 'compression': 0.144, 'price': 9.737}
+Padrões ABCD detectados: 10
+Exemplo ABCD: {'time': 1778850000, 'side': 'buy', 'points': {'A': {'index': 452, 'val': 10.376, 'time': 1778763600}, 'B': {'index': 485, 'val': 10.201, 'time': 1778823000}, 'C': {'index': 495, 'val': 10.357, 'time': 1778841000}, 'D': {'index': 500, 'val': 10.188, 'time': 1778850000}}, 'ratio': 0.97, 'rsi_b': 29.94, 'rsi_d': 38.13}
+Padrões 1-2-3 detectados: 27
+Exemplo 1-2-3: {'detected': True, 'side': 'sell', 'points': {'1': {'idx': 580, 'price': 9.821}, '2': {'idx': 590, 'price': 9.849}, '3': {'idx': 591, 'price': 9.836}}, 'trigger_price': 9.785}

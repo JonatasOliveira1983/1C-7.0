@@ -1,0 +1,5 @@
+﻿Total Active Slots: 4
+Symbol: None | Strategy: BLITZ_30M | Vision: True
+Symbol: None | Strategy: BLITZ_30M | Vision: True
+Symbol: None | Strategy: BLITZ_30M | Vision: True
+Symbol: None | Strategy: BLITZ_30M | Vision: True

@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neural Chat — Hermes Fusion V1.0</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;900&family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-deep: #050505;
+            --bg-card: rgba(25, 25, 25, 0.65);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-primary: rgba(255, 255, 255, 0.12);
+            --text-main: #ffffff;
+            --text-dim: #9ca3af;
+            --text-muted: #555;
+            --accent: #22d3ee;
+            --accent-glow: rgba(34, 211, 238, 0.3);
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ================================================================
+           LAYOUT: SPLIT 60/40
+           ================================================================ */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* --- Neural Graph Section (Top 60%) --- */
+        #neural-section {
+            position: relative;
+            flex: 6;
+            min-height: 0;
+            overflow: hidden;
+            border-bottom: 1.5px solid rgba(34, 211, 238, 0.15);
+            box-shadow: 0 4px 30px rgba(34, 211, 238, 0.03);
+        }
+
+        #neural-section canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Graph UI Overlay */
+        #graph-ui {
+            position: absolute;
+            top: 16px;
+            left: 20px;
+            font-family: 'Outfit', sans-serif;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #graph-ui h1 {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-weight: 300;
+            margin: 0;
+        }
+
+        #graph-ui .subtitle {
+            font-size: 9px;
+            margin-top: 4px;
+            color: #444;
+            letter-spacing: 2px;
+        }
+
+        /* Graph Status Badge */
+        #graph-status {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 9px;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+        }
+
+        #graph-status .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        /* Node Tooltip */
+        #tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(0,0,0,0.9);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            display: none;
+            color: #fff;
+            border: 1px solid #333;
+            backdrop-filter: blur(5px);
+            z-index: 20;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        /* Click hint */
+        #click-hint {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            font-size: 9px;
+            color: #444;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.03);
+            pointer-events: none;
+            transition: opacity 2s;
+        }
+
+        /* --- Chat Section (Bottom 40%) --- */
+        #chat-section {
+            flex: 4;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: rgba(8, 8, 12, 0.85);
+            backdrop-filter: blur(12px);
+            position: relative;
+            border-top: 1px solid rgba(34, 211, 238, 0.06);
+        }
+
+        /* Background Glows */
+        #chat-section::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 50%;
+            height: 50%;
+            background: radial-gradient(ellipse, rgba(34, 211, 238, 0.03), transparent);
+            pointer-events: none;
+        }
+
+        /* Chat Header */
+        #chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+            background: rgba(0,0,0,0.25);
+        }
+
+        #chat-header .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #chat-header .hermes-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(168, 85, 247, 0.15));
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        #chat-header h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-main);
+        }
+
+        #chat-header .hermes-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 9px;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #chat-header .hermes-status .dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+        }
+
+        #chat-header .hermes-status .dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Messages Area */
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        #chat-messages::-webkit-scrollbar {
+            width: 3px;
+        }
+        #chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+        }
+
+        .message {
+            max-width: 88%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.6;
+            animation: msg-entry 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        @keyframes msg-entry {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.hermes {
+            align-self: flex-start;
+            background: rgba(34, 211, 238, 0.03);
+            border: 1px solid rgba(34, 211, 238, 0.1);
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message .msg-label {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .message.user .msg-label {
+            color: #888;
+            justify-content: flex-end;
+        }
+
+        .message.hermes .msg-label {
+            color: var(--accent);
+        }
+
+        .message .msg-text {
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message .msg-text .highlight-node {
+            color: var(--accent);
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 1px dashed rgba(34, 211, 238, 0.3);
+            transition: all 0.2s;
+        }
+
+        .message .msg-text .highlight-node:hover {
+            color: #fff;
+            border-bottom-color: var(--accent);
+        }
+
+        /* Thinking indicator */
+        .thinking-indicator {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(34, 211, 238, 0.03);
+            border: 1px solid rgba(34, 211, 238, 0.08);
+            border-radius: 12px;
+            border-bottom-left-radius: 4px;
+            animation: msg-entry 0.3s ease;
+        }
+
+        .thinking-indicator .dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .thinking-indicator .dots span {
+            width: 5px;
+            height: 5px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: dot-bounce 1.4s infinite ease-in-out both;
+        }
+
+        .thinking-indicator .dots span:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-indicator .dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes dot-bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .thinking-indicator .label {
+            font-size: 10px;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        /* Welcome message */
+        .welcome-message {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-dim);
+        }
+
+        .welcome-message .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        .welcome-message h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .welcome-message p {
+            font-size: 10px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .welcome-message .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+
+        .welcome-message .suggestions button {
+            padding: 6px 12px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(34, 211, 238, 0.06);
+            border: 1px solid rgba(34, 211, 238, 0.12);
+            border-radius: 16px;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .welcome-message .suggestions button:hover {
+            background: rgba(34, 211, 238, 0.15);
+            border-color: rgba(34, 211, 238, 0.3);
+        }
+
+        /* Input Area */
+        #chat-input-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 16px 14px;
+            border-top: 1.5px solid rgba(255,255,255,0.12);
+            flex-shrink: 0;
+            background: rgba(0,0,0,0.6);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            border-top: 1.5px solid rgba(34, 211, 238, 0.15);
+        }
+
+        #chat-input {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            border: 2.5px solid rgba(255,255,255,0.55);
+            border-radius: 24px;
+            padding: 11px 16px;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        #chat-input:hover {
+            border-color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.12);
+            box-shadow: 0 0 12px rgba(255,255,255,0.08);
+        }
+
+        #chat-input:focus {
+            border-color: #22d3ee;
+            background: rgba(255,255,255,0.15);
+            box-shadow: 0 0 28px rgba(34, 211, 238, 0.25), 0 0 4px rgba(34, 211, 238, 0.3);
+        }
+
+        #chat-input::placeholder {
+            color: #999;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+            font-weight: 400;
+        }
+
+        #chat-input:disabled {
+            opacity: 0.4;
+        }
+
+        #chat-send {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid rgba(34, 211, 238, 0.25);
+            background: rgba(34, 211, 238, 0.12);
+            color: var(--accent);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        #chat-send:hover:not(:disabled) {
+            background: rgba(34, 211, 238, 0.25);
+            border-color: var(--accent);
+            box-shadow: 0 0 24px rgba(34, 211, 238, 0.25);
+        }
+
+        #chat-send:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        /* Compliance toast */
+        #compliance-toast {
+            position: absolute;
+            bottom: 80px;
+            right: 16px;
+            z-index: 50;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid rgba(34, 211, 238, 0.15);
+            border-radius: 10px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim);
+            backdrop-filter: blur(10px);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            max-width: 200px;
+        }
+
+        #compliance-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Mobile toggle button */
+        #mobile-graph-toggle {
+            display: none;
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            z-index: 30;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(34, 211, 238, 0.15);
+            border: 1.5px solid rgba(34, 211, 238, 0.3);
+            color: var(--accent);
+            font-size: 20px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+            touch-action: manipulation;
+        }
+
+        #mobile-graph-toggle:active {
+            transform: scale(0.9);
+        }
+
+        /* Orbi minimalista — Partículas orbitais do segundo cérebro */
+        #orbi {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 3s ease;
+        }
+
+        #orbi.visible {
+            opacity: 0.6;
+        }
+
+        @media (max-width: 768px) {
+            #orbi {
+                opacity: 0;
+            }
+            #orbi.visible {
+                opacity: 0.35;
+            }
+        }
+
+        /* Graph-only / Chat-only modes on mobile — com transição suave */
+        #neural-section,
+        #chat-section {
+            transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        flex 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.mode-transitioning #neural-section,
+        body.mode-transitioning #chat-section {
+            opacity: 0;
+            transform: scale(0.97);
+        }
+
+        body.graph-mode #chat-section {
+            display: none !important;
+        }
+        body.chat-mode #neural-section {
+            display: none !important;
+        }
+        body.chat-mode #app {
+            height: 100dvh;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #app {
+                flex-direction: column;
+                height: 100dvh;
+            }
+            #neural-section {
+                flex: 4;
+                min-height: 0;
+            }
+            #chat-section {
+                flex: 6;
+                min-height: 0;
+            }
+            body.graph-mode #neural-section {
+                flex: 1;
+            }
+            body.chat-mode #chat-section {
+                flex: 1;
+            }
+            #chat-messages {
+                padding: 10px 12px;
+                gap: 8px;
+            }
+            .message {
+                max-width: 92%;
+                font-size: 13px;
+                padding: 10px 14px;
+                border-radius: 10px;
+            }
+            #chat-header {
+                padding: 8px 12px;
+            }
+            #chat-header h2 {
+                font-size: 11px;
+            }
+            #chat-header .hermes-status {
+                font-size: 8px;
+            }
+            #chat-input-area {
+                padding: 10px 12px 14px;
+                padding-bottom: calc(14px + env(safe-area-inset-bottom, 12px));
+                gap: 8px;
+            }
+            #chat-input {
+                font-size: 15px;
+                padding: 12px 16px;
+                border-radius: 28px;
+                border-width: 2px;
+            }
+            #chat-send {
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+            }
+            #graph-ui h1 {
+                font-size: 8px;
+            }
+            #graph-ui .subtitle {
+                display: none;
+            }
+            #graph-status {
+                font-size: 7px;
+                padding: 3px 6px;
+                top: 8px;
+                right: 8px;
+                gap: 4px;
+            }
+            #graph-status .dot {
+                width: 4px;
+                height: 4px;
+            }
+            #click-hint {
+                display: none !important;
+            }
+            .welcome-message .suggestions {
+                gap: 5px;
+            }
+            .welcome-message .suggestions button {
+                font-size: 10px;
+                padding: 8px 12px;
+                flex: 1 1 calc(50% - 5px);
+                min-width: 0;
+                text-align: center;
+                border-radius: 20px;
+            }
+            .welcome-message h3 {
+                font-size: 14px;
+            }
+            .welcome-message p {
+                font-size: 11px;
+            }
+            #mobile-graph-toggle {
+                display: flex;
+            }
+            #compliance-toast {
+                bottom: 70px;
+                right: 12px;
+                font-size: 8px;
+                padding: 6px 10px;
+                max-width: 160px;
+            }
+            canvas {
+                touch-action: none;
+            }
+            #orbi.visible {
+                opacity: 0.25;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #neural-section {
+                flex: 3;
+            }
+            #chat-section {
+                flex: 7;
+            }
+            .message {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+            #chat-input {
+                font-size: 14px;
+                padding: 10px 14px;
+            }
+            #chat-send {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+            #chat-header {
+                padding: 6px 10px;
+            }
+            #chat-header .hermes-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+            .welcome-message .suggestions button {
+                font-size: 9px;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- ============================================================
+             NEURAL GRAPH SECTION (60%)
+             ============================================================ -->
+        <div id="neural-section">
+            <canvas id="graph"></canvas>
+
+            <div id="graph-ui">
+                <h1>🧬 Consciência Neural</h1>
+                <div class="subtitle">Hermes Fusion — Supervisão Viva</div>
+            </div>
+
+            <div id="graph-status">
+                <span class="dot"></span>
+                <span id="nodes-count">0 nós</span>
+            </div>
+
+            <div id="tooltip"></div>
+            <div id="click-hint">Clique em um nó para perguntar ao Hermes</div>
+            <canvas id="orbi"></canvas>
+            <button id="mobile-graph-toggle" aria-label="Alternar gráfico">🌐</button>
+        </div>
+
+        <!-- ============================================================
+             CHAT SECTION (40%)
+             ============================================================ -->
+        <div id="chat-section">
+            <div id="chat-header">
+                <div class="left">
+                    <div class="hermes-icon">🪶</div>
+                    <h2>Hermes</h2>
+                </div>
+                <div class="hermes-status">
+                    <span class="dot" id="hermes-dot"></span>
+                    <span id="hermes-status-text">conectando...</span>
+                </div>
+            </div>
+
+            <div id="chat-messages">
+                <div class="welcome-message" id="welcome-msg">
+                    <div class="icon">🪶</div>
+                    <h3>Hermes — Supervisão Neural</h3>
+                    <p>
+                        Pergunte sobre qualquer nó do grafo, peça análises de compliance,
+                        ou explore a arquitetura da frota. As sinapses no grafo mostram
+                        o que está sendo consultado.
+                    </p>
+                    <div class="suggestions">
+                        <button onclick="quickQuery('O que é o Captain Agent?')">O que é o Captain?</button>
+                        <button onclick="quickQuery('Explique a fase RISK_ZERO')">Fase RISK_ZERO</button>
+                        <button onclick="quickQuery('Qual o status da frota hoje?')">Status da Frota</button>
+                        <button onclick="quickQuery('Como funciona o Slot Operator?')">Slot Operator</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-input-area">
+                <input id="chat-input" type="text" placeholder="Pergunte ao Hermes sobre o grafo neural..." autocomplete="off" />
+                <button id="chat-send" disabled>⚡</button>
+            </div>
+        </div>
+
+        <!-- Compliance Toast -->
+        <div id="compliance-toast"></div>
+    </div>
+
+    <script>
+        // ================================================================
+        // NEURAL GRAPH — D3.js Force Simulation (Canvas)
+        // ================================================================
+
+        const canvas = document.getElementById('graph');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        const mobileToggle = document.getElementById('mobile-graph-toggle');
+
+        let graphWidth, graphHeight;
+        let nodes = [];
+        let links = [];
+        let simulation = null;
+        let zoomBehavior = null;
+        let transform = { x: 0, y: 0, k: 1 };
+        let hoveredNode = null;
+        let highlightedNodes = new Set();
+        let pulsingNodes = new Map(); // nodeId -> timestamp
+        let graphReady = false;
+        let animationId = null;
+        let isPanning = false;
+        let toggleTimeout = null;
+        let initFrameScheduled = false;
+
+        // Node colors (same as original neural_graph.html)
+        const NODE_COLORS = {
+            captain: '#fbbf24',
+            slot_operator: '#22d3ee',
+            librarian: '#a855f7',
+            vision: '#10b981',
+            ambush: '#f43f5e',
+            hermes: '#06b6d4',
+            default: '#1e293b'
+        };
+
+        const GLOW_COLORS = {
+            captain: 'rgba(251, 191, 36, 0.8)',
+            slot_operator: 'rgba(34, 211, 238, 0.8)',
+            librarian: 'rgba(168, 85, 247, 0.8)',
+            vision: 'rgba(16, 185, 129, 0.8)',
+            ambush: 'rgba(244, 63, 94, 0.8)',
+            hermes: 'rgba(6, 182, 212, 0.8)',
+            default: 'rgba(34, 211, 238, 0.5)'
+        };
+
+        function getNodeStyle(id, label) {
+            const idLower = (id || '').toLowerCase();
+            
+            // Sistema de cores para o knowledge graph real (grupos por função)
+            // Platform / Core
+            if (idLower.includes('1crypten')) {
+                return { color: NODE_COLORS.captain, glow: GLOW_COLORS.captain, elite: true, radius: 28 };
+            }
+            // Agentes Core
+            if (idLower.includes('captain')) {
+                return { color: NODE_COLORS.captain, glow: GLOW_COLORS.captain, elite: true, radius: 22 };
+            }
+            if (idLower.includes('hermes')) {
+                return { color: NODE_COLORS.hermes, glow: GLOW_COLORS.hermes, elite: true, radius: 20 };
+            }
+            if (idLower.includes('oracle')) {
+                return { color: NODE_COLORS.captain, glow: GLOW_COLORS.captain, elite: true, radius: 16 };
+            }
+            // Slot Operators
+            if (idLower.includes('slot_operator')) {
+                return { color: NODE_COLORS.slot_operator, glow: GLOW_COLORS.slot_operator, elite: true, radius: 16 };
+            }
+            // Inteligência (purple)
+            if (idLower.includes('librarian') || idLower.includes('macro') || 
+                idLower.includes('whale') || idLower.includes('sentiment') || 
+                idLower.includes('heat') || idLower.includes('onchain')) {
+                return { color: NODE_COLORS.librarian, glow: GLOW_COLORS.librarian, elite: true, radius: 14 };
+            }
+            // Execução (green)
+            if (idLower.includes('signal') || idLower.includes('sieve') || 
+                idLower.includes('fleet') || idLower.includes('trade') || 
+                idLower.includes('harvester') || idLower.includes('threshold') || 
+                idLower.includes('blitz')) {
+                return { color: NODE_COLORS.vision, glow: GLOW_COLORS.vision, elite: true, radius: 14 };
+            }
+            // Serviços (red/pink)
+            if (idLower.includes('bybit') || idLower.includes('sovereign') || 
+                idLower.includes('database') || idLower.includes('redis') || 
+                idLower.includes('vault') || idLower.includes('bankroll') || 
+                idLower.includes('kernel') || idLower.includes('websocket')) {
+                return { color: NODE_COLORS.ambush, glow: GLOW_COLORS.ambush, elite: true, radius: 13 };
+            }
+            // Protocolos/fases (cyan)
+            if (idLower.includes('risk') || idLower.includes('profit') || 
+                idLower.includes('shield') || idLower.includes('maestria') || 
+                idLower.includes('emancip')) {
+                return { color: NODE_COLORS.hermes, glow: GLOW_COLORS.hermes, elite: false, radius: 10 };
+            }
+            // Frontend (cyan)
+            if (idLower.includes('cockpit') || idLower.includes('neural') || 
+                idLower.includes('observatory') || idLower.includes('intel')) {
+                return { color: NODE_COLORS.slot_operator, glow: GLOW_COLORS.slot_operator, elite: false, radius: 11 };
+            }
+            
+            return { color: NODE_COLORS.default, glow: GLOW_COLORS.default, elite: false, radius: null };
+        }
+
+        function resize() {
+            const rect = document.getElementById('neural-section').getBoundingClientRect();
+            if (!rect || rect.width === 0 || rect.height === 0) {
+                // Section hidden (chat-mode on mobile), skip resize
+                return;
+            }
+            graphWidth = rect.width;
+            graphHeight = rect.height;
+            if (canvas.width !== graphWidth || canvas.height !== graphHeight) {
+                canvas.width = graphWidth;
+                canvas.height = graphHeight;
+            }
+            if (simulation && graphWidth > 0 && graphHeight > 0) {
+                simulation.force('x', d3.forceX(graphWidth / 2).strength(0.08));
+                simulation.force('y', d3.forceY(graphHeight / 2).strength(0.08));
+                simulation.alpha(0.3).restart();
+            }
+        }
+
+        let resizeTimeout = null;
+
+        function loadGraph() {
+            // Safety: D3 pode não ter carregado do CDN
+            if (typeof d3 === 'undefined' || typeof d3.json !== 'function') {
+                console.warn('⚠️ D3.js não carregou do CDN. Usando fallback.');
+                createFallbackUI();
+                return;
+            }
+            d3.json('/intel/map/graph.json').then(data => {
+                nodes = data.nodes.map(d => ({
+                    ...d,
+                    radius: Math.max(1.2, Math.sqrt(d.size || 5) * 0.7)
+                }));
+                links = data.links;
+
+                document.getElementById('nodes-count').textContent = `${nodes.length} nós`;
+
+                simulation = d3.forceSimulation(nodes)
+                    .force('link', d3.forceLink(links).id(d => d.id).distance(45).strength(0.6))
+                    .force('charge', d3.forceManyBody().strength(-80).distanceMax(400))
+                    .force('x', d3.forceX(graphWidth / 2).strength(0.06))
+                    .force('y', d3.forceY(graphHeight / 2).strength(0.06))
+                    .force('collision', d3.forceCollide().radius(d => d.radius + 8))
+                    .force('radial', d3.forceRadial(220, graphWidth / 2, graphHeight / 2).strength(0.15))
+                    .alphaDecay(0.004)
+                    .on('tick', render);
+
+                // Zoom (inicializa uma vez)
+                if (!zoomBehavior) {
+                    zoomBehavior = d3.zoom()
+                        .scaleExtent([0.05, 50])
+                        .filter(event => {
+                            // Wheel zoom: só com ctrl/meta para não conflitar com scroll da página
+                            if (event.type === 'wheel') return event.ctrlKey || event.metaKey;
+                            // Touch: permite tudo (single=pan, pinch=zoom) — canvas tem touch-action: none
+                            return true;
+                        })
+                        .on('start', () => { isPanning = true; })
+                        .on('zoom', e => {
+                            transform = e.transform;
+                            render();
+                        })
+                        .on('end', () => {
+                            setTimeout(() => { isPanning = false; }, 100);
+                        });
+                    d3.select(canvas).call(zoomBehavior);
+                }
+
+                graphReady = true;
+                resize();
+
+                // Smooth start
+                setTimeout(() => {
+                    if (simulation) simulation.alphaTarget(0).restart();
+                }, 300);
+            }).catch(err => {
+                console.warn('Graph JSON not available:', err);
+                // Create minimal demo graph
+                createDemoGraph();
+            });
+        }
+
+        // Fallback UI when D3 is not available
+        function createFallbackUI() {
+            const section = document.getElementById('neural-section');
+            section.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;">
+                    <div style="font-size:32px;margin-bottom:12px;opacity:0.3;">🧬</div>
+                    <div style="font-size:11px;color:#555;font-family:'Inter',sans-serif;">
+                        Grafo neural indisponível<br/>
+                        <span style="font-size:9px;color:#333;">D3.js não carregou — verifique sua conexão</span>
+                        <div style="margin-top:12px;font-size:9px;color:#ef4444;">⚠ offline</div>
+                    </div>
+                </div>
+            `;
+            // Status badge removido junto com innerHTML, já incluído inline acima
+        }
+
+        function createDemoGraph() {
+            const demoNodes = [
+                { id: 'captain_agent.py', label: 'captain_agent.py', size: 50 },
+                { id: 'slot_operator.py', label: 'slot_operator.py', size: 40 },
+                { id: 'hermes_agent.py', label: 'hermes_agent.py', size: 35 },
+                { id: 'librarian_agent.py', label: 'librarian_agent.py', size: 30 },
+                { id: 'vision_agent.py', label: 'vision_agent.py', size: 30 },
+                { id: 'ambush_agent.py', label: 'ambush_agent.py', size: 25 },
+                { id: 'blitz_sniper.py', label: 'blitz_sniper.py', size: 25 },
+                { id: 'protocol_registry.py', label: 'protocol_registry.py', size: 20 },
+                { id: 'execution_protocol.py', label: 'execution_protocol.py', size: 20 },
+                { id: 'RISK_ZERO', label: 'RISK_ZERO', size: 10 },
+                { id: 'PROFIT_BRIDGE', label: 'PROFIT_BRIDGE', size: 10 },
+                { id: 'SHIELD_ACTIVE', label: 'SHIELD_ACTIVE', size: 10 },
+                { id: 'MAESTRIA', label: 'MAESTRIA', size: 10 },
+                { id: 'EMANCIPATION', label: 'EMANCIPATION', size: 10 },
+            ];
+
+            const demoLinks = [
+                { source: 'hermes_agent.py', target: 'captain_agent.py' },
+                { source: 'hermes_agent.py', target: 'slot_operator.py' },
+                { source: 'hermes_agent.py', target: 'librarian_agent.py' },
+                { source: 'hermes_agent.py', target: 'protocol_registry.py' },
+                { source: 'captain_agent.py', target: 'vision_agent.py' },
+                { source: 'captain_agent.py', target: 'ambush_agent.py' },
+                { source: 'captain_agent.py', target: 'blitz_sniper.py' },
+                { source: 'slot_operator.py', target: 'execution_protocol.py' },
+                { source: 'protocol_registry.py', target: 'RISK_ZERO' },
+                { source: 'protocol_registry.py', target: 'PROFIT_BRIDGE' },
+                { source: 'protocol_registry.py', target: 'SHIELD_ACTIVE' },
+                { source: 'protocol_registry.py', target: 'MAESTRIA' },
+                { source: 'protocol_registry.py', target: 'EMANCIPATION' },
+                { source: 'hermes_agent.py', target: 'RISK_ZERO' },
+                { source: 'librarian_agent.py', target: 'captain_agent.py' },
+            ];
+
+            nodes = demoNodes.map(d => ({
+                ...d,
+                radius: Math.max(1.2, Math.sqrt(d.size || 5) * 0.7)
+            }));
+            links = demoLinks;
+
+            document.getElementById('nodes-count').textContent = `${nodes.length} nós (demo)`;
+
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(50).strength(0.5))
+                .force('charge', d3.forceManyBody().strength(-100).distanceMax(400))
+                .force('x', d3.forceX(graphWidth / 2).strength(0.05))
+                .force('y', d3.forceY(graphHeight / 2).strength(0.05))
+                .force('collision', d3.forceCollide().radius(d => d.radius + 10))
+                .force('radial', d3.forceRadial(250, graphWidth / 2, graphHeight / 2).strength(0.12))
+                .alphaDecay(0.006)
+                .on('tick', render);
+
+            // Zoom (reusa zoomBehavior se já inicializado)
+            if (!zoomBehavior) {
+                zoomBehavior = d3.zoom()
+                    .scaleExtent([0.05, 50])
+                    .filter(event => {
+                        // Wheel zoom: só com ctrl/meta
+                        if (event.type === 'wheel') return event.ctrlKey || event.metaKey;
+                        // Touch: single=pan, pinch=zoom
+                        return true;
+                    })
+                    .on('start', () => { isPanning = true; })
+                    .on('zoom', e => {
+                        transform = e.transform;
+                        render();
+                    })
+                    .on('end', () => {
+                        setTimeout(() => { isPanning = false; }, 100);
+                    });
+                d3.select(canvas).call(zoomBehavior);
+            }
+
+            graphReady = true;
+            resize();
+
+            // Smooth start
+            setTimeout(() => {
+                if (simulation) simulation.alphaTarget(0).restart();
+            }, 300);
+        }
+
+        // --- Starfield background (subtle) ---
+        let starfieldCache = null;
+        let starfieldSeed = 0;
+
+        function drawStarfield() {
+            if (!graphWidth || !graphHeight) return;
+            
+            // Regenerate cache on resize
+            if (starfieldCache && starfieldCache.w === graphWidth && starfieldCache.h === graphHeight) {
+                ctx.drawImage(starfieldCache.canvas, 0, 0);
+                return;
+            }
+            
+            const offscreen = document.createElement('canvas');
+            offscreen.width = graphWidth;
+            offscreen.height = graphHeight;
+            const offCtx = offscreen.getContext('2d');
+            
+            // Use seeded pseudo-random for stable star positions
+            let seed = graphWidth * 31 + graphHeight;
+            const nextRand = () => {
+                seed = (seed * 16807 + 0) % 2147483647;
+                return (seed - 1) / 2147483646;
+            };
+            
+            starfieldSeed = seed;
+            
+            const starCount = Math.floor((graphWidth * graphHeight) / 6000);
+            for (let i = 0; i < starCount; i++) {
+                const sx = nextRand() * graphWidth;
+                const sy = nextRand() * graphHeight;
+                const sr = nextRand() * 1.2 + 0.3;
+                const alpha = nextRand() * 0.25 + 0.05;
+                
+                offCtx.beginPath();
+                offCtx.arc(sx, sy, sr, 0, Math.PI * 2);
+                offCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                offCtx.fill();
+            }
+            
+            starfieldCache = {
+                canvas: offscreen,
+                w: graphWidth,
+                h: graphHeight
+            };
+            
+            ctx.drawImage(offscreen, 0, 0);
+        }
+
+        // --- Render Function ---
+        function render() {
+            ctx.clearRect(0, 0, graphWidth, graphHeight);
+            
+            // Draw starfield background
+            drawStarfield();
+            
+            ctx.save();
+            ctx.translate(transform.x, transform.y);
+            ctx.scale(transform.k, transform.k);
+
+            const now = Date.now();
+
+            // 1. Links — com gradiente sutil nos destacados
+            links.forEach(l => {
+                if (!l.source || !l.target) return;
+                const isHighlighted = highlightedNodes.size > 0 && 
+                    (highlightedNodes.has(l.source.id) || highlightedNodes.has(l.target.id));
+                
+                ctx.beginPath();
+                ctx.moveTo(l.source.x, l.source.y);
+                ctx.lineTo(l.target.x, l.target.y);
+                
+                if (isHighlighted) {
+                    // Gradiente ao longo do link destacado
+                    const gradient = ctx.createLinearGradient(l.source.x, l.source.y, l.target.x, l.target.y);
+                    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.05)');
+                    gradient.addColorStop(0.5, 'rgba(34, 211, 238, 0.25)');
+                    gradient.addColorStop(1, 'rgba(34, 211, 238, 0.05)');
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 1.2 / transform.k;
+                    ctx.shadowBlur = 4 * transform.k;
+                    ctx.shadowColor = 'rgba(34, 211, 238, 0.3)';
+                } else {
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 + Math.sin(now / 2000 + l.index || 0) * 0.02})`;
+                    ctx.lineWidth = 0.4 / transform.k;
+                    ctx.shadowBlur = 0;
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            });
+
+            // 3. Nodes
+
+            nodes.forEach(n => {
+                const style = getNodeStyle(n.id, n.label);
+                const isHighlighted = highlightedNodes.has(n.id);
+                const isHovered = hoveredNode && hoveredNode.id === n.id;
+                const isPulsing = pulsingNodes.has(n.id);
+                const pulseAge = isPulsing ? (now - pulsingNodes.get(n.id)) : Infinity;
+                const pulseAlpha = isPulsing ? Math.max(0, 1 - (pulseAge / 2000)) : 0;
+
+                let r = style.radius || n.radius;
+                if (isHovered) r *= 1.3;
+                if (isHighlighted) r *= 1.2;
+
+                let color = isHovered ? '#ffffff' : 
+                           isHighlighted ? style.color || NODE_COLORS.default : 
+                           style.color || NODE_COLORS.default;
+
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+
+                // Glow for elite/highlighted/pulsing
+                if (style.elite || isHighlighted || isPulsing) {
+                    let glowColor = GLOW_COLORS.default;
+                    if (isHighlighted) glowColor = 'rgba(34, 211, 238, 0.6)';
+                    else if (isPulsing) {
+                        glowColor = `rgba(251, 191, 36, ${0.3 * pulseAlpha})`;
+                    } else glowColor = style.glow || GLOW_COLORS.default;
+
+                    ctx.shadowBlur = (isHighlighted ? 35 : isPulsing ? 40 : 25) * transform.k;
+                    ctx.shadowColor = glowColor;
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                }
+
+                // Pulse ring
+                if (isPulsing && pulseAlpha > 0) {
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, r * 2, 0, 2 * Math.PI);
+                    ctx.strokeStyle = `rgba(251, 191, 36, ${pulseAlpha * 0.5})`;
+                    ctx.lineWidth = 2 / transform.k;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, r * 3, 0, 2 * Math.PI);
+                    ctx.strokeStyle = `rgba(251, 191, 36, ${pulseAlpha * 0.2})`;
+                    ctx.lineWidth = 1 / transform.k;
+                    ctx.stroke();
+                }
+
+                // Label
+                if (isHovered || isHighlighted || (style.elite && transform.k > 1.2)) {
+                    ctx.font = `${(style.elite || isHighlighted ? 9 : 6) / transform.k}px 'Outfit'`;
+                    ctx.fillStyle = (isHighlighted || isHovered) ? '#fff' : 'rgba(255,255,255,0.6)';
+                    ctx.textAlign = 'center';
+                    const label = n.id.split('/').pop().replace('.py', '').replace(/_/g, ' ');
+                    ctx.fillText((style.elite ? '★ ' : '') + label, n.x, n.y + r + (10 / transform.k));
+                }
+            });
+
+            // 4. Highlight wave effect (animated lines from highlighted nodes)
+            if (highlightedNodes.size > 0) {
+                highlightedNodes.forEach(hId => {
+                    const n = nodes.find(d => d.id === hId);
+                    if (!n) return;
+                    const wave = Math.sin(now / 500) * 0.3 + 0.7;
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, (n.radius || 5) * 1.5 + wave * 8, 0, 2 * Math.PI);
+                    ctx.strokeStyle = `rgba(34, 211, 238, ${0.1 * wave})`;
+                    ctx.lineWidth = 1 / transform.k;
+                    ctx.stroke();
+                });
+            }
+
+            ctx.restore();
+        }
+
+        // --- Mouse Events ---
+        canvas.addEventListener('mousemove', e => {
+            if (!graphReady || isPanning) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left - transform.x) / transform.k;
+            const my = (e.clientY - rect.top - transform.y) / transform.k;
+            
+            hoveredNode = nodes.find(n => Math.hypot(n.x - mx, n.y - my) < (n.radius || 5) + 8);
+            
+            if (hoveredNode) {
+                tooltip.style.display = 'block';
+                tooltip.style.left = Math.max(8, Math.min(e.clientX + 15, window.innerWidth - 210)) + 'px';
+                tooltip.style.top = Math.max(8, Math.min(e.clientY + 15, window.innerHeight - 50)) + 'px';
+                const label = hoveredNode.id.split('/').pop().replace('.py', '');
+                tooltip.textContent = label + ' (clique para perguntar)';
+                canvas.style.cursor = 'pointer';
+            } else {
+                tooltip.style.display = 'none';
+                canvas.style.cursor = 'crosshair';
+            }
+            render();
+        });
+
+        canvas.addEventListener('click', e => {
+            if (!graphReady || !hoveredNode || isPanning) return;
+            const nodeId = hoveredNode.id;
+            const label = nodeId.split('/').pop().replace('.py', '').replace(/_/g, ' ');
+            
+            // Pulse the clicked node
+            pulseGraphNode(nodeId);
+            
+            // Send to chat
+            sendChatMessage(`Explique o nó "${label}" no grafo neural`);
+        });
+
+        // Touch support — melhorado para não conflitar com scroll/zoom
+        let touchStartPos = null;
+        let touchStartTime = 0;
+        let touchMoved = false;
+
+        canvas.addEventListener('touchstart', e => {
+            if (!graphReady || e.touches.length > 1) return;
+            const touch = e.touches[0];
+            touchStartPos = { x: touch.clientX, y: touch.clientY };
+            touchStartTime = Date.now();
+            touchMoved = false;
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', e => {
+            if (!graphReady || e.touches.length > 1 || !touchStartPos) return;
+            const touch = e.touches[0];
+            const dx = Math.abs(touch.clientX - touchStartPos.x);
+            const dy = Math.abs(touch.clientY - touchStartPos.y);
+            if (dx > 8 || dy > 8) {
+                touchMoved = true;
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', e => {
+            if (!graphReady || !touchStartPos || touchMoved) {
+                touchStartPos = null;
+                return;
+            }
+            
+            const touch = e.changedTouches[0];
+            const rect = canvas.getBoundingClientRect();
+            const mx = (touch.clientX - rect.left - transform.x) / transform.k;
+            const my = (touch.clientY - rect.top - transform.y) / transform.k;
+            
+            const tapped = nodes.find(n => Math.hypot(n.x - mx, n.y - my) < (n.radius || 5) + 18);
+            if (tapped) {
+                e.preventDefault();
+                const label = tapped.id.split('/').pop().replace('.py', '').replace(/_/g, ' ');
+                pulseGraphNode(tapped.id);
+                sendChatMessage(`Explique o nó "${label}" no grafo neural`);
+            }
+            touchStartPos = null;
+        }, { passive: false });
+
+        // ================================================================
+        // GRAPH API — Exposed for chat communication
+        // ================================================================
+
+        function highlightGraphNode(nodeId) {
+            highlightedNodes.add(nodeId);
+            // Auto-clear after 8s
+            setTimeout(() => {
+                highlightedNodes.delete(nodeId);
+                if (render) render();
+            }, 8000);
+            if (render) render();
+
+            // Also highlight linked nodes briefly
+            links.forEach(l => {
+                if (l.source && l.target && 
+                    (l.source.id === nodeId || l.target.id === nodeId)) {
+                    const other = l.source.id === nodeId ? l.target.id : l.source.id;
+                    setTimeout(() => {
+                        highlightedNodes.add(other);
+                        setTimeout(() => {
+                            highlightedNodes.delete(other);
+                            if (render) render();
+                        }, 3000);
+                        if (render) render();
+                    }, 200);
+                }
+            });
+        }
+
+        function pulseGraphNode(nodeId) {
+            pulsingNodes.set(nodeId, Date.now());
+            // Fade out over 2s
+            setTimeout(() => {
+                pulsingNodes.delete(nodeId);
+                if (render) render();
+            }, 2000);
+            if (render) render();
+        }
+
+        function flashGraphNode(nodeId) {
+            // Intense quick flash (for notifications)
+            highlightedNodes.add(nodeId);
+            setTimeout(() => {
+                highlightedNodes.delete(nodeId);
+                if (render) render();
+            }, 2000);
+            if (render) render();
+        }
+
+        // Expose for external use
+        window.highlightGraphNode = highlightGraphNode;
+        window.pulseGraphNode = pulseGraphNode;
+        window.flashGraphNode = flashGraphNode;
+
+        // Parse Hermes response for node names to highlight
+        function highlightNodesFromResponse(text) {
+            const knownNodes = nodes.map(n => 
+                n.id.split('/').pop().replace('.py', '').replace(/_/g, ' ').toLowerCase()
+            );
+            
+            const textLower = text.toLowerCase();
+            
+            knownNodes.forEach(name => {
+                if (textLower.includes(name)) {
+                    // Find the original node
+                    const match = nodes.find(n => {
+                        const nName = n.id.split('/').pop().replace('.py', '').replace(/_/g, ' ').toLowerCase();
+                        return nName === name;
+                    });
+                    if (match) {
+                        setTimeout(() => highlightGraphNode(match.id), 500);
+                    }
+                }
+            });
+        }
+
+        // ================================================================
+        // CHAT WITH HERMES
+        // ================================================================
+
+        const API_BASE = (() => {
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                return `${window.location.protocol}//${window.location.hostname}`;
+            }
+            const port = window.location.port || '8085';
+            return `${window.location.protocol}//${window.location.hostname}:${port}`;
+        })();
+
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+        const hermesDot = document.getElementById('hermes-dot');
+        const hermesStatusText = document.getElementById('hermes-status-text');
+        const welcomeMsg = document.getElementById('welcome-msg');
+        const complianceToast = document.getElementById('compliance-toast');
+
+        let isSending = false;
+        let messageHistory = [];
+
+        // Check Hermes status
+        async function checkHermesStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/api/hermes/status`, { signal: AbortSignal.timeout(5000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    hermesDot.className = 'dot';
+                    hermesStatusText.textContent = `online · ${data.conformidades || 0} conf.`;
+                    return true;
+                }
+            } catch (e) {
+                // Try /api/chat as fallback
+                try {
+                    const res2 = await fetch(`${API_BASE}/api/chat`, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: 'ping', hermes: true }),
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    if (res2.ok) {
+                        hermesDot.className = 'dot';
+                        hermesStatusText.textContent = 'online';
+                        return true;
+                    }
+                } catch (e2) {}
+            }
+            hermesDot.className = 'dot offline';
+            hermesStatusText.textContent = 'offline';
+            return false;
+        }
+
+        checkHermesStatus();
+        setInterval(checkHermesStatus, 30000);
+
+        function addMessage(role, text) {
+            // Remove welcome message on first interaction
+            if (welcomeMsg && welcomeMsg.parentNode) {
+                welcomeMsg.remove();
+            }
+
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            
+            const label = document.createElement('div');
+            label.className = 'msg-label';
+            label.textContent = role === 'user' ? 'Você' : '🪶 Hermes';
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'msg-text';
+            
+            // Parse node names in response and make them clickable
+            if (role === 'hermes') {
+                const nodeNames = nodes.map(n => {
+                    const name = n.id.split('/').pop().replace('.py', '').replace(/_/g, ' ');
+                    return { id: n.id, name };
+                });
+                
+                let processed = text;
+                // Sort by length (longest first) to avoid partial matches
+                nodeNames.sort((a, b) => b.name.length - a.name.length);
+                
+                nodeNames.forEach(({ id, name }) => {
+                    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+                    processed = processed.replace(regex, match => 
+                        `<span class="highlight-node" data-node="${id}">${match}</span>`
+                    );
+                });
+                
+                textDiv.innerHTML = processed;
+                
+                // Add click handler for highlighted nodes
+                textDiv.querySelectorAll('.highlight-node').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const nodeId = el.dataset.node;
+                        highlightGraphNode(nodeId);
+                        pulseGraphNode(nodeId);
+                    });
+                });
+            } else {
+                textDiv.textContent = text;
+            }
+            
+            div.appendChild(label);
+            div.appendChild(textDiv);
+            chatMessages.appendChild(div);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showThinking() {
+            const div = document.createElement('div');
+            div.className = 'thinking-indicator';
+            div.id = 'thinking-indicator';
+            div.innerHTML = `
+                <div class="dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <span class="label">Hermes pensando...</span>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeThinking() {
+            const el = document.getElementById('thinking-indicator');
+            if (el) el.remove();
+        }
+
+        async function sendChatMessage(text) {
+            const message = (text || chatInput.value).trim();
+            if (!message || isSending) return;
+
+            isSending = true;
+            chatSend.disabled = true;
+            chatInput.disabled = true;
+
+            // Add user message
+            addMessage('user', message);
+            chatInput.value = '';
+
+            // Show thinking
+            showThinking();
+
+            try {
+                // Try Hermes chat first
+                const res = await fetch(`${API_BASE}/api/hermes/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message }),
+                    signal: AbortSignal.timeout(30000)
+                });
+
+                removeThinking();
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const response = data.response || data.message || '...';
+                    addMessage('hermes', response);
+                    
+                    // Highlight relevant nodes in graph
+                    highlightNodesFromResponse(response);
+                } else {
+                    // Fallback to /api/chat with hermes flag
+                    const res2 = await fetch(`${API_BASE}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, hermes: true }),
+                        signal: AbortSignal.timeout(30000)
+                    });
+                    
+                    if (res2.ok) {
+                        const data2 = await res2.json();
+                        const response2 = data2.response || data2.message || '...';
+                        addMessage('hermes', response2);
+                        highlightNodesFromResponse(response2);
+                    } else {
+                        throw new Error(`Servidor retornou ${res2.status}`);
+                    }
+                }
+            } catch (err) {
+                removeThinking();
+                if (err.name === 'TimeoutError' || err.message.includes('timed out')) {
+                    addMessage('hermes', '⏱️ O Hermes está demorando para responder. Tente novamente.');
+                } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                    addMessage('hermes', '🔌 Erro de conexão com o servidor. Verifique se o backend está rodando.');
+                } else {
+                    addMessage('hermes', `⚠️ Erro: ${err.message}`);
+                }
+            } finally {
+                isSending = false;
+                chatSend.disabled = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        // Quick query from suggestions
+        window.quickQuery = function(text) {
+            sendChatMessage(text);
+        };
+
+        // Input handlers
+        chatInput.addEventListener('input', () => {
+            chatSend.disabled = !chatInput.value.trim() || isSending;
+        });
+
+        chatInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+
+        chatSend.addEventListener('click', () => sendChatMessage());
+
+        // ================================================================
+        // WEBSOCKET — Hermes Events (Notifications & Compliance)
+        // ================================================================
+
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? `${window.location.hostname}:${window.location.port || '8085'}`
+                : window.location.hostname;
+            const wsUrl = `${protocol}//${host}/ws/cockpit`;
+
+            const ws = new WebSocket(wsUrl);
+
+            ws.onmessage = event => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    const type = (msg.type || '').toLowerCase();
+                    const data = msg.data;
+
+                    if (type === 'hermes_notification') {
+                        // Flash the hermes node and relevant nodes
+                        const hermesNode = nodes.find(n => 
+                            n.id.toLowerCase().includes('hermes')
+                        );
+                        if (hermesNode) flashGraphNode(hermesNode.id);
+
+                        // Orbi alert — pulso dourado para notificações
+                        if (typeof triggerOrbiAlert === 'function') {
+                            triggerOrbiAlert('#fbbf24', 2500);
+                        }
+
+                        // Show toast
+                        showComplianceToast(data.message || 'Notificação Hermes recebida');
+                    }
+                    else if (type === 'hermes_compliance') {
+                        // Pulse escadinha phase nodes
+                        const phases = ['RISK_ZERO', 'PROFIT_BRIDGE', 'SHIELD_ACTIVE', 'MAESTRIA', 'EMANCIPATION'];
+                        phases.forEach((phase, i) => {
+                            setTimeout(() => {
+                                const node = nodes.find(n => n.id === phase);
+                                if (node) pulseGraphNode(node.id);
+                            }, i * 300);
+                        });
+
+                        // Orbi alert — verde para conformidades
+                        if (typeof triggerOrbiAlert === 'function') {
+                            triggerOrbiAlert('#22c55e', 3000);
+                        }
+
+                        showComplianceToast(
+                            `✅ Compliance: ${data.total_conformidades || 0} conformidades`
+                        );
+                    }
+                    else if (type === 'hermes_telemetry') {
+                        // Subtle pulse on hermes node
+                        const hermesNode = nodes.find(n => 
+                            n.id.toLowerCase().includes('hermes')
+                        );
+                        if (hermesNode) pulseGraphNode(hermesNode.id);
+
+                        // Orbi alert — ciano para telemetria
+                        if (typeof triggerOrbiAlert === 'function') {
+                            triggerOrbiAlert('#22d3ee', 1500);
+                        }
+                    }
+                } catch (e) {
+                    // ignore parse errors
+                }
+            };
+
+            ws.onclose = () => {
+                setTimeout(initWebSocket, 5000);
+            };
+
+            ws.onerror = () => {
+                // Will reconnect on close
+            };
+        }
+
+        function showComplianceToast(msg) {
+            complianceToast.textContent = '🪶 ' + msg;
+            complianceToast.classList.add('show');
+            setTimeout(() => complianceToast.classList.remove('show'), 4000);
+        }
+
+        // Mobile toggle: alterna entre graph-mode e chat-mode com transição suave
+        if (mobileToggle) {
+            function applyModeTransition(targetMode) {
+                // Fade out
+                document.body.classList.add('mode-transitioning');
+                setTimeout(() => {
+                    // Switch mode
+                    document.body.classList.remove('graph-mode', 'chat-mode');
+                    document.body.classList.add(targetMode);
+                    // Fade in
+                    document.body.classList.remove('mode-transitioning');
+                    if (targetMode === 'graph-mode') {
+                        toggleTimeout = setTimeout(() => {
+                            resize();
+                            if (typeof reinitOrbiIfNeeded === 'function') reinitOrbiIfNeeded();
+                        }, 50);
+                    }
+                }, 300);
+            }
+
+            mobileToggle.addEventListener('click', () => {
+                clearTimeout(toggleTimeout);
+                const isGraphMode = document.body.classList.contains('graph-mode');
+                if (!isGraphMode) {
+                    applyModeTransition('chat-mode');
+                    mobileToggle.textContent = '🌐';
+                } else {
+                    applyModeTransition('graph-mode');
+                    mobileToggle.textContent = '💬';
+                }
+            });
+
+            // Fechar graph-mode ao enviar mensagem (mobile)
+            const origSend = sendChatMessage;
+            sendChatMessage = function(text) {
+                if (window.innerWidth <= 768 && document.body.classList.contains('graph-mode')) {
+                    applyModeTransition('chat-mode');
+                    mobileToggle.textContent = '🌐';
+                }
+                return origSend(text);
+            };
+        }
+
+        // ================================================================
+        // ORBI — Sistema orbital minimalista (Segundo Cérebro)
+        // ================================================================
+
+        const orbiCanvas = document.getElementById('orbi');
+        const orbiCtx = orbiCanvas ? orbiCanvas.getContext('2d') : null;
+        let orbiAnimationId = null;
+        let orbiParticles = [];
+        let orbiSyncFrameCounter = 0;
+        let orbiSyncedNodes = new Set();
+        let orbiAlertActive = false;
+        let orbiAlertEndTime = 0;
+        let orbiAlertColor = '#f43f5e';
+        let orbiAlertTimer = null;
+
+        function triggerOrbiAlert(color, duration) {
+            if (orbiAlertTimer) clearTimeout(orbiAlertTimer);
+            orbiAlertActive = true;
+            orbiAlertColor = color || '#f43f5e';
+            orbiAlertEndTime = Date.now() + (duration || 3000);
+            orbiAlertTimer = setTimeout(() => { orbiAlertActive = false; }, duration || 3000);
+        }
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function lerpColor(hexA, hexB, t) {
+            const r1 = parseInt(hexA.slice(1, 3), 16);
+            const g1 = parseInt(hexA.slice(3, 5), 16);
+            const b1 = parseInt(hexA.slice(5, 7), 16);
+            const r2 = parseInt(hexB.slice(1, 3), 16);
+            const g2 = parseInt(hexB.slice(3, 5), 16);
+            const b2 = parseInt(hexB.slice(5, 7), 16);
+            const r = Math.round(r1 + (r2 - r1) * t);
+            const g = Math.round(g1 + (g2 - g1) * t);
+            const b = Math.round(b1 + (b2 - b1) * t);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        function initOrbi() {
+            if (!orbiCtx || !orbiCanvas) return;
+            const section = document.getElementById('neural-section');
+            if (!section) return;
+            const rect = section.getBoundingClientRect();
+            if (!rect || rect.width === 0 || rect.height === 0) return;
+
+            orbiCanvas.width = rect.width;
+            orbiCanvas.height = rect.height;
+
+            const cx = orbiCanvas.width / 2;
+            const cy = orbiCanvas.height / 2;
+            const minDim = Math.min(cx, cy);
+
+            // Anéis orbitais com raios progressivos
+            const rings = [
+                { radius: minDim * 0.3, count: 16, speed: 0.006, color: '#22d3ee', size: 1.8 },
+                { radius: minDim * 0.48, count: 22, speed: -0.004, color: '#a855f7', size: 1.4 },
+                { radius: minDim * 0.66, count: 28, speed: 0.0025, color: '#fbbf24', size: 1.0 },
+            ];
+
+            orbiParticles = [];
+            rings.forEach((ring) => {
+                for (let i = 0; i < ring.count; i++) {
+                    const angle = (i / ring.count) * Math.PI * 2;
+                    orbiParticles.push({
+                        angle: angle,
+                        radius: ring.radius,
+                        speed: ring.speed,
+                        baseSize: ring.size,
+                        size: ring.size + Math.random() * 0.6,
+                        color: ring.color,
+                        phase: Math.random() * Math.PI * 2,
+                        trail: [],
+                        maxTrail: 6 + Math.floor(Math.random() * 4),
+                    });
+                }
+            });
+
+            orbiCanvas.classList.add('visible');
+        }
+
+        function renderOrbi() {
+            if (!orbiCtx || !orbiCanvas) {
+                orbiAnimationId = requestAnimationFrame(renderOrbi);
+                return;
+            }
+
+            const section = document.getElementById('neural-section');
+            if (!section) { orbiAnimationId = requestAnimationFrame(renderOrbi); return; }
+            const rect = section.getBoundingClientRect();
+            if (!rect || rect.width === 0 || rect.height === 0) {
+                orbiAnimationId = requestAnimationFrame(renderOrbi);
+                return;
+            }
+
+            // Sync canvas size if resized
+            if (orbiCanvas.width !== rect.width || orbiCanvas.height !== rect.height) {
+                orbiCanvas.width = rect.width;
+                orbiCanvas.height = rect.height;
+            }
+
+            const cx = orbiCanvas.width / 2;
+            const cy = orbiCanvas.height / 2;
+            const now = Date.now() / 1000;
+
+            orbiCtx.clearRect(0, 0, orbiCanvas.width, orbiCanvas.height);
+
+            // Desenha anéis orbitais sutis
+            const drawnRadii = new Set();
+            orbiParticles.forEach(p => {
+                if (!drawnRadii.has(p.radius)) {
+                    drawnRadii.add(p.radius);
+                    orbiCtx.beginPath();
+                    orbiCtx.arc(cx, cy, p.radius, 0, Math.PI * 2);
+                    orbiCtx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+                    orbiCtx.lineWidth = 0.5;
+                    orbiCtx.stroke();
+                }
+            });
+
+            // Brilho central pulsante
+            const centerPulse = Math.sin(now * 1.2) * 0.3 + 0.7;
+            const gradient = orbiCtx.createRadialGradient(cx, cy, 0, cx, cy, 18);
+            gradient.addColorStop(0, `rgba(34, 211, 238, ${0.12 * centerPulse})`);
+            gradient.addColorStop(0.5, `rgba(168, 85, 247, ${0.05 * centerPulse})`);
+            gradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+            orbiCtx.fillStyle = gradient;
+            orbiCtx.beginPath();
+            orbiCtx.arc(cx, cy, 18, 0, Math.PI * 2);
+            orbiCtx.fill();
+
+            // Determina cor base com possível alerta
+            const alertActive = orbiAlertActive && Date.now() < orbiAlertEndTime;
+
+            // Atualiza e desenha partículas
+            orbiParticles.forEach(p => {
+                // Ângulo com leve oscilação senoidal
+                p.angle += p.speed * (1 + Math.sin(now * 0.3 + p.phase) * 0.08);
+
+                const x = cx + Math.cos(p.angle) * p.radius;
+                const y = cy + Math.sin(p.angle) * p.radius;
+
+                // Cor da partícula — com alerta, faz blend com a cor de alerta
+                let particleColor = p.color;
+                if (alertActive) {
+                    const alertBlend = Math.sin(now * 8 + p.phase) * 0.3 + 0.5; // pisca entre 0.2 e 0.8
+                    particleColor = lerpColor(p.color, orbiAlertColor, alertBlend * 0.6);
+                }
+
+                // Trail (rastro)
+                p.trail.push({ x, y });
+                if (p.trail.length > p.maxTrail) p.trail.shift();
+
+                if (p.trail.length > 1) {
+                    orbiCtx.beginPath();
+                    orbiCtx.moveTo(p.trail[0].x, p.trail[0].y);
+                    for (let i = 1; i < p.trail.length; i++) {
+                        orbiCtx.lineTo(p.trail[i].x, p.trail[i].y);
+                    }
+                    orbiCtx.strokeStyle = hexToRgba(particleColor, 0.08);
+                    orbiCtx.lineWidth = p.size * 0.4;
+                    orbiCtx.stroke();
+                }
+
+                // Brilho da partícula (oscila suavemente)
+                const brightness = Math.sin(now * 0.6 + p.phase) * 0.25 + 0.75;
+                const size = p.size * brightness;
+
+                // Glow externo
+                orbiCtx.beginPath();
+                orbiCtx.arc(x, y, size * 3, 0, Math.PI * 2);
+                orbiCtx.fillStyle = hexToRgba(particleColor, 0.06 * brightness);
+                orbiCtx.fill();
+
+                // Partícula principal
+                orbiCtx.beginPath();
+                orbiCtx.arc(x, y, size, 0, Math.PI * 2);
+                orbiCtx.fillStyle = hexToRgba(particleColor, 0.5 * brightness);
+                orbiCtx.fill();
+
+                // Centro branco sutil
+                orbiCtx.beginPath();
+                orbiCtx.arc(x, y, size * 0.4, 0, Math.PI * 2);
+                orbiCtx.fillStyle = `rgba(255, 255, 255, ${0.3 * brightness})`;
+                orbiCtx.fill();
+            });
+
+            // ─── ORBI ↔ GRAPH SYNC ───
+            // A cada 15 frames (~4x/s), verifica se alguma partícula passou perto de um nó
+            orbiSyncFrameCounter++;
+            if (orbiSyncFrameCounter > 100000) orbiSyncFrameCounter = 0;
+            if (orbiSyncFrameCounter % 15 === 0 && nodes.length > 0 && typeof graphWidth !== 'undefined' && graphWidth > 0) {
+                const threshold = 35; // pixels de distância para ativar
+                const nowMs = Date.now();
+                orbiParticles.forEach(p => {
+                    const px = cx + Math.cos(p.angle) * p.radius;
+                    const py = cy + Math.sin(p.angle) * p.radius;
+                    // Varredura rápida: checa cada nó
+                    for (let ni = 0; ni < nodes.length; ni++) {
+                        const n = nodes[ni];
+                        if (!n || typeof n.x !== 'number') continue;
+                        // Converte coordenadas do nó para screen space
+                        const nx = n.x * transform.k + transform.x;
+                        const ny = n.y * transform.k + transform.y;
+                        const dist = Math.hypot(px - nx, py - ny);
+                        if (dist < threshold && !orbiSyncedNodes.has(n.id)) {
+                            orbiSyncedNodes.add(n.id);
+                            if (typeof pulseGraphNode === 'function') {
+                                pulseGraphNode(n.id);
+                            }
+                            setTimeout(() => orbiSyncedNodes.delete(n.id), 600);
+                            break; // apenas 1 nó por partícula por frame
+                        }
+                    }
+                });
+            }
+
+            orbiAnimationId = requestAnimationFrame(renderOrbi);
+        }
+
+        function startOrbi() {
+            setTimeout(() => {
+                initOrbi();
+                if (orbiAnimationId) cancelAnimationFrame(orbiAnimationId);
+                renderOrbi();
+            }, 800);
+        }
+
+        // Start WebSocket
+        setTimeout(initWebSocket, 2000);
+
+        // ================================================================
+        // INIT
+        // ================================================================
+
+        // Load graph (double requestAnimationFrame para garantir que o DOM está pintado)
+        function initApp() {
+            if (initFrameScheduled) return;
+            initFrameScheduled = true;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    resize();
+                    loadGraph();
+                });
+            });
+        }
+        initApp();
+
+        // Start Orbi after a short delay
+        startOrbi();
+
+        // Re-init orbi on resize (debounced)
+        function reinitOrbiIfNeeded() {
+            const section = document.getElementById('neural-section');
+            if (section) {
+                const rect = section.getBoundingClientRect();
+                if (rect && rect.width > 0 && rect.height > 0) {
+                    initOrbi();
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                resize();
+                reinitOrbiIfNeeded();
+            }, 150);
+        });
+
+        // Focus input on load
+        setTimeout(() => chatInput.focus(), 1500);
+
+        console.log('🧬 Neural Chat — Hermes Fusion V1.0');
+        console.log(`🔌 API: ${API_BASE}`);
+        console.log(`📡 WebSocket: auto-conectando...`);
+        console.log(`📱 Mobile toggle disponível em resoluções < 768px`);
+    </script>
+</body>
+</html>

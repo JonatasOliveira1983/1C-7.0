@@ -1,0 +1,116 @@
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from typing import Optional
+from dotenv import load_dotenv
+
+# V110.42.1: Robust .env loading - find file relative to this script
+config_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(config_dir, ".env")
+load_dotenv(env_path, override=True)
+
+class Settings(BaseSettings):
+    # Firebase (Google)
+    FIREBASE_CREDENTIALS_PATH: str = "serviceAccountKey.json"
+    FIREBASE_DATABASE_URL: Optional[str] = None
+    ADMIN_API_KEY: str = os.getenv("ADMIN_API_KEY", "1crypten-elite-2026") # Próxima fase: Tornar obrigatório no .env
+
+    # Bybit
+    BYBIT_API_KEY: Optional[str] = None
+    BYBIT_API_SECRET: Optional[str] = None
+    BYBIT_CATEGORY: str = "linear"
+    BYBIT_TESTNET: bool = False # FALSE = Mainnet Data (Real Prices)
+    BYBIT_EXECUTION_MODE: str = os.getenv("BYBIT_EXECUTION_MODE", "REAL") # "PAPER" = Simulated Execution
+    BYBIT_SIMULATED_BALANCE: float = 100.0 # [V110.175] Reset para banca padrão Sniper
+    FACTORY_RESET_V110: bool = False # [V110.29.0] Reset atômico do sistema
+
+    # [V28.3] Strip whitespace from critical env vars to prevent 'PAPER ' != 'PAPER' bugs
+    @field_validator('BYBIT_EXECUTION_MODE', mode='before')
+    @classmethod
+    def strip_execution_mode(cls, v):
+        if isinstance(v, str):
+            return v.strip().upper()
+        return v
+
+    @field_validator('BYBIT_TESTNET', 'FACTORY_RESET_V110', mode='before')
+    @classmethod
+    def parse_testnet(cls, v):
+        if isinstance(v, str):
+            v_clean = v.strip().lower()
+            return v_clean in ('true', '1', 't', 'y', 'yes')
+        return bool(v)
+
+    @field_validator('BYBIT_API_KEY', 'BYBIT_API_SECRET', mode='before')
+    @classmethod
+    def strip_api_keys(cls, v):
+        if isinstance(v, str):
+            return v.strip() or None
+        return v
+
+    # Gemini
+    GEMINI_API_KEY: Optional[str] = None
+    
+    # GLM (ZhipuAI)
+    GLM_API_KEY: Optional[str] = None
+    
+    # OpenRouter (New Primary)
+    OPENROUTER_API_KEY: Optional[str] = None
+    
+    # [HERMES] DeepSeek (Primary Hermes Brain)
+    DEEPSEEK_API_KEY: Optional[str] = None
+    
+    # [V56.0] On-Chain
+    ETHERSCAN_API_KEY: str = os.getenv("ETHERSCAN_API_KEY", "YourApiKeyToken")
+
+    # App Logic
+    DEBUG: bool = True
+    PORT: int = int(os.getenv("PORT", 8085))
+    HOST: str = "0.0.0.0"
+    MAX_SLOTS: int = 4  # V12.0: Quad Slot System - Supports up to 4 concurrent trades
+    RISK_CAP_PERCENT: float = 0.40  # V12.0: Supports up to 4 slots (4 x 10% = 40% Max Exposure)
+    LEVERAGE: int = 50
+    LEVERAGE_RANGING: int = 20    # [V86.1] For Lateral Markets
+    LEVERAGE_TRENDING: int = 50   # [V86.1] For Trending Markets
+    INITIAL_SLOTS: int = 1
+    BREAKEVEN_TRIGGER_PERCENT: float = 5.0 # Increased to 5% ROI to avoid premature exits
+    WIN_ROI_THRESHOLD: float = 80.0 # V11.0: ROI mínimo para contar como WIN no ciclo 1/10
+    
+    # Redis
+    REDIS_HOST: str = os.getenv("REDISHOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDISPORT", 6379))
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDISPASSWORD", os.getenv("REDIS_PASSWORD", None))
+    REDIS_DB: int = 0
+    REDIS_URL: Optional[str] = os.getenv("REDIS_URL", None)
+    
+    # [V110.400] OFFICIAL 30 ELITE MATRIX
+    ELITE_30_MATRIX: list = [
+        "AVAXUSDT", "PYTHUSDT", "APTUSDT", "SUIUSDT", "OPUSDT", 
+        "ARBUSDT", "RENDERUSDT", "NEARUSDT", "INJUSDT", "TIAUSDT", 
+        "LINKUSDT", "DOTUSDT", "ADAUSDT", "POLUSDT", "ATOMUSDT", 
+        "LTCUSDT", "BCHUSDT", "XLMUSDT", "XRPUSDT", "TRXUSDT",
+        "SEIUSDT", "FILUSDT", "FTMUSDT", "AAVEUSDT", "ALGOUSDT", 
+        "IMXUSDT", "GALAUSDT", "GRTUSDT", "CRVUSDT", "EGLDUSDT"
+    ]
+    
+    # [V110.400] MASTER CONTEXT
+    MASTER_CONTEXT_ASSETS: list = ["BTCUSDT", "ETHUSDT"]
+    
+    # [V110.20.1] Official Asset Blocklist - Memecoins & Low Liquidity
+    ASSET_BLOCKLIST: set = {
+        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', # Master Context Assets (Monitoring only)
+        'PAXGUSDT', 'XAUTUSDT', 'TAOUSDT', 
+        'PIPPINUSDT', '1000PEPEUSDT', '1000LUNCUSDT',
+        'DOGEUSDT', 'SHIBUSDT', 'FLOKIUSDT', 'BONKUSDT', 'WIFUSDT', 
+        'MEMEUSDT', 'PEOPLEUSDT', 'TURBOUSDT', 'POPCATUSDT', 'BRETTUSDT', 
+        'MOGUSDT', 'MEWUSDT', 'BOMEUSDT', 'MYROUSDT', 'COQUSDT', 
+        'JOEUSDT', 'AIDOGEUSDT', 'SLERFUSDT', 'NPCUSDT', 'NEIROUSDT',
+        '1000SHIBUSDT', '1000BONKUSDT', '1000FLOKIUSDT', 'LUNCUSDT', 'USTCUSDT',
+        'XAUUSDT', 'XAGUSDT', 'XPDUSDT', 'XPTUSDT', 'WTIUSDT', 'BRENTUSDT',
+        'USDEUSDT', 'USDCUSDT', 'EURSUSDT', 'DAIUSDT', 'FDUSDUSDT',
+        'BNBUSDT'
+    }
+
+    # Fast API context
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+settings = Settings()

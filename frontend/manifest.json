@@ -1,0 +1,84 @@
+{
+    "name": "1CRYPTEN SNIPER",
+    "short_name": "1CRYPTEN",
+    "description": "Central de Comando Sniper para Trading de Elite. Monitore operações, radar de sinais e o Vault da Jornada em tempo real.",
+    "id": "/",
+    "scope": "/",
+    "lang": "pt-BR",
+    "dir": "ltr",
+    "start_url": "/",
+    "display": "standalone",
+    "display_override": ["window-controls-overlay", "minimal-ui", "standalone"],
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "logo10D.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "logo10D.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "logo10D.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "logo10D.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "orientation": "portrait",
+    "categories": [
+        "finance",
+        "business"
+    ],
+    "shortcuts": [
+        {
+            "name": "Radar",
+            "short_name": "Radar",
+            "description": "Visualizar radar de sinais",
+            "url": "/#/10d",
+            "icons": [
+                {
+                    "src": "logo10D.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Logs",
+            "short_name": "Logs",
+            "description": "Visualizar logs do sistema",
+            "url": "/#/chat",
+            "icons": [
+                {
+                    "src": "logo10D.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Config",
+            "short_name": "Config",
+            "description": "Configurações do sistema",
+            "url": "/#/config",
+            "icons": [
+                {
+                    "src": "logo10D.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "prefer_related_applications": false
+}

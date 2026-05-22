@@ -1,0 +1,27 @@
+2026-05-12 19:51:08,912 - SlotOperatorAgent - INFO - ­ƒÆñ [SLOT-1] Mem├│ria vazia: Aguardando novos sinais.
+2026-05-12 19:51:08,912 - SlotOperatorAgent - INFO - ­ƒÜÇ [SLOT-1] Loop de monitoramento online.
+2026-05-12 19:51:08,921 - 1CRYPTEN-MAIN - INFO - ­ƒÜÇ [SLOT-1] Agente de Opera├º├úo ONLINE ÔÇö Monitoramento isolado ativo.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÆñ [SLOT-2] Mem├│ria vazia: Aguardando novos sinais.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÜÇ [SLOT-2] Loop de monitoramento online.
+2026-05-12 19:51:08,921 - 1CRYPTEN-MAIN - INFO - ­ƒÜÇ [SLOT-2] Agente de Opera├º├úo ONLINE ÔÇö Monitoramento isolado ativo.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÆñ [SLOT-3] Mem├│ria vazia: Aguardando novos sinais.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÜÇ [SLOT-3] Loop de monitoramento online.
+2026-05-12 19:51:08,921 - 1CRYPTEN-MAIN - INFO - ­ƒÜÇ [SLOT-3] Agente de Opera├º├úo ONLINE ÔÇö Monitoramento isolado ativo.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÆñ [SLOT-4] Mem├│ria vazia: Aguardando novos sinais.
+2026-05-12 19:51:08,921 - SlotOperatorAgent - INFO - ­ƒÜÇ [SLOT-4] Loop de monitoramento online.
+2026-05-12 19:51:08,921 - 1CRYPTEN-MAIN - INFO - ­ƒÜÇ [SLOT-4] Agente de Opera├º├úo ONLINE ÔÇö Monitoramento isolado ativo.
+2026-05-12 19:54:38,566 - SlotOperatorAgent - INFO - ­ƒÄ» [SLOT-1] Sinal atribu├¡do: INJUSDT
+2026-05-12 19:54:38,784 - SlotOperatorAgent - INFO - ­ƒÄ» [SLOT-2] Sinal atribu├¡do: ADAUSDT
+2026-05-12 19:54:39,265 - SlotOperatorAgent - INFO - ÔÜí [SLOT-2] Iniciando G├èNESIS para ADAUSDT
+2026-05-12 19:54:39,272 - SlotOperatorAgent - INFO - ÔÜí [SLOT-1] Iniciando G├èNESIS para INJUSDT
+2026-05-12 19:54:42,687 - SlotOperatorAgent - INFO - Ô£à [SLOT-1] G├¬nese Completa: INJUSDT @ 4.804
+2026-05-12 19:54:42,703 - SlotOperatorAgent - INFO - ­ƒô© [SLOT-1] Capturando evid├¬ncia visual (GENESIS) para INJUSDT...
+2026-05-12 19:54:42,703 - SlotOperatorAgent - WARNING - ÔÜá´©Å [SLOT-1] Falha ao capturar print: 'VisionAgent' object has no attribute 'capture_position_state'
+2026-05-12 19:54:43,258 - SlotOperatorAgent - INFO - Ô£à [SLOT-2] G├¬nese Completa: ADAUSDT @ 0.2717
+2026-05-12 19:54:43,273 - SlotOperatorAgent - INFO - ­ƒô© [SLOT-2] Capturando evid├¬ncia visual (GENESIS) para ADAUSDT...
+2026-05-12 19:54:43,273 - SlotOperatorAgent - WARNING - ÔÜá´©Å [SLOT-2] Falha ao capturar print: 'VisionAgent' object has no attribute 'capture_position_state'
+2026-05-12 19:55:03,547 - SlotOperatorAgent - INFO - ­ƒÄ» [SLOT-3] Sinal atribu├¡do: SUIUSDT.P
+2026-05-12 19:55:04,312 - SlotOperatorAgent - INFO - ÔÜí [SLOT-3] Iniciando G├èNESIS para SUIUSDT.P
+2026-05-12 19:55:07,850 - SlotOperatorAgent - INFO - Ô£à [SLOT-3] G├¬nese Completa: SUIUSDT.P @ 1.245
+2026-05-12 19:55:07,852 - SlotOperatorAgent - INFO - ­ƒô© [SLOT-3] Capturando evid├¬ncia visual (GENESIS) para SUIUSDT.P...
+2026-05-12 19:55:07,854 - SlotOperatorAgent - WARNING - ÔÜá´©Å [SLOT-3] Falha ao capturar print: 'VisionAgent' object has no attribute 'capture_position_state'
