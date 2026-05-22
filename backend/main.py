@@ -505,6 +505,17 @@ ALLOWED_ORIGINS = [
     "https://10d50-production.up.railway.app",
 ]
 
+# Process and append custom backend CORS origins
+if settings.BACKEND_CORS_ORIGINS:
+    try:
+        custom_origins = [orig.strip() for orig in settings.BACKEND_CORS_ORIGINS.split(",") if orig.strip()]
+        for origin in custom_origins:
+            if origin not in ALLOWED_ORIGINS:
+                ALLOWED_ORIGINS.append(origin)
+        logger.info(f"📡 Dynamic CORS Origins loaded: {custom_origins}")
+    except Exception as e:
+        logger.error(f"❌ Error parsing BACKEND_CORS_ORIGINS: {e}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS if not settings.DEBUG else ["*"],
@@ -528,39 +539,40 @@ else:
 # [V110.506] Robust Static Mounting
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR, html=False), name="assets")
 
-# [V5.0] Intel Map (Graphify)
-GRAPHIFY_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "graphify-out"))
-OBSIDIAN_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", ".obsidian_intel"))
+if settings.SERVE_STATIC_FRONTEND:
+    # [V5.0] Intel Map (Graphify)
+    GRAPHIFY_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "graphify-out"))
+    OBSIDIAN_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", ".obsidian_intel"))
 
-if os.path.exists(GRAPHIFY_DIR):
-    app.mount("/intel/map", StaticFiles(directory=GRAPHIFY_DIR, html=True), name="intel_map")
+    if os.path.exists(GRAPHIFY_DIR):
+        app.mount("/intel/map", StaticFiles(directory=GRAPHIFY_DIR, html=True), name="intel_map")
 
-if os.path.exists(OBSIDIAN_DIR):
-    app.mount("/intel/wiki_raw", StaticFiles(directory=OBSIDIAN_DIR), name="wiki_raw")
+    if os.path.exists(OBSIDIAN_DIR):
+        app.mount("/intel/wiki_raw", StaticFiles(directory=OBSIDIAN_DIR), name="wiki_raw")
 
-@app.get("/intel/wiki")
-async def intelligence_wiki():
-    return FileResponse(os.path.join(FRONTEND_DIR, "intel_wiki.html"))
+    @app.get("/intel/wiki")
+    async def intelligence_wiki():
+        return FileResponse(os.path.join(FRONTEND_DIR, "intel_wiki.html"))
 
-@app.get("/intel/neural")
-async def intelligence_neural():
-    """Serves the True Force-Directed Neural Map."""
-    return FileResponse(os.path.join(FRONTEND_DIR, "neural_graph.html"))
+    @app.get("/intel/neural")
+    async def intelligence_neural():
+        """Serves the True Force-Directed Neural Map."""
+        return FileResponse(os.path.join(FRONTEND_DIR, "neural_graph.html"))
 
-@app.get("/intel/map/graph.json")
-async def serve_graph_json():
-    """Serves the knowledge graph JSON representing the system architecture."""
-    graph_path = os.path.join(GRAPHIFY_DIR, "graph.json")
-    if os.path.exists(graph_path):
-        return FileResponse(graph_path, media_type="application/json")
-    # Fallback: return empty graph
-    from fastapi.responses import JSONResponse
-    return JSONResponse({"nodes": [], "links": []})
+    @app.get("/intel/map/graph.json")
+    async def serve_graph_json():
+        """Serves the knowledge graph JSON representing the system architecture."""
+        graph_path = os.path.join(GRAPHIFY_DIR, "graph.json")
+        if os.path.exists(graph_path):
+            return FileResponse(graph_path, media_type="application/json")
+        # Fallback: return empty graph
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"nodes": [], "links": []})
 
-@app.get("/neural-chat")
-async def neural_chat():
-    """Serves the Neural Chat Fusion — 60% Neural Graph + 40% Chat Hermes."""
-    return FileResponse(os.path.join(FRONTEND_DIR, "neural-chat.html"))
+    @app.get("/neural-chat")
+    async def neural_chat():
+        """Serves the Neural Chat Fusion — 60% Neural Graph + 40% Chat Hermes."""
+        return FileResponse(os.path.join(FRONTEND_DIR, "neural-chat.html"))
 
 
 
@@ -606,44 +618,60 @@ async def cockpit_websocket_endpoint(websocket: WebSocket):
         websocket_service.disconnect(websocket)
 
 # Special Root Routes (Must stay in main for precedence or special handling)
-@app.get("/observatory", response_class=HTMLResponse)
-@app.get("/observatory/{symbol}", response_class=HTMLResponse)
-async def observatory_page(symbol: str = "AVAXUSDT"):
-    # Check local path then app path
-    path = os.path.join(FRONTEND_DIR, "observatory.html")
-    if not os.path.exists(path):
-        path = "/app/frontend/observatory.html"
-    
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
-
-@app.get("/")
-async def serve_index():
-    return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
-
-@app.get("/cockpit")
-@app.get("/cockpit.html")
-async def cockpit_redirect():
-    return RedirectResponse(url="/")
-
-@app.get("/observatory.html")
-async def serve_observatory_legacy():
-    """[V5.0] Sala de Observação Visual — 40 Elite Pairs"""
-    return FileResponse(os.path.join(FRONTEND_DIR, "observatory.html"))
-
-@app.get("/{full_path:path}")
-async def catch_all(full_path: str):
-    # Search for physical file first (crucial for manifest.json, sw.js, etc.)
-    file_path = os.path.join(FRONTEND_DIR, full_path)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
+if settings.SERVE_STATIC_FRONTEND:
+    @app.get("/observatory", response_class=HTMLResponse)
+    @app.get("/observatory/{symbol}", response_class=HTMLResponse)
+    async def observatory_page(symbol: str = "AVAXUSDT"):
+        # Check local path then app path
+        path = os.path.join(FRONTEND_DIR, "observatory.html")
+        if not os.path.exists(path):
+            path = "/app/frontend/observatory.html"
         
-    # SECURITY: Never catch-all API routes that DON'T correspond to files
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-    
-    # SPA Fallback
-    return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
+
+    @app.get("/cockpit")
+    @app.get("/cockpit.html")
+    async def cockpit_redirect():
+        return RedirectResponse(url="/")
+
+    @app.get("/observatory.html")
+    async def serve_observatory_legacy():
+        """[V5.0] Sala de Observação Visual — 40 Elite Pairs"""
+        return FileResponse(os.path.join(FRONTEND_DIR, "observatory.html"))
+
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        # Search for physical file first (crucial for manifest.json, sw.js, etc.)
+        file_path = os.path.join(FRONTEND_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+            
+        # SECURITY: Never catch-all API routes that DON'T correspond to files
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+        # SPA Fallback
+        return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
+else:
+    @app.get("/")
+    async def serve_headless_root():
+        return {
+            "status": "online",
+            "mode": "headless",
+            "version": VERSION,
+            "deployment_id": DEPLOYMENT_ID,
+            "message": "1Crypten Space V4.0 (10D Sniper Factory) API is running in Headless Mode."
+        }
+
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        # SECURITY: Never catch-all API routes that DON'T correspond to files
+        raise HTTPException(status_code=404, detail="Not found (API Headless Mode)")
 
 if __name__ == "__main__":
     target_port = settings.PORT

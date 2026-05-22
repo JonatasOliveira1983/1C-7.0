@@ -1724,12 +1724,31 @@
         // [V110.23.7] Use explicit global for Router to avoid UMD race conditions
         const { Route, Link, useLocation, useNavigate } = ReactRouterDOM;
 
-        // Dynamic API Base: Robust resolution for local and production
+        // [V110.600] Dynamic API Base: Resolves from Query Param, localStorage, or Auto-detection
         const API_BASE = (() => {
+            // 1. Check URL query parameters (?api=... or ?api_base=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryApi = urlParams.get('api') || urlParams.get('api_base');
+            if (queryApi) {
+                const sanitizedApi = queryApi.replace(/\/$/, "");
+                localStorage.setItem('BACKEND_API_URL', sanitizedApi);
+                console.log(`🔌 API customizada definida via URL: ${sanitizedApi}`);
+                return sanitizedApi;
+            }
+
+            // 2. Check localStorage
+            const savedApi = localStorage.getItem('BACKEND_API_URL');
+            if (savedApi) {
+                return savedApi;
+            }
+
+            // 3. Fallback to auto-detection (useful for integrated / default local deploy)
             if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                if (!window.location.hostname) {
+                    return 'http://localhost:8085';
+                }
                 return `${window.location.protocol}//${window.location.hostname}`;
             }
-            // [V110.144] Local Dynamic Port Detection (8085 Standard)
             const port = window.location.port || '8085';
             return `${window.location.protocol}//${window.location.hostname}:${port}`;
         })();
@@ -1737,18 +1756,13 @@
         // [SILENCED] console.log("System Initialized", API_BASE);
 
         // V110.175: Railway WebSocket Integration (Replaces Firebase sovereign_rtdb)
-        const WS_URL = API_BASE.replace('http', 'ws') + '/ws/cockpit';
+        const WS_URL = API_BASE.replace(/^http/, 'ws');
         let sovereign_rtdb = null;
         let ws = null;
 
         // V110.198: Domain Hardening — Intelligent Protocol Detection
         const initWebSocket = () => {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                         ? `${window.location.hostname}:${window.location.port || '8085'}`
-                         : window.location.hostname;
-            
-            const wsUrl = `${protocol}//${host}/ws/cockpit`;
+            const wsUrl = WS_URL + '/ws/cockpit';
             // [SILENCED] console.log("Connecting to WebSocket", wsUrl);
             ws = new WebSocket(wsUrl);
 
@@ -7545,6 +7559,28 @@
                 { id: 'gemini', label: 'Gemini Dark', icon: 'blur_on', color: 'text-white' },
             ];
 
+            const [customApi, setCustomApi] = React.useState(localStorage.getItem('BACKEND_API_URL') || '');
+
+            const handleSaveApi = () => {
+                if (customApi.trim()) {
+                    const sanitized = customApi.trim().replace(/\/$/, "");
+                    localStorage.setItem('BACKEND_API_URL', sanitized);
+                    alert(`✅ API definida com sucesso!\nO sistema irá recarregar para aplicar.`);
+                    window.location.reload();
+                } else {
+                    localStorage.removeItem('BACKEND_API_URL');
+                    alert(`✅ API resetada para o padrão automático!\nO sistema irá recarregar para aplicar.`);
+                    window.location.reload();
+                }
+            };
+
+            const handleResetApi = () => {
+                localStorage.removeItem('BACKEND_API_URL');
+                setCustomApi('');
+                alert(`✅ API resetada para o padrão automático!\nO sistema irá recarregar para aplicar.`);
+                window.location.reload();
+            };
+
             return (
                 <div className="flex flex-col min-h-screen v5-bg-deep text-white lg:pl-[80px] pb-28 lg:pb-0">
                     <div className="max-w-2xl mx-auto w-full p-6 flex flex-col gap-6 pt-8 lg:pt-12">
@@ -7583,6 +7619,44 @@
                                         )}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+
+                        {/* API Endpoint Configuration */}
+                        <div className="glass-card p-5 rounded-2xl border border-white/5 flex flex-col gap-4">
+                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="material-icons-round text-sm text-white/60">api</span>
+                                Endpoint da API do Backend
+                            </h2>
+                            <p className="text-[10px] text-gray-400 leading-relaxed uppercase tracking-wider">
+                                Caso o backend esteja rodando desacoplado em outro serviço do Railway ou localmente, configure a URL abaixo.
+                            </p>
+                            <div className="flex flex-col gap-3">
+                                <input
+                                    type="text"
+                                    value={customApi}
+                                    onChange={(e) => setCustomApi(e.target.value)}
+                                    placeholder="Ex: https://10d50-backend.up.railway.app"
+                                    className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-gray-300 focus:outline-none focus:border-primary/50 transition-all"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleSaveApi}
+                                        className="flex-1 py-2.5 rounded-xl bg-primary/25 hover:bg-primary/40 border border-primary/45 hover:border-primary/60 transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5"
+                                    >
+                                        <span className="material-icons-round text-sm">save</span>
+                                        Salvar & Conectar
+                                    </button>
+                                    {localStorage.getItem('BACKEND_API_URL') && (
+                                        <button
+                                            onClick={handleResetApi}
+                                            className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center"
+                                            title="Resetar para automático"
+                                        >
+                                            <span className="material-icons-round text-sm">restart_alt</span>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

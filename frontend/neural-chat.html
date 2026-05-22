@@ -1428,8 +1428,29 @@
         // CHAT WITH HERMES
         // ================================================================
 
+        // [V110.600] Dynamic API Base: Resolves from Query Param, localStorage, or Auto-detection
         const API_BASE = (() => {
+            // 1. Check URL query parameters (?api=... or ?api_base=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryApi = urlParams.get('api') || urlParams.get('api_base');
+            if (queryApi) {
+                const sanitizedApi = queryApi.replace(/\/$/, "");
+                localStorage.setItem('BACKEND_API_URL', sanitizedApi);
+                console.log(`🔌 API customizada definida via URL: ${sanitizedApi}`);
+                return sanitizedApi;
+            }
+
+            // 2. Check localStorage
+            const savedApi = localStorage.getItem('BACKEND_API_URL');
+            if (savedApi) {
+                return savedApi;
+            }
+
+            // 3. Fallback to auto-detection (useful for integrated / default local deploy)
             if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                if (!window.location.hostname) {
+                    return 'http://localhost:8085';
+                }
                 return `${window.location.protocol}//${window.location.hostname}`;
             }
             const port = window.location.port || '8085';
@@ -1649,12 +1670,7 @@
         // ================================================================
 
         function initWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                ? `${window.location.hostname}:${window.location.port || '8085'}`
-                : window.location.hostname;
-            const wsUrl = `${protocol}//${host}/ws/cockpit`;
-
+            const wsUrl = API_BASE.replace(/^http/, 'ws') + '/ws/cockpit';
             const ws = new WebSocket(wsUrl);
 
             ws.onmessage = event => {

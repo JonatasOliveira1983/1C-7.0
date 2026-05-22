@@ -592,6 +592,35 @@ html, body { background: #000000 !important; background-color: #000000 !importan
  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 console.log("%c🚀 [OBSERVATORY UI] Version: V110.900 | Sovereign-WS & Flicker-Free Core", "color: #00ffcc; font-weight: bold; font-size: 14px; background: #111; padding: 4px 10px; border-radius: 4px; border: 1px solid #00ffcc;");
+        // [V110.600] Dynamic API Base: Resolves from Query Param, localStorage, or Auto-detection
+        const API_BASE = (() => {
+            // 1. Check URL query parameters (?api=... or ?api_base=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryApi = urlParams.get('api') || urlParams.get('api_base');
+            if (queryApi) {
+                const sanitizedApi = queryApi.replace(/\/$/, "");
+                localStorage.setItem('BACKEND_API_URL', sanitizedApi);
+                console.log(`🔌 API customizada definida via URL: ${sanitizedApi}`);
+                return sanitizedApi;
+            }
+
+            // 2. Check localStorage
+            const savedApi = localStorage.getItem('BACKEND_API_URL');
+            if (savedApi) {
+                return savedApi;
+            }
+
+            // 3. Fallback to auto-detection (useful for integrated / default local deploy)
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                if (!window.location.hostname) {
+                    return 'http://localhost:8085';
+                }
+                return `${window.location.protocol}//${window.location.hostname}`;
+            }
+            const port = window.location.port || '8085';
+            return `${window.location.protocol}//${window.location.hostname}:${port}`;
+        })();
+
 const MATRIX = {
   "AVAXUSDT":{p:"EXTREME"},"PYTHUSDT":{p:"STABLE"},"APTUSDT":{p:"EXTREME"},"SUIUSDT":{p:"EXTREME"},
   "OPUSDT":{p:"VOLATILE"},"ARBUSDT":{p:"VOLATILE"},"RENDERUSDT":{p:"EXTREME"},"NEARUSDT":{p:"VOLATILE"},
@@ -643,7 +672,7 @@ function updateVisionHud(slot) {
         setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
     }
 
-    const fullUrl = vUrl.startsWith('http') ? vUrl : `${window.location.origin}${vUrl}`;
+    const fullUrl = vUrl.startsWith('http') ? vUrl : `${API_BASE}${vUrl}`;
 
     hud.innerHTML = `
         <div class="vh-badge">
@@ -666,7 +695,7 @@ async function refreshVision() {
     const btn = document.getElementById('refreshVisionBtn');
     btn.classList.add('rotating');
     try {
-        await fetch('/api/vision/refresh', {
+        await fetch(`${API_BASE}/api/vision/refresh`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ symbol: cur })
@@ -884,7 +913,7 @@ function updateMacroPulseUI(alignment) {
 
 async function syncVisionStats() {
     try {
-        const res = await fetch('/api/vision/stats?v=' + Date.now());
+        const res = await fetch(`${API_BASE}/api/vision/stats?v=` + Date.now());
         if (!res.ok) return;
         const data = await res.json();
         VISION_STATS = data;
@@ -1073,11 +1102,11 @@ async function loadData(s) {
   try {
     // Busca 30M, 2H, Macro do par + BTC 30M e 2H em paralelo
     const [res30, res4h, res4hMacro, resBTC30, resBTC4h] = await Promise.all([
-      fetch(`/api/market/study?symbol=${s}.P&interval=30&limit=600&v=` + Date.now()),
-      fetch(`/api/market/study?symbol=${s}.P&interval=120&limit=400&v=` + Date.now()),
-      fetch(`/api/market/study?symbol=${s}.P&interval=240&limit=100&v=` + Date.now()),
-      fetch(`/api/market/study?symbol=BTCUSDT.P&interval=30&limit=600&v=` + Date.now()),
-      fetch(`/api/market/study?symbol=BTCUSDT.P&interval=120&limit=400&v=` + Date.now())
+      fetch(`${API_BASE}/api/market/study?symbol=${s}.P&interval=30&limit=600&v=` + Date.now()),
+      fetch(`${API_BASE}/api/market/study?symbol=${s}.P&interval=120&limit=400&v=` + Date.now()),
+      fetch(`${API_BASE}/api/market/study?symbol=${s}.P&interval=240&limit=100&v=` + Date.now()),
+      fetch(`${API_BASE}/api/market/study?symbol=BTCUSDT.P&interval=30&limit=600&v=` + Date.now()),
+      fetch(`${API_BASE}/api/market/study?symbol=BTCUSDT.P&interval=120&limit=400&v=` + Date.now())
     ]);
     
     let lastTrend30 = 0;
@@ -1816,8 +1845,8 @@ function updateActiveOrdersMarkers() {
 
 // [V110.506] SOVEREIGN WEBSOCKET INTEGRATION
 function connectWS() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/cockpit`);
+    const wsUrl = API_BASE.replace(/^http/, 'ws') + '/ws/cockpit';
+    const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
         console.log("%c🔌 [OBSERVATORY] Linked to Sovereign Engine | V110.900 Stable", "color: #10b981; font-weight: bold;");

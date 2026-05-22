@@ -32,7 +32,7 @@ class Settings(BaseSettings):
             return v.strip().upper()
         return v
 
-    @field_validator('BYBIT_TESTNET', 'FACTORY_RESET_V110', mode='before')
+    @field_validator('BYBIT_TESTNET', 'FACTORY_RESET_V110', 'SERVE_STATIC_FRONTEND', mode='before')
     @classmethod
     def parse_testnet(cls, v):
         if isinstance(v, str):
@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     PORT: int = int(os.getenv("PORT", 8085))
     HOST: str = "0.0.0.0"
+    SERVE_STATIC_FRONTEND: bool = True
+    BACKEND_CORS_ORIGINS: str = ""
     MAX_SLOTS: int = 4  # V12.0: Quad Slot System - Supports up to 4 concurrent trades
     RISK_CAP_PERCENT: float = 0.40  # V12.0: Supports up to 4 slots (4 x 10% = 40% Max Exposure)
     LEVERAGE: int = 50
