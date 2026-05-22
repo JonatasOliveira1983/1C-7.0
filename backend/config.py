@@ -32,7 +32,7 @@ class Settings(BaseSettings):
             return v.strip().upper()
         return v
 
-    @field_validator('BYBIT_TESTNET', 'FACTORY_RESET_V110', 'SERVE_STATIC_FRONTEND', mode='before')
+    @field_validator('BYBIT_TESTNET', 'FACTORY_RESET_V110', 'SERVE_STATIC_FRONTEND', 'OKX_TESTNET', mode='before')
     @classmethod
     def parse_testnet(cls, v):
         if isinstance(v, str):
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
             return v_clean in ('true', '1', 't', 'y', 'yes')
         return bool(v)
 
-    @field_validator('BYBIT_API_KEY', 'BYBIT_API_SECRET', mode='before')
+    @field_validator('BYBIT_API_KEY', 'BYBIT_API_SECRET', 'OKX_API_KEY_MASTER', 'OKX_API_SECRET_MASTER', 'OKX_PASSPHRASE_MASTER', mode='before')
     @classmethod
     def strip_api_keys(cls, v):
         if isinstance(v, str):
@@ -68,6 +68,29 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     SERVE_STATIC_FRONTEND: bool = True
     BACKEND_CORS_ORIGINS: str = ""
+
+    # [V110.550] OKX Master Account Credentials
+    OKX_API_KEY_MASTER: Optional[str] = os.getenv("OKX_API_KEY_MASTER", None)
+    OKX_API_SECRET_MASTER: Optional[str] = os.getenv("OKX_API_SECRET_MASTER", None)
+    OKX_PASSPHRASE_MASTER: Optional[str] = os.getenv("OKX_PASSPHRASE_MASTER", None)
+    OKX_TESTNET: bool = False
+
+    # [V110.550] MQTT Broker Configs (HiveMQ Cloud / Broker em nuvem gratuito)
+    MQTT_BROKER_URL: str = os.getenv("MQTT_BROKER_URL", "broker.hivemq.com")
+    MQTT_BROKER_PORT: int = int(os.getenv("MQTT_BROKER_PORT", 1883))
+    MQTT_USERNAME: Optional[str] = os.getenv("MQTT_USERNAME", None)
+    MQTT_PASSWORD: Optional[str] = os.getenv("MQTT_PASSWORD", None)
+    MQTT_TOPIC_PREFIX: str = os.getenv("MQTT_TOPIC_PREFIX", "1crypten/sinal")
+
+    # [V110.550] gRPC Server Settings
+    GRPC_SERVER_PORT: int = int(os.getenv("GRPC_SERVER_PORT", 50051))
+
+    # [V110.550] Portfolio Guardian (Master Mirroring & Knife-Drop)
+    GUARDIAN_ACTIVATION_TRIGGER: float = float(os.getenv("GUARDIAN_ACTIVATION_TRIGGER", 70.0))
+    GUARDIAN_TRAILING_MARGIN: float = float(os.getenv("GUARDIAN_TRAILING_MARGIN", 15.0))
+
+    # [V110.550] Anti-Slippage Engine (Random Jitter)
+    ANTI_SLIPPAGE_MAX_JITTER_MS: int = int(os.getenv("ANTI_SLIPPAGE_MAX_JITTER_MS", 350))
     MAX_SLOTS: int = 4  # V12.0: Quad Slot System - Supports up to 4 concurrent trades
     RISK_CAP_PERCENT: float = 0.40  # V12.0: Supports up to 4 slots (4 x 10% = 40% Max Exposure)
     LEVERAGE: int = 50

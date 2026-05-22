@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package hermes;
+
+service HermesTenancyService {
+  rpc ValidateTenantKey (TenantKeyRequest) returns (TenantKeyResponse);
+  rpc GetExposureLimits (ExposureLimitsRequest) returns (ExposureLimitsResponse);
+  rpc ReportTenantStatus (TenantStatusRequest) returns (TenantStatusResponse);
+}
+
+message TenantKeyRequest {
+  string tenant_id = 1;
+  string api_key = 2;
+}
+
+message TenantKeyResponse {
+  bool is_valid = 1;
+  string error_message = 2;
+}
+
+message ExposureLimitsRequest {
+  string tenant_id = 1;
+}
+
+message ExposureLimitsResponse {
+  double max_exposure_usd = 1;
+  int32 max_leverage = 2;
+  string allowed_symbol_regex = 3;
+}
+
+message TenantStatusRequest {
+  string tenant_id = 1;
+  string status_str = 2;
+  double current_pnl_usd = 3;
+  double current_margin_usd = 4;
+}
+
+message TenantStatusResponse {
+  bool acknowledged = 1;
+  string instruction = 2; // ex: "CONTINUE", "HALT", "REDUCE_SIZE"
+}

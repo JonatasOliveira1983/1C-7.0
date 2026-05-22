@@ -463,7 +463,27 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Step 3: Agent sync error: {e}")
                 
-            logger.info("\u2705 All background services started successfully!")
+            # [SaaS V5.5.0] Inicialização de Serviços da OKX e Hermes Broker
+            try:
+                logger.info("🛰️ [SaaS] Inicializando novos serviços OKX e Hermes Broker...")
+                from services.hermes_broker import hermes_broker_service
+                from services.portfolio_guardian import portfolio_guardian
+                from services.okx_ws import okx_ws_service
+                
+                # 1. Inicia gRPC e MQTT do Hermes
+                await hermes_broker_service.start_mqtt()
+                await hermes_broker_service.start_grpc()
+                
+                # 2. Ativa escuta do Portfolio Guardian
+                portfolio_guardian.start()
+                
+                # 3. Conecta WebSocket privado da OKX Master
+                await okx_ws_service.start()
+                logger.info("✅ [SaaS] OKX e Hermes Broker inicializados com SUCESSO!")
+            except Exception as saas_init_err:
+                logger.error(f"❌ [SaaS] Falha ao iniciar serviços OKX/Hermes: {saas_init_err}", exc_info=True)
+                
+            logger.info("✅ All background services started successfully!")
         except Exception as e:
             logger.error(f"FATAL Startup Error: {e}", exc_info=True)
             
@@ -482,6 +502,20 @@ async def lifespan(app: FastAPI):
             # let's try a best effort if it has aclose
             if hasattr(redis_service.client, "aclose"):
                 await redis_service.client.aclose()
+                
+        # [SaaS V5.5.0] Desligamento seguro de novos serviços
+        try:
+            from services.okx_ws import okx_ws_service
+            from services.hermes_broker import hermes_broker_service
+            
+            logger.info("🛑 [SaaS] Desligando serviços OKX WebSocket e Hermes Broker...")
+            await okx_ws_service.stop()
+            await hermes_broker_service.stop_mqtt()
+            await hermes_broker_service.stop_grpc()
+            logger.info("✅ [SaaS] Serviços desativados com sucesso.")
+        except Exception as saas_err:
+            logger.error(f"Erro ao desligar serviços SaaS: {saas_err}")
+            
     except Exception as shutdown_err:
         logger.error(f"Error during shutdown: {shutdown_err}")
     
