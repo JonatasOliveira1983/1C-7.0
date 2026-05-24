@@ -7,7 +7,7 @@ import math
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 from services.firebase_service import firebase_service
-from services.bybit_rest import bybit_rest_service
+from services.okx_rest import okx_rest_service as bybit_rest_service
 from services.bybit_ws import bybit_ws_service
 from services.vault_service import vault_service
 from services.execution_protocol import execution_protocol
@@ -2428,7 +2428,7 @@ class SignalGenerator:
                     
                 # [V42.0] System Status Update (SCANNING vs PAUSED)
                 # [V29.0] PAPER MODE FIX: Use paper positions count instead of Firestore
-                from services.bybit_rest import bybit_rest_service as _brs
+                from services.okx_rest import okx_rest_service as bybit_rest_service as _brs
                 if _brs.execution_mode == "PAPER":
                     occupied_count = len(_brs.paper_positions)
                 else:

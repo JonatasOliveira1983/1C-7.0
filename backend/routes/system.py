@@ -11,7 +11,7 @@ logger = logging.getLogger("1CRYPTEN-SYSTEM")
 
 def get_services():
     from services.firebase_service import firebase_service
-    from services.bybit_rest import bybit_rest_service
+    from services.okx_rest import okx_rest_service as bybit_rest_service
     from services.vault_service import vault_service
     from services.bankroll import bankroll_manager
     from services.execution_protocol import execution_protocol

@@ -7,7 +7,7 @@ import math
 import os
 from typing import Optional, List, Dict, Any, Tuple
 from services.firebase_service import firebase_service
-from services.bybit_rest import bybit_rest_service
+from services.okx_rest import okx_rest_service as bybit_rest_service
 from services.vault_service import vault_service
 from config import settings
 
@@ -1867,7 +1867,7 @@ class BankrollManager:
             # REMOVED double-counting. We do NOT add PnL to configured_balance anymore.
             # BankrollManager.update_banca_status() naturally calculates total_pnl from Vault History
             # and adds it to the base configured_balance to yield exactly accurate `saldo_total`.
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             if bybit_rest_service.execution_mode == "PAPER":
                 logger.info(f"✅ [PAPER PARITY] Trade {trade_data.get('symbol')} fechado. O saldo_total será atualizado via sincronização do Vault.")
         except Exception as e:

@@ -157,13 +157,13 @@ async def lifespan(app: FastAPI):
             logger.info("Step 1.1: Activating Sovereign Mode (Railway)...")
             await sovereign_service.initialize()
             
-            logger.info("Step 0.2: Loading Bybit REST Service...")
-            bybit_rest_service = importlib.import_module("services.bybit_rest").bybit_rest_service
+            logger.info("Step 0.2: Loading OKX REST Service...")
+            bybit_rest_service = importlib.import_module("services.okx_rest").okx_rest_service
             try:
-                # V5.2.4.3: Added 60s timeout for Bybit initialization
+                # V5.2.4.3: Added 60s timeout for OKX initialization
                 await asyncio.wait_for(bybit_rest_service.initialize(), timeout=60.0)
             except Exception as e:
-                logger.error(f"⚠️ Bybit REST Init Error (Continuing anyway): {e}")
+                logger.error(f"⚠️ OKX REST Init Error (Continuing anyway): {e}")
 
             logger.info("Step 0.3: Loading Bybit WS Service...")
             bybit_ws_service = importlib.import_module("services.bybit_ws").bybit_ws_service

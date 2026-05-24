@@ -13,9 +13,9 @@ from config import settings
 from services.resilience import with_circuit_breaker
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("BybitREST")
+logger = logging.getLogger("OKXRest")
 
-class BybitREST:
+class OKXRest:
     def __init__(self):
         self._global_session = None # Sessão padrão do admin (legado/fallback)
         self._user_sessions = {} # Cache de sessões: {username: HTTP_Session}
@@ -1964,5 +1964,7 @@ _GLOBAL_KLINES_CACHE = {}
         await asyncio.sleep(delay)
         self.emancipating_symbols.discard(symbol)
 
-bybit_rest_service = BybitREST()
+okx_rest_service = OKXRest()
+bybit_rest_service = okx_rest_service
+BybitREST = OKXRest
 

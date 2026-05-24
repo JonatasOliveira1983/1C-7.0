@@ -16,7 +16,7 @@ from services.agents.aios_adapter import AIOSAgent, AgentMessage
 from services.agents.jarvis_brain import jarvis_brain
 from services.kernel.dispatcher import kernel
 from services.kernel.tools import kernel_tools
-from services.bybit_rest import bybit_rest_service
+from services.okx_rest import okx_rest_service as bybit_rest_service
 from services.bybit_ws import bybit_ws_service
 from services.execution_protocol import execution_protocol
 from services.google_calendar_service import google_calendar_service
@@ -338,7 +338,7 @@ class CaptainAgent(AIOSAgent):
             try:
                 # 0. Global Authorization Check
                 from services.vault_service import vault_service
-                from services.bybit_rest import bybit_rest_service
+                from services.okx_rest import okx_rest_service as bybit_rest_service
                 allowed, reason = await vault_service.is_trading_allowed()
                 if not allowed:
                     if not hasattr(self, "_last_block_log") or (time.time() - self._last_block_log) > 300:
@@ -472,7 +472,7 @@ class CaptainAgent(AIOSAgent):
         """
         from services.agents.blitz_sniper import blitz_sniper_agent
         from services.signal_generator import signal_generator
-        from services.bybit_rest import bybit_rest_service
+        from services.okx_rest import okx_rest_service as bybit_rest_service
 
         BLITZ_SCAN_INTERVAL = 300  # 5 minutos entre ciclos de scan
 

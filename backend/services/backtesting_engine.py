@@ -37,7 +37,7 @@ class HistoricalDataFetcher:
         Fetches historical klines for a symbol.
         Returns chronological list of candles: [timestamp, open, high, low, close, volume, turnover]
         """
-        from services.bybit_rest import bybit_rest_service
+        from services.okx_rest import okx_rest_service as bybit_rest_service
         
         cache_path = self._cache_path(symbol, interval)
         

@@ -294,7 +294,7 @@ class ExecutionProtocol:
 
         # [V110.12.11] PRICE FAILOVER (Redundância REST)
         if not current_price or current_price <= 0:
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             ticker_data = await bybit_rest_service.get_tickers(symbol)
             if ticker_data and ticker_data.get("result", {}).get("list"):
                 current_price = float(ticker_data["result"]["list"][0].get("lastPrice", 0))
@@ -435,7 +435,7 @@ class ExecutionProtocol:
                 if trailing_res.get("action") == "UPDATE_SL":
                     new_trailing_sl = trailing_res["new_stop"]
                     # Arredonda o preço antes de retornar
-                    from services.bybit_rest import bybit_rest_service
+                    from services.okx_rest import okx_rest_service as bybit_rest_service
                     new_trailing_sl = await bybit_rest_service.round_price(symbol, new_trailing_sl)
                     
                     logger.info(
@@ -506,7 +506,7 @@ class ExecutionProtocol:
                 target_stop_blitz = 5.0  # Break-Even Adaptativo (cobre taxas)
 
             if target_stop_blitz > 0:
-                from services.bybit_rest import bybit_rest_service
+                from services.okx_rest import okx_rest_service as bybit_rest_service
                 price_offset_pct = target_stop_blitz / (leverage * 100)
                 new_stop = entry * (1 + price_offset_pct) if side_norm == "buy" else entry * (1 - price_offset_pct)
                 new_stop = await bybit_rest_service.round_price(symbol, new_stop)
@@ -571,7 +571,7 @@ class ExecutionProtocol:
                     )
                     new_stop = current_price * (1 + price_offset_pct) if side_norm == "buy" else current_price * (1 - price_offset_pct)
 
-                from services.bybit_rest import bybit_rest_service
+                from services.okx_rest import okx_rest_service as bybit_rest_service
                 new_stop = await bybit_rest_service.round_price(symbol, new_stop)
                 
                 # Check Emancipação (V110.4: Gatilho em 150% ROI)
@@ -733,7 +733,7 @@ class ExecutionProtocol:
         Retorna: 'WICK_REJECTION', 'SOLID_EXPANSION' ou 'NEUTRAL'
         """
         try:
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             klines = await bybit_rest_service.get_klines(symbol=symbol, interval="1", limit=2)
             if not klines or len(klines) < 1:
                 return "NEUTRAL"

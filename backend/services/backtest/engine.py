@@ -102,6 +102,9 @@ class BacktestEngine:
         if toggles is None:
             toggles = {"lateral_guillotine": True, "sentinel": False}
 
+        # Normalizar símbolo para busca no banco local (e.g. XRPUSDT.P -> XRPUSDT)
+        symbol_clean = symbol.replace('.P', '').replace('.p', '').replace('-SWAP', '').replace('-', '').upper()
+
         try:
             conn = self.get_db_connection()
             c = conn.cursor()
@@ -109,7 +112,7 @@ class BacktestEngine:
                 SELECT * FROM klines 
                 WHERE symbol = ? AND interval = ? 
                 ORDER BY start_time ASC
-            ''', (symbol, interval))
+            ''', (symbol_clean, interval))
             conn.row_factory = sqlite3.Row # [V110.63.5] Ativar antes de consumir os dados
             rows = c.fetchall()
             conn.close()

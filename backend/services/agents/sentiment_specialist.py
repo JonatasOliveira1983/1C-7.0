@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Dict, Any, List
 from services.agents.aios_adapter import AIOSAgent
-from services.bybit_rest import bybit_rest_service
+from services.okx_rest import okx_rest_service as bybit_rest_service
 
 logger = logging.getLogger("SentimentSpecialist")
 

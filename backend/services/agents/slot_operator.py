@@ -6,7 +6,7 @@ from typing import Optional
 from config import settings
 from services.agents.aios_adapter import AIOSAgent
 from services.database_service import database_service
-from services.bybit_rest import BybitREST
+from services.okx_rest import OKXRest as BybitREST
 from services.bybit_ws import bybit_ws_service
 
 logger = logging.getLogger("SlotOperator")

@@ -255,7 +255,7 @@ class VaultService:
             # [V15.8 FIX] Fetch the configured balance first
             banca_status = await firebase_service.get_banca_status()
             config_balance = banca_status.get("configured_balance", 0)
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             real_balance = await bybit_rest_service.get_wallet_balance()
             
             # [V19.0] Base for compound is ALWAYS the total equity (Capital + Total PnL)
@@ -834,7 +834,7 @@ class VaultService:
         Garante o crescimento exponencial conforme planejado.
         """
         try:
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             balance = await bybit_rest_service.get_wallet_balance()
             
             # Margem = 5% do saldo total atual

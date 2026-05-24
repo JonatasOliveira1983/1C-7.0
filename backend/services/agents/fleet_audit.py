@@ -4,7 +4,7 @@ import time
 import traceback
 from typing import Dict, Any, List
 from services.firebase_service import firebase_service
-from services.bybit_rest import bybit_rest_service
+from services.okx_rest import okx_rest_service as bybit_rest_service
 from services.agents.aios_adapter import AIOSAgent
 
 logger = logging.getLogger("FleetAudit")
@@ -166,7 +166,7 @@ class FleetAudit(AIOSAgent):
             # (fechados na simulacao mas ainda no Firestore) se acumulavam para sempre.
             elif execution_mode == "PAPER":
                 try:
-                    from services.bybit_rest import bybit_rest_service as bbs
+                    from services.okx_rest import okx_rest_service as bybit_rest_service as bbs
                     moonbags_fb = await firebase_service.get_moonbags()
                     paper_moon_syms = {
                         p.get("symbol", "").replace(".P", "").upper()

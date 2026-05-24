@@ -13,7 +13,7 @@ def get_services():
     service_names = ["BybitRest", "BybitWS", "Firebase", "SignalGen", "Captain", "Oracle"]
     
     try:
-        from services.bybit_rest import bybit_rest_service
+        from services.okx_rest import okx_rest_service as bybit_rest_service
         services[0] = bybit_rest_service
         from services.bybit_ws import bybit_ws_service
         services[1] = bybit_ws_service

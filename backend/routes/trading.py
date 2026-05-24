@@ -12,7 +12,7 @@ logger = logging.getLogger("1CRYPTEN-TRADING")
 # Imports lazy to avoid circular dependency if any
 def get_services():
     from services.firebase_service import firebase_service
-    from services.bybit_rest import bybit_rest_service
+    from services.okx_rest import okx_rest_service as bybit_rest_service
     from services.execution_protocol import execution_protocol
     from services.vault_service import vault_service
     from services.bankroll import bankroll_manager
@@ -177,7 +177,7 @@ async def get_moonbags(limit: int = 10):
         return []
 
 @router.post("/nuke-paper")
-async def nuke_paper_state():
+async def nuke_paper_state(current_user: User = Depends(get_current_user)):
     _, bybit_rest_service, _, _, bankroll_manager = get_services()
     from services.firebase_service import firebase_service
     cleared = []
@@ -198,7 +198,20 @@ async def nuke_paper_state():
             try: await firebase_service.hard_reset_slot(i, "NUKE_PAPER_API", pnl=0.0)
             except: pass
         try:
-            await asyncio.to_thread(firebase_service.rtdb.child("banca_status/status").update, {"saldo_total": 100.0, "lucro_acumulado": 0.0, "base_capital": 100.0})
-            cleared.append("banca_status")
+            await firebase_service.update_bankroll(100.0)
+            cleared.append("banca_status_global_firestore")
         except: pass
+        try:
+            await asyncio.to_thread(firebase_service.rtdb.child("banca_status/status").update, {"saldo_total": 100.0, "lucro_acumulado": 0.0, "base_capital": 100.0})
+            cleared.append("banca_status_rtdb")
+        except: pass
+        if current_user and current_user.username:
+            try:
+                await asyncio.to_thread(
+                    firebase_service.db.collection("users").document(current_user.username).update,
+                    {"bankroll_balance": 100.0}
+                )
+                cleared.append(f"user-{current_user.username}-bankroll")
+            except Exception as e:
+                logger.error(f"Error resetting Firestore user bankroll: {e}")
     return {"status": "success", "cleared": cleared}

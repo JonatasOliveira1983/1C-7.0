@@ -64,7 +64,7 @@ class BlitzSniperAgent(AIOSAgent):
             Um dicionário de sinal ou None se nenhum setup de qualidade for encontrado.
         """
         try:
-            from services.bybit_rest import bybit_rest_service
+            from services.okx_rest import okx_rest_service as bybit_rest_service
             from services.bybit_ws import bybit_ws_service
 
             # Throttle: Evita scans repetidos para o mesmo ativo
@@ -494,7 +494,7 @@ class BlitzSniperAgent(AIOSAgent):
         logger.info("⚡ [BLITZ-SCAN] Injetor Blitz M30 iniciado.")
         while True:
             try:
-                from services.bybit_rest import bybit_rest_service
+                from services.okx_rest import okx_rest_service as bybit_rest_service
                 from services.agents.oracle_agent import oracle_agent
 
                 # 1. Obtém lista de ativos (Top 100 líquidos com 50x+)
