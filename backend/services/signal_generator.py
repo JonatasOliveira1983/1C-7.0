@@ -2428,7 +2428,7 @@ class SignalGenerator:
                     
                 # [V42.0] System Status Update (SCANNING vs PAUSED)
                 # [V29.0] PAPER MODE FIX: Use paper positions count instead of Firestore
-                from services.okx_rest import okx_rest_service as bybit_rest_service as _brs
+                from services.okx_rest import okx_rest_service as _brs
                 if _brs.execution_mode == "PAPER":
                     occupied_count = len(_brs.paper_positions)
                 else:
