@@ -5332,7 +5332,7 @@
                             low: parseFloat(d[3]),
                             close: parseFloat(d[4]),
                             volume: parseFloat(d[5])
-                        }));
+                        })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close) && !isNaN(k.volume));
                         const volumes = formatted.map(d => ({
                             time: d.time,
                             value: d.volume,

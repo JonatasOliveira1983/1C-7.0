@@ -1211,7 +1211,7 @@ async function loadData(s) {
 
     if (res30.ok) {
         study30 = await res30.json();
-        const d30 = study30.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) }));
+        const d30 = study30.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close));
         series30.candle.setData(d30);
         series30.vol.setData(d30.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' })));
         
@@ -1229,7 +1229,7 @@ async function loadData(s) {
         if (resBTC30.ok) {
             try {
                 const studyBTC30 = await resBTC30.json();
-                const dBTC30 = studyBTC30.klines.map(x => ({ time: x[0]/1000, open: x[1], high: x[2], low: x[3], close: x[4] }));
+                const dBTC30 = studyBTC30.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]) })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close));
                 const rsiBTCData = calculateRSI(dBTC30);
                 series30.rsiBTC.setData(rsiBTCData);
                 
@@ -1285,7 +1285,7 @@ async function loadData(s) {
 
     if (res4h.ok) {
         study4h = await res4h.json();
-        const d4h = study4h.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) }));
+        const d4h = study4h.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close));
         series4h.candle.setData(d4h);
         series4h.vol.setData(d4h.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' })));
         
@@ -1305,7 +1305,7 @@ async function loadData(s) {
         if (resBTC4h.ok) {
             try {
                 const studyBTC4h = await resBTC4h.json();
-                const dBTC4h = studyBTC4h.klines.map(x => ({ time: x[0]/1000, open: x[1], high: x[2], low: x[3], close: x[4] }));
+                const dBTC4h = studyBTC4h.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]) })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close));
                 const rsiBTCData4h = calculateRSI(dBTC4h);
                 series4h.rsiBTC.setData(rsiBTCData4h);
                 

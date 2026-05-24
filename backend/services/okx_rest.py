@@ -1217,14 +1217,26 @@ class OKXRest:
                         formatted = []
                         for c in okx_candles:
                             if len(c) >= 5:
+                                # Blindagem contra valores nulos da OKX
+                                if c[0] is None or c[1] is None or c[2] is None or c[3] is None or c[4] is None:
+                                    continue
+                                try:
+                                    # Valida que todos os valores de preço são conversíveis para float
+                                    float(c[1])
+                                    float(c[2])
+                                    float(c[3])
+                                    float(c[4])
+                                except ValueError:
+                                    continue # Ignora candle com preços quebrados
+                                    
                                 formatted.append([
                                     c[0], # ts
                                     c[1], # o
                                     c[2], # h
                                     c[3], # l
                                     c[4], # c
-                                    c[5] if len(c) > 5 else "0", # vol
-                                    c[6] if len(c) > 6 else "0"  # volCcy
+                                    c[5] if (len(c) > 5 and c[5] is not None) else "0", # vol
+                                    c[6] if (len(c) > 6 and c[6] is not None) else "0"  # volCcy
                                 ])
                         if formatted:
                             _GLOBAL_KLINES_CACHE[cache_key] = (now, formatted)
