@@ -67,6 +67,10 @@ class BybitREST:
                 self.paper_positions = data.get("positions", [])
                 self.paper_moonbags = data.get("moonbags", [])
                 self.paper_balance = data.get("balance", settings.BYBIT_SIMULATED_BALANCE)
+                if self.paper_balance != 100.0:
+                    logger.info(f"💰 [V110.176 User Rule] Forçando recalibração da banca Paper de ${self.paper_balance:.2f} para $100.00.")
+                    self.paper_balance = 100.0
+                    asyncio.create_task(self._save_paper_state())
                 self.paper_orders_history = data.get("history", [])
                 self._last_paper_load_time = time.time()
                 # Apenas loga se houver algo ativo para reduzir ruído
@@ -1174,8 +1178,18 @@ class BybitREST:
             logger.error(f"Error fetching orderbook for {symbol}: {e}")
             return {}
 
+_GLOBAL_KLINES_CACHE = {}
+
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20, *args, **kwargs):
         """Fetches historical klines for ATR and variation calculations from OKX Mainnet public API."""
+        global _GLOBAL_KLINES_CACHE
+        cache_key = f"{symbol}_{interval}_{limit}"
+        now = time.time()
+        if cache_key in _GLOBAL_KLINES_CACHE:
+            ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
+            if now - ts < 60.0:  # Cache de 60 segundos
+                return cached_data
+                
         try:
             from services.okx_service import okx_service
             inst_id = okx_service.bybit_to_okx(symbol)
@@ -1212,6 +1226,8 @@ class BybitREST:
                                     c[5] if len(c) > 5 else "0", # vol
                                     c[6] if len(c) > 6 else "0"  # volCcy
                                 ])
+                        if formatted:
+                            _GLOBAL_KLINES_CACHE[cache_key] = (now, formatted)
                         return formatted
         except Exception as e:
             logger.error(f"Error fetching klines from OKX public API for {symbol}: {e}")
