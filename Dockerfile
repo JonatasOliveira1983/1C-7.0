@@ -34,7 +34,7 @@ RUN playwright install --with-deps chromium
 COPY . .
 
 # Change to backend directory for execution
-WORKDIR /app/1CRYPTEN_SPACE_V4.0/backend
+WORKDIR /app/backend
 
 # Expose port (Cloud Run Standard: 8085)
 ENV PORT 8085
