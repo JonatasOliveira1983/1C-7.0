@@ -332,7 +332,7 @@ class BybitWS:
         V110.36.0: Updates BTC variation and calculates Master ADX (M-ADX).
         M-ADX Weights: 4H (40%), 1H (40%), 15m (20%).
         """
-        from services.bybit_rest import bybit_rest_service
+        from services.okx_rest import okx_rest_service as bybit_rest_service
         now = time.time()
         
         try:
