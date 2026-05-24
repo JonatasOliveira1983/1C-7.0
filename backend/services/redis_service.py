@@ -70,12 +70,12 @@ logger = logging.getLogger("RedisService")
 
 class RedisService:
     def __init__(self):
-        self.client: Any = None
+        self.client: Any = MockRedis()
         self.host = settings.REDIS_HOST
         self.port = settings.REDIS_PORT
         self.db = settings.REDIS_DB
         self.is_connected = False
-        self.is_fallback = False
+        self.is_fallback = True
 
     async def connect(self):
         """Initializes the Redis async client with robust fallback."""

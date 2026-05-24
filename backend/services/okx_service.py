@@ -15,6 +15,41 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("OKXService")
 
 class OKXService:
+    @staticmethod
+    def bybit_to_okx(symbol: str) -> str:
+        """Converte símbolo Bybit (ex: AVAXUSDT ou AVAXUSDT.P) para formato OKX (ex: AVAX-USDT-SWAP)."""
+        if not symbol:
+            return ""
+        norm = symbol.strip().upper()
+        if norm.endswith(".P"):
+            norm = norm[:-2]
+        
+        if "-" in norm:
+            return norm
+            
+        if norm.endswith("USDT"):
+            return f"{norm[:-4]}-USDT-SWAP"
+        elif norm.endswith("USDC"):
+            return f"{norm[:-4]}-USDC-SWAP"
+        return f"{norm}-USDT-SWAP"
+
+    @staticmethod
+    def okx_to_bybit(symbol: str) -> str:
+        """Converte símbolo OKX (ex: AVAX-USDT-SWAP) para formato Bybit com sufixo .P (ex: AVAXUSDT.P)."""
+        if not symbol:
+            return ""
+        norm = symbol.strip().upper()
+        if "-" not in norm:
+            if not norm.endswith(".P"):
+                return f"{norm}.P"
+            return norm
+            
+        parts = norm.split("-")
+        base = parts[0]
+        quote = parts[1] if len(parts) > 1 else "USDT"
+        
+        return f"{base}{quote}.P"
+
     def __init__(self):
         self.api_key = settings.OKX_API_KEY_MASTER
         self.api_secret = settings.OKX_API_SECRET_MASTER
@@ -179,7 +214,7 @@ class OKXService:
                 "posSide": pos_side,
                 "ordType": "market",
                 "sz": size,
-                "clOrdId": f"kd_{inst_id.lower().replace('-', '_')}_{int(time.time()*1000)}"
+                "clOrdId": f"kd{inst_id.upper().replace('-SWAP', '').replace('-', '')}{int(time.time() * 1000)}"
             }
             orders.append(order_req)
 
@@ -205,14 +240,7 @@ class OKXService:
         Puxa e coloca em cache os limites de precisão (lotSize e stepSize) para evitar
         erros de precisão de ordens no book da OKX.
         """
-        # Formata o símbolo do padrão Bybit (BTCUSDT) para OKX (BTC-USDT-SWAP)
-        inst_id = symbol
-        if "-" not in symbol:
-            # Ex: AVAXUSDT -> AVAX-USDT-SWAP
-            if symbol.endswith("USDT"):
-                inst_id = f"{symbol[:-4]}-USDT-SWAP"
-            elif symbol.endswith("USDC"):
-                inst_id = f"{symbol[:-4]}-USDC-SWAP"
+        inst_id = self.bybit_to_okx(symbol)
         
         if inst_id in self._instrument_cache:
             return self._instrument_cache[inst_id]
@@ -258,6 +286,351 @@ class OKXService:
         # Fallback seguro
         fallback = {"instId": inst_id, "lotSize": "1.0", "tickSize": "0.01", "minSz": "1.0", "ctVal": "1.0"}
         return fallback
+
+    async def place_atomic_order(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        sl_price: float,
+        tp_price: float = None,
+        slot_id: int = 0,
+        leverage: float = 50,
+        username: str = None,
+        **kwargs
+    ) -> Optional[Dict[str, Any]]:
+        """
+        [Fase 1] Envia uma ordem de mercado (Market) atômica para a OKX Testnet/Mainnet
+        com Stop Loss e Take Profit acoplados.
+        """
+        inst_id = self.bybit_to_okx(symbol)
+        
+        # Converte o lado (side)
+        # Bybit: Buy/Sell ➔ OKX: buy/sell
+        side_okx = side.strip().lower()
+        
+        # Determina a direção da posição (posSide) para modo Hedge:
+        # Se side é buy -> posSide é long
+        # Se side é sell -> posSide é short
+        pos_side = "long" if side_okx == "buy" else "short"
+        
+        # Ajusta lotes e step size usando o instrument details
+        details = await self.get_instrument_details(symbol)
+        lot_size = float(details.get("lotSize", "1.0"))
+        
+        # Arredonda a quantidade de forma precisa para múltiplos de lotSize
+        rounded_qty = round(qty / lot_size) * lot_size
+        min_sz = float(details.get("minSz", "1.0"))
+        if rounded_qty < min_sz:
+            rounded_qty = min_sz
+            
+        qty_str = f"{rounded_qty:.4f}".rstrip('0').rstrip('.')
+        if not qty_str or qty_str == "0":
+            qty_str = f"{min_sz}"
+
+        cl_ord_id = f"snp{inst_id.upper().replace('-SWAP', '').replace('-', '')}{int(time.time() * 1000)}"
+
+        # Corpo da requisição para a OKX V5 Order API
+        order_req = {
+            "instId": inst_id,
+            "tdMode": "cross",  # Portfolio Margin exige cross margin
+            "side": side_okx,
+            "posSide": pos_side,
+            "ordType": "market",
+            "sz": qty_str,
+            "clOrdId": cl_ord_id
+        }
+
+        # Acopla o Stop Loss se fornecido
+        if sl_price and sl_price > 0:
+            order_req.update({
+                "slOrdPx": "-1",  # Preço de mercado para disparar
+                "slTriggerPx": f"{sl_price:.8f}".rstrip('0').rstrip('.'),
+                "slTriggerPxType": "last"
+            })
+
+        # Acopla o Take Profit se fornecido
+        if tp_price and tp_price > 0:
+            order_req.update({
+                "tpOrdPx": "-1",  # Preço de mercado para disparar
+                "tpTriggerPx": f"{tp_price:.8f}".rstrip('0').rstrip('.'),
+                "tpTriggerPxType": "last"
+            })
+
+        if self.is_mock:
+            logger.info(f"🤖 [OKX-REST MOCK] place_atomic_order simulada: {order_req}")
+            # Simula a posição criada no mock de posições ativas
+            mock_pos = {
+                "instId": inst_id,
+                "posSide": pos_side,
+                "pos": qty_str,
+                "availPos": qty_str,
+                "avgPx": "100.0",  # Preço médio mockado
+                "upl": "0.0",
+                "margin": str((float(qty_str) * 100.0) / leverage),
+                "mgnVal": str((float(qty_str) * 100.0) / leverage),
+                "cTime": str(int(time.time() * 1000))
+            }
+            # Remove qualquer posição duplicada se existir
+            self._mock_positions = [p for p in self._mock_positions if p["instId"] != inst_id]
+            self._mock_positions.append(mock_pos)
+            
+            return {
+                "code": "0",
+                "msg": "success",
+                "data": [{"clOrdId": cl_ord_id, "ordId": f"okx_ord_{int(time.time())}", "sCode": "0", "sMsg": "success"}]
+            }
+
+        request_path = "/api/v5/trade/order"
+        url = self.base_url + request_path
+        body_str = json.dumps(order_req)
+        headers = self._get_headers("POST", request_path, body_str)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, headers=headers, content=body_str)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0":
+                        logger.info(f"✅ [OKX REST] Ordem enviada com sucesso: {data}")
+                        return data
+                    else:
+                        err_detail = ""
+                        if data.get("data"):
+                            ord_err = data["data"][0]
+                            err_detail = f" | sCode: {ord_err.get('sCode')} | sMsg: {ord_err.get('sMsg')}"
+                        logger.error(f"❌ [OKX REST] Falha ao enviar ordem: {data.get('msg')}{err_detail} (payload: {order_req})")
+                        return data
+                else:
+                    logger.error(f"❌ [OKX REST] Erro HTTP {response.status_code} no envio da ordem: {response.text}")
+                    return {"code": str(response.status_code), "msg": response.text}
+        except Exception as e:
+            logger.error(f"❌ [OKX REST] Falha crítica no envio de ordem para {inst_id}: {e}", exc_info=True)
+            return {"code": "-1", "msg": str(e)}
+
+    async def close_position(self, symbol: str, side: str, qty: float, reason: str = "MANUAL_CLOSE", username: str = None) -> bool:
+        """
+        [Fase 1] Encerra uma posição individual de forma isolada na OKX Testnet/Mainnet
+        enviando uma ordem de fechamento a mercado.
+        """
+        inst_id = self.bybit_to_okx(symbol)
+        side_norm = side.strip().lower()
+        
+        # No fechamento:
+        # Se a posição for LONG (posSide="long"), enviamos um "sell" (side="sell")
+        # Se a posição for SHORT (posSide="short"), enviamos um "buy" (side="buy")
+        pos_side = "long" if side_norm in ["buy", "long"] else "short"
+        close_side = "sell" if pos_side == "long" else "buy"
+        
+        details = await self.get_instrument_details(symbol)
+        lot_size = float(details.get("lotSize", "1.0"))
+        
+        rounded_qty = round(qty / lot_size) * lot_size
+        min_sz = float(details.get("minSz", "1.0"))
+        if rounded_qty < min_sz:
+            rounded_qty = min_sz
+            
+        qty_str = f"{rounded_qty:.4f}".rstrip('0').rstrip('.')
+        if not qty_str or qty_str == "0":
+            qty_str = f"{min_sz}"
+
+        cl_ord_id = f"cls{inst_id.upper().replace('-SWAP', '').replace('-', '')}{int(time.time() * 1000)}"
+
+        close_req = {
+            "instId": inst_id,
+            "tdMode": "cross",
+            "side": close_side,
+            "posSide": pos_side,
+            "ordType": "market",
+            "sz": qty_str,
+            "clOrdId": cl_ord_id
+        }
+
+        if self.is_mock:
+            logger.info(f"🤖 [OKX-REST MOCK] close_position simulado para {inst_id}: {close_req}")
+            # Remove a posição correspondente do mock
+            self._mock_positions = [p for p in self._mock_positions if p["instId"] != inst_id]
+            return True
+
+        request_path = "/api/v5/trade/order"
+        url = self.base_url + request_path
+        body_str = json.dumps(close_req)
+        headers = self._get_headers("POST", request_path, body_str)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, headers=headers, content=body_str)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0":
+                        logger.info(f"✅ [OKX REST] Posição de {inst_id} fechada com sucesso: {data}")
+                        return True
+                    else:
+                        err_detail = ""
+                        if data.get("data"):
+                            ord_err = data["data"][0]
+                            err_detail = f" | sCode: {ord_err.get('sCode')} | sMsg: {ord_err.get('sMsg')}"
+                        logger.error(f"❌ [OKX REST] Falha ao fechar posição: {data.get('msg')}{err_detail} (payload: {close_req})")
+                        return False
+                else:
+                    logger.error(f"❌ [OKX REST] Erro HTTP {response.status_code} no fechamento de posição: {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"❌ [OKX REST] Falha crítica ao fechar posição de {inst_id}: {e}", exc_info=True)
+            return False
+
+    async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20) -> List[List[Any]]:
+        """
+        Busca velas históricas (Klines) públicas na OKX.
+        Retorna uma lista de velas no formato da Bybit: [start_time, open, high, low, close]
+        """
+        inst_id = self.bybit_to_okx(symbol)
+        
+        # Mapeamento de intervalos Bybit -> OKX
+        interval_map = {
+            "1": "1m",
+            "3": "3m",
+            "5": "5m",
+            "15": "15m",
+            "30": "30m",
+            "60": "1H",
+            "120": "2H",
+            "240": "4H",
+            "360": "6H",
+            "720": "12H",
+            "D": "1D",
+            "W": "1W",
+            "M": "1M"
+        }
+        bar = interval_map.get(str(interval), "1H")
+        
+        if self.is_mock:
+            # Mock de klines para desenvolvimento local
+            now_ms = int(time.time() * 1000)
+            mock_klines = []
+            import random
+            price = 100.0
+            for i in range(limit):
+                ts = now_ms - (i * 3600 * 1000)
+                o = price + random.uniform(-1.0, 1.0)
+                h = o + random.uniform(0.0, 2.0)
+                l = o - random.uniform(0.0, 2.0)
+                c = (h + l) / 2
+                mock_klines.append([str(ts), str(o), str(h), str(l), str(c)])
+            return mock_klines
+
+        request_path = f"/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+        url = self.base_url + request_path
+        headers = self._get_headers("GET", request_path)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        okx_candles = data.get("data", [])
+                        # OKX retorna: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
+                        # Bybit espera: [start_time, open, high, low, close]
+                        formatted = []
+                        for c in okx_candles:
+                            if len(c) >= 5:
+                                formatted.append([
+                                    c[0], # ts
+                                    c[1], # o
+                                    c[2], # h
+                                    c[3], # l
+                                    c[4]  # c
+                                ])
+                        return formatted
+                    else:
+                        logger.error(f"❌ [OKX REST] Erro ao obter klines para {inst_id}: {data.get('msg')}")
+                else:
+                    logger.error(f"❌ [OKX REST] Erro HTTP {response.status_code} ao buscar klines para {inst_id}")
+        except Exception as e:
+            logger.error(f"❌ [OKX REST] Falha crítica ao obter klines para {inst_id}: {e}")
+        
+        return []
+
+    async def get_open_interest(self, symbol: str) -> float:
+        """
+        Busca o Open Interest atual para um símbolo na OKX.
+        """
+        inst_id = self.bybit_to_okx(symbol)
+        
+        if self.is_mock:
+            return 1500000.0
+
+        request_path = f"/api/v5/public/open-interest?instId={inst_id}"
+        url = self.base_url + request_path
+        headers = self._get_headers("GET", request_path)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        return float(data["data"][0].get("oi", 0.0))
+                    else:
+                        logger.error(f"❌ [OKX REST] Erro ao obter Open Interest para {inst_id}: {data.get('msg')}")
+                else:
+                    logger.error(f"❌ [OKX REST] Erro HTTP {response.status_code} ao buscar Open Interest para {inst_id}")
+        except Exception as e:
+            logger.error(f"❌ [OKX REST] Falha crítica ao obter Open Interest para {inst_id}: {e}")
+            
+        return 0.0
+
+    async def get_long_short_ratio(self, symbol: str, period: str = "5min") -> float:
+        """
+        Busca a proporção Long/Short para o símbolo na OKX.
+        """
+        inst_id = self.bybit_to_okx(symbol)
+        ccy = inst_id.split("-")[0] # ex: BTC
+        
+        # Mapeamento do período Bybit -> OKX
+        okx_period = "5m"
+        if "5" in period:
+            okx_period = "5m"
+        elif "15" in period:
+            okx_period = "15m"
+        elif "30" in period:
+            okx_period = "30m"
+        elif "1h" in period:
+            okx_period = "1h"
+        elif "4h" in period:
+            okx_period = "4h"
+        elif "1d" in period or "D" in period:
+            okx_period = "1d"
+
+        if self.is_mock:
+            return 1.2
+
+        request_path = f"/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy={ccy}&period={okx_period}"
+        url = self.base_url + request_path
+        headers = self._get_headers("GET", request_path)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        ratio_data = data.get("data", [])
+                        if ratio_data and len(ratio_data) > 0:
+                            item = ratio_data[0]
+                            if isinstance(item, dict):
+                                return float(item.get("ratio", 1.0))
+                            elif isinstance(item, list) and len(item) >= 2:
+                                return float(item[1])
+                    else:
+                        logger.debug(f"ℹ️ [OKX REST Rubik] Endpoint ratio indisponível ou erro: {data.get('msg')}")
+                else:
+                    logger.debug(f"ℹ️ [OKX REST Rubik] Erro HTTP {response.status_code} ao buscar ratio")
+        except Exception as e:
+            logger.debug(f"❌ [OKX REST] Erro ao buscar long-short ratio no Rubik: {e}")
+            
+        return 1.0
 
 # Instanciação Singleton
 okx_service = OKXService()

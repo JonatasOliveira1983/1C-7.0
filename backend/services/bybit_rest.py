@@ -4,6 +4,7 @@ import logging
 import time
 import json
 import os
+import httpx
 from datetime import datetime, timezone
 from services.time_utils import get_br_iso_str
 from typing import List, Dict, Any
@@ -390,6 +391,28 @@ class BybitREST:
     async def get_wallet_balance(self):
         """Fetches the total equity from the Bybit account (UNIFIED or CONTRACT)."""
         # logger.info(f"[DEBUG] get_wallet_balance called. Mode: {self.execution_mode}")
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            try:
+                request_path = "/api/v5/account/balance"
+                url = okx_service.base_url + request_path
+                headers = okx_service._get_headers("GET", request_path)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(url, headers=headers)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("code") == "0" and data.get("data"):
+                            details = data["data"][0]
+                            total_eq = float(details.get("totalEq", 100.0))
+                            # Se for demo trading com muito saldo virtual, limitamos a $100
+                            if total_eq > 500.0:
+                                logger.info(f"💰 [OKX-REST] Saldo demo real: ${total_eq:.2f}. Limitando a banca virtual Sniper em $100 para simulação.")
+                                return 100.0
+                            return total_eq
+            except Exception as e:
+                logger.error(f"❌ [OKX-REST] Erro ao obter saldo da OKX: {e}")
+            return 100.0
+
         if self.execution_mode == "PAPER":
              # Calculate unrealized PNL from active paper positions to show dynamic equity
              unrealized_pnl = 0.0
@@ -434,6 +457,41 @@ class BybitREST:
         """
         [V120] Busca posições ativas isoladas por usuário.
         """
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            try:
+                okx_positions = await okx_service.get_positions()
+                translated = []
+                for op in okx_positions:
+                    # Converte de OKX para Bybit
+                    avg_px = op.get("avgPx", "0")
+                    pos_qty = op.get("pos", "0")
+                    
+                    # Se pos for 0, ignora
+                    if float(pos_qty) == 0:
+                        continue
+                        
+                    translated_pos = {
+                        "symbol": okx_service.okx_to_bybit(op.get("instId")),
+                        "side": "Buy" if op.get("posSide") == "long" else "Sell",
+                        "size": pos_qty,
+                        "avgPrice": avg_px,
+                        "positionValue": str(float(pos_qty) * float(avg_px)),
+                        "unrealisedPnl": op.get("upl", "0"),
+                        "stopLoss": op.get("slTriggerPx", "0") or "0",
+                        "takeProfit": op.get("tpTriggerPx", "0") or "0",
+                        "leverage": "50"
+                    }
+                    translated.append(translated_pos)
+                
+                if symbol:
+                    norm_symbol = self._strip_p(symbol).upper()
+                    return [p for p in translated if p["symbol"].upper() == norm_symbol]
+                return translated
+            except Exception as e:
+                logger.error(f"❌ [OKX-REST] Erro ao obter/traduzir posições da OKX: {e}")
+                return []
+
         if self.execution_mode == "PAPER":
             combined = self.paper_positions + self.paper_moonbags
             if symbol:
@@ -526,6 +584,36 @@ class BybitREST:
     @with_circuit_breaker(breaker_name="bybit_rest_public", fallback_return={})
     async def get_instrument_info(self, symbol: str):
         """Fetches precision and lot size filtering for a symbol with local caching."""
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            try:
+                api_symbol = self._strip_p(symbol)
+                if api_symbol in self._instrument_cache:
+                    return self._instrument_cache[api_symbol]
+                
+                details = await okx_service.get_instrument_details(symbol)
+                tick_size = details.get("tickSize", "0.01")
+                lot_size = details.get("lotSize", "1.0")
+                min_sz = details.get("minSz", "1.0")
+                
+                info = {
+                    "priceFilter": {
+                        "tickSize": tick_size
+                    },
+                    "lotSizeFilter": {
+                        "qtyStep": lot_size,
+                        "minOrderQty": min_sz
+                    },
+                    "leverageFilter": {
+                        "maxLeverage": "50.0"
+                    }
+                }
+                self._instrument_cache[api_symbol] = info
+                return info
+            except Exception as e:
+                logger.error(f"Error fetching instrument info from OKX for {symbol}: {e}")
+                return {}
+
         async with self._http_semaphore:
             try:
                 api_symbol = self._strip_p(symbol)
@@ -637,6 +725,18 @@ class BybitREST:
         """
         [V120] Envio de Ordem Atômica com isolamento de sessão por usuário.
         """
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            logger.info(f"🔌 [OKX] Direcionando Ordem Atômica: {side} {qty} {symbol} para OKX Testnet...")
+            res = await okx_service.place_atomic_order(symbol, side, qty, sl_price, tp_price, slot_id, leverage, username, **kwargs)
+            if res and res.get("code") == "0":
+                ord_info = res["data"][0]
+                return {
+                    "retCode": 0,
+                    "result": {"orderId": ord_info.get("ordId"), "orderLinkId": ord_info.get("clOrdId")}
+                }
+            return {"retCode": -1, "retMsg": res.get("msg") if res else "Unknown OKX Error"}
+
         api_symbol = self._strip_p(symbol)
         
         # [V120] Seleção da Sessão
@@ -765,6 +865,12 @@ class BybitREST:
         """
         [V120] Encerramento Multitenant Soberano.
         """
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            logger.info(f"🔌 [OKX] Direcionando Fechamento de Posição de {symbol} para OKX Testnet...")
+            success = await okx_service.close_position(symbol, side, qty, reason, username)
+            return success
+
         norm_symbol = self._strip_p(symbol).upper()
         
         # [V120] Recupera a sessão correta
@@ -1071,6 +1177,10 @@ class BybitREST:
 
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20):
         """Fetches historical klines for ATR and variation calculations."""
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            return await okx_service.get_klines(symbol, interval, limit)
+
         async with self._http_semaphore:
             try:
                 # [V110.12.11] ENSURE NO .P SUFFIX for Market Data
@@ -1092,6 +1202,10 @@ class BybitREST:
         [V15.5] Fetches the current Open Interest for a symbol.
         Used to detect 'Gas' (liquidity inflows) during accumulation box exits.
         """
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            return await okx_service.get_open_interest(symbol)
+
         async with self._http_semaphore:
             try:
                 # [V110.12.11] ENSURE NO .P SUFFIX for Market Data
@@ -1139,6 +1253,10 @@ class BybitREST:
         [V15.5] Fetches the Long/Short Account Ratio for a symbol.
         Used to detect retail positioning (high ratio = retail over-bought).
         """
+        if settings.OKX_API_KEY_MASTER:
+            from services.okx_service import okx_service
+            return await okx_service.get_long_short_ratio(symbol, period)
+
         async with self._http_semaphore:
             try:
                 # [V110.12.11] ENSURE NO .P SUFFIX for Market Data

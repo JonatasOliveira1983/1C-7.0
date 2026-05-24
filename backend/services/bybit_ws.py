@@ -15,6 +15,12 @@ class BybitWS:
     def __init__(self):
         self.endpoint = "wss://stream-testnet.bybit.com/v5/public/linear" if settings.BYBIT_TESTNET else "wss://stream.bybit.com/v5/public/linear"
         self.ws = None
+        
+        # OKX public WS properties
+        self._okx_ws = None
+        self._okx_ws_task = None
+        self._okx_ping_task = None
+        
         # CVD storage: {symbol: {timestamp: delta}}
         self.cvd_data = {} 
         self.prices = {} # {symbol: last_price}
@@ -449,7 +455,7 @@ class BybitWS:
         # V12.1: Always include BTCUSDT for CVD/Drag tracking
         has_btc = any(s.replace(".P", "").upper() == "BTCUSDT" for s in symbols)
         if not has_btc:
-            symbols.insert(0, "BTCUSDT")
+            symbols.insert(0, "BTCUSDT.P")
             logger.info("V12.1: BTCUSDT added to WebSocket monitoring for BTC Command Center")
         
         self.active_symbols = symbols
@@ -465,6 +471,14 @@ class BybitWS:
             self.worker_task = asyncio.create_task(self.process_message_queue())
             logger.info("👷 [BYBIT-WS] Async Queue Worker Started.")
         
+        # Se OKX estiver ativa, desvia a conexão para o WebSocket público da OKX
+        if settings.OKX_API_KEY_MASTER:
+            logger.info("🔌 [OKX-WS PUBLIC] Redirecionando oráculo de feeds públicos para OKX WebSocket...")
+            if self._okx_ws_task:
+                self._okx_ws_task.cancel()
+            self._okx_ws_task = asyncio.create_task(self._okx_ws_connection_loop())
+            return
+
         self.ws = WebSocket(
             testnet=settings.BYBIT_TESTNET,
             channel_type="linear",
@@ -481,11 +495,190 @@ class BybitWS:
             # [V55.0] Orderbook stream for Microstructure (Depth 50)
             self.ws.orderbook_stream(symbol=api_symbol, depth=50, callback=self.handle_orderbook_message)
 
+    async def _okx_ws_connection_loop(self):
+        """Loop de conexão resiliente para o WebSocket Público da OKX."""
+        import websockets
+        from services.okx_service import okx_service
+        
+        endpoint = "wss://wspap.okx.com:8443/ws/v5/public" if settings.OKX_TESTNET else "wss://ws.okx.com:8443/ws/v5/public"
+        
+        while True:
+            try:
+                logger.info(f"🔗 [OKX-WS PUBLIC] Conectando ao endpoint: {endpoint}")
+                async with websockets.connect(endpoint, ping_interval=None) as ws:
+                    self._okx_ws = ws
+                    self.last_message_time = time.time() * 1000
+                    
+                    # 1. Subscrever canais para todas as moedas ativas
+                    monitored = self.active_symbols[:95]
+                    args_sub = []
+                    for s in monitored:
+                        inst_id = okx_service.bybit_to_okx(s)
+                        args_sub.extend([
+                            {"channel": "trades", "instId": inst_id},
+                            {"channel": "tickers", "instId": inst_id},
+                            {"channel": "books5", "instId": inst_id}
+                        ])
+                    
+                    # Subscreve em blocos de no máximo 90 tópicos para evitar exceder limites por frame da OKX
+                    chunk_size = 90
+                    for i in range(0, len(args_sub), chunk_size):
+                        chunk = args_sub[i:i + chunk_size]
+                        sub_req = {"op": "subscribe", "args": chunk}
+                        await ws.send(json.dumps(sub_req))
+                        await asyncio.sleep(0.1)
+                        
+                    logger.info(f"📡 [OKX-WS PUBLIC] Subscrições enviadas para {len(monitored)} símbolos.")
+                    
+                    # Iniciar loop de ping periódico
+                    if self._okx_ping_task:
+                        self._okx_ping_task.cancel()
+                    self._okx_ping_task = asyncio.create_task(self._okx_ws_ping_loop(ws))
+                    
+                    # 2. Leitura de mensagens contínua
+                    while True:
+                        try:
+                            msg_str = await asyncio.wait_for(ws.recv(), timeout=45.0)
+                            self.last_message_time = time.time() * 1000
+                            
+                            if msg_str == "pong":
+                                logger.debug("💓 [OKX-WS PUBLIC] Pong recebido.")
+                                continue
+                                
+                            data_okx = json.loads(msg_str)
+                            channel = data_okx.get("arg", {}).get("channel")
+                            
+                            if not channel or "data" not in data_okx:
+                                continue
+                                
+                            inst_id = data_okx["arg"]["instId"]
+                            bybit_symbol = okx_service.okx_to_bybit(inst_id)
+                            bybit_symbol_no_p = bybit_symbol.replace(".P", "")
+                            
+                            # Tradução e injeção transparente na fila
+                            if channel == "trades":
+                                formatted_msg = {
+                                    "_type": "trade",
+                                    "topic": f"publicTrade.{bybit_symbol_no_p}",
+                                    "ts": float(data_okx["data"][0]["ts"]) if data_okx["data"] else time.time() * 1000,
+                                    "data": [
+                                        {
+                                            "S": "Buy" if t["side"] == "buy" else "Sell",
+                                            "v": t["sz"],
+                                            "p": t["px"],
+                                            "T": t["ts"]
+                                        } for t in data_okx.get("data", [])
+                                    ]
+                                }
+                                await self.msg_queue.put(formatted_msg)
+                                
+                            elif channel == "tickers":
+                                okx_ticker = data_okx["data"][0] if data_okx["data"] else {}
+                                formatted_msg = {
+                                    "_type": "ticker",
+                                    "topic": f"tickers.{bybit_symbol_no_p}",
+                                    "data": {
+                                        "lastPrice": okx_ticker.get("last", "0"),
+                                        "turnover24h": okx_ticker.get("volCcy24h", "0")
+                                    }
+                                }
+                                await self.msg_queue.put(formatted_msg)
+                                
+                            elif channel == "books5":
+                                okx_book = data_okx["data"][0] if data_okx["data"] else {}
+                                formatted_msg = {
+                                    "_type": "orderbook",
+                                    "topic": f"orderbook.50.{bybit_symbol_no_p}",
+                                    "data": {
+                                        "b": okx_book.get("bids", []),
+                                        "a": okx_book.get("asks", [])
+                                    }
+                                }
+                                await self.msg_queue.put(formatted_msg)
+                                
+                        except asyncio.TimeoutError:
+                            logger.warning("⚠️ [OKX-WS PUBLIC] Silêncio de dados. Enviando ping manual...")
+                            await ws.send("ping")
+                        except websockets.exceptions.ConnectionClosed:
+                            logger.warning("⚠️ [OKX-WS PUBLIC] Conexão fechada pelo servidor remoto OKX.")
+                            break
+                            
+            except Exception as e:
+                logger.error(f"❌ [OKX-WS PUBLIC] Erro no loop de conexão WebSocket público: {e}")
+                self._okx_ws = None
+                await asyncio.sleep(5)
+
+    async def _okx_ws_ping_loop(self, ws):
+        """Loop para envio de ping a cada 20s para manter viva a conexão pública da OKX."""
+        while ws and ws.open:
+            try:
+                await asyncio.sleep(20)
+                await ws.send("ping")
+                logger.debug("💓 [OKX-WS PUBLIC] Ping enviado.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"❌ [OKX-WS PUBLIC] Falha ao enviar ping: {e}")
+                break
+
     async def sync_topics(self, new_symbols: list):
         """
         [V6.0] Rebalances WebSocket subscriptions to match a new list of active symbols.
         Ensures we stay within the 200 topic limit while rotating candidates.
         """
+        # Se OKX ativa, faz o rebalanceamento no WebSocket público da OKX
+        if settings.OKX_API_KEY_MASTER:
+            if not self._okx_ws or not self._okx_ws.open:
+                self.active_symbols = new_symbols
+                return
+                
+            if "BTCUSDT" not in [s.replace(".P", "").upper() for s in new_symbols]:
+                new_symbols.insert(0, "BTCUSDT.P")
+                
+            new_monitored = new_symbols[:95]
+            new_set = {s.replace(".P", "").upper() for s in new_monitored}
+            old_set = {s.replace(".P", "").upper() for s in self.active_symbols[:95]}
+            
+            to_add = [s for s in new_monitored if s.replace(".P", "").upper() not in old_set]
+            to_remove = [s for s in self.active_symbols[:95] if s.replace(".P", "").upper() not in new_set]
+            
+            if to_add or to_remove:
+                from services.okx_service import okx_service
+                logger.info(f"🔄 [OKX-WS PUBLIC] Rebalancing: +{len(to_add)} | -{len(to_remove)} symbols.")
+                
+                # 1. Unsubscribe from old
+                if to_remove:
+                    args_unsub = []
+                    for s in to_remove:
+                        inst_id = okx_service.bybit_to_okx(s)
+                        args_unsub.extend([
+                            {"channel": "trades", "instId": inst_id},
+                            {"channel": "tickers", "instId": inst_id},
+                            {"channel": "books5", "instId": inst_id}
+                        ])
+                    try:
+                        await self._okx_ws.send(json.dumps({"op": "unsubscribe", "args": args_unsub}))
+                    except Exception as e:
+                        logger.debug(f"Unsubscribe from OKX failed: {e}")
+                        
+                # 2. Subscribe to new
+                if to_add:
+                    args_sub = []
+                    for s in to_add:
+                        inst_id = okx_service.bybit_to_okx(s)
+                        args_sub.extend([
+                            {"channel": "trades", "instId": inst_id},
+                            {"channel": "tickers", "instId": inst_id},
+                            {"channel": "books5", "instId": inst_id}
+                        ])
+                    try:
+                        await self._okx_ws.send(json.dumps({"op": "subscribe", "args": args_sub}))
+                    except Exception as e:
+                        logger.error(f"Subscribe to OKX failed: {e}")
+                        
+                self.active_symbols = new_symbols
+            return
+
         if not self.ws: return
         
         # Ensure BTC is always monitored
@@ -501,10 +694,10 @@ class BybitWS:
         
         if not to_add and not to_remove:
             return
-
+ 
         logger.info(f"🔄 [BYBIT-WS] Rebalancing: +{len(to_add)} | -{len(to_remove)} symbols.")
         
-        # 1. Unsubscribe from old (Best effort - some pybit versions might not have unsubscribe)
+        # 1. Unsubscribe from old
         for s in to_remove:
             try:
                 api_symbol = s.replace(".P", "")
@@ -527,8 +720,6 @@ class BybitWS:
         
         self.active_symbols = new_symbols
         logger.info(f"✅ [BYBIT-WS] Sync complete. Total active: {len(self.active_symbols)}")
-
-        logger.info(f"BybitWS: Subscribed to {len(new_monitored)} symbols for CVD & Price monitoring.")
 
     async def process_message_queue(self):
         """[V110.50] Worker that processes klines/trades outside the WS thread."""
@@ -563,7 +754,12 @@ class BybitWS:
                     logger.warning(f"⚠️ [WATCHDOG] WebSocket Silence Detected ({(now_ms - self.last_message_time)/1000:.1f}s). Restarting...")
                     self.is_reconnecting = True
                     try:
-                        if self.ws: self.ws.exit()
+                        if settings.OKX_API_KEY_MASTER:
+                            if self._okx_ws:
+                                # Agenda fechamento do WS da OKX
+                                asyncio.create_task(self._okx_ws.close())
+                        else:
+                            if self.ws: self.ws.exit()
                     except: pass
                     
                     await asyncio.sleep(2)
@@ -580,6 +776,23 @@ class BybitWS:
                 await asyncio.sleep(10)
 
     def stop(self):
+        if settings.OKX_API_KEY_MASTER:
+            logger.info("🛑 [OKX-WS PUBLIC] Stopping WebSocket connection...")
+            if self._okx_ws_task:
+                self._okx_ws_task.cancel()
+                self._okx_ws_task = None
+            if self._okx_ping_task:
+                self._okx_ping_task.cancel()
+                self._okx_ping_task = None
+            if self._okx_ws:
+                # Tenta fechar o WS da OKX
+                asyncio.create_task(self._okx_ws.close())
+                self._okx_ws = None
+            if self.pulse_task:
+                self.pulse_task.cancel()
+            logger.info("✅ [OKX-WS PUBLIC] WebSocket stopped successfully.")
+            return
+
         if self.ws:
             logger.info("🛑 [BYBIT-WS] Stopping WebSocket connection...")
             if self.pulse_task:

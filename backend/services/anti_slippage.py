@@ -26,6 +26,11 @@ class AntiSlippageEngine:
             # Usando 10% do capital por slot (regra sniper)
             risk_per_slot = 0.10
             
+            if settings.OKX_API_KEY_MASTER:
+                user_equity = 100.0
+                leverage = 50.0
+                risk_per_slot = 0.10
+                
             margin_usd = user_equity * risk_per_slot
             buying_power = margin_usd * leverage
             
