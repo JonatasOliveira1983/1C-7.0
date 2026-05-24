@@ -6287,7 +6287,13 @@
                         <div className="p-6 space-y-8">
                             {/* 1. OBSERVATORY BUTTON [V5.0] */}
                             <section>
-                                
+                                <button 
+                                    onClick={() => window.open('/observatory', '_blank')}
+                                    className="w-full h-11 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-[#00ffcc] text-black font-black text-[11px] uppercase tracking-[0.2em] hover:shadow-[0_0_20px_rgba(0,255,204,0.4)] transition-all duration-300 border border-white/10 group cursor-pointer"
+                                >
+                                    <span className="material-icons-round text-lg group-hover:rotate-12 transition-transform duration-300">visibility</span>
+                                    <span>Observatório Premium</span>
+                                </button>
                             </section>
 
                             {/* 2. IGNITION CONTROL ENGINE [V6.0] */}

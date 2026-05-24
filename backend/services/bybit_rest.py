@@ -47,7 +47,7 @@ class BybitREST:
         # [V43.0] Position Mode Cache (Hedge vs One-Way)
         self._position_mode_cache = {} # { symbol: mode_int }
         self.emancipating_symbols = set() # { symbol }
-        self._http_semaphore = asyncio.Semaphore(10)
+        self._http_semaphore = asyncio.Semaphore(80) # [V110.601] Aumentado para 80 para evitar timeouts concorrentes na Elite Matrix
         self._paper_save_lock = asyncio.Lock() # [V110.23.2] Concurrency Shield for Paper Persistence
         self.is_ready = False # [V110.25.0] Ready flag for sync loop
         
@@ -298,8 +298,7 @@ class BybitREST:
         return self._global_session
     async def get_elite_50x_pairs(self):
         """
-        🚀 REFINAMENTO ESTRATÉGICO V6.0: Escaneia apenas pares com alavancagem >= 50x.
-        Foca nos ~85 pares de elite da Bybit para maximizar precisão e liquidez.
+        🚀 REFINAMENTO ESTRATÉGICO V6.0: Escaneia apenas pares com alavancagem >= 50x na OKX.
         [V43.2] Caching implemented to prevent event loop blocking every 5s.
         """
         now = time.time()
@@ -307,76 +306,77 @@ class BybitREST:
             return self._elite_cache
 
         try:
-            # 1. Fetch ALL instruments info with pagination
-            logger.info("BybitREST: Fetching Elite 50x Instruments (Sniper Strategy)...")
+            logger.info("BybitREST: Fetching Elite 50x Instruments from OKX (Sniper Strategy)...")
+            from services.okx_service import okx_service
             
             candidates = {}
-            cursor = ""
+            # 1. Fetch ALL SWAP instruments from OKX public API
+            url_instr = "https://www.okx.com/api/v5/public/instruments?instType=SWAP"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url_instr)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        for info in data["data"]:
+                            inst_id = info.get("instId", "")
+                            if not inst_id.endswith("-USDT-SWAP"):
+                                continue
+                            
+                            # Converte para formato Bybit para check da blocklist
+                            bybit_sym = okx_service.okx_to_bybit(inst_id)
+                            bybit_sym_clean = bybit_sym.replace(".P", "")
+                            
+                            if bybit_sym_clean in settings.ASSET_BLOCKLIST:
+                                continue
+                                
+                            max_lev = float(info.get("lever", 0))
+                            if max_lev >= 50.0:
+                                candidates[inst_id] = bybit_sym_clean
+
+            logger.info(f"BybitREST: Identified {len(candidates)} SWAP pairs on OKX with leverage >= 50x.")
             
-            while True:
-                params = {"category": "linear", "limit": 1000}
-                if cursor: params["cursor"] = cursor
-                
-                # Fetch in thread to keep loop breathing
-                instr_resp = await asyncio.to_thread(self.session.get_instruments_info, **params)
-                instr_list = instr_resp.get("result", {}).get("list", [])
-                
-                for info in instr_list:
-                    symbol = info.get("symbol")
-                    if not symbol or not symbol.endswith("USDT"):
-                        continue
-                    
-                    # [V100.1] SUPER-BLOCKLIST PREVENTIVO:
-                    # Evita memecoins e moedas lixo logo na triagem inicial.
-                    if symbol in settings.ASSET_BLOCKLIST:
-                        continue
-                    
-                    # [V110.1] STRICT 50X FILTER:
-                    # Garantindo que apenas ativos que suportam 50x ou mais entrem no radar.
-                    max_lev = float(info.get("leverageFilter", {}).get("maxLeverage", 0))
-                    if max_lev >= 50.0:
-                        candidates[symbol] = info
-                
-                cursor = instr_resp.get("result", {}).get("nextPageCursor")
-                if not cursor:
-                    break
-            
-            logger.info(f"BybitREST: Identified {len(candidates)} pairs with at least 50x leverage (Excluding Memecoins).")
-            
-            # 3. Sort by Turnover to ensure we track the most liquid targets
-            # [V43.2] Wrapped in to_thread to avoid blocking event loop
-            tickers_resp = await asyncio.to_thread(self.session.get_tickers, category="linear")
-            ticker_list = tickers_resp.get("result", {}).get("list", [])
-            
+            # 2. Get tickers to sort by 24h volume/turnover
+            url_tickers = "https://www.okx.com/api/v5/market/tickers?instType=SWAP"
             final_candidates = []
-            for t in ticker_list:
-                sym = t.get("symbol")
-                if sym in candidates:
-                    turnover = float(t.get("turnover24h", 0))
-                    final_candidates.append({
-                        "symbol": sym,
-                        "turnover": turnover
-                    })
-                    # V15.7.6: Prime the turnover cache in BybitWS for the Signal Generator
-                    from services.bybit_ws import bybit_ws_service
-                    bybit_ws_service.turnover_24h_cache[f"{sym}.P"] = turnover
-            
-            # Sort by turnover
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url_tickers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        for t in data["data"]:
+                            inst_id = t.get("instId", "")
+                            if inst_id in candidates:
+                                turnover = float(t.get("volCcy24h", 0)) # Volume das últimas 24h na moeda de cotação (USDT)
+                                bybit_sym_clean = candidates[inst_id]
+                                final_candidates.append({
+                                    "symbol": bybit_sym_clean,
+                                    "turnover": turnover
+                                })
+                                # Prime turnover cache in WS
+                                from services.bybit_ws import bybit_ws_service
+                                bybit_ws_service.turnover_24h_cache[f"{bybit_sym_clean}.P"] = turnover
+
+            # Ordenar por volume/turnover
             final_candidates.sort(key=lambda x: x["turnover"], reverse=True)
             
-            # [V110.1] MASS SNIPER: Monitor top 100 liquid assets
+            # Seleciona os top 100 ativos mais líquidos no formato esperado (.P)
             final_symbols = [f"{x['symbol']}.P" for x in final_candidates][:100]
             
-            logger.info(f"BybitREST: Mass Sniper Elite Scan Successful. Monitoring Top {len(final_symbols)} high-leverage assets.")
+            # Se a lista estiver vazia por alguma falha de rede temporária, usa o fallback da Elite Matrix do config
+            if not final_symbols:
+                final_symbols = [f"{s}.P" for s in settings.ELITE_30_MATRIX if f"{s}.P" not in settings.ASSET_BLOCKLIST]
+                
+            logger.info(f"BybitREST: Mass Sniper Elite Scan Successful (OKX Source). Monitoring Top {len(final_symbols)} high-leverage assets.")
             
-            # Update Cache
             self._elite_cache = final_symbols
             self._elite_cache_time = now
-            
             return final_symbols
+            
         except Exception as e:
-            logger.error(f"Error in Elite 50x scan: {e}")
-            return ["BTCUSDT.P", "ETHUSDT.P", "SOLUSDT.P"]
+            logger.error(f"Error in Elite 50x scan from OKX: {e}")
+            # Fallback seguro com a matriz elite definida nas configurações
+            fallback = [f"{s}.P" for s in settings.ELITE_30_MATRIX if f"{s}.P" not in settings.ASSET_BLOCKLIST]
+            return fallback[:20]
 
     def get_top_200_usdt_pairs(self):
         """Deprecated: Use get_elite_50x_pairs for Sniper Protocol."""
@@ -521,7 +521,7 @@ class BybitREST:
     @with_circuit_breaker(breaker_name="bybit_rest_public", fallback_return={"retCode": -1, "result": {"list": []}})
     async def get_tickers(self, symbol: str = None):
         """
-        Fetches ticker data with [V6.0] Exact Match Protection.
+        Fetches ticker data from OKX Mainnet public API and translates to Bybit format.
         If a symbol is provided, only that exact symbol's data is returned.
         [V12.7] Added 2s cache for global fetches to avoid bandwidth blocks.
         """
@@ -533,53 +533,52 @@ class BybitREST:
                     if hasattr(self, "_global_ticker_cache") and (now - self._global_ticker_cache_time < 2.0):
                         return self._global_ticker_cache
                 
-                api_symbol = self.normalize_symbol(symbol)
-                # [V6.1.1] HOTFIX (AttributeError): Removed non-existent is_scanning_phase check.
-                # Strictly blocking None to prevent heavy API load UNLESS it's the 2s window.
-                # if symbol is None:
-                #    logger.warning("[PERFORMANCE] get_tickers called with None symbol! BLOCKED to save bandwidth.")
-                #    return {"retCode": 0, "result": {"list": []}}
-    
-                params = {"category": self.category}
-                if api_symbol: 
-                    params["symbol"] = api_symbol
+                from services.okx_service import okx_service
+                if symbol:
+                    inst_id = okx_service.bybit_to_okx(symbol)
+                    url = f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}"
                 else:
-                    # [V6.1] Optimization: If symbol is None, checking if we really want ALL tickers.
-                    # [V12.7] We only allow this every 2 seconds.
-                    logger.info("[PERFORMANCE] get_tickers: Refreshing global market data (2s Cache).")
-                
-                # V5.2.4.3: Added 5s timeout -> Increased to 10s for stability
-                response = await asyncio.wait_for(asyncio.to_thread(self.session.get_tickers, **params), timeout=10.0)
-                
-                # Update Cache if global
-                if symbol is None:
-                    self._global_ticker_cache = response
-                    self._global_ticker_cache_time = time.time()
-    
-                # [V6.0] Robust Mapping verification
-                if api_symbol:
-                    ticker_list = response.get("result", {}).get("list", [])
-                    
-                    # Check 1: Did we get anything?
-                    if not ticker_list:
-                        logger.warning(f"⚠️ [BYBIT] No ticker found for exactly {api_symbol}")
-                        return response
-                    
-                    # Check 2: Exact Match Verification
-                    # Bybit can return the whole list if symbol is slightly off or if they change API behavior
-                    actual_symbol = ticker_list[0].get("symbol")
-                    if actual_symbol != api_symbol:
-                        logger.error(f"🚨 [TICKER COLLISION] Requested {api_symbol} but Bybit returned {actual_symbol}!")
-                        # Invalidate list to prevent bankroll.py from using wrong price
-                        response["result"]["list"] = [] 
-                    elif len(ticker_list) > 1:
-                        logger.warning(f"⚠️ [TICKER AMBIGUITY] Multiple results for {api_symbol}. Filtering for exact match.")
-                        response["result"]["list"] = [t for t in ticker_list if t.get("symbol") == api_symbol]
-                
-                return response
+                    url = "https://www.okx.com/api/v5/market/tickers?instType=SWAP"
+
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("code") == "0" and data.get("data"):
+                            okx_list = data["data"]
+                            translated_list = []
+                            for ot in okx_list:
+                                bybit_sym = okx_service.okx_to_bybit(ot.get("instId"))
+                                # Tira o .P para conformidade com a expectativa interna de get_tickers
+                                bybit_sym_clean = bybit_sym.replace(".P", "")
+                                
+                                translated_list.append({
+                                    "symbol": bybit_sym_clean,
+                                    "lastPrice": ot.get("last", "0"),
+                                    "turnover24h": ot.get("volCcy24h", "0")
+                                })
+                            
+                            # Filtra se houver símbolo específico
+                            if symbol:
+                                api_symbol = self.normalize_symbol(symbol)
+                                translated_list = [t for t in translated_list if t["symbol"] == api_symbol]
+                            
+                            res_payload = {
+                                "retCode": 0,
+                                "result": {
+                                    "list": translated_list
+                                }
+                            }
+                            
+                            if symbol is None:
+                                self._global_ticker_cache = res_payload
+                                self._global_ticker_cache_time = time.time()
+                                
+                            return res_payload
             except Exception as e:
-                logger.error(f"Error fetching tickers for {symbol}: {e}")
-                return {}
+                logger.error(f"Error fetching tickers from OKX for {symbol}: {e}")
+                
+            return {"retCode": -1, "result": {"list": []}}
 
     @with_circuit_breaker(breaker_name="bybit_rest_public", fallback_return={})
     async def get_instrument_info(self, symbol: str):
@@ -1175,109 +1174,99 @@ class BybitREST:
             logger.error(f"Error fetching orderbook for {symbol}: {e}")
             return {}
 
-    async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20):
-        """Fetches historical klines for ATR and variation calculations."""
-        if settings.OKX_API_KEY_MASTER:
+    async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20, *args, **kwargs):
+        """Fetches historical klines for ATR and variation calculations from OKX Mainnet public API."""
+        try:
             from services.okx_service import okx_service
-            return await okx_service.get_klines(symbol, interval, limit)
-
-        async with self._http_semaphore:
-            try:
-                # [V110.12.11] ENSURE NO .P SUFFIX for Market Data
-                api_symbol = self._strip_p(symbol).replace(".P", "")
-                # V5.2.4.3: Added 5s timeout
-                response = await asyncio.wait_for(asyncio.to_thread(self.session.get_mark_price_kline,
-                    category=self.category,
-                    symbol=api_symbol,
-                    interval=interval,
-                    limit=limit
-                ), timeout=5.0)
-                return response.get("result", {}).get("list", [])
-            except Exception as e:
-                logger.error(f"Error fetching klines for {symbol}: {e}")
-                return []
+            inst_id = okx_service.bybit_to_okx(symbol)
+            
+            # Mapeamento do intervalo Bybit -> OKX
+            interval_map = {
+                "1": "1m", "3": "3m", "5": "5m", "15": "15m", "30": "30m",
+                "60": "1H", "120": "2H", "240": "4H", "360": "6H", "720": "12H",
+                "D": "1D", "W": "1W", "M": "1M",
+                "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
+                "1H": "1H", "2H": "2H", "4H": "4H", "6H": "6H", "12H": "12H",
+                "1D": "1D", "1W": "1W", "1M": "1M"
+            }
+            bar = interval_map.get(str(interval), "1H")
+            url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+            
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        okx_candles = data.get("data", [])
+                        # OKX retorna: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
+                        # Bybit espera: [start_time, open, high, low, close, volume, turnover]
+                        formatted = []
+                        for c in okx_candles:
+                            if len(c) >= 5:
+                                formatted.append([
+                                    c[0], # ts
+                                    c[1], # o
+                                    c[2], # h
+                                    c[3], # l
+                                    c[4], # c
+                                    c[5] if len(c) > 5 else "0", # vol
+                                    c[6] if len(c) > 6 else "0"  # volCcy
+                                ])
+                        return formatted
+        except Exception as e:
+            logger.error(f"Error fetching klines from OKX public API for {symbol}: {e}")
+            
+        return []
 
     async def get_open_interest(self, symbol: str, interval: str = "1h") -> float:
         """
-        [V15.5] Fetches the current Open Interest for a symbol.
-        Used to detect 'Gas' (liquidity inflows) during accumulation box exits.
+        [V15.5] Fetches the current Open Interest for a symbol from OKX Mainnet.
         """
-        if settings.OKX_API_KEY_MASTER:
+        try:
             from services.okx_service import okx_service
-            return await okx_service.get_open_interest(symbol)
-
-        async with self._http_semaphore:
-            try:
-                # [V110.12.11] ENSURE NO .P SUFFIX for Market Data
-                api_symbol = self._strip_p(symbol).replace(".P", "")
-                # V5 endpoint: get_open_interest
-                response = await asyncio.wait_for(asyncio.to_thread(
-                    self.session.get_open_interest,
-                    category=self.category,
-                    symbol=api_symbol,
-                    intervalTime=interval,
-                    limit=1
-                ), timeout=5.0)
-                
-                oi_list = response.get("result", {}).get("list", [])
-                if oi_list:
-                    return float(oi_list[0].get("openInterest", 0))
-                return 0.0
-            except Exception as e:
-                logger.error(f"Error fetching Open Interest for {symbol}: {e}")
-                return 0.0
+            inst_id = okx_service.bybit_to_okx(symbol)
+            url = f"https://www.okx.com/api/v5/public/open-interest?instId={inst_id}"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        return float(data["data"][0].get("oi", 0.0))
+        except Exception as e:
+            logger.error(f"Error fetching Open Interest from OKX for {symbol}: {e}")
+        return 0.0
 
     async def get_open_interest_history(self, symbol: str, interval: str = "5min", limit: int = 5) -> List[Dict[str, Any]]:
         """
-        [V46.0] Fetches historical Open Interest data.
-        Returns a list of OI records: [{"openInterest": "...", "timestamp": "..."}]
+        [V46.0] Fetches historical Open Interest data from OKX.
         """
-        async with self._http_semaphore:
-            try:
-                api_symbol = self._strip_p(symbol)
-                response = await asyncio.wait_for(asyncio.to_thread(
-                    self.session.get_open_interest,
-                    category=self.category,
-                    symbol=api_symbol,
-                    intervalTime=interval,
-                    limit=limit
-                ), timeout=5.0)
-                
-                return response.get("result", {}).get("list", [])
-            except Exception as e:
-                logger.error(f"Error fetching OI history for {symbol}: {e}")
-                return []
+        try:
+            from services.okx_service import okx_service
+            inst_id = okx_service.bybit_to_okx(symbol)
+            url = f"https://www.okx.com/api/v5/public/open-interest?instId={inst_id}"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        oi_val = data["data"][0].get("oi", "0")
+                        ts = data["data"][0].get("ts", str(int(time.time() * 1000)))
+                        # Retorna lista compatível com Bybit
+                        return [{"openInterest": oi_val, "timestamp": ts}]
+        except Exception as e:
+            logger.error(f"Error fetching OI history from OKX for {symbol}: {e}")
+        return []
 
     async def get_account_ratio(self, symbol: str, period: str = "5min") -> float:
         """
-        [V15.5] Fetches the Long/Short Account Ratio for a symbol.
-        Used to detect retail positioning (high ratio = retail over-bought).
+        [V15.5] Fetches the Long/Short Account Ratio for a symbol from OKX Mainnet.
         """
-        if settings.OKX_API_KEY_MASTER:
+        try:
             from services.okx_service import okx_service
             return await okx_service.get_long_short_ratio(symbol, period)
-
-        async with self._http_semaphore:
-            try:
-                # [V110.12.11] ENSURE NO .P SUFFIX for Market Data
-                api_symbol = self._strip_p(symbol).replace(".P", "")
-                # V5 endpoint: get_long_short_ratio
-                response = await asyncio.wait_for(asyncio.to_thread(
-                    self.session.get_long_short_ratio,
-                    category=self.category,
-                    symbol=api_symbol,
-                    period=period,
-                    limit=1
-                ), timeout=5.0)
-                
-                ratio_list = response.get("result", {}).get("list", [])
-                if ratio_list:
-                    # Returns the ratio (e.g., 1.5 means 1.5 accounts long for every 1 short)
-                    return float(ratio_list[0].get("buySellRatio", 1.0))
-                return 1.0
-            except Exception as e:
-                logger.error(f"Error fetching Account Ratio for {symbol}: {e}")
-                return 1.0
+        except Exception as e:
+            logger.error(f"Error fetching Account Ratio from OKX for {symbol}: {e}")
+            return 1.0
 
     # [V25.1] Funding Rate Cache
     _funding_cache: dict = {}  # { symbol: { rate, timestamp } }

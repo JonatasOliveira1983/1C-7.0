@@ -484,6 +484,12 @@ class OKXService:
         Busca velas históricas (Klines) públicas na OKX.
         Retorna uma lista de velas no formato da Bybit: [start_time, open, high, low, close]
         """
+        # Se for OKX Testnet, apenas BTC e ETH têm cobertura garantida. Altcoins dão Instrument ID doesn't exist
+        clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
+        if self.testnet and clean_sym not in ["BTCUSDT", "ETHUSDT"]:
+            logger.info(f"ℹ️ [OKX REST] Ignorando chamada kline para {symbol} na OKX Testnet (cobertura reduzida).")
+            return []
+
         inst_id = self.bybit_to_okx(symbol)
         
         # Mapeamento de intervalos Bybit -> OKX
@@ -524,7 +530,7 @@ class OKXService:
         headers = self._get_headers("GET", request_path)
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.get(url, headers=headers)
                 if response.status_code == 200:
                     data = response.json()
@@ -556,6 +562,11 @@ class OKXService:
         """
         Busca o Open Interest atual para um símbolo na OKX.
         """
+        # Se for OKX Testnet, apenas BTC e ETH têm cobertura garantida. Altcoins dão Instrument ID doesn't exist
+        clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
+        if self.testnet and clean_sym not in ["BTCUSDT", "ETHUSDT"]:
+            return 0.0
+
         inst_id = self.bybit_to_okx(symbol)
         
         if self.is_mock:
@@ -566,7 +577,7 @@ class OKXService:
         headers = self._get_headers("GET", request_path)
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.get(url, headers=headers)
                 if response.status_code == 200:
                     data = response.json()

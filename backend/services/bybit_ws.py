@@ -471,36 +471,19 @@ class BybitWS:
             self.worker_task = asyncio.create_task(self.process_message_queue())
             logger.info("👷 [BYBIT-WS] Async Queue Worker Started.")
         
-        # Se OKX estiver ativa, desvia a conexão para o WebSocket público da OKX
-        if settings.OKX_API_KEY_MASTER:
-            logger.info("🔌 [OKX-WS PUBLIC] Redirecionando oráculo de feeds públicos para OKX WebSocket...")
-            if self._okx_ws_task:
-                self._okx_ws_task.cancel()
-            self._okx_ws_task = asyncio.create_task(self._okx_ws_connection_loop())
-            return
-
-        self.ws = WebSocket(
-            testnet=settings.BYBIT_TESTNET,
-            channel_type="linear",
-        )
-        
-        # V14.1 Shield: Cap symbols at 95 to stay under 200 topics (2 per symbol + BTC)
-        monitored_symbols = symbols[:95]
-        for symbol in monitored_symbols:
-            api_symbol = symbol.replace(".P", "")
-            # Subscribe to trades for CVD calculation (V5 Public Linear)
-            self.ws.trade_stream(symbol=api_symbol, callback=self.handle_trade_message)
-            # Ticker stream for real-time price & normalization
-            self.ws.ticker_stream(symbol=api_symbol, callback=self.handle_ticker_message)
-            # [V55.0] Orderbook stream for Microstructure (Depth 50)
-            self.ws.orderbook_stream(symbol=api_symbol, depth=50, callback=self.handle_orderbook_message)
+        # Ativa incondicionalmente o oráculo de feeds públicos para OKX WebSocket
+        logger.info("🔌 [OKX-WS PUBLIC] Ativando oráculo de feeds públicos para OKX WebSocket...")
+        if self._okx_ws_task:
+            self._okx_ws_task.cancel()
+        self._okx_ws_task = asyncio.create_task(self._okx_ws_connection_loop())
+        return
 
     async def _okx_ws_connection_loop(self):
         """Loop de conexão resiliente para o WebSocket Público da OKX."""
         import websockets
         from services.okx_service import okx_service
         
-        endpoint = "wss://wspap.okx.com:8443/ws/v5/public" if settings.OKX_TESTNET else "wss://ws.okx.com:8443/ws/v5/public"
+        endpoint = "wss://ws.okx.com:8443/ws/v5/public"
         
         while True:
             try:
@@ -754,12 +737,9 @@ class BybitWS:
                     logger.warning(f"⚠️ [WATCHDOG] WebSocket Silence Detected ({(now_ms - self.last_message_time)/1000:.1f}s). Restarting...")
                     self.is_reconnecting = True
                     try:
-                        if settings.OKX_API_KEY_MASTER:
-                            if self._okx_ws:
-                                # Agenda fechamento do WS da OKX
-                                asyncio.create_task(self._okx_ws.close())
-                        else:
-                            if self.ws: self.ws.exit()
+                        if self._okx_ws:
+                            # Agenda fechamento do WS da OKX
+                            asyncio.create_task(self._okx_ws.close())
                     except: pass
                     
                     await asyncio.sleep(2)
@@ -776,28 +756,19 @@ class BybitWS:
                 await asyncio.sleep(10)
 
     def stop(self):
-        if settings.OKX_API_KEY_MASTER:
-            logger.info("🛑 [OKX-WS PUBLIC] Stopping WebSocket connection...")
-            if self._okx_ws_task:
-                self._okx_ws_task.cancel()
-                self._okx_ws_task = None
-            if self._okx_ping_task:
-                self._okx_ping_task.cancel()
-                self._okx_ping_task = None
-            if self._okx_ws:
-                # Tenta fechar o WS da OKX
-                asyncio.create_task(self._okx_ws.close())
-                self._okx_ws = None
-            if self.pulse_task:
-                self.pulse_task.cancel()
-            logger.info("✅ [OKX-WS PUBLIC] WebSocket stopped successfully.")
-            return
-
-        if self.ws:
-            logger.info("🛑 [BYBIT-WS] Stopping WebSocket connection...")
-            if self.pulse_task:
-                self.pulse_task.cancel()
-            self.ws.exit()
-            logger.info("✅ [BYBIT-WS] WebSocket stopped successfully.")
+        logger.info("🛑 [OKX-WS PUBLIC] Stopping WebSocket connection...")
+        if self._okx_ws_task:
+            self._okx_ws_task.cancel()
+            self._okx_ws_task = None
+        if self._okx_ping_task:
+            self._okx_ping_task.cancel()
+            self._okx_ping_task = None
+        if self._okx_ws:
+            # Tenta fechar o WS da OKX
+            asyncio.create_task(self._okx_ws.close())
+            self._okx_ws = None
+        if self.pulse_task:
+            self.pulse_task.cancel()
+        logger.info("✅ [OKX-WS PUBLIC] WebSocket stopped successfully.")
 
 bybit_ws_service = BybitWS()

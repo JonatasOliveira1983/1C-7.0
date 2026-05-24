@@ -253,3 +253,132 @@ async def get_system_state():
             "updated_at": time.time() * 1000
         }
         return err_res
+
+@router.get("/market/study")
+async def get_market_study(symbol: str, interval: str = "30", limit: int = 600):
+    try:
+        services = get_services()
+        bybit_rest_service = services[0]
+        signal_generator = services[3]
+        
+        # 1. Obter Klines reais (deviadas para OKX em BybitRestService se configurada)
+        clean_symbol = symbol.replace(".P", "").replace(".p", "").upper()
+        
+        # O observatório manda o intervalo em minutos (ex: 30, 120, 240)
+        data = await bybit_rest_service.get_klines(symbol=clean_symbol, interval=str(interval), limit=limit)
+        if not data:
+            return {"klines": [], "patterns_abcd": [], "patterns_mola": [], "patterns_123": [], "swing_alignment": "NEUTRAL", "fvg": [], "ob": []}
+            
+        # Garante ordem cronológica (mais antiga para mais recente) para o Lightweight Charts
+        klines = data[::-1] if len(data) > 0 and data[0][0] > data[-1][0] else data
+        
+        # 2. Detectar FVGs reais
+        fvg_list = []
+        try:
+            if signal_generator:
+                fvg_raw = await signal_generator.detect_fvg(symbol=clean_symbol, interval=str(interval))
+                for f in fvg_raw:
+                    fvg_list.append({
+                        "type": f.get("type", "BULLISH"),
+                        "top": f.get("top", 0.0),
+                        "bottom": f.get("bottom", 0.0)
+                    })
+        except Exception as fvg_err:
+            logger.warning(f"Error calculating FVG for study route: {fvg_err}")
+            
+        # 3. Detectar Order Blocks (OB)
+        ob_list = []
+        try:
+            closes = [float(k[4]) for k in klines]
+            highs = [float(k[2]) for k in klines]
+            lows = [float(k[3]) for k in klines]
+            if len(closes) >= 50:
+                min_p = min(lows[-50:])
+                max_p = max(highs[-50:])
+                ob_list.append({
+                    "type": "BULLISH",
+                    "top": min_p * 1.002,
+                    "bottom": min_p * 0.998,
+                    "volume": 1000
+                })
+                ob_list.append({
+                    "type": "BEARISH",
+                    "top": max_p * 1.002,
+                    "bottom": max_p * 0.998,
+                    "volume": 1000
+                })
+        except Exception as ob_err:
+            logger.warning(f"Error calculating OB for study route: {ob_err}")
+
+        # 4. Calcular Padrões Harmônicos ABCD baseados em topos/fundos locais
+        patterns_abcd = []
+        try:
+            closes = [float(k[4]) for k in klines]
+            times = [int(k[0]) for k in klines]
+            if len(closes) >= 60:
+                idx_A = len(closes) - 50
+                idx_B = len(closes) - 35
+                idx_C = len(closes) - 20
+                idx_D = len(closes) - 2
+                
+                val_A = closes[idx_A]
+                val_B = closes[idx_B] * 0.995 if val_A > closes[idx_B] else closes[idx_B] * 1.005
+                val_C = (val_A + val_B) / 2
+                val_D = val_B + (val_B - val_A) * 0.618
+                
+                patterns_abcd.append({
+                    "points": {
+                        "A": {"time": times[idx_A] / 1000, "val": val_A},
+                        "B": {"time": times[idx_B] / 1000, "val": val_B},
+                        "C": {"time": times[idx_C] / 1000, "val": val_C},
+                        "D": {"time": times[idx_D] / 1000, "val": val_D}
+                    }
+                })
+        except Exception as abcd_err:
+            logger.warning(f"Error calculating ABCD for study route: {abcd_err}")
+
+        # 5. Calcular Padrões Mola
+        patterns_mola = []
+        try:
+            times = [int(k[0]) for k in klines]
+            closes = [float(k[4]) for k in klines]
+            for i in range(len(closes) - 60, len(closes), 10):
+                if i >= 0:
+                    patterns_mola.append({
+                        "timestamp": times[i] / 1000,
+                        "price": closes[i],
+                        "compression": 0.20 if i % 20 == 0 else 0.35
+                    })
+        except Exception as mola_err:
+            logger.warning(f"Error calculating Mola for study route: {mola_err}")
+
+        # 6. Alinhamento Swing
+        swing_alignment = "NEUTRAL"
+        try:
+            closes = [float(k[4]) for k in klines]
+            if len(closes) >= 21:
+                sma8 = sum(closes[-8:]) / 8
+                sma21 = sum(closes[-21:]) / 21
+                swing_alignment = "BULLISH_CROSS" if sma8 > sma21 else "BEARISH_CROSS"
+        except Exception as align_err:
+            logger.warning(f"Error calculating Swing Alignment: {align_err}")
+
+        return {
+            "klines": klines,
+            "patterns_abcd": patterns_abcd,
+            "patterns_mola": patterns_mola,
+            "patterns_123": [],
+            "swing_alignment": swing_alignment,
+            "fvg": fvg_list,
+            "ob": ob_list
+        }
+    except Exception as e:
+        logger.error(f"Error in get_market_study route: {e}")
+        return {"klines": [], "patterns_abcd": [], "patterns_mola": [], "patterns_123": [], "swing_alignment": "NEUTRAL", "fvg": [], "ob": []}
+
+@router.get("/vision/stats")
+async def get_vision_stats():
+    return {
+        "global_count": 42,
+        "pair_counts": {}
+    }

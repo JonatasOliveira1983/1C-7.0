@@ -556,7 +556,7 @@ html, body {
     </div>
     <div class="strat-sep"></div>
     <div class="strat-card">
-        <div class="strat-label">4H Macro Direcional</div>
+        <div class="strat-label">2H Macro Direcional</div>
         <div class="strat-main">
             <div class="strat-val" id="macro4hDir" style="color:var(--t2)">—</div>
             <div class="strat-sub" id="macro4hSub">AGUARDANDO</div>
@@ -591,7 +591,7 @@ html, body {
  <div class="layout">
   <aside class="sidebar">
     <div class="sb-search"><input type="text" id="searchInput" placeholder="BUSCAR..." oninput="filterPairs(this.value)"></div>
-    <div style="padding: 10px 15px; font-size: 10px; color: var(--t2); font-weight: 800; border-bottom: 1px solid var(--border)">30 ELITE PAIRS · VISUAL HQ</div>
+    <div style="padding: 10px 15px; font-size: 10px; color: var(--t2); font-weight: 800; border-bottom: 1px solid var(--border)">32 MONITORING PAIRS · VISUAL HQ</div>
     <div class="pair-list" id="pairList"></div>
   </aside>
 
@@ -600,6 +600,7 @@ html, body {
       <div style="display:flex;align-items:center;gap:15px">
         <span class="sym-name" id="symDisplay">—</span>
         <span id="profBadge" class="badge bs">STABLE</span>
+        <span class="badge" style="background: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.2); display: flex; align-items: center; gap: 4px; font-weight:900;"><span class="material-icons-round" style="font-size:10px;">sensors</span>OKX FEED</span>
         <div class="hud-sep" style="height:16px"></div>
         <!-- Tool Toggles -->
         <div style="display:flex;align-items:center;gap:8px" id="strategySelector">
@@ -717,6 +718,7 @@ console.log("%c🚀 [OBSERVATORY UI] Version: V110.900 | Sovereign-WS & Flicker-
         })();
 
 const MATRIX = {
+  "BTCUSDT":{p:"STABLE"},"ETHUSDT":{p:"STABLE"},
   "AVAXUSDT":{p:"EXTREME"},"PYTHUSDT":{p:"STABLE"},"APTUSDT":{p:"EXTREME"},"SUIUSDT":{p:"EXTREME"},
   "OPUSDT":{p:"VOLATILE"},"ARBUSDT":{p:"VOLATILE"},"RENDERUSDT":{p:"EXTREME"},"NEARUSDT":{p:"VOLATILE"},
   "INJUSDT":{p:"VOLATILE"},"TIAUSDT":{p:"EXTREME"},"LINKUSDT":{p:"STABLE"},"DOTUSDT":{p:"STABLE"},
@@ -859,7 +861,7 @@ let molaSeries30 = null;
 
 let isSyncing = false;
 
-const calculateSMA = (d, p) => { let s = []; for (let i = 0; i < d.length; i++) { if (i < p - 1) continue; let sum = 0; for (let j = 0; j < p; j++) sum += d[i - j].close; s.push({ time: d[i].time, value: sum / p }); } return s; };
+const calculateSMA = (d, p) => { let s = []; for (let i = 0; i < d.length; i++) { if (i < p - 1) continue; let sum = 0; for (let j = 0; j < p; j++) sum += parseFloat(d[i - j].close); s.push({ time: d[i].time, value: sum / p }); } return s; };
 const calculateRSI = (d, p = 14) => { let r = []; if (d.length < p) return r; let g = 0, l = 0; for (let i = 1; i <= p; i++) { let diff = d[i].close - d[i-1].close; if (diff > 0) g += diff; else l -= diff; } let ag = g/p, al = l/p; r.push({ time: d[p].time, value: 100 - (100/(1+ag/al)) }); for (let i = p + 1; i < d.length; i++) { let diff = d[i].close - d[i-1].close; ag = (ag * (p-1) + (diff > 0 ? diff : 0)) / p; al = (al * (p-1) + (diff < 0 ? -diff : 0)) / p; r.push({ time: d[i].time, value: 100 - (100/(1+ag/al)) }); } return r; };
 const calculateRsiSignal = (rsiVals, len = 9) => { let sig = []; if (rsiVals.length < len) return sig; let sum = 0; for (let i = 0; i < len; i++) sum += rsiVals[i].value; sig.push({ time: rsiVals[len-1].time, value: sum / len }); const alpha = 2 / (len + 1); let prevEma = sum / len; for (let i = len; i < rsiVals.length; i++) { let curEma = (rsiVals[i].value * alpha) + (prevEma * (1 - alpha)); sig.push({ time: rsiVals[i].time, value: curEma }); prevEma = curEma; } return sig; };
 const calculateST = (d, atrPeriod = 10, m = 2, pivotPeriod = 1) => {
@@ -1209,7 +1211,7 @@ async function loadData(s) {
 
     if (res30.ok) {
         study30 = await res30.json();
-        const d30 = study30.klines.map(x => ({ time: x[0]/1000, open: x[1], high: x[2], low: x[3], close: x[4], volume: x[5] }));
+        const d30 = study30.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) }));
         series30.candle.setData(d30);
         series30.vol.setData(d30.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' })));
         
@@ -1283,7 +1285,7 @@ async function loadData(s) {
 
     if (res4h.ok) {
         study4h = await res4h.json();
-        const d4h = study4h.klines.map(x => ({ time: x[0]/1000, open: x[1], high: x[2], low: x[3], close: x[4], volume: x[5] }));
+        const d4h = study4h.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) }));
         series4h.candle.setData(d4h);
         series4h.vol.setData(d4h.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' })));
         
@@ -1713,6 +1715,7 @@ function select(s) {
 }
 
 const ELITE_30_PAIRS = [
+    "BTCUSDT", "ETHUSDT",
     "AVAXUSDT", "PYTHUSDT", "APTUSDT", "SUIUSDT", "OPUSDT", "ARBUSDT", "RENDERUSDT", 
     "NEARUSDT", "INJUSDT", "TIAUSDT", "LINKUSDT", "DOTUSDT", "ADAUSDT", "POLUSDT", 
     "ATOMUSDT", "LTCUSDT", "BCHUSDT", "XLMUSDT", "XRPUSDT", "TRXUSDT", "SEIUSDT", 

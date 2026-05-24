@@ -275,10 +275,13 @@ async def lifespan(app: FastAPI):
                 await harvester_agent.start() # [V110.656] Inicia Monitoramento de Moonbags
                 
                 # 🔥 [V5.4.0] HeatMonitor Agent - Ignition & Flow Intelligence
-                from services.agents.heat_monitor import heat_monitor_agent
-                await kernel.register_agent(heat_monitor_agent)
-                asyncio.create_task(heat_monitor_agent.run_monitoring_loop())
-                logger.info("🔥 [V5.4.0] HeatMonitor ONLINE — Monitoramento de Ignição ativo.")
+                try:
+                    from services.agents.heat_monitor import heat_monitor_agent
+                    await kernel.register_agent(heat_monitor_agent)
+                    asyncio.create_task(heat_monitor_agent.run_monitoring_loop())
+                    logger.info("🔥 [V5.4.0] HeatMonitor ONLINE — Monitoramento de Ignição ativo.")
+                except ImportError as ie:
+                    logger.warning(f"⚠️ [V5.4.0] HeatMonitor Agent not found, skipping: {ie}")
 
                 # 🆕 [HERMES] Compliance & Telemetry Agent
                 from services.agents.hermes_agent import hermes_agent
@@ -287,9 +290,12 @@ async def lifespan(app: FastAPI):
                 logger.info("🟢 [HERMES] Compliance & Telemetry Agent ONLINE — Monitorando docs vs código vs runtime.")
 
                 # 🧬 [V5.5.0] Sniper Sieve - O Funil de 200 Ativos
-                from services.agents.sieve_agent import sieve_agent
-                asyncio.create_task(sieve_agent.run_sieve_loop())
-                logger.info("🧬 [V5.5.0] Sniper Sieve ONLINE — Varredura de 200 pares ativa (20x-50x).")
+                try:
+                    from services.agents.sieve_agent import sieve_agent
+                    asyncio.create_task(sieve_agent.run_sieve_loop())
+                    logger.info("🧬 [V5.5.0] Sniper Sieve ONLINE — Varredura de 200 pares ativa (20x-50x).")
+                except ImportError as ie:
+                    logger.warning(f"⚠️ [V5.5.0] Sniper Sieve Agent not found, skipping: {ie}")
 
                 logger.info("Step 3.0: [V110.240] AIOS Kernel — Fleet Active 🚀")
 
@@ -418,7 +424,7 @@ async def lifespan(app: FastAPI):
                                         btc_var_24h=bybit_ws_service.btc_variation_24h,
                                         btc_dominance=current_dominance,
                                         btc_var_15m=btc_var_15m,
-                                        btc_var_4h=bybit_ws_service.btc_variation_4h,
+                                        btc_var_4h=getattr(bybit_ws_service, 'btc_variation_4h', 0.0),
                                         btc_direction=None, # Centralized logic in SovereignService
                                         oracle_context={**oracle_ctx, "heat_index": global_heat}
                                     )

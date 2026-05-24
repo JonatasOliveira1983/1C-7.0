@@ -17,12 +17,28 @@ class SlotOperatorAgent(AIOSAgent):
     Implementa a lógica de Stop Loss dinâmico (Escadinha) e emancipação para Moonbag.
     """
     def __init__(self, slot_id: int):
-        super().__init__(f"slot_operator_{slot_id}")
+        super().__init__(
+            agent_id=f"slot_operator_{slot_id}",
+            role="slot_operator",
+            capabilities=["slot_lifecycle_management", "stop_loss_escalation", "emancipation"]
+        )
         self.slot_id = slot_id
         self.bybit_rest = BybitREST()
         self.loop_interval = 3.0  # Executar a cada 3 segundos
         self._task = None
         self.is_running = False
+
+    async def on_message(self, message: dict) -> dict:
+        try:
+            msg_type = message.get("type")
+            data = message.get("data", {})
+            if msg_type == "GET_STATUS":
+                slot = await database_service.get_slot(self.slot_id)
+                return {"status": "SUCCESS", "data": slot}
+            return {"status": "ERROR", "message": f"Unknown message type: {msg_type}"}
+        except Exception as e:
+            logger.error(f"SlotOperator-{self.slot_id} on_message Error: {e}")
+            return {"status": "ERROR", "message": str(e)}
 
     async def start(self):
         """Inicia o loop principal do SlotOperator."""
@@ -73,6 +89,28 @@ class SlotOperatorAgent(AIOSAgent):
         current_price = await self._get_current_price(symbol)
         if current_price <= 0:
             return
+
+        # [OKX-TESTNET] Failsafe: Stop Loss Virtual Ativo
+        # Se o stop estiver configurado no banco e o preço violar esse limite,
+        # fechamos imediatamente a mercado para garantir a proteção da banca.
+        if settings.OKX_API_KEY_MASTER and current_stop > 0:
+            is_stop_violated = False
+            if side.upper() == "BUY" and current_price <= current_stop:
+                is_stop_violated = True
+                reason_sl = "STOP_LOSS_VIRTUAL_BUY"
+            elif side.upper() == "SELL" and current_price >= current_stop:
+                is_stop_violated = True
+                reason_sl = "STOP_LOSS_VIRTUAL_SELL"
+                
+            if is_stop_violated:
+                logger.critical(f"💥 [STOP-VIRTUAL-{self.slot_id}] {symbol} violou Stop Loss ({current_stop:.4f}) a {current_price:.4f}! Disparando fechamento imediato na OKX...")
+                # Fecha a posição na OKX via bybit_rest (que redireciona para OKX)
+                await self.bybit_rest.close_position(symbol, side, qty, reason=reason_sl)
+                # Reseta o slot local no banco
+                await database_service.update_slot(self.slot_id, {
+                    "symbol": None, "entry_price": 0, "current_stop": 0, "qty": 0, "pnl_percent": 0
+                })
+                return
 
         # 3. Calcular ROI em tempo real (assumindo alavancagem 50x padrão para sniper)
         leverage = 50.0
@@ -166,7 +204,13 @@ class SlotOperatorAgent(AIOSAgent):
         return None
 
     async def _update_stop_loss(self, symbol: str, side: str, sl_price: float, slot_id: int, qty: float):
-        """Atualiza o Stop Loss na Bybit (Real) ou na memória (Paper)."""
+        """Atualiza o Stop Loss na Bybit (Real), OKX ou na memória (Paper)."""
+        if settings.OKX_API_KEY_MASTER:
+            # Em modo OKX Master, usamos o Stop Loss Virtual Ativo monitorado a cada ciclo.
+            # O preço de stop atualizado já é persistido no banco local.
+            logger.info(f"🛡️ [SlotOperator-{self.slot_id}] {symbol} Stop virtual atualizado no banco para {sl_price:.4f} (Failsafe OKX ativo).")
+            return
+
         if self.bybit_rest.execution_mode == "PAPER":
             # Atualização em memória
             pos = next((p for p in self.bybit_rest.paper_positions if self.bybit_rest.normalize_symbol(p["symbol"]) == self.bybit_rest.normalize_symbol(symbol)), None)
