@@ -600,7 +600,19 @@ class FirebaseService:
     async def get_active_slots(self, username: str = None, force_refresh: bool = False):
         """[V120] Busca os slots ativos de um usuário específico ou da banca global (Legacy)"""
         if not self.is_active: 
-            return self.slots_cache
+            try:
+                from services.database_service import database_service
+                slots = await database_service.get_active_slots()
+                full_slots = []
+                for i in range(1, 5):
+                    existing = next((s for s in slots if s.get("id") == i), None)
+                    if existing: full_slots.append(existing)
+                    else: full_slots.append({"id": i, "symbol": None, "entry_price": 0, "current_stop": 0, "status_risco": "LIVRE", "pnl_percent": 0})
+                self.slots_cache = full_slots
+                return self.slots_cache
+            except Exception as e:
+                logger.error(f"Error reading Postgres slots from Firebase proxy: {e}")
+                return self.slots_cache
             
         now_time = time.time()
         # Cache per-user ou general
@@ -681,7 +693,13 @@ class FirebaseService:
 
     async def update_slot(self, slot_id: int, data: dict, username: str = None):
         """[V120] Atualiza o estado de um slot no Firestore e RTDB com isolamento multitenant."""
-        if not self.is_active: return data
+        if not self.is_active: 
+            try:
+                from services.database_service import database_service
+                await database_service.update_slot(slot_id, data)
+            except Exception as e:
+                logger.error(f"Error updating Postgres slot from Firebase proxy: {e}")
+            return data
         
         try:
             # 1. Firestore Path
@@ -754,7 +772,13 @@ class FirebaseService:
         
     async def promote_to_moonbag(self, slot_id: int):
         """[V110.0] Promove um trade tático para o status de Moonbag (Emancipado)."""
-        if not self.is_active: return
+        if not self.is_active: 
+            try:
+                from services.database_service import database_service
+                return await database_service.promote_to_moonbag(slot_id)
+            except Exception as e:
+                logger.error(f"Error promoting Moonbag in Postgres: {e}")
+                return False
         try:
             # 1. Busca os dados atuais do slot
             slots = await self.get_active_slots(force_refresh=True)
@@ -840,8 +864,14 @@ class FirebaseService:
             logger.error(f"Error removing moonbag {moon_uuid}: {e}")
 
     async def get_moonbags(self, limit: int = 50):
-        """Busca todas as moonbags ativas do Firestore."""
-        if not self.is_active: return []
+        """[V110.0] Busca moonbags ativas."""
+        if not self.is_active: 
+            try:
+                from services.database_service import database_service
+                return await database_service.get_moonbags()
+            except Exception as e:
+                logger.error(f"Error getting Moonbags from Postgres: {e}")
+                return []
         try:
             # V110.0: Busca todas para o loop de execução monitorar
             docs = await asyncio.to_thread(self.db.collection("moonbags").get)
@@ -1043,6 +1073,14 @@ class FirebaseService:
         }))
         self.radar_pulse_cache = data
         
+        try:
+            from services.websocket_service import websocket_service
+            asyncio.create_task(websocket_service.update_radar_pulse(
+                data.get("signals", []), data.get("decisions", []), data.get("market_context", {})
+            ))
+        except Exception as e:
+            logger.error(f"Error emitting radar to WS proxy: {e}")
+            
         if not self.is_active or not self.rtdb: return
         try:
             # V15.7.5: Added timeout to prevent radar loop from freezing if RTDB hangs
