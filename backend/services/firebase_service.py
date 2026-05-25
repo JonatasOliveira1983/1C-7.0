@@ -8,6 +8,7 @@ import datetime
 from services.resilience import with_circuit_breaker
 
 logger = logging.getLogger("FirebaseService")
+logger.setLevel(logging.CRITICAL)  # Silenciando os logs de Firebase conforme solicitado
 
 
 
