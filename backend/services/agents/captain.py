@@ -760,6 +760,7 @@ class CaptainAgent(AIOSAgent):
         symbol = best_signal["symbol"]
         score = best_signal["score"]
         side = best_signal.get("side", "Buy")
+        norm_symbol_lock = normalize_symbol(symbol) + "_" + str(username)
         
         try:
             # [V120] Verificação de Slots por Usuário
