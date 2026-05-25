@@ -106,6 +106,13 @@ class SlotOperatorAgent(AIOSAgent):
                 logger.critical(f"💥 [STOP-VIRTUAL-{self.slot_id}] {symbol} violou Stop Loss ({current_stop:.4f}) a {current_price:.4f}! Disparando fechamento imediato na OKX...")
                 # Fecha a posição na OKX via bybit_rest (que redireciona para OKX)
                 await self.bybit_rest.close_position(symbol, side, qty, reason=reason_sl)
+                
+                # [HERMES TELEGRAM] Alerta de Fechamento (SL)
+                try:
+                    from services.telegram_service import telegram_service
+                    await telegram_service.send_message(f"🔒 <b>ORDEM FECHADA</b>\nPar: {symbol}\nMotivo: {reason_sl}\nPnL: {self.current_pnl:.2f}%")
+                except:
+                    pass
                 # Reseta o slot local no banco
                 await database_service.update_slot(self.slot_id, {
                     "symbol": None, "entry_price": 0, "current_stop": 0, "qty": 0, "pnl_percent": 0

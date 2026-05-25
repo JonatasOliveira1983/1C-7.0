@@ -1334,6 +1334,13 @@ class CaptainAgent(AIOSAgent):
                     sym_trades['first_trade_at'] = time.time()
                 self.daily_symbol_trades[norm_symbol_ac] = sym_trades
                 logger.info(f"✅ SNIPER SHOT DEPLOYED: {symbol} (Slot {slot_id})")
+                
+                # [HERMES TELEGRAM] Alerta de Nova Ordem
+                try:
+                    from services.telegram_service import telegram_service
+                    await telegram_service.send_message(f"🎯 <b>NOVA ORDEM ABERTA</b>\nPar: {symbol}\nEstratégia: {slot_type}")
+                except:
+                    pass
             else:
                 logger.warning(f"❌ SNIPER SHOT FAILED para {symbol}")
 

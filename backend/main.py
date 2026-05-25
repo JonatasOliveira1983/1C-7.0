@@ -299,6 +299,10 @@ async def lifespan(app: FastAPI):
 
                 logger.info("Step 3.0: [V110.240] AIOS Kernel — Fleet Active 🚀")
 
+                # [HERMES TELEGRAM] Integração nativa de Telegram
+                from services.telegram_service import telegram_service
+                telegram_service.start_polling_task()
+
                 # Start Core Loops
                 asyncio.create_task(sig_gen._sync_radar_rtdb()) # [V15.7.6] Initial sync
                 asyncio.create_task(sig_gen.monitor_and_generate())

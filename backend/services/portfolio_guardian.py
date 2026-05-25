@@ -177,6 +177,13 @@ class PortfolioGuardian:
             except Exception as mqtt_err:
                 logger.error(f"❌ [GUARDIAN] Falha ao publicar sinal de pânico no Hermes MQTT: {mqtt_err}")
 
+            # [HERMES TELEGRAM] Alerta de Facão
+            try:
+                from services.telegram_service import telegram_service
+                await telegram_service.send_message("🔪 <b>FACÃO ACIONADO!</b>\nO Guardião detectou sangria na banca e fechou as posições de baixa performance para proteger a margem.")
+            except:
+                pass
+
             # Transiciona de volta para OBSERVANDO após limpar o portfólio
             self.state = "OBSERVANDO"
             self.max_roi_registered = 0.0
