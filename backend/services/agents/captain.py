@@ -693,6 +693,13 @@ class CaptainAgent(AIOSAgent):
         symbol = best_signal["symbol"]
         side = best_signal.get("side", "Buy")
         
+        # [MASTER BYPASS] - Se existir OKX Master, ignora os inscritos e executa o sinal na conta Master.
+        from config import settings
+        if settings.OKX_API_KEY_MASTER:
+            logger.info(f"🚀 [BYPASS MASTER] Sinal de {symbol} roteado diretamente para OKX Master global.")
+            await self._run_user_execution_logic(None, {}, best_signal)
+            return
+
         # 1. Busca usuários ativos com cofre
         subscribers = await firebase_service.get_active_subscribers_with_vault()
         if not subscribers:

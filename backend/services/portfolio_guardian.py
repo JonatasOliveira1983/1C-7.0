@@ -61,6 +61,35 @@ class PortfolioGuardian:
 
     async def _process_evaluation(self, positions: List[Dict[str, Any]]):
         async with self._lock:
+            # [ANTI-FACÃO] Consulta Moonbags/Emancipados para blinda-los do corte
+            from services.firebase_service import firebase_service
+            try:
+                moonbags = await firebase_service.get_moonbags(limit=200)
+                emancipated_symbols = set()
+                if moonbags:
+                    for m in moonbags:
+                        sym = m.get("symbol")
+                        if sym:
+                            emancipated_symbols.add(sym.upper().replace(".P", ""))
+            except Exception as e:
+                logger.error(f"🛡️ [GUARDIAN] Erro ao buscar Moonbags: {e}")
+                emancipated_symbols = set()
+
+            # Filtra posições, removendo as protegidas
+            tactical_positions = []
+            for pos in positions:
+                inst_id = pos.get("instId", "").upper().replace(".P", "")
+                # Se for Bybit, usa symbol
+                if not inst_id:
+                    inst_id = pos.get("symbol", "").upper().replace(".P", "")
+                    
+                if inst_id in emancipated_symbols:
+                    # Não logar warning para não floodar o terminal, apenas ignorar
+                    continue
+                tactical_positions.append(pos)
+                
+            positions = tactical_positions
+
             if not positions:
                 # Sem posições abertas, resetamos o estado para OBSERVANDO se necessário
                 if self.state != "OBSERVANDO":
