@@ -4744,9 +4744,10 @@
                                     {[
                                         { to: '/', icon: 'space_dashboard', label: 'Banca' },
                                         { to: '/neural-chat', icon: 'psychology', label: 'Neural Chat' },
-                                        { to: '/config', icon: 'settings', label: 'Configurações' }
+                                        { to: '/config', icon: 'settings', label: 'Configurações' },
+                                        { to: 'kanban-hermes.html', icon: 'view_kanban', label: 'Hermes Kanban', external: true }
                                     ].map(item => (
-                                        <button key={item.to} onClick={() => { navigate(item.to); setIsMenuOpen(false); }}
+                                        <button key={item.to} onClick={() => { if (item.external) { window.location.href = item.to; } else { navigate(item.to); } setIsMenuOpen(false); }}
                                             className="flex items-center gap-4 p-4 rounded-xl hover:bg-primary/10 text-gray-300 hover:text-white transition-all group border border-transparent hover:border-primary/20">
                                             <span className="material-icons-round text-2xl group-hover:scale-110 transition-transform">{item.icon}</span>
                                             <span className="font-medium tracking-tight">{item.label}</span>
