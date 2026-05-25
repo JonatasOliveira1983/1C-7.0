@@ -133,7 +133,9 @@ async def get_klines_proxy(symbol: str, interval: str = "60", limit: int = 200):
         int_map = {"15m": "15", "1h": "60", "4h": "240"}
         bybit_interval = int_map.get(str(interval), str(interval))
         data = await bybit_rest_service.get_klines(symbol=symbol, interval=bybit_interval, limit=limit)
-        if data: data.reverse()
+        if data: 
+            data = data.copy()
+            data.reverse()
         return data
     except Exception as e:
         logger.error(f"Klines Proxy Error: {e}")
