@@ -2807,6 +2807,7 @@ class SignalGenerator:
                 
                 async def stage3_validate(candidate):
                     from services.execution_protocol import execution_protocol
+                    from config import settings as _settings  # [FIX] Import antecipado para evitar UnboundLocalError
                     async with self._api_semaphore:
                         symbol = candidate['symbol']
                         side_label = candidate['side_label']
@@ -2833,7 +2834,7 @@ class SignalGenerator:
                     # [V110.36.5] VANGUARD PRE-QUALIFIER (S2): Alinhado com o Stage 1 e Captain.
                     # Usa M-ADX autêntico e permite passe livre para ativos com Score >= 90 e fluxo BTC Positivo.
                     m_adx = getattr(bybit_ws_service, 'btc_adx', 0)
-                    if m_adx and m_adx < 28 and settings.BYBIT_EXECUTION_MODE != "PAPER":
+                    if m_adx and m_adx < 28 and _settings.BYBIT_EXECUTION_MODE != "PAPER":
                         btc_cvd_total = bybit_ws_service.get_cvd_score("BTCUSDT")
                         btc_cvd_5m    = bybit_ws_service.get_cvd_score_time("BTCUSDT", 300)
                         has_real_flow = (btc_cvd_total > 0) and (btc_cvd_5m > 0)
@@ -2844,7 +2845,7 @@ class SignalGenerator:
                             logger.info(f"🚫 [V110.36.5] {symbol} rejected: {reason}")
                             self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
                             return None
-                    elif m_adx and m_adx < 28 and settings.BYBIT_EXECUTION_MODE == "PAPER":
+                    elif m_adx and m_adx < 28 and _settings.BYBIT_EXECUTION_MODE == "PAPER":
                         logger.info(f"🛡️ [PAPER] Ignorando trava ADX Sentinela (M-ADX {m_adx:.1f} < 28) para permitir ampla emanação de sinais no radar local.")
                     
                     self._diag_counters['ema4h_pass'] += 1
@@ -2867,9 +2868,8 @@ class SignalGenerator:
 
                     # 🔍 [V15.6] Volume Filter: Liquidity Guard
                     # [V96.1] Mínimo de $1M - RELAXADO para $100k em PAPER MODE para ver sinais rolando
-                    from config import settings
                     is_swing_macro_s3 = candidate.get('is_swing_macro', False)
-                    if settings.BYBIT_EXECUTION_MODE == "PAPER":
+                    if _settings.BYBIT_EXECUTION_MODE == "PAPER":
                         volume_min = 100000 # $100k is enough for simulation
                     else:
                         volume_min = 500000 if is_swing_macro_s3 else 1000000  # $1M / $500k
@@ -2972,8 +2972,7 @@ class SignalGenerator:
                     
                     # [V28.2 PAPER FIX] Penalidade relaxada de -40 para -15 quando em BYBIT_EXECUTION_MODE = PAPER
                     # Para permitir testes de reversão SWING no Simulador.
-                    from config import settings
-                    fatal_penalty = -15 if settings.BYBIT_EXECUTION_MODE == 'PAPER' else -40
+                    fatal_penalty = -15 if _settings.BYBIT_EXECUTION_MODE == 'PAPER' else -40
                     
                     if is_decorrelation_play:
                         daily_penalty = 0  # [V33.1] Exempt: decorrelation IS the edge, not the daily trend
@@ -3175,8 +3174,7 @@ class SignalGenerator:
                         # MOMENTUM LAYER: Good signal but no confirmed trigger
                         signal_layer = "MOMENTUM"
                         # [V27.6] SNIPER-ONLY Restriction for $5M - $1M pairs
-                        from config import settings
-                        if turnover_24h < 1000000 and settings.BYBIT_EXECUTION_MODE != 'PAPER' and not candidate.get('is_swing_macro'):
+                        if turnover_24h < 1000000 and _settings.BYBIT_EXECUTION_MODE != 'PAPER' and not candidate.get('is_swing_macro'):
                             logger.info(f"🚫 [V27.6] {symbol} MOMENTUM Blocked: Pairs under $1M must be SNIPER-ONLY. turnover=${turnover_24h/1000000:.1f}M")
                             return None
                             
