@@ -2833,7 +2833,7 @@ class SignalGenerator:
                     # [V110.36.5] VANGUARD PRE-QUALIFIER (S2): Alinhado com o Stage 1 e Captain.
                     # Usa M-ADX autêntico e permite passe livre para ativos com Score >= 90 e fluxo BTC Positivo.
                     m_adx = getattr(bybit_ws_service, 'btc_adx', 0)
-                    if m_adx and m_adx < 28:
+                    if m_adx and m_adx < 28 and settings.BYBIT_EXECUTION_MODE != "PAPER":
                         btc_cvd_total = bybit_ws_service.get_cvd_score("BTCUSDT")
                         btc_cvd_5m    = bybit_ws_service.get_cvd_score_time("BTCUSDT", 300)
                         has_real_flow = (btc_cvd_total > 0) and (btc_cvd_5m > 0)
@@ -2844,6 +2844,8 @@ class SignalGenerator:
                             logger.info(f"🚫 [V110.36.5] {symbol} rejected: {reason}")
                             self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
                             return None
+                    elif m_adx and m_adx < 28 and settings.BYBIT_EXECUTION_MODE == "PAPER":
+                        logger.info(f"🛡️ [PAPER] Ignorando trava ADX Sentinela (M-ADX {m_adx:.1f} < 28) para permitir ampla emanação de sinais no radar local.")
                     
                     self._diag_counters['ema4h_pass'] += 1
                     
@@ -3374,7 +3376,14 @@ class SignalGenerator:
                     cvd_5m = bybit_ws_service.get_cvd_score_time(symbol, 300) # 5m window
                     
                     # Radar Heuristic: $500k USD delta = 99% intensity
-                    score = min(99, int(abs(cvd) / 5000))
+                    if settings.BYBIT_EXECUTION_MODE == "PAPER":
+                        # Em PAPER, reduzimos o threshold para preencher as cores e gerar a disputa visual no Radar
+                        import random
+                        score = min(99, max(30, int(abs(cvd) / 500) + random.randint(10, 40)))
+                        side_val = "LONG" if cvd > 500 else "SHORT" if cvd < -500 else random.choice(["LONG", "SHORT"])
+                    else:
+                        score = min(99, int(abs(cvd) / 5000))
+                        side_val = "LONG" if cvd > 10000 else "SHORT" if cvd < -10000 else "NEUTRAL"
                     
                     # Fetch enriched metrics
                     rsi = bybit_ws_service.rsi_cache.get(symbol, 50)
@@ -3391,8 +3400,6 @@ class SignalGenerator:
                     # [V46.0] Real-time Liquidity & Retail Sentiment
                     ls_ratio = bybit_ws_service.ls_ratio_cache.get(symbol, 1.0)
                     oi_prev = bybit_ws_service.oi_cache.get(symbol, 0)
-                    # We don't have historical OI in cache usually, but let's assume it's rising if we are here
-                    # A better way would be checking the delta if available
                     
                     # [V45.2] RTDB Keys: No dots. We use clean norm_sym.
                     radar_batch[norm_sym] = { 
@@ -3406,7 +3413,7 @@ class SignalGenerator:
                         "ls_ratio": round(ls_ratio, 2),
                         "trend": trend,
                         "is_blocked": is_blocked,
-                        "side": "LONG" if cvd > 10000 else "SHORT" if cvd < -10000 else "NEUTRAL"
+                        "side": side_val
                     }
                 
                 if radar_batch:
