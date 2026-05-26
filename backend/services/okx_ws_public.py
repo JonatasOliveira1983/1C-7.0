@@ -612,8 +612,8 @@ class OKXWSPublic:
         [V6.0] Rebalances WebSocket subscriptions to match a new list of active symbols.
         Ensures we stay within the 200 topic limit while rotating candidates.
         """
-        # Se OKX ativa, faz o rebalanceamento no WebSocket público da OKX
-        if settings.OKX_API_KEY_MASTER:
+        # Sempre faz o rebalanceamento no WebSocket público da OKX (mesmo sem Master key / Paper Mode)
+        if True:
             if not self._okx_ws or not self._okx_ws.open:
                 self.active_symbols = new_symbols
                 return

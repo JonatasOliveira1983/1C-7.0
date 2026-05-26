@@ -2709,7 +2709,7 @@ class SignalGenerator:
                             return None
 
                         # [V110.36.2] VANGUARD PRE-QUALIFIER (S1): Alinhado com o Portão do Captain.
-                        # Em vez de bloquear tudo no S1, permite candidatos elite passarem para o Captain decidir.
+                        # Em vez de bloquear tudo no S1, permite candidatos elite ou descorrelacionados passarem para o Captain decidir.
                         if is_btc_lateral:
                             # Pré-qualificação: Score alto + CVD positivo (mesmos critérios do Vanguard Bypass)
                             btc_cvd_total = bybit_ws_service.get_cvd_score("BTCUSDT")
@@ -2717,11 +2717,12 @@ class SignalGenerator:
                             has_real_flow = (btc_cvd_total > 0) and (btc_cvd_5m > 0)
                             is_vanguard_pre = (preliminary_score >= 90) and has_real_flow
 
-                            if not is_vanguard_pre:
+                            # [V110.138] Se descorrelacionado (decoupled/gas) ou pré-qualificado Vanguard, passa adiante!
+                            if not is_vanguard_pre and not is_decorrelated:
                                 logger.debug(f"🔒 [LATERAL-LOCK S1] {symbol} negado | Score={preliminary_score:.0f} | CVD={btc_cvd_total/1e6:.2f}M")
                                 return None
                             else:
-                                logger.info(f"💎 [VANGUARD PRE-QUAL S1] {symbol} Score={preliminary_score:.0f} | CVD={btc_cvd_total/1e6:.2f}M → Passando para Captain decidir.")
+                                logger.info(f"💎 [VANGUARD/DECOR PASS S1] {symbol} Score={preliminary_score:.0f} | Decor={is_decorrelated} | Vanguard={is_vanguard_pre} → Passando para Captain decidir.")
                             
                             
                         # [V44.3] Relaxation: Allow entries with lower total CVD if 5m CVD is explosive OR ADX is accelerating
