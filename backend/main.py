@@ -200,7 +200,7 @@ async def lifespan(app: FastAPI):
             
             logger.info("Step 2: Syncing Bybit Instruments...")
             # [V110.400] ALIGNED BOOTSTRAP: Start with Elite 20 + Master Context
-            symbols = [f"{s}.P" for s in (settings.ELITE_30_MATRIX + settings.MASTER_CONTEXT_ASSETS)]
+            symbols = [f"{s}.P" for s in (settings.ELITE_40_MATRIX + settings.MASTER_CONTEXT_ASSETS)]
             try:
                 # Fetch symbols in background
                 async def fetch_and_start_ws():

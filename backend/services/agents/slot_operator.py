@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from config import settings
 from services.agents.aios_adapter import AIOSAgent
@@ -28,7 +28,7 @@ class SlotOperatorAgent(AIOSAgent):
         self._task = None
         self.is_running = False
 
-    async def on_message(self, message: dict) -> dict:
+    async def on_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         try:
             msg_type = message.get("type")
             data = message.get("data", {})
