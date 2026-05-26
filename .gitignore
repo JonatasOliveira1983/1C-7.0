@@ -3,9 +3,7 @@ backend/.env
 backend/venv/
 backend/__pycache__/
 backend/data/images/
-backend/data/prospecton.db
 backend/data/browser_profile/
-backend/static/vistorias/
 backend/reports/
 
 # Root Reports
@@ -23,7 +21,6 @@ frontend/.next/
 nul
 
 # Agent and tool caches
-.gsd/
 .aios/
 .qwen/
 .obsidian_intel/
@@ -42,9 +39,6 @@ audit_output.txt
 banca_val.txt
 backtest_data.db
 emergency_trades.json
-scan_result.json
-leads_jundiai_v2.json.bak
-leads_jundiai.json
 final_startup_veritas.log
 final_startup_veritas_utf8.log
 final_startup_fix_v2.log

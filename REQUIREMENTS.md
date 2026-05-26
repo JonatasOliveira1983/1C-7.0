@@ -1,16 +1,28 @@
-# Requisitos do Sistema de Antecipação
+# Requisitos do Sistema — 1Crypten V110.701
 
-## Integração Técnica
-- **Graphify CLI:** Instalação global ou em venv para varredura do diretório `/backend`.
-- **Obsidian Vault:** Pasta raiz `.obsidian_intel` na raiz do projeto (ignorada pelo git se necessário).
-- **Python 3.10+:** Necessário para o Graphify processar as árvores de chamadas.
+Este documento lista os requisitos necessários para execução, hospedagem e monitoramento estável do sistema de trading **1Crypten**.
 
-## Fluxo de Dados
-1. **Scanning:** O Graphify varre o diretório e gera `graph.json`.
-2. **Parsing:** Script para converter `graph.json` em arquivos `.md`.
-3. **Linking:** Uso de Wikilinks `[[filename]]` para criar o grafo visual no Obsidian Graph View.
+---
 
-## Funcionalidades de Antecipação
-- **Impact Analysis:** Comando para verificar quem será afetado por uma mudança no `bybit_ws.py`.
-- **Strategic Mapping:** Notas no Obsidian que conectam códigos de agentes (ex: `librarian.py`) a conceitos de SMC (Smart Money Concepts).
-- **Proactive Logs:** O sistema deve sugerir varreduras de grafos após mudanças críticas na arquitetura.
+## 💻 Ambiente de Execução
+* **Runtime:** Python 3.10+ (recomendado Python 3.10.11 para estabilidade de dependências do backtest como numpy e pandas).
+* **Banco de Dados Relacional:** PostgreSQL (SSOT no Railway) para persistência imutável de slots, status de banca e histórico de operações.
+* **Mensageria e Sincronização:**
+  * **Firebase Realtime Database:** Utilizado exclusivamente como espelho reativo de baixa latência para sincronização visual do dashboard.
+  * **HiveMQ Cloud Broker:** Servidor MQTT externo para despacho de cohorts.
+
+---
+
+## ⚡ Conectividade & APIs
+* **Exchange Integrada:** OKX API (Portfolio Margin Mode).
+* **Endpoints Requeridos:**
+  * WebSocket Privado da OKX para acompanhamento de posições em tempo real.
+  * API HTTP de ordens em lote (`/api/v5/trade/batch-orders`) para fechamento rápido via Knife-Drop.
+* **Hermes Broker:** Porta `50051` (gRPC assíncrono HTTP/2) liberada para tenancy em tempo real.
+* **FastAPI Portas:** Porta `8002` (ou porta padrão configurada via `API_BASE`) para atendimento REST e Websockets no cockpit.
+
+---
+
+## 🛡️ Segurança e Robustez
+* **Modo de Operação Failsafe:** O sistema detecta automaticamente a ausência de chaves de API reais e migra instantaneamente para o **modo PAPER (simulação)** com saldo inicial injetado.
+* **Autenticação:** JWT Token ativo no backend e controle Fortress Bypass com a senha de acesso padrão administrador configurada em ambiente seguro.

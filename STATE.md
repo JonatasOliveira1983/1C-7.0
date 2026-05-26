@@ -1,116 +1,47 @@
-# Estado Atual do Projeto — Prospect-On 3.0 (Seleção Dinâmica de Pilares + Manus)
+# Estado Atual do Projeto — 1Crypten (SaaS v5.5.0 / V110.701)
 
 ## Resumo Executivo
-**Data:** 2026-05-20
-**Versão:** `v5.0 — Seleção Dinâmica de Pilares + Inteligência Manus`
-**Estado:** `OPERATIONAL ✅`
-**Motor Principal:** Playwright Stealth (Google Search + Google Maps) + DeepSeek Chat
-**Bloqueios:** Nenhum. Google Places API e Bing removidos completamente.
+* **Versão:** `V110.701: OKX Master Bypass & Anti-Facão (Moonbag Shield)`
+* **Data:** 2026-05-26
+* **Estado:** `OPERATIONAL ✅`
+* **Escopo:** Robô de trading quantitativo automatizado com orquestração descentralizada de slots, integração com OKX e monitoramento de portfólio em tempo real.
 
 ---
 
-## O Que Funciona Agora
+## Recursos e Funcionalidades Ativas
 
-### Os 3 Pilares — Varredura Real Comprovada
-**Resultado:** 27 leads reais capturados em São Paulo em ~90 segundos.
+### 1. Camada de Execução Descentralizada (Actor Model)
+* **SlotOperatorAgent (1-4):** 4 instâncias de agentes de slot totalmente independentes gerenciando individualmente o ciclo de vida dos trades (Gênesis, Trailing Stop/Escadinha e arquivamento).
+* **CaptainAgent:** Despachante de sinais puro e orquestrador central de consenso de frota (threshold de consenso tático de 60%).
+* **OKX Master Bypass:** Se `OKX_API_KEY_MASTER` estiver no `.env`, o Capitão força a execução cirúrgica global na conta Master ("master") ignorando a Bybit.
 
-| Pilar | Fonte | Portais Estratégicos (Manus) | Leads |
-|-------|-------|------------------------------|-------|
-| A — Condomínios | Google Search stealth | SíndicoNet, CoteiBem, uCondo | 1+ |
-| B — Editais Públicos | Google Search stealth | PNCP, BEC-SP, Comprasnet | 15+ |
-| C — Corporativo | Google Search stealth | oHub, Habitissimo, GetNinjas | 11+ |
+### 2. Sniper & Trailing Stop Progressivo (Escadinha)
+* Monitoramento de altíssima frequência (ciclo de **0.2 segundos**) para capturar pavios rápidos de mercado.
+* **Gatilhos de ROI da Escadinha:**
+  * **T1 (Break-Even):** 30% ROI → Stop Loss movido para 0%
+  * **T2 (Profit Bridge):** 50% ROI → Stop Loss movido para 20%
+  * **T3 (Risk-Zero):** 70% ROI → Stop Loss movido para 5%
+  * **T4 (Profit-Lock):** 110% ROI → Stop Loss movido para 70%
+  * **T5 (Emancipação / Moonbags):** 150% ROI → Stop Loss movido para 110%
 
-**Leads reais capturados (amostra):**
-- **Coren-SP** — Pregão Eletrônico nº 10/2025 — Pintura da Fachada (urgência 9/10)
-- **CPTM** — Pintura Predial + Hidrojateamento — Estação Palmeiras-Barra Funda (urgência 8/10)
-- **TCE-SP** — Recuperação e Pintura do Edifício Anexo II (urgência 7/10)
-- **Faculdade de Medicina USP** — Pregão Eletrônico nº 06/2024 (urgência 7/10)
-- **Prefeitura SP (SVMA)** — Pintura dos Parques Municipais (urgência 6/10)
+### 3. Portfolio Guardian & Algoritmo Knife-Drop
+* Máquina de estados atômica unificada monitorando o ROI consolidado da conta Master.
+* **Knife-Drop ("O Facão"):** Dispara pânico global e fecha em lote ordens ativas via API OKX batch-orders caso haja recuo de 15% a partir do pico de ROI (gatilho em 70% ROI).
+* **Moonbag Shield:** Posições marcadas como emancipada (T5) são blindadas no `portfolio_guardian.py` e excluídas do cálculo do Facão, evitando encerramentos prematuros.
 
-### 🆕 Seleção Dinâmica de Pilares (v5.0)
-O usuário pode **ativar/desativar cada pilar individualmente** no Dashboard antes de disparar a varredura:
-
-- **Toggle Interativo:** Cada card de pilar (A, B, C) funciona como botão clicável com visual cyberpunk
-- **Feedback Visual:** Pilar ATIVO → borda neon colorida + glow + badge `ATIVO` pulsante | Pilar OFF → opaco, dessaturado, badge `OFF`
-- **Botão Sniper Inteligente:** Mostra pilares selecionados no texto (ex: `Iniciar Sniper · A,C Pilares`), desabilitado quando 0 pilares estão selecionados
-- **Backend Condicional:** Apenas os hunters dos pilares ativados executam busca; pilares inativos retornam `[]` sem erro
-
-#### Fluxo de Dados (Pilares Selecionáveis)
-```
-Dashboard (activePillars toggle) → api.ts (pilares=A,C) → api.py (query param) → ManagerAgent → DemandScoutAgent → asyncio.gather(apenas hunters ativos)
-```
-
-### 🆕 Inteligência Manus — Queries Estratégicas
-Os caçadores de cada pilar foram enriquecidos com queries direcionadas a portais de alta conversão mapeados pela pesquisa Manus:
-
-| Pilar | Portais Alvo | Tipo de Query |
-|-------|--------------|---------------|
-| A | `sindiconet.com.br`, `coteibem.com.br`, `ucondo.com.br` | Atas de assembleia, fundos de obra, cotações condominiais |
-| B | `pncp.gov.br`, `bec.sp.gov.br`, `comprasnet.gov.br` | Licitações, pregões eletrônicos, diários oficiais |
-| C | `ohub.com.br`, `habitissimo.com.br`, `getninjas.com.br` | Vagas de facilities, cotações corporativas, manutenção predial |
-
-### Tecnologia Ativa
-- ✅ **Playwright Stealth** — `navigator.webdriver=undefined`, user-agent real Chrome 124, viewport variável
-- ✅ **Google Search** como fonte de busca (sem API, sem Bing)
-- ✅ **Google Maps** como fonte de geolocalização (sem Places API)
-- ✅ **DeepSeek Chat** para análise textual de todos os sinais capturados
-- ✅ **SQLite** salvando todos os leads reais com contatos enriquecidos
-- ✅ **Seleção Dinâmica de Pilares** — Frontend toggle → Backend condicional
-
-### Servidores Ativos
-- Backend FastAPI: `http://localhost:8002`
-- Frontend Next.js: `http://localhost:3000`
+### 4. Camada de Dados e Sincronização
+* **PostgreSQL (SSOT / Railway):** Banco de dados primário guardando banca, slots e histórico.
+* **Firebase / RTDB (Espelho de Transmissão):** Transmissão reativa para o Cockpit Dashboard com latência ultra-baixa.
+* **Hermes Broker (MQTT/gRPC):** Servidor gRPC na porta `50051` e cliente MQTT para envio leve de cohorts.
 
 ---
 
-## Mudanças Recentes (v5.0 — 20/05/2026)
+## Componentes do Sistema e Status de Serviços
 
-### Adicionado (v5.0)
-- ✅ **Seleção Dinâmica de Pilares no Dashboard** — Cards de pilar agora são botões toggle com visual premium cyberpunk (neon glow, badge ATIVO/OFF, barra inferior colorida)
-- ✅ **Estado `activePillars`** — `{ A: true, B: true, C: true }` no React com toggle individual
-- ✅ **Propagação completa do parâmetro `pilares`** — `page.tsx` → `api.ts` → `api.py` → `ManagerAgent` → `DemandScoutAgent` → `asyncio.gather` condicional
-- ✅ **Botão Sniper inteligente** — Texto dinâmico mostra pilares ativos, desabilitado com aviso `⚠` quando 0 pilares estão selecionados
-- ✅ **Queries Manus nos Hunters** — `pillar_a_agent.py`, `pillar_b_agent.py`, `pillar_c_agent.py` com queries focadas em portais de alta conversão
-- ✅ **Logs WS detalhados** — `ManagerAgent` emite nomes ricos de pilares ativados no HUD holográfico
-
-### Arquivos Modificados (v5.0)
-| Arquivo | Tipo | Descrição |
-|---------|------|-----------|
-| `backend/api.py` | Backend | Rotas `/scan/start`, `/sniper/start`, `/scan-pillars` com parâmetro `pilares` |
-| `backend/src/agents/pillar_a_agent.py` | Backend | Queries Manus para SíndicoNet, CoteiBem, uCondo |
-| `backend/src/agents/pillar_b_agent.py` | Backend | Queries Manus para PNCP, BEC-SP, Comprasnet |
-| `backend/src/agents/pillar_c_agent.py` | Backend | Queries Manus para oHub, Habitissimo, GetNinjas |
-| `backend/src/agents/demand_scout_agent.py` | Backend | `scan_all_pillars(pilares)` com gather condicional |
-| `backend/src/agents/manager_agent.py` | Backend | `run_full_scan(pilares)` com logs WS ricos |
-| `frontend/lib/api.ts` | Frontend | `scanStart` e `scanPillars` com parâmetro `pilares` |
-| `frontend/app/(system)/dashboard/page.tsx` | Frontend | Estado `activePillars`, cards toggle, botão inteligente |
-
-### Histórico v4.0
-- ✅ Modo Stealth Playwright completo em todos os agentes
-- ✅ Google Search em todos os pilares (substitui Bing)
-- ✅ WebEnrichmentAgent v4.0 — Google Search para contatos
-- ✅ BrowserScoutAgent — Google Maps direto
-- ❌ Removido: PlacesClient, Bing Search headless
-
----
-
-## Comandos Rápidos
-
-```powershell
-# Testar os 3 pilares
-cd backend ; python test_real_pillars.py
-
-# Pipeline completo (todos os pilares)
-cd backend ; python -c "
-import asyncio
-from src.agents.manager_agent import ManagerAgent
-asyncio.run(ManagerAgent().run_full_scan(city='São Paulo', target_leads=3, pilares='A,B,C'))
-"
-
-# Pipeline apenas Pilar A e C
-cd backend ; python -c "
-import asyncio
-from src.agents.manager_agent import ManagerAgent
-asyncio.run(ManagerAgent().run_full_scan(city='São Paulo', target_leads=3, pilares='A,C'))
-"
-```
+| Componente | Função | Porta | Status |
+| :--- | :--- | :--- | :--- |
+| **FastAPI Backend** | API de sincronização e WebSockets | `8002`/`8085` | `OPERATIONAL ✅` |
+| **gRPC Hermes** | Tenancy em tempo real e gRPC Stream | `50051` | `OPERATIONAL ✅` |
+| **Cockpit UI** | Interface Cyberpunk, Lightweight Charts e D3 | `-` | `OPERATIONAL ✅` |
+| **PostgreSQL** | Banco de dados Master | `5432` | `ONLINE ✅` |
+| **Firebase RTDB** | Sincronizador reativo da UI | `-` | `ONLINE ✅` |
