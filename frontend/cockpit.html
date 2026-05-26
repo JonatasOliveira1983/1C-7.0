@@ -4745,7 +4745,8 @@
                                         { to: '/', icon: 'space_dashboard', label: 'Banca' },
                                         { to: '/neural-chat', icon: 'psychology', label: 'Neural Chat' },
                                         { to: '/config', icon: 'settings', label: 'Configurações' },
-                                        { to: '/kanban', icon: 'view_kanban', label: 'Hermes Kanban' }
+                                        { to: '/kanban', icon: 'view_kanban', label: 'Hermes Kanban' },
+                                        { to: 'https://1crypten.space/n8n', icon: 'account_tree', label: 'N8N (Macro-Orquestrador)', external: true }
                                     ].map(item => (
                                         <button key={item.to} onClick={() => { if (item.external) { window.location.href = item.to; } else { navigate(item.to); } setIsMenuOpen(false); }}
                                             className="flex items-center gap-4 p-4 rounded-xl hover:bg-primary/10 text-gray-300 hover:text-white transition-all group border border-transparent hover:border-primary/20">

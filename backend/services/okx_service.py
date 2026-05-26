@@ -399,6 +399,13 @@ class OKXService:
                         if data.get("data"):
                             ord_err = data["data"][0]
                             err_detail = f" | sCode: {ord_err.get('sCode')} | sMsg: {ord_err.get('sMsg')}"
+                            if ord_err.get("sCode") == "51001" and self.execution_mode == "PAPER":
+                                logger.warning(f"🤖 [OKX-REST MOCK] {inst_id} não existe na Testnet (erro 51001). Simulando execução local com sucesso.")
+                                return {
+                                    "code": "0",
+                                    "msg": "success",
+                                    "data": [{"clOrdId": cl_ord_id, "ordId": f"okx_mock_{int(time.time())}", "sCode": "0", "sMsg": "success"}]
+                                }
                         logger.error(f"❌ [OKX REST] Falha ao enviar ordem: {data.get('msg')}{err_detail} (payload: {order_req})")
                         return data
                 else:

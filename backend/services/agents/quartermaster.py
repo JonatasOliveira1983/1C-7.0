@@ -71,8 +71,11 @@ class QuartermasterAgent(AIOSAgent):
         # 3. Security Check (The Guillotine)
         block_reason = None
         if classification == "EXTREME" and btc_adx < 25:
-            block_reason = f"LOW_ADX_EXTREME_WICK: Asset is too wicky ({wick_intensity:.2f}) for low trend environment (ADX={btc_adx:.1f})"
-            logger.warning(f"🛡️ [QUARTERMASTER] {symbol} BLOCKED: {block_reason}")
+            if settings.BYBIT_EXECUTION_MODE == "PAPER":
+                logger.warning(f"🛡️ [PAPER] [QUARTERMASTER] BYPASS LOW_ADX_EXTREME_WICK para permitir teste de ordens do Capitão no simulador.")
+            else:
+                block_reason = f"LOW_ADX_EXTREME_WICK: Asset is too wicky ({wick_intensity:.2f}) for low trend environment (ADX={btc_adx:.1f})"
+                logger.warning(f"🛡️ [QUARTERMASTER] {symbol} BLOCKED: {block_reason}")
             
         logger.info(
             f"⚓ [QUARTERMASTER] {symbol} | Class: {classification} | "

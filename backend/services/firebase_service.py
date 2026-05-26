@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import firebase_admin
-from firebase_admin import credentials, firestore, db
 import asyncio
 from config import settings
 import logging
@@ -10,8 +8,34 @@ from services.resilience import with_circuit_breaker
 logger = logging.getLogger("FirebaseService")
 logger.setLevel(logging.CRITICAL)  # Silenciando os logs de Firebase conforme solicitado
 
+class DummyFirestore:
+    def collection(self, *args, **kwargs):
+        class DummyCollection:
+            def document(self, *args, **kwargs):
+                class DummyDoc:
+                    def get(self, *args, **kwargs): return self
+                    def set(self, *args, **kwargs): pass
+                    def update(self, *args, **kwargs): pass
+                    @property
+                    def exists(self): return False
+                    def to_dict(self): return {}
+                return DummyDoc()
+            def stream(self): return []
+            def where(self, *args, **kwargs): return self
+            def order_by(self, *args, **kwargs): return self
+            def limit(self, *args, **kwargs): return self
+            def add(self, *args, **kwargs): pass
+        return DummyCollection()
 
-
+class DummyRTDB:
+    def child(self, *args, **kwargs):
+        class DummyChild:
+            def get(self, *args, **kwargs): return {}
+            def set(self, *args, **kwargs): pass
+            def update(self, *args, **kwargs): pass
+            def delete(self, *args, **kwargs): pass
+            def child(self, *args, **kwargs): return self
+        return DummyChild()
 # Define Private Key safely as a Python multiline string to avoid string escaping hell
 # This is the user provided key
 # Initialize Firebase with explicit error handling to strictly enforcing SAFE MODE if key is invalid
@@ -27,155 +51,49 @@ LAST_USERS_SYNC = 0
 class FirebaseService:
     def __init__(self):
         self.is_active = False
-        self.db = None # Firestore
-        self.rtdb = None # Realtime DB
-        self.log_buffer = deque(maxlen=100) # Increased buffer for offline periods
+        self.db = DummyFirestore()
+        self.rtdb = DummyRTDB()
+        self.log_buffer = deque(maxlen=100)
         self.signal_buffer = deque(maxlen=100)
-        # V12.0 Quad Slot System: Limit to 4 slots
         self.slots_cache = [{"id": i, "symbol": None, "entry_price": 0, "current_stop": 0, "status_risco": "LIVRE", "pnl_percent": 0} for i in range(1, 5)]
         self.radar_pulse_cache = {"signals": [], "decisions": [], "updated_at": 0}
         self._reconnect_task = None
-        # V10.6.5: Connection health tracking
         self._consecutive_failures = 0
         self._last_successful_op = time.time()
         self._reconnect_attempts = 0
         self._last_state_data = {}
 
     def _make_json_safe(self, data):
-        """Recursively converts non-serializable objects (like DatetimeWithNanoseconds) to strings."""
         if isinstance(data, dict):
-            # V6.0: Cleans dictionary keys to remove forbidden Firebase characters (. $ # [ ] /)
             clean_dict = {}
             for k, v in data.items():
                 if isinstance(k, str):
-                    # V67.5: Ensure key is not empty and remove forbidden chars
                     clean_k = k.strip()
-                    if not clean_k:
-                        clean_k = "empty_key"
+                    if not clean_k: clean_k = "empty_key"
                     clean_k = clean_k.replace(".", "_").replace("$", "_").replace("#", "_").replace("[", "_").replace("]", "_").replace("/", "_")
                     clean_dict[clean_k] = self._make_json_safe(v)
                 else:
-                    # Fallback for non-string keys
                     safe_k = str(k) if k is not None else "null_key"
                     if not safe_k: safe_k = "empty_key"
                     clean_dict[safe_k] = self._make_json_safe(v)
             return clean_dict
         elif isinstance(data, list):
             return [self._make_json_safe(item) for item in data]
-        elif hasattr(data, 'isoformat'): # Handles datetime and Firestore timestamps
+        elif hasattr(data, 'isoformat'):
             return data.isoformat()
-        elif hasattr(data, 'to_dict'): # Handles some other Firestore objects
+        elif hasattr(data, 'to_dict'):
             return self._make_json_safe(data.to_dict())
         elif "DatetimeWithNanoseconds" in str(type(data)):
              return str(data)
         return data
 
     async def initialize(self):
-        """Asynchronously initializes the Firebase Admin SDK."""
-
-        
-        if self.is_active:
-            return
-            
-        try:
-            # Load credentials
-            cred = None
-            import os
-            import json
-            
-            # 1. Try Environment Variable (Production)
-            firebase_env = os.getenv("FIREBASE_CREDENTIALS")
-            if firebase_env:
-                try:
-                    # V10.6.6: Log credential detection for debugging
-                    logger.info(f"🔑 FIREBASE_CREDENTIALS found (length: {len(firebase_env)} chars)")
-                    cred_dict = json.loads(firebase_env)
-                    cred = credentials.Certificate(cred_dict)
-                    logger.info(f"✅ Firebase credentials parsed. Project: {cred_dict.get('project_id', 'unknown')}")
-                except json.JSONDecodeError as je:
-                    logger.error(f"❌ JSON Parse Error in FIREBASE_CREDENTIALS: {je}")
-                    logger.error(f"First 100 chars of env var: {firebase_env[:100]}...")
-                except Exception as e:
-                    logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS: {e}")
-            else:
-                logger.warning("⚠️ FIREBASE_CREDENTIALS environment variable not found")
-
-            # 2. Try Local File (Development)
-            if not cred:
-                # V110.42.1: Robust path detection for local serviceAccountKey
-                backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                cred_path = os.path.join(backend_dir, "serviceAccountKey.json")
-                
-                if os.path.exists(cred_path):
-                   cred = credentials.Certificate(cred_path)
-                   logger.info(f"Loaded Firebase credentials from: {cred_path}")
-            
-            if not cred:
-                # [V110.175] Return immediately instead of entering retry loop
-                logger.warning("❌ No Firebase credentials found (Env or File). Firebase integration disabled.")
-                self.is_active = False
-                return
-
-            # V5.2.4.4: SSL Resilience Retry Loop for production connectivity
-            for attempt in range(3):
-                try:
-                    # V10.7.1: Define options BEFORE try block to fix scope issue
-                    options = {}
-                    db_url = settings.FIREBASE_DATABASE_URL or os.getenv("FIREBASE_DATABASE_URL")
-                    if db_url and db_url != "None":
-                        options['databaseURL'] = db_url
-                    
-                    # Avoid re-initializing if already running
-                    try:
-                        app = firebase_admin.get_app()
-                        logger.info("Firebase app already initialized, reusing...")
-                    except ValueError:
-                        # Initialize with RTDB URL if available
-                        if db_url and db_url != "None":
-                            logger.info(f"✅ FIREBASE_DATABASE_URL configured: {db_url[:50]}...")
-                        else:
-                            logger.error("❌ FIREBASE_DATABASE_URL is MISSING! RTDB features disabled.")
-                            logger.error("   Add this env var: FIREBASE_DATABASE_URL=https://YOUR-PROJECT-ID.firebaseio.com")
-                        app = firebase_admin.initialize_app(cred, options)
-                    
-                    # Initialize Clients
-                    self.db = firestore.client()
-                    try:
-                        # V10.7.1: Check if app has databaseURL configured
-                        if db_url and db_url != "None":
-                            self.rtdb = db.reference("/")
-                            logger.info("Firebase Realtime DB connected.")
-                        else:
-                            logger.warning("Firebase Realtime DB NOT connected (no URL).")
-                    except Exception as e:
-                        logger.error(f"Error connecting to RTDB: {e}")
-
-                    self.is_active = True
-                    logger.info("Firebase Admin SDK initialized successfully.")
-                    
-                    # Flush buffers if we just reconnected
-                    asyncio.create_task(self._flush_buffers())
-                    break # Success!
-                except Exception as e:
-                    # Catch specific SSL/EOF issues reported in production
-                    is_ssl_error = "SSL" in str(e) or "EOF" in str(e)
-                    if is_ssl_error and attempt < 2:
-                        wait = (attempt + 1) * 3
-                        logger.warning(f"🚨 Firebase SSL Init Error (Attempt {attempt+1}/3). Retrying in {wait}s... Error: {e}")
-                        await asyncio.sleep(wait)
-                    else:
-                        raise e
-
-        except Exception as e:
-            logger.error(f"Error initializing Firebase: {e}")
-            logger.warning("Starting FirebaseService in OFFLINE/SAFE MODE.")
-            self.is_active = False  
-            
-            # Start reconnection loop if not already running
-            if not self._reconnect_task or self._reconnect_task.done():
-                self._reconnect_task = asyncio.create_task(self._reconnection_loop())
+        logger.warning("❌ Firebase SDK disabled due to hybrid architecture. Routing to Postgres/Redis.")
+        self.is_active = False
+        return
 
     async def _reconnection_loop(self):
+        pass
         """
         V10.6.5: Enhanced reconnection loop with exponential backoff.
         Starts at 15s, doubles each attempt, max 60s.
