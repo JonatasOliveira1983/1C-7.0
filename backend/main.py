@@ -683,6 +683,11 @@ if settings.SERVE_STATIC_FRONTEND:
     async def serve_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
 
+    @app.get("/n8n")
+    @app.get("/n8n/")
+    async def n8n_redirect():
+        return RedirectResponse(url="https://n8n-production-8e2d4.up.railway.app")
+
     @app.get("/cockpit")
     @app.get("/cockpit.html")
     async def cockpit_redirect():
