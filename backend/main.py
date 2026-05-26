@@ -462,13 +462,22 @@ async def lifespan(app: FastAPI):
                         await asyncio.sleep(60)
                 asyncio.create_task(bankroll_loop())
 
-                # 5. Start MCP Bridge for AIOS Integration (DISABLED - V27.3.1 - Fix startup crash)
-                # try:
-                #     from services.mcp_bridge import start_mcp_server
-                #     asyncio.create_task(start_mcp_server())
-                #     logger.info("Step 5: AIOS MCP Bridge SCHEDULED ✅")
-                # except Exception as e:
-                #     logger.warning(f"Step 5: MCP Bridge Load Error: {e}")
+                # 5. [V110.510] MCP Bridge for AIOS / n8n Integration
+                try:
+                    from services.mcp_bridge import mcp
+                    # Tenta extrair a aplicação ASGI do FastMCP para montar nativamente
+                    asgi_app = None
+                    if hasattr(mcp, "get_asgi_app"):
+                        asgi_app = mcp.get_asgi_app()
+                    elif hasattr(mcp, "_app"):
+                        asgi_app = mcp._app
+                    else:
+                        asgi_app = mcp  # Assume que é chamável (ASGI)
+                    
+                    app.mount("/mcp", asgi_app)
+                    logger.info("Step 5: MCP Bridge Integrado nativamente no FastAPI em /mcp ✅")
+                except Exception as e:
+                    logger.warning(f"Step 5: MCP Bridge Mount Error: {e}")
 
             except Exception as e:
                 logger.error(f"Step 3: Agent sync error: {e}")

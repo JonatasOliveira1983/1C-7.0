@@ -116,18 +116,5 @@ async def get_system_snapshot():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-async def start_mcp_server():
-    """Starts the MCP server in SSE mode on a background port."""
-    try:
-        logger.info("🚀 Starting MCP Bridge on port 8090 (SSE)...")
-        # Start the FastMCP server using its internal uvicorn manager
-        # Note: In a production environment with multiple workers, 
-        # this might need a more robust process management.
-        # For our local/agentic setup, this is ideal.
-        await asyncio.to_thread(mcp.run, transport="sse")
-    except Exception as e:
-        logger.error(f"❌ MCP Bridge failed to start: {e}")
-
-if __name__ == "__main__":
-    # Standalone mode (Stdio)
-    mcp.run()
+# O servidor MCP agora é exportado de forma nativa e montado no main.py 
+# para compartilhar a mesma porta e processo, eliminando a falha de threads.
