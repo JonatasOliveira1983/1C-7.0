@@ -252,6 +252,12 @@ class CaptainAgent(AIOSAgent):
                 reasons.append(f"LOW_FLEET_CONFIDENCE: {unified_score:.1f}% < 50.0%")
                 logger.warning(f"🛡️ [V110.100] {symbol} {side} BLOCKED by Low Confidence ({unified_score:.1f}%)")
                 
+            from services.okx_rest import okx_rest_service as bybit_rest_service
+            if bybit_rest_service.execution_mode == "PAPER":
+                approved = True
+                unified_score = max(unified_score, 88.0)
+                logger.info(f"💎 [PAPER-BYPASS] Forçando aprovação e confiança para {symbol} em modo simulado.")
+                
             return {
                 "approved": approved,
                 "reason": ", ".join(reasons) if reasons else "Approved by Fleet",
@@ -835,6 +841,7 @@ class CaptainAgent(AIOSAgent):
             # [V110.137] BLITZ-DETECTION Precoce
             # Ensure all M30 signals are treated as Blitz for priority/bypass
             is_blitz = best_signal.get("is_blitz", False) or best_signal.get("timeframe") == "30" or best_signal.get("layer") == "BLITZ"
+            is_decorrelated = best_signal.get("decorrelation", {}).get("is_active", False)
 
             # --- [V110.128] SENTINEL PROTOCOL: LATERAL BLOCK + ELITE NECTAR BYPASS ---
             if btc_dir == "LATERAL":
@@ -852,9 +859,9 @@ class CaptainAgent(AIOSAgent):
                 
                 # [V110.137] Blitz Sniper ignora o ADX Slope Guard em laterais
                 can_bypass_lateral = (is_elite_nectar or is_elite_score) and is_warming_up
-                if is_blitz:
+                if is_blitz or is_decorrelated or bybit_rest_service.execution_mode == "PAPER":
                     can_bypass_lateral = True
-                    logger.info(f"⚡ [BLITZ-LATERAL-BYPASS] {symbol} ({side}) ignorando trava lateral Sentinel.")
+                    logger.info(f"⚡ [BYPASS-LATERAL] {symbol} ({side}) ignorando trava lateral Sentinel (Paper={bybit_rest_service.execution_mode == 'PAPER'}, Decor={is_decorrelated}).")
 
                 if can_bypass_lateral:
                     bypass_reason = "BlitzMode" if is_blitz else (f"Seal={nectar_seal_lateral}" if is_elite_nectar else f"Score={score}")
@@ -894,9 +901,13 @@ class CaptainAgent(AIOSAgent):
                 local_cvd = bybit_ws_service.get_cvd_score(symbol)
                 is_whale_strong = abs(local_cvd) >= 15000 or score >= 88
                 
-                if (occ_count < 2 and is_whale_strong) or is_blitz:
+                if (occ_count < 2 and is_whale_strong) or is_blitz or is_decorrelated or bybit_rest_service.execution_mode == "PAPER":
                     if is_blitz:
                         msg = f"⚡ [BLITZ-PRIORITY] {symbol} ({side}) ignorando bloqueio ADX lateral (M30 Blitz Mode)."
+                    elif bybit_rest_service.execution_mode == "PAPER":
+                        msg = f"💎 [PAPER-BYPASS] ADX {current_btc_adx:.1f} < 18, mas {symbol} ({side}) ignorando bloqueio ADX (Paper mode ativo)."
+                    elif is_decorrelated:
+                        msg = f"💎 [DECOR-BYPASS] ADX {current_btc_adx:.1f} < 18, mas {symbol} ({side}) ignorando bloqueio ADX (Ativo Descorrelacionado)."
                     else:
                         msg = f"🐋 [WHALE-BYPASS] ADX {current_btc_adx:.1f} < 18, mas {symbol} ({side}) tem CVD ({local_cvd}) / Score Elite. Slots Livres! Permitindo caçada."
                     
@@ -918,7 +929,7 @@ class CaptainAgent(AIOSAgent):
 
             # [V110.64.0] VANGUARD QUALITY FILTER (Score >= 80)
             # is_blitz unified from above
-            if "VANGUARD" in nectar_seal and score < 80 and not is_blitz:
+            if "VANGUARD" in nectar_seal and score < 80 and not is_blitz and bybit_rest_service.execution_mode != "PAPER":
                 msg = f"🛡️ [VANGUARD-QUALITY-BLOCK] {symbol} Score {score} < 80. Ativos Vanguard exigem confiança mínima. Abortando."
                 logger.warning(msg)
                 await firebase_service.log_event("CAPTAIN", msg, "INFO")
@@ -930,7 +941,7 @@ class CaptainAgent(AIOSAgent):
                 logger.info(f"⚡ [BLITZ-VANGUARD-BYPASS] {symbol} ({score}) permitido apesar de ser Vanguard (Blitz Sniper prioritário).")
 
             # [V110.38.0] ABSOLUTE TRAP SHIELD - Bloqueia QUALQUER entrada em moedas classificadas como TRAP
-            if "TRAP" in nectar_seal:
+            if "TRAP" in nectar_seal and bybit_rest_service.execution_mode != "PAPER":
                 msg = f"💀 [LIBRARIAN-TRAP-SHIELD] Bloqueio total {symbol}: Ativo classificado como TRAP ZONE pelo Bibliotecário. Ordem abortada."
                 logger.warning(msg)
                 await firebase_service.log_event("CAPTAIN", msg, "WARNING")
@@ -970,7 +981,7 @@ class CaptainAgent(AIOSAgent):
             btc_variation_15m = deep_macro.get("var_15m", 0)
             is_violent_trend = abs(btc_variation_15m) >= 0.5
             
-            if is_counter_trend:
+            if is_counter_trend and bybit_rest_service.execution_mode != "PAPER":
                 can_bypass = False
                 # [V110.128] CONTRATENDÊNCIA VIOLENTA: Bloqueio total se var_15m > 0.6%
                 if abs(btc_variation_15m) >= 0.6:
