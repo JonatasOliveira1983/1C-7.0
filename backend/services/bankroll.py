@@ -1065,47 +1065,17 @@ class BankrollManager:
                     logger.info(f"🚫 V29.0 [PAPER]: {occupied_count}/{max_total_slots} paper positions ativas.")
                     return None
                 
-                # [V110.137] DUAL BLITZ / SWING ROUTING (PAPER)
-                is_blitz_signal = (slot_type == "BLITZ_30M")
-
-                # [V110.137 COLLISION-GUARD] Bloqueia abertura se ativo já está em qualquer slot
-                # (independente de direção) — evita posições opostas no mesmo ativo
-                norm_chk = (bybit_rest_service._strip_p(symbol) or "").upper() if symbol else ""
-                for _s in slots:
-                    _ssym = (_s.get("symbol") or "").replace(".P", "").upper()
-                    if _ssym and _ssym == norm_chk and _s.get("status") != "EMANCIPATED":
-                        logger.warning(f"[V110.137 COLLISION] {symbol} ja ativo em Slot {_s.get('id')}. Bloqueando.")
-                        return None
-                for _pm in bybit_rest_service.paper_moonbags:
-                    _msym = (_pm.get("symbol") or "").replace(".P", "").upper()
-                    if _msym == norm_chk:
-                        logger.warning(f"[V110.137 COLLISION] {symbol} esta no Moonbag Vault. Bloqueando.")
-                        return None
-
-                if is_blitz_signal:
-                    # [V110.137] BLITZ ocupa Slots 1 e 2
-                    for blitz_sid in [1, 2]:
-                        b_slot = next((s for s in slots if s.get("id") == blitz_sid), None)
-                        b_sym = (b_slot.get("symbol") or "").replace(".P", "").upper() if b_slot else None
-                        b_status = b_slot.get("status") if b_slot else None
-                        if not b_sym or b_status == "EMANCIPATED":
-                            if not any(k[1] == blitz_sid for k in self.pending_slots):
-                                logger.info(f"[V110.137 BLITZ] Slot {blitz_sid} disponivel para Blitz M30.")
-                                return blitz_sid
-                    logger.warning(f"[V110.137 BLITZ] Slots 1 e 2 ocupados — aguardando liberacao.")
-                    return None
-
-                # SWING ocupa Slots 3 e 4 (Slots 1 e 2 sao exclusivos do Blitz)
-                for i in range(3, 5):
+                # [PAPER] BYPASS: Ignite ANY available slot from 1 to 4
+                for i in range(1, 5):
                     slot = next((s for s in slots if s.get("id") == i), None)
                     slot_symbol = (slot.get("symbol") or "").replace(".P", "").upper() if slot else None
                     slot_status = slot.get("status") if slot else None
                     if not slot or not slot_symbol or slot_status == "EMANCIPATED":
                         if not any(k[1] == i for k in self.pending_slots):
-                            logger.info(f"[V110.137 SWING] Slot {i} disponivel para SWING.")
+                            logger.info(f"💎 [PAPER-TEST-FIRE] Forçando Slot {i} disponivel para {slot_type}.")
                             return i
 
-                logger.info(f"[V110.137] Todos os slots disponiveis ocupados ({slot_type}).")
+                logger.info(f"[PAPER] Todos os slots disponiveis ocupados.")
                 return None
             
             # REAL MODE: Original Firestore-based logic
