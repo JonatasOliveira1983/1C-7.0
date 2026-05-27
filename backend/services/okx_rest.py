@@ -1191,12 +1191,16 @@ class OKXRest:
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20, *args, **kwargs):
         """Fetches historical klines for ATR and variation calculations from OKX Mainnet public API."""
         global _GLOBAL_KLINES_CACHE
-        cache_key = f"{symbol}_{interval}_{limit}"
+        # [V120 OPTIMIZATION] Ignore limit in cache key to share the same cache for all requests of this interval.
+        # Always fetch 144 candles (enough for 2H, 4H EMA, Daily, etc) to maximize cache hit rate.
+        cache_key = f"{symbol}_{interval}_shared"
+        fetch_limit = 144
         now = time.time()
+        
         if cache_key in _GLOBAL_KLINES_CACHE:
             ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
             if now - ts < 60.0:  # Cache de 60 segundos
-                return cached_data
+                return cached_data[:limit]
                 
         try:
             from services.okx_service import okx_service
@@ -1212,7 +1216,7 @@ class OKXRest:
                 "1D": "1D", "1W": "1W", "1M": "1M"
             }
             bar = interval_map.get(str(interval), "1H")
-            url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+            url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={fetch_limit}"
             
             max_retries = 3
             for attempt in range(max_retries):
@@ -1257,7 +1261,7 @@ class OKXRest:
                                     ])
                             if formatted:
                                 _GLOBAL_KLINES_CACHE[cache_key] = (time.time(), formatted)
-                                return formatted
+                                return formatted[:limit]
                         break # Se o response foi 200 mas algo no JSON falhou, não é rate limit, quebra o retry.
                     else:
                         break # Status != 429 e != 200 (ex: 500, 404), quebra o retry.
