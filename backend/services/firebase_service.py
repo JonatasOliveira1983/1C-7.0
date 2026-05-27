@@ -517,75 +517,20 @@ class FirebaseService:
             return []
 
     async def get_active_slots(self, username: str = None, force_refresh: bool = False):
-        """[V120] Busca os slots ativos de um usuário específico ou da banca global (Legacy)"""
-        if not self.is_active: 
-            try:
-                from services.database_service import database_service
-                slots = await database_service.get_active_slots()
-                full_slots = []
-                for i in range(1, 5):
-                    existing = next((s for s in slots if s.get("id") == i), None)
-                    if existing: full_slots.append(existing)
-                    else: full_slots.append({"id": i, "symbol": None, "entry_price": 0, "current_stop": 0, "status_risco": "LIVRE", "pnl_percent": 0})
-                self.slots_cache = full_slots
-                return self.slots_cache
-            except Exception as e:
-                logger.error(f"Error reading Postgres slots from Firebase proxy: {e}")
-                return self.slots_cache
-            
-        now_time = time.time()
-        # Cache per-user ou general
-        cache_key = f"slots_{username}" if username else "slots_general"
-        
+        """[V120 OVERRIDE] Busca os slots ativos EXCLUSIVAMENTE do Postgres (Não usa mais Firebase para dados)."""
         try:
-            def _get_slots():
-                # Define o caminho baseado no multitenancy
-                if username:
-                    docs = self.db.collection("users").document(username).collection("slots").order_by("id").stream()
-                else:
-                    docs = self.db.collection("slots_ativos").stream()
-                
-                result = []
-                for doc in docs:
-                    d = doc.to_dict()
-                    try:
-                        d["id"] = int(doc.id)
-                        result.append(d)
-                    except ValueError:
-                        pass
-                return result
-            
-            # [V110.117] Agresive Timeout: Reduzido para 5s para garantir responsividade da API.
-            # Se o Firebase falhar, usamos o self.slots_cache (LKG).
-            data = await asyncio.wait_for(asyncio.to_thread(_get_slots), timeout=5.0)
-            
-            # V12.0: Ensure we always have 4 slots, even if Firestore has fewer
+            from services.database_service import database_service
+            slots = await database_service.get_active_slots()
             full_slots = []
             for i in range(1, 5):
-                existing = next((s for s in data if s.get("id") == i), None)
-                if existing:
-                    full_slots.append(existing)
-                else:
-                    full_slots.append({"id": i, "symbol": None, "entry_price": 0, "current_stop": 0, "status_risco": "LIVRE", "pnl_percent": 0})
-            
+                existing = next((s for s in slots if s.get("id") == i), None)
+                if existing: full_slots.append(existing)
+                else: full_slots.append({"id": i, "symbol": None, "entry_price": 0, "current_stop": 0, "status_risco": "LIVRE", "pnl_percent": 0})
             self.slots_cache = full_slots
-            self.last_slots_fetch = now_time
-            # V10.6.5: Reset failure counter on success
-            self._consecutive_failures = 0
-            self._last_successful_op = now_time
             return self.slots_cache
-                
-        except asyncio.TimeoutError:
-            self._consecutive_failures += 1
-            logger.warning(f"\u23f1\ufe0f Firebase slots timeout (failures: {self._consecutive_failures}). Using cache.")
-            if self._consecutive_failures >= 5:
-                asyncio.create_task(self._health_check())
         except Exception as e:
-            self._consecutive_failures += 1
-            err_type = type(e).__name__
-            logger.warning(f"Transient Firebase error fetching slots ({err_type}, failures: {self._consecutive_failures}): {e}. Using cache.")
-            
-        return self.slots_cache
+            logger.error(f"Error reading Postgres slots from Firebase proxy: {e}")
+            return self.slots_cache
 
     def _clean_mojibake(self, data: any) -> any:
         """

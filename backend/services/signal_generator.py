@@ -2426,15 +2426,10 @@ class SignalGenerator:
                         )
 
                     
-                # [V42.0] System Status Update (SCANNING vs PAUSED)
-                # [V29.0] PAPER MODE FIX: Use paper positions count instead of Firestore
-                from services.okx_rest import okx_rest_service as _brs
-                if _brs.execution_mode == "PAPER":
-                    occupied_count = len(_brs.paper_positions)
-                else:
-                    slots = await firebase_service.get_active_slots()
-                    # A slot is only truly occupied if it has a symbol, AND qty > 0 AND entry_price > 0.
-                    occupied_count = sum(1 for s in slots if s.get("symbol") and float(s.get("qty", 0)) > 0 and float(s.get("entry_price", 0)) > 0)
+                # [V29.0 OVERRIDE] Always use DB slots to match Frontend UI
+                slots = await firebase_service.get_active_slots()
+                # A slot is only truly occupied if it has a symbol, AND qty > 0 AND entry_price > 0.
+                occupied_count = sum(1 for s in slots if s.get("symbol") and float(s.get("qty", 0)) > 0 and float(s.get("entry_price", 0)) > 0)
                 
                 # [V110.36.3] Usar M-ADX do bybit_ws (Fonte Única de Verdade) em vez de recalcular.
                 # Elimina conflito entre ADX 1H (22.46) e M-ADX ponderado (34.0).
