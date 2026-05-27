@@ -591,7 +591,7 @@ html, body {
  <div class="layout">
   <aside class="sidebar">
     <div class="sb-search"><input type="text" id="searchInput" placeholder="BUSCAR..." oninput="filterPairs(this.value)"></div>
-    <div style="padding: 10px 15px; font-size: 10px; color: var(--t2); font-weight: 800; border-bottom: 1px solid var(--border)">32 MONITORING PAIRS · VISUAL HQ</div>
+    <div style="padding: 10px 15px; font-size: 10px; color: var(--t2); font-weight: 800; border-bottom: 1px solid var(--border)">40 MONITORING PAIRS · VISUAL HQ</div>
     <div class="pair-list" id="pairList"></div>
   </aside>
 
@@ -726,7 +726,10 @@ const MATRIX = {
   "BCHUSDT":{p:"VOLATILE"},"XLMUSDT":{p:"STABLE"},"XRPUSDT":{p:"STABLE"},"TRXUSDT":{p:"STABLE"},
   "SEIUSDT":{p:"VOLATILE"},"FILUSDT":{p:"STABLE"},"FTMUSDT":{p:"VOLATILE"},"AAVEUSDT":{p:"STABLE"},
   "ALGOUSDT":{p:"STABLE"},"IMXUSDT":{p:"VOLATILE"},"GALAUSDT":{p:"EXTREME"},"GRTUSDT":{p:"VOLATILE"},
-  "CRVUSDT":{p:"STABLE"},"EGLDUSDT":{p:"STABLE"}
+  "CRVUSDT":{p:"STABLE"},"EGLDUSDT":{p:"STABLE"},
+  "ONDOUSDT":{p:"VOLATILE"},"FETUSDT":{p:"EXTREME"},"JUPUSDT":{p:"VOLATILE"},"DYDXUSDT":{p:"VOLATILE"},
+  "LDOUSDT":{p:"EXTREME"},"ICPUSDT":{p:"VOLATILE"},"STXUSDT":{p:"VOLATILE"},"THETAUSDT":{p:"STABLE"},
+  "VETUSDT":{p:"STABLE"},"SANDUSDT":{p:"VOLATILE"}
 };
 
 let cur = null;
@@ -985,17 +988,20 @@ function updateMacroPulseUI(alignment) {
     const spSub = document.getElementById('macroPulseSub');
     if (!spVal || !spSub) return;
 
-    if (alignment === "BULLISH") {
+    // Normalizar alinhamento (caso venha BULLISH_CROSS ou BEARISH_CROSS do backend)
+    const norm_align = (alignment || "").replace("_CROSS", "");
+
+    if (norm_align === "BULLISH") {
         spVal.textContent = "IGNITION";
         spVal.style.color = "var(--green)";
         spSub.textContent = "BULL CROSS";
         if (spCard) spCard.style.boxShadow = "0 0 15px rgba(16,185,129,0.2)";
-    } else if (alignment === "BEARISH") {
+    } else if (norm_align === "BEARISH") {
         spVal.textContent = "DANGER";
         spVal.style.color = "var(--red)";
         spSub.textContent = "BEAR CROSS";
         if (spCard) spCard.style.boxShadow = "0 0 15px rgba(239,68,68,0.2)";
-    } else if (alignment === "PULLBACK") {
+    } else if (norm_align === "PULLBACK") {
         spVal.textContent = "PULLBACK";
         spVal.style.color = "var(--amber)";
         spSub.textContent = "RETESTING";
@@ -1397,7 +1403,7 @@ async function loadData(s) {
             const macro4h = await res4hMacro.json();
             const km = macro4h.klines || [];
             if (km.length >= 21) {
-                const closes4h = km.map(x => x[4]);
+                const closes4h = km.map(x => parseFloat(x[4]));
                 const sma21_4h = closes4h.slice(-21).reduce((a,b) => a+b, 0) / 21;
                 const last4h = closes4h[closes4h.length - 1];
                 const dir4h = last4h > sma21_4h ? 'BULLISH' : 'BEARISH';

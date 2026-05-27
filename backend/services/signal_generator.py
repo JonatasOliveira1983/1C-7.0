@@ -665,6 +665,14 @@ class SignalGenerator:
             import random
             mock_dom = 58.0 + (random.random() * 0.4)
             
+            # [V110.950] Calculate Global Heat Index (Average velocity of monitored symbols)
+            try:
+                from services.bybit_ws import bybit_ws_service
+                velocities = list(bybit_ws_service.velocity_cache.values())
+                global_heat = sum(velocities) / len(velocities) if velocities else 0.0
+            except Exception:
+                global_heat = 0.0
+            
             market_context = {
                 "btc_direction": btc_dir.get("direction", "NEUTRAL"),
                 "btc_strength": btc_dir.get("strength", 0),
@@ -677,6 +685,7 @@ class SignalGenerator:
                 "btc_variation_15m": round(bybit_ws_service.btc_variation_15m, 2),
                 "decorrelation_avg": round(avg_d_score, 1),
                 "decorrelation_active_count": len(d_active),
+                "heat_index": round(global_heat, 2), # 🆕 [V110.950] UI Sync for Global Heat Index
                 "radar_mode": self.current_radar_mode  # [V100.1] Sync radar mode to UI
             }
 
