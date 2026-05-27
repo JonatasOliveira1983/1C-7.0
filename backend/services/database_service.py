@@ -129,14 +129,25 @@ class DatabaseService:
     async def update_slot(self, slot_id: int, data: dict):
         async with self.AsyncSessionLocal() as session:
             try:
+                # V110.176: Clean and convert date fields passed as floats/ints to datetime objects
+                clean_data = data.copy()
+                for key in ["opened_at", "updated_at"]:
+                    if key in clean_data:
+                        val = clean_data[key]
+                        if isinstance(val, (int, float)):
+                            if val > 0:
+                                clean_data[key] = datetime.utcfromtimestamp(val)
+                            else:
+                                clean_data[key] = None
+
                 obj = await session.get(Slot, slot_id)
                 if not obj:
                     valid_keys = {c.name for c in Slot.__table__.columns}
-                    filtered_data = {k: v for k, v in data.items() if k in valid_keys}
+                    filtered_data = {k: v for k, v in clean_data.items() if k in valid_keys}
                     obj = Slot(id=slot_id, **filtered_data)
                     session.add(obj)
                 else:
-                    for key, value in data.items():
+                    for key, value in clean_data.items():
                         if hasattr(obj, key):
                             setattr(obj, key, value)
                 await session.commit()
