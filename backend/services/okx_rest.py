@@ -1191,17 +1191,34 @@ class OKXRest:
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20, *args, **kwargs):
         """Fetches historical klines for ATR and variation calculations from OKX Mainnet public API."""
         global _GLOBAL_KLINES_CACHE
+        global _GLOBAL_KLINES_LOCKS
+        if '_GLOBAL_KLINES_LOCKS' not in globals():
+            _GLOBAL_KLINES_LOCKS = {}
+            
         # [V120 OPTIMIZATION] Ignore limit in cache key to share the same cache for all requests of this interval.
         # Always fetch 144 candles (enough for 2H, 4H EMA, Daily, etc) to maximize cache hit rate.
         cache_key = f"{symbol}_{interval}_shared"
         fetch_limit = 144
         now = time.time()
         
+        # 1. Check cache WITHOUT lock (fast path)
         if cache_key in _GLOBAL_KLINES_CACHE:
             ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
             if now - ts < 60.0:  # Cache de 60 segundos
                 return cached_data[:limit]
-                
+        
+        # 2. Acquire lock to prevent Thundering Herd (multiple tasks asking for the same BTC candles at the same time)
+        if cache_key not in _GLOBAL_KLINES_LOCKS:
+            _GLOBAL_KLINES_LOCKS[cache_key] = asyncio.Lock()
+            
+        async with _GLOBAL_KLINES_LOCKS[cache_key]:
+            # 3. Check cache again AFTER acquiring lock (someone else might have fetched it while we waited)
+            now = time.time()
+            if cache_key in _GLOBAL_KLINES_CACHE:
+                ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
+                if now - ts < 60.0:
+                    return cached_data[:limit]
+                    
         try:
             from services.okx_service import okx_service
             inst_id = okx_service.bybit_to_okx(symbol)
