@@ -353,7 +353,10 @@ class OKXRest:
                         for t in data["data"]:
                             inst_id = t.get("instId", "")
                             if inst_id in candidates:
-                                turnover = float(t.get("volCcy24h", 0)) # Volume das últimas 24h na moeda de cotação (USDT)
+                                vol_str = t.get("volCcy24h", "0")
+                                if not vol_str:
+                                    vol_str = "0"
+                                turnover = float(vol_str) # Volume das últimas 24h na moeda de cotação (USDT)
                                 bybit_sym_clean = candidates[inst_id]
                                 final_candidates.append({
                                     "symbol": bybit_sym_clean,
