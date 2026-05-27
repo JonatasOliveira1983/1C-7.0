@@ -414,6 +414,37 @@ class HermesAgent(AIOSAgent):
                 "response": await self._generate_system_status(),
                 "context": {"type": "system_status", "active_dimensions": active_dims}
             }
+            
+        # [N8N HYBRID] Comandos para o Servidor MCP n8n
+        if "n8n listar" in user_message.lower() or "fluxos n8n" in user_message.lower() or "ferramentas n8n" in user_message.lower():
+            from services.n8n_client import n8n_client
+            try:
+                tools = await n8n_client.list_tools()
+                return {
+                    "response": f"🤖 **Fluxos (Tools) do n8n Encontrados:**\n```json\n{json.dumps(tools, indent=2)}\n```\n*Diga 'n8n rodar [nome_do_fluxo]' para executar.*",
+                    "context": {"type": "n8n_tools", "active_dimensions": active_dims}
+                }
+            except Exception as e:
+                return {"response": f"❌ Falha ao contactar o n8n: {e}", "context": {"active_dimensions": active_dims}}
+
+        if "n8n rodar" in user_message.lower() or "n8n executar" in user_message.lower():
+            from services.n8n_client import n8n_client
+            # Extrai o nome do fluxo após a palavra-chave
+            trigger_word = "rodar" if "rodar" in user_message.lower() else "executar"
+            parts = user_message.lower().split(trigger_word, 1)
+            workflow_name = parts[1].strip() if len(parts) > 1 else ""
+            
+            if not workflow_name:
+                return {"response": "⚠️ Você precisa informar o nome do fluxo. Ex: `n8n rodar meu_fluxo`", "context": {}}
+                
+            try:
+                res = await n8n_client.call_tool(workflow_name)
+                return {
+                    "response": f"✅ **Fluxo disparado no n8n:**\n```json\n{json.dumps(res, indent=2)}\n```",
+                    "context": {"type": "n8n_execution", "active_dimensions": active_dims}
+                }
+            except Exception as e:
+                return {"response": f"❌ Falha ao executar o fluxo no n8n: {e}", "context": {"active_dimensions": active_dims}}
         
         # 4. Load wiki context
         wiki_context = await self._load_wiki_context()
