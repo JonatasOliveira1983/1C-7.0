@@ -114,7 +114,8 @@ class OKXRest:
                         local_symbols = {p.get("symbol") for p in self.paper_positions}
                         for f_slot in firestore_slots:
                             symbol = f_slot.get("symbol")
-                            if symbol and symbol not in local_symbols:
+                            entry_price = float(f_slot.get("entry_price", 0))
+                            if symbol and symbol not in local_symbols and entry_price > 0:
                                 logger.warning(f"🚑 [V110.61 AMNESIA-GUARD] Recuperando ordem órfã do Firestore: {symbol}")
                                 # Reconstuir objeto de posição Paper compatível com Bybit v5 Schema Fake
                                 recovered_pos = {
