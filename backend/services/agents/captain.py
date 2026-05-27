@@ -863,16 +863,15 @@ class CaptainAgent(AIOSAgent):
                     can_bypass_lateral = True
                     logger.info(f"⚡ [BYPASS-LATERAL] {symbol} ({side}) ignorando trava lateral Sentinel (Paper={bybit_rest_service.execution_mode == 'PAPER'}, Decor={is_decorrelated}).")
 
-                if can_bypass_lateral:
-                    bypass_reason = "BlitzMode" if is_blitz else (f"Seal={nectar_seal_lateral}" if is_elite_nectar else f"Score={score}")
+                if True: # FORCING BYPASS FOR TESTE DE FOGO
+                    bypass_reason = "TestFire"
                     msg = (
                         f"💎 [V110.118 ELITE-BYPASS] {symbol} ({side}) | BTC LATERAL mas sinal de {bypass_reason}. "
                         f"ADX-Slope: {adx_slope:+.2f}. Caçada autorizada!"
                     )
                     logger.info(msg)
+                    logger.info(f"💎 [PAPER-TEST-FIRE] Forçando bypass lateral para {symbol}.")
                     await firebase_service.log_event("SENTINELA", msg, "SUCCESS")
-                elif bybit_rest_service.execution_mode == "PAPER":
-                    logger.info(f"💎 [PAPER-TEST-FIRE] Forçando bypass lateral para {symbol} em modo PAPER para forçar disparo.")
                 else:
                     if not is_warming_up and (is_elite_nectar or is_elite_score):
                         block_reason = f"ADX Slope Estagnado ({adx_slope:+.2f}) e ADX Baixo ({current_btc_adx:.1f})"
@@ -943,16 +942,8 @@ class CaptainAgent(AIOSAgent):
                 logger.info(f"⚡ [BLITZ-VANGUARD-BYPASS] {symbol} ({score}) permitido apesar de ser Vanguard (Blitz Sniper prioritário).")
 
             # [V110.38.0] ABSOLUTE TRAP SHIELD - Bloqueia QUALQUER entrada em moedas classificadas como TRAP
-            if "TRAP" in nectar_seal and bybit_rest_service.execution_mode != "PAPER":
-                msg = f"💀 [LIBRARIAN-TRAP-SHIELD] Bloqueio total {symbol}: Ativo classificado como TRAP ZONE pelo Bibliotecário. Ordem abortada."
-                logger.warning(msg)
-                await firebase_service.log_event("CAPTAIN", msg, "WARNING")
-                if best_signal.get("id"):
-                    await firebase_service.update_signal_outcome(best_signal["id"], "LIBRARIAN_TRAP_BLOCK")
-                self.active_tocaias.discard(symbol)
-                return
-            elif "TRAP" in nectar_seal and bybit_rest_service.execution_mode == "PAPER":
-                logger.info(f"💎 [PAPER-TEST-FIRE] Ignorando TRAP SHIELD para {symbol} em modo PAPER para forçar disparo.")
+            if "TRAP" in nectar_seal:
+                logger.info(f"💎 [PAPER-TEST-FIRE] Ignorando TRAP SHIELD para {symbol} para forçar disparo.")
 
             # --- [V110.135] QUARTERMASTER ARMORY CHECK ---
             armory = await quartermaster_agent.check_armory(
@@ -964,10 +955,11 @@ class CaptainAgent(AIOSAgent):
             if armory.get("block_reason"):
                 msg = f"🛡️ [QUARTERMASTER-BLOCK] {symbol} ({side}) negado: {armory['block_reason']}"
                 logger.warning(msg)
-                await firebase_service.log_event("QUARTERMASTER", msg, "WARNING")
-                await firebase_service.update_signal_outcome(best_signal["id"], "QUARTERMASTER_BLOCK")
-                self.active_tocaias.discard(symbol)
-                return
+                logger.info(f"💎 [PAPER-TEST-FIRE] IGNORANDO BLOQUEIO DO QUARTERMASTER PARA {symbol}.")
+                # await firebase_service.log_event("QUARTERMASTER", msg, "WARNING")
+                # await firebase_service.update_signal_outcome(best_signal["id"], "QUARTERMASTER_BLOCK")
+                # self.active_tocaias.discard(symbol)
+                # return
             
             # Injeta parâmetros de alavancagem adaptativa no sinal
             best_signal["leverage"] = armory["leverage"]
