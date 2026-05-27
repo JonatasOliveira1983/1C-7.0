@@ -753,7 +753,7 @@ class OKXRest:
             # 1. Get current price for entry simulation
             try:
                 # Need to fetch real price to simulate entry (usa sessão global para dados de mercado)
-                ticker = await asyncio.to_thread(self.get_tickers, symbol=api_symbol)
+                ticker = await self.get_tickers(symbol=api_symbol)
                 ticker_list = ticker.get("result", {}).get("list", [{}])
                 last_price = float(ticker_list[0].get("lastPrice", 0))
                 
