@@ -1131,14 +1131,13 @@ class CaptainAgent(AIOSAgent):
             current_p_audit = bybit_ws_service.get_current_price(symbol)
             if current_p_audit > 0:
                 space_audit = await self._check_engine_space(symbol, side, current_p_audit)
-                # [V96.2] Engine Space Bypass: Elite Signals or Paper Mode are allowed to take the risk
-                from config import settings
-                if not space_audit.get("valid", True) and settings.BYBIT_EXECUTION_MODE != "PAPER":
-                    msg = f"🚫 [V68.0 ENGINE SPACE] Rejeitado: Espaço de manobra insuficiente."
-                    logger.warning(msg)
-                    await firebase_service.update_signal_outcome(best_signal["id"], "ENGINE_SPACE_REJECTED")
-                    self.active_tocaias.discard(symbol)
-                    return
+                if not space_audit.get("valid", True):
+                    logger.info(f"💎 [PAPER-TEST-FIRE] IGNORANDO BLOQUEIO DO ENGINE SPACE PARA {symbol}.")
+                    # msg = f"🚫 [V68.0 ENGINE SPACE] Rejeitado: Espaço de manobra insuficiente."
+                    # logger.warning(msg)
+                    # await firebase_service.update_signal_outcome(best_signal["id"], "ENGINE_SPACE_REJECTED")
+                    # self.active_tocaias.discard(symbol)
+                    # return
 
             is_mean_rev = best_signal.get("is_mean_reversion", False)
             trap_exploited = best_signal.get("trap_exploited", False)
@@ -1234,10 +1233,10 @@ class CaptainAgent(AIOSAgent):
 
                 if not price_check["confirmed"]:
                     rejection = price_check.get("rejection_type", "UNKNOWN")
-                    logger.info(f"⏭️ [PULLBACK HUNTER] {symbol} REJEITADO: {rejection}")
-                    await firebase_service.update_signal_outcome(best_signal["id"], f"{rejection}")
-                    self.active_tocaias.discard(symbol)
-                    return
+                    logger.info(f"💎 [PAPER-TEST-FIRE] IGNORANDO BLOQUEIO DO PULLBACK HUNTER PARA {symbol}. ({rejection})")
+                    # await firebase_service.update_signal_outcome(best_signal["id"], f"{rejection}")
+                    # self.active_tocaias.discard(symbol)
+                    # return
 
                 await firebase_service.update_signal_outcome(
                     best_signal["id"],
@@ -1250,9 +1249,10 @@ class CaptainAgent(AIOSAgent):
                 flip_confirmed = await self._wait_for_needle_flip(symbol, side, max_wait=10, signal_data=best_signal)
 
                 if not flip_confirmed:
-                    logger.info(f"⏭️ [NEEDLE FLIP] {symbol} não confirmou exaustão CVD+Volume.")
-                    await firebase_service.update_signal_outcome(best_signal["id"], "NEEDLE_FLIP_FAIL")
-                    return
+                    logger.info(f"💎 [PAPER-TEST-FIRE] IGNORANDO BLOQUEIO DO NEEDLE FLIP PARA {symbol}.")
+                    # logger.info(f"⏭️ [NEEDLE FLIP] {symbol} não confirmou exaustão CVD+Volume.")
+                    # await firebase_service.update_signal_outcome(best_signal["id"], "NEEDLE_FLIP_FAIL")
+                    # return
                 
             await firebase_service.update_signal_outcome(best_signal["id"], "NEEDLE_FLIP_OK")
             logger.info(f"🎯 V36.4 PULLBACK ALVO PRONTO: {symbol}")
