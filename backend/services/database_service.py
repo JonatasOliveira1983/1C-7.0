@@ -89,6 +89,11 @@ class Moonbag(Base):
     promoted_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class RadarPulse(Base):
+    __tablename__ = "radar_pulse"
+    id = Column(Integer, primary_key=True)
+    data = Column(JSON)
+
 class DatabaseService:
     def __init__(self):
         # Em Railway, DATABASE_URL é provido automaticamente (postgres://...)
@@ -262,5 +267,30 @@ class DatabaseService:
             result = await session.execute(select(TradeHistory).order_by(desc(TradeHistory.timestamp)).limit(limit))
             trades = result.scalars().all()
             return [{c.name: getattr(t, c.name) for c in t.__table__.columns} for t in trades]
+
+    # --- RADAR PULSE PERSISTENCE ---
+    async def update_radar_pulse(self, data: dict):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                obj = await session.get(RadarPulse, 1)
+                if not obj:
+                    obj = RadarPulse(id=1, data=data)
+                    session.add(obj)
+                else:
+                    obj.data = data
+                await session.commit()
+                logger.info("📡 Radar pulse persisted in Postgres successfully.")
+            except Exception as e:
+                logger.error(f"Error updating radar pulse in database: {e}")
+
+    async def get_radar_pulse(self):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                obj = await session.get(RadarPulse, 1)
+                if obj:
+                    return obj.data
+            except Exception as e:
+                logger.error(f"Error getting radar pulse from database: {e}")
+            return None
 
 database_service = DatabaseService()

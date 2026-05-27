@@ -415,7 +415,21 @@ class FirebaseService:
         Fetches completed trade history with pagination and filtering support.
         [V15.1] Added memory fallback for missing composite indexes.
         """
-        if not self.is_active: return []
+        if not self.is_active:
+            try:
+                from services.database_service import database_service
+                trades = await database_service.get_trade_history(limit=limit)
+                for t in trades:
+                    if t.get("timestamp") and hasattr(t["timestamp"], "isoformat"):
+                        t["timestamp"] = t["timestamp"].isoformat()
+                    if t.get("data") and isinstance(t["data"], dict):
+                        for k, v in t["data"].items():
+                            if k not in t:
+                                t[k] = v
+                return trades
+            except Exception as e:
+                logger.error(f"Error getting trade history from Postgres fallback: {e}")
+                return []
         try:
             def _get_trades():
                 query = self.db.collection("trade_history")
@@ -483,7 +497,20 @@ class FirebaseService:
         """
         [V15.1] Memory-efficient stats.
         """
-        if not self.is_active: return {"total_count": 0, "total_pnl": 0.0}
+        if not self.is_active:
+            try:
+                from services.database_service import database_service
+                trades = await database_service.get_trade_history(limit=1000)
+                total_pnl = 0.0
+                count = 0
+                for t in trades:
+                    if symbol and t.get("symbol") != symbol.upper(): continue
+                    total_pnl += float(t.get("pnl", 0))
+                    count += 1
+                return {"total_count": count, "total_pnl": round(total_pnl, 2)}
+            except Exception as e:
+                logger.error(f"Error calculating stats from Postgres fallback: {e}")
+                return {"total_count": 0, "total_pnl": 0.0}
         try:
             def _get_stats():
                 query = self.db.collection("trade_history")
@@ -912,6 +939,14 @@ class FirebaseService:
     async def get_radar_pulse(self):
         """[V15.1.4] Fetches radar pulse from cache or RTDB."""
         if not self.is_active or not self.rtdb:
+            if not self.radar_pulse_cache.get("signals"):
+                try:
+                    from services.database_service import database_service
+                    db_pulse = await database_service.get_radar_pulse()
+                    if db_pulse:
+                        self.radar_pulse_cache = db_pulse
+                except Exception as e:
+                    logger.error(f"Error loading radar pulse fallback from Postgres: {e}")
             return self.radar_pulse_cache
             
         # Debounce to save quota
@@ -946,7 +981,13 @@ class FirebaseService:
         except Exception as e:
             logger.error(f"Error emitting radar to WS proxy: {e}")
             
-        if not self.is_active or not self.rtdb: return
+        if not self.is_active or not self.rtdb:
+            try:
+                from services.database_service import database_service
+                asyncio.create_task(database_service.update_radar_pulse(data))
+            except Exception as e:
+                logger.error(f"Error persisting radar pulse to Postgres: {e}")
+            return
         try:
             # V15.7.5: Added timeout to prevent radar loop from freezing if RTDB hangs
             await asyncio.wait_for(asyncio.to_thread(self.rtdb.child("radar_pulse").set, data), timeout=10.0)
