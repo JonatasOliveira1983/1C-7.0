@@ -1541,6 +1541,8 @@ class CaptainAgent(AIOSAgent):
         [V7.0] THE PERFECT ENTRY: Wait Sniper Protocol.
         Monitors for confluence (Fibonacci/Walls) and Signal Maturity.
         """
+        logger.info(f"💎 [PAPER-TEST-FIRE] FORÇANDO SUCESSO INSTANTÂNEO NO NEEDLE FLIP PARA {symbol}.")
+        return True
         from services.bybit_ws import bybit_ws_service
         from services.redis_service import redis_service
         from services.signal_generator import signal_generator
@@ -1636,6 +1638,9 @@ class CaptainAgent(AIOSAgent):
         Cenário B (Ancoragem): Se o mercado derreter/estourar a favor direto sem pullback,
         espera confirmação de distanciamento (0.25%) para entrar, evitando fake wicks na cara.
         """
+        
+        logger.info(f"💎 [PAPER-TEST-FIRE] FORÇANDO SUCESSO INSTANTÂNEO NO PULLBACK HUNTER PARA {symbol}.")
+        return {"confirmed": True, "rejection_type": None, "adaptive_sl": 0, "final_price": 0, "max_drawdown_pct": 0}
         
         signal_price = bybit_ws_service.get_current_price(symbol)
         if signal_price <= 0:
