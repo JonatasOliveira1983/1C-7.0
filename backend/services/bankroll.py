@@ -1415,13 +1415,18 @@ class BankrollManager:
                         logger.warning(f"❌ Balance extremely low (${balance:.2f}). Cannot even afford $1 margin.")
                         return None
                 
-                # [V42.0] QUANTITY CALCULATION (Critical Fix)
-                # qty = (margin * leverage) / price, then aligned to qty_step
-                raw_qty = (margin * current_leverage) / current_price
+                # [V42.0] QUANTITY CALCULATION (Critical Fix for OKX Contracts)
+                # OKX requires size in CONTRACTS. 
+                # Contracts = (margin * leverage) / (price * ctVal)
+                ct_val = float(info.get("lotSizeFilter", {}).get("ctVal", 1.0))
+                if ct_val <= 0:
+                    ct_val = 1.0
+                
+                raw_qty = (margin * current_leverage) / (current_price * ct_val)
                 qty = float(math.floor(raw_qty / qty_step) * qty_step)
                 
                 if qty <= 0:
-                    logger.warning(f"❌ Calculated quantity is zero for {symbol} (Margin Too Small for price/step).")
+                    logger.warning(f"❌ Calculated quantity is zero for {symbol} (Margin Too Small for price/step). Raw qty was {raw_qty}, ctVal={ct_val}, qty_step={qty_step}")
                     return None
                 
                 # -----------------------------------------------------

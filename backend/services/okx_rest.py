@@ -607,7 +607,8 @@ class OKXRest:
                     },
                     "lotSizeFilter": {
                         "qtyStep": lot_size,
-                        "minOrderQty": min_sz
+                        "minOrderQty": min_sz,
+                        "ctVal": details.get("ctVal", "1.0")
                     },
                     "leverageFilter": {
                         "maxLeverage": "50.0"
