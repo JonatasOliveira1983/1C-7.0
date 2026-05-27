@@ -131,7 +131,9 @@ class DatabaseService:
             try:
                 obj = await session.get(Slot, slot_id)
                 if not obj:
-                    obj = Slot(id=slot_id, **data)
+                    valid_keys = {c.name for c in Slot.__table__.columns}
+                    filtered_data = {k: v for k, v in data.items() if k in valid_keys}
+                    obj = Slot(id=slot_id, **filtered_data)
                     session.add(obj)
                 else:
                     for key, value in data.items():
