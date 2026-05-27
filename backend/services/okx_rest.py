@@ -115,7 +115,8 @@ class OKXRest:
                         for f_slot in firestore_slots:
                             symbol = f_slot.get("symbol")
                             entry_price = float(f_slot.get("entry_price", 0))
-                            if symbol and symbol not in local_symbols and entry_price > 0:
+                            # [FIX] Do NOT adopt real trades from the Vault in PAPER MODE
+                            if symbol and symbol not in local_symbols and entry_price > 0 and f_slot.get("is_paper") is True:
                                 logger.warning(f"🚑 [V110.61 AMNESIA-GUARD] Recuperando ordem órfã do Firestore: {symbol}")
                                 # Reconstuir objeto de posição Paper compatível com Bybit v5 Schema Fake
                                 recovered_pos = {
