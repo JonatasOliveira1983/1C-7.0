@@ -1,0 +1,302 @@
+{
+  "updatedAt": "2026-05-26T23:41:00.859Z",
+  "createdAt": "2026-05-26T23:38:02.467Z",
+  "id": "PI0VK4G2xXADAX0I",
+  "name": "Macro-Orquestrador H\u00edbrido 10D5.0",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -752,
+        128
+      ],
+      "id": "d1a04cba-48fe-49d7-ac12-405c1508ba69",
+      "name": "Ciclo Macro (5m)"
+    },
+    {
+      "parameters": {
+        "content": "## GEST\u00c3O E AUDITORIA (Python)",
+        "height": 400,
+        "width": 600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        -144
+      ],
+      "id": "40d541d3-fa5b-4ac6-8766-c85649352fb8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "toolId": "get_system_snapshot"
+      },
+      "type": "n8n-nodes-mcp.mcpTool",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        16
+      ],
+      "id": "2af31bfc-7bb2-4b73-9457-7df0816a06af",
+      "name": "Oracle & Macro Analyst (Python)",
+      "notesInFlow": true,
+      "notes": "Coleta Status do BTC, Domin\u00e2ncia e ADX do motor Python."
+    },
+    {
+      "parameters": {
+        "toolId": "get_positions"
+      },
+      "type": "n8n-nodes-mcp.mcpTool",
+      "typeVersion": 1,
+      "position": [
+        -272,
+        16
+      ],
+      "id": "6f8a2d1d-87e1-4287-97f1-a54850e24538",
+      "name": "Fleet Audit (Python)",
+      "notesInFlow": true,
+      "notes": "Verifica os 4 Slots, Moonbags e Arquivamentos da Vault."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.slots_livres > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        16
+      ],
+      "id": "f00313bb-b45a-480c-8dfc-d247f078a677",
+      "name": "Avalia Slots Livres"
+    },
+    {
+      "parameters": {
+        "content": "## INTELIG\u00caNCIA T\u00c1TICA E DISPARO (n8n + Python)",
+        "height": 400,
+        "width": 800
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        176,
+        -240
+      ],
+      "id": "b6e5438f-fa69-4b50-8b7d-d7143625b81c",
+      "name": "Sticky Note 2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        160,
+        272
+      ],
+      "id": "dcf6e243-2dda-4476-8d6a-b30e06f2a72a",
+      "name": "Harvester & Knife-Drop (Python Milissegundos)",
+      "notesInFlow": true,
+      "notes": "N\u00d3 DOCUMENTAL: O motor Python est\u00e1 vigiando ativamente os slots lotados para emancipa\u00e7\u00e3o (Harvester) ou queda brusca (Fac\u00e3o) via WebSocket da OKX."
+    },
+    {
+      "parameters": {
+        "toolId": "get_sieve_signals"
+      },
+      "type": "n8n-nodes-mcp.mcpTool",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "d1f03c29-5377-43ee-8acb-689e37b57504",
+      "name": "Sieve Agent (Python)",
+      "notesInFlow": true,
+      "notes": "Scanner Global: Puxa ativos com momentum do Python."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -48
+      ],
+      "id": "04613c71-69ce-4db1-839a-09d44419399f",
+      "name": "Agente Vis\u00e3o (n8n Nativo)",
+      "notesInFlow": true,
+      "notes": "Intelig\u00eancia Artificial Nativa do n8n aprova o ativo."
+    },
+    {
+      "parameters": {
+        "toolId": "open_sniper"
+      },
+      "type": "n8n-nodes-mcp.mcpTool",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -176
+      ],
+      "id": "dc293ce3-94d6-4930-9852-e23121da45a7",
+      "name": "Captain Agent (Python Executa)",
+      "notesInFlow": true,
+      "notes": "Capit\u00e3o executa o tiro na OKX com lat\u00eancia zero via MCP."
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_ID",
+        "text": "Tiro do Capit\u00e3o executado com sucesso no ativo {{ $json.symbol }}!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "2c7ebbee-d75e-471c-b875-925e965f36d8",
+      "name": "Hermes Agent (Telegram Notifier)",
+      "webhookId": "2510402e-fea2-4ae2-81de-18c1d21e83d9"
+    }
+  ],
+  "connections": {
+    "Ciclo Macro (5m)": {
+      "main": [
+        [
+          {
+            "node": "Oracle & Macro Analyst (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Oracle & Macro Analyst (Python)": {
+      "main": [
+        [
+          {
+            "node": "Fleet Audit (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fleet Audit (Python)": {
+      "main": [
+        [
+          {
+            "node": "Avalia Slots Livres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avalia Slots Livres": {
+      "main": [
+        [
+          {
+            "node": "Sieve Agent (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Harvester & Knife-Drop (Python Milissegundos)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sieve Agent (Python)": {
+      "main": [
+        [
+          {
+            "node": "Agente Vis\u00e3o (n8n Nativo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Vis\u00e3o (n8n Nativo)": {
+      "main": [
+        [
+          {
+            "node": "Captain Agent (Python Executa)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Captain Agent (Python Executa)": {
+      "main": [
+        [
+          {
+            "node": "Hermes Agent (Telegram Notifier)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "5575fcaa-53e5-4d85-8ca7-798e75996d34",
+  "activeVersionId": null,
+  "versionCounter": 10,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-26T23:38:02.471Z",
+      "createdAt": "2026-05-26T23:38:02.471Z",
+      "role": "workflow:owner",
+      "workflowId": "PI0VK4G2xXADAX0I",
+      "projectId": "XEnSTV7x3SThb3RQ",
+      "project": {
+        "updatedAt": "2026-05-26T22:43:47.788Z",
+        "createdAt": "2026-05-26T22:38:44.680Z",
+        "id": "XEnSTV7x3SThb3RQ",
+        "name": "Jonatas Oliveira <jonatasprojetos2013@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "179312e2-8ca8-41d5-b64e-7e788ab39c4d"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
