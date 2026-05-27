@@ -2843,8 +2843,9 @@ class SignalGenerator:
                         if not is_vanguard_pre:
                             reason = f"SENTINELA ADX GUARD: M-ADX {m_adx:.1f} < 28 (MODO ELITE). Rejeitado."
                             logger.info(f"🚫 [V110.36.5] {symbol} rejected: {reason}")
-                            self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
-                            return None
+                            logger.info(f"💎 [PAPER-TEST-FIRE] IGNORANDO SENTINELA ADX GUARD PARA {symbol}.")
+                            # self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
+                            # return None
                     elif m_adx and m_adx < 28 and _settings.BYBIT_EXECUTION_MODE == "PAPER":
                         logger.info(f"🛡️ [PAPER] Ignorando trava ADX Sentinela (M-ADX {m_adx:.1f} < 28) para permitir ampla emanação de sinais no radar local.")
                     
