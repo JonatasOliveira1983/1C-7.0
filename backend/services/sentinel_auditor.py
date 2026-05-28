@@ -281,9 +281,56 @@ class SentinelAuditor:
                     })
                     
                     try:
+                        # Extrai metadados do slot e calcula PnL residual com base no preço de mercado
+                        side = slot.get("side", "Buy")
+                        entry_price = float(slot.get("entry_price") or 0)
+                        qty = float(slot.get("qty") or 0)
+                        entry_margin = float(slot.get("entry_margin") or 0)
+                        leverage = float(slot.get("leverage") or 50)
+                        genesis_id = slot.get("genesis_id") or f"SNT-{int(now)}-{clean_sym[:4]}"
+                        
+                        exit_price = await slot_operator_price_fallback(clean_sym)
+                        if exit_price <= 0:
+                            # Fallback para o stop atual do slot se não obtiver o ticker
+                            exit_price = float(slot.get("current_stop") or entry_price)
+                        
+                        pnl_percent = 0.0
+                        pnl_val = 0.0
+                        if entry_price > 0 and exit_price > 0:
+                            if side.lower() in ["buy", "long"]:
+                                price_diff_pct = (exit_price - entry_price) / entry_price
+                            else:
+                                price_diff_pct = (entry_price - exit_price) / entry_price
+                            pnl_percent = round(price_diff_pct * leverage * 100, 2)
+                            pnl_val = round(entry_margin * (pnl_percent / 100), 4)
+
+                        reason = f"Sentinel Auto-Cura: Posição órfã encerrada na corretora."
+                        
+                        trade_data = {
+                            "symbol": slot.get("symbol") or (clean_sym + ".P"),
+                            "side": side,
+                            "qty": qty,
+                            "entry_price": entry_price,
+                            "exit_price": exit_price,
+                            "entry_margin": entry_margin,
+                            "leverage": leverage,
+                            "pnl": pnl_val,
+                            "pnl_percent": pnl_percent,
+                            "final_roi": pnl_percent,
+                            "genesis_id": genesis_id,
+                            "slot_id": slot_id,
+                            "slot_type": slot.get("slot_type", "BLITZ_30M"),
+                            "opened_at": slot.get("opened_at") or now,
+                            "closed_at": now,
+                            "close_reason": reason,
+                            "pensamento": slot.get("pensamento", "🚑 Posição órfã encerrada e arquivada pelo Sentinel Auditor.")
+                        }
+
                         await firebase_service.hard_reset_slot(
                             slot_id, 
-                            reason=f"Sentinel Auto-Cura: Posição órfã encerrada na corretora."
+                            reason=reason,
+                            pnl=pnl_val,
+                            trade_data=trade_data
                         )
                     except Exception as he:
                         logger.error(f"❌ [SENTINEL] Falha ao curar slot órfão {slot_id}: {he}")

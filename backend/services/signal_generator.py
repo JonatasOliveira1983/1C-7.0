@@ -1549,6 +1549,35 @@ class SignalGenerator:
             target_long_ext = pivot_high + (2.0 * atr_2h)  # Alvo estendido Long
             target_short_ext = pivot_low - (2.0 * atr_2h)  # Alvo estendido Short
             
+            # [V127] Calcular RSI 14 clássico com suavização de Wilder
+            rsi_2h = 50.0
+            if len(closes) > 14:
+                gains = []
+                losses = []
+                for i in range(1, len(closes)):
+                    diff = closes[i] - closes[i-1]
+                    if diff > 0:
+                        gains.append(diff)
+                        losses.append(0.0)
+                    else:
+                        gains.append(0.0)
+                        losses.append(-diff)
+                
+                # Média simples inicial
+                avg_gain = sum(gains[:14]) / 14
+                avg_loss = sum(losses[:14]) / 14
+                
+                # Suavização de Wilder
+                for i in range(14, len(gains)):
+                    avg_gain = (avg_gain * 13 + gains[i]) / 14
+                    avg_loss = (avg_loss * 13 + losses[i]) / 14
+                
+                if avg_loss == 0:
+                    rsi_2h = 100.0
+                else:
+                    rs = avg_gain / avg_loss
+                    rsi_2h = round(100.0 - (100.0 / (1.0 + rs)), 2)
+
             result = {
                 'trend': trend,
                 'sma8': round(sma8, 8),
@@ -1561,13 +1590,14 @@ class SignalGenerator:
                 'target_short': round(target_short, 8),
                 'target_long_ext': round(target_long_ext, 8),
                 'target_short_ext': round(target_short_ext, 8),
+                'rsi_2h': rsi_2h,
                 'updated_at': time.time()
             }
             self.trend_cache_2h[symbol] = result
             return result
         except Exception as e:
             logger.error(f"Error in 2h macro analysis for {symbol}: {e}")
-            return {'trend': 'sideways', 'pivot_low': 0, 'pivot_high': 0, 'sma8': 0, 'sma21': 0, 'atr_2h': 0}
+            return {'trend': 'sideways', 'pivot_low': 0, 'pivot_high': 0, 'sma8': 0, 'sma21': 0, 'atr_2h': 0, 'rsi_2h': 50.0}
 
     async def get_30m_tactical_analysis(self, symbol: str) -> dict:
         """
@@ -2835,6 +2865,32 @@ class SignalGenerator:
                             self.detect_market_regime("BTCUSDT.P") # [V42.9] RANGING BTC Guard
                         )
                     
+                    # [V127] PROTOCOLO ALT BIAS ONLY (AltForceDirection Guard)
+                    # O viés direcional macro de 2H é lei absoluta para moedas desgrudadas (is_decorrelated = True)
+                    is_decorrelated_play = candidate.get('is_decorrelated', False)
+                    if is_decorrelated_play:
+                        rsi_2h = macro_2h.get('rsi_2h', 50.0)
+                        trend_2h = macro_2h.get('trend', 'NEUTRAL')
+                        
+                        # Determina o viés macro rígido com base no RSI 2H ou cruzamento de médias SMA 2H
+                        bias_2h = "NEUTRAL"
+                        if rsi_2h > 50 or trend_2h == "BULLISH_ARMED":
+                            bias_2h = "LONG_ONLY"
+                        elif rsi_2h < 50 or trend_2h == "BEARISH_ARMED":
+                            bias_2h = "SHORT_ONLY"
+                            
+                        if bias_2h == "LONG_ONLY" and side_label == "Short":
+                            reason = f"ALT FORCE DIRECTION GUARD: {symbol} desgrudado em viés de ALTA (RSI 2H={rsi_2h:.1f}, Trend={trend_2h}). SHORT proibido!"
+                            logger.warning(f"🚫 [ALT-FORCE-REJECT] {reason}")
+                            self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
+                            return None
+                            
+                        if bias_2h == "SHORT_ONLY" and side_label == "Long":
+                            reason = f"ALT FORCE DIRECTION GUARD: {symbol} desgrudado em viés de BAIXA (RSI 2H={rsi_2h:.1f}, Trend={trend_2h}). LONG proibido!"
+                            logger.warning(f"🚫 [ALT-FORCE-REJECT] {reason}")
+                            self.recent_rejections.append({"symbol": symbol, "reason": reason, "timestamp": time.time()})
+                            return None
+
                     # [V43.2] RANGING BTC GUARD: If BTC is ranging, only allow high ADX signals
                     # Relaxation: If BTC is UP, allow symbols with ADX > 15 (was 25)
                     btc_regime = btc_regime_data.get('regime', 'TRANSITION')

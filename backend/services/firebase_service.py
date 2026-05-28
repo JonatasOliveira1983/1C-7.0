@@ -655,17 +655,15 @@ class FirebaseService:
                 await asyncio.sleep(1)
 
     async def hard_reset_slot(self, slot_id: int, reason: str = "Tolerancia Zero", pnl: float = 0, trade_data: dict = None, username: str = None):
-        """[V120] Força um reset absoluto do slot com registro de histórico no contexto multitenante."""
-        success = await self.free_slot(slot_id, reason, username=username)
-        if success and trade_data:
-            # [V121 FIX] Registrar o trade purgado no histórico do Postgres para aparecer na Vault
-            try:
-                from services.database_service import database_service
-                await database_service.log_trade(trade_data)
-                logger.info(f"📋 [HARD-RESET] Trade {trade_data.get('symbol')} registrado no histórico com motivo: {reason}")
-            except Exception as e:
-                logger.error(f"❌ [HARD-RESET] Falha ao registrar histórico para slot {slot_id}: {e}")
-        return success
+        """[V120] Força um reset absoluto do slot com registro de histórico completo e concorrência robusta."""
+        try:
+            # [V121 INTEGRATION] Delega para a função completa com auto-cálculo e auditoria rica
+            success = await self._hard_reset_slot_full(slot_id, reason=reason, pnl=pnl, trade_data=trade_data)
+            return success if success is not None else True
+        except Exception as e:
+            logger.error(f"❌ [HARD-RESET] Falha no hard_reset_slot integrado: {e}")
+            # Fallback seguro para esvaziar o slot mesmo com erro de persistência
+            return await self.free_slot(slot_id, reason, username=username)
         
     async def promote_to_moonbag(self, slot_id: int):
         """[V110.0] Promove um trade tático para o status de Moonbag (Emancipado)."""
@@ -1135,8 +1133,14 @@ class FirebaseService:
             logger.error(f"Error clearing chat history: {e}")
 
     async def get_slot(self, slot_id: int) -> dict:
-        """Fetch a specific slot state from Firestore."""
-        if not self.is_active: return None
+        """Fetch a specific slot state from Firestore or Postgres fallback."""
+        if not self.is_active:
+            try:
+                from services.database_service import database_service
+                return await database_service.get_slot(slot_id)
+            except Exception as e:
+                logger.error(f"Error fetching Postgres slot from Firebase proxy: {e}")
+                return None
         try:
             doc_ref = self.db.collection("slots_ativos").document(str(slot_id))
             doc = await asyncio.to_thread(doc_ref.get)
@@ -1175,6 +1179,65 @@ class FirebaseService:
         for k, v in current_state.items():
             if k not in trade_data:
                 trade_data[k] = v
+
+        # [V121 AUTO-CALC] Se o slot continha posição real ativa, calcula o PnL residual dinamicamente
+        symbol = trade_data.get("symbol")
+        entry_price = float(trade_data.get("entry_price") or 0)
+        qty = float(trade_data.get("qty") or 0)
+        side = trade_data.get("side", "BUY")
+        entry_margin = float(trade_data.get("entry_margin") or 0)
+        leverage = float(trade_data.get("leverage") or 50)
+        
+        if symbol and entry_price > 0 and qty > 0:
+            # 1. Tenta obter o preço atual do ativo
+            market_price = 0.0
+            clean_sym = symbol.replace(".P", "").upper()
+            
+            # Método A: Buscar no Redis (ticker rápido)
+            try:
+                from services.redis_service import redis_service
+                market_price = await redis_service.get_ticker(clean_sym) or 0.0
+            except Exception as e:
+                logger.debug(f"Redis get_ticker fallback failed: {e}")
+                
+            # Método B: WebSocket da Bybit
+            if market_price <= 0:
+                try:
+                    from services.bybit_ws import bybit_ws_service
+                    market_price = getattr(bybit_ws_service, 'get_current_price', lambda s: 0.0)(clean_sym)
+                except Exception as e:
+                    logger.debug(f"Bybit WS price fallback failed: {e}")
+                    
+            # Método C: REST API da OKX
+            if market_price <= 0:
+                try:
+                    from services.okx_rest import okx_rest_service
+                    ticker = await okx_rest_service.get_tickers(symbol)
+                    if ticker and ticker.get("result", {}).get("list"):
+                        market_price = float(ticker["result"]["list"][0].get("lastPrice", 0))
+                except Exception as e:
+                    logger.debug(f"OKX REST price fallback failed: {e}")
+            
+            # Fallback para o current_stop ou entry_price do slot se tudo falhar
+            if market_price <= 0:
+                market_price = float(trade_data.get("current_stop") or entry_price)
+                
+            # Define o exit_price no trade_data
+            trade_data["exit_price"] = market_price
+            
+            # Se o pnl passado for 0, calcula
+            if pnl == 0:
+                pnl_percent = 0.0
+                if side.upper() in ["BUY", "LONG"]:
+                    price_diff_pct = (market_price - entry_price) / entry_price
+                else:
+                    price_diff_pct = (entry_price - market_price) / entry_price
+                pnl_percent = round(price_diff_pct * leverage * 100, 2)
+                pnl = round(entry_margin * (pnl_percent / 100), 4)
+                
+                trade_data["pnl_percent"] = pnl_percent
+                trade_data["pnl"] = pnl
+                trade_data["final_roi"] = pnl_percent
 
         # Resolve Order ID para busca na gênese
         symbol = trade_data.get("symbol")

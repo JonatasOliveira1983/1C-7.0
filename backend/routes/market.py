@@ -365,6 +365,33 @@ async def get_market_study(symbol: str, interval: str = "30", limit: int = 600):
         except Exception as align_err:
             logger.warning(f"Error calculating Swing Alignment: {align_err}")
 
+        # [V127] Enriquecer com informações de desgrude (2H) para o observatório/cockpit
+        is_decorrelated = False
+        rsi_2h = 50.0
+        trend_2h = "NEUTRAL"
+        bias_2h = "TREND_SYNC"
+        
+        try:
+            if signal_generator:
+                # 1. Calcula o RSI e a tendência de 2H
+                macro_2h = await signal_generator.get_2h_macro_analysis(clean_symbol + ".P")
+                rsi_2h = macro_2h.get("rsi_2h", 50.0)
+                trend_2h = macro_2h.get("trend", "NEUTRAL")
+                
+                # 2. Detecta se está decorrelacionado (desgrudado)
+                decor_data = await signal_generator.detect_btc_decorrelation(clean_symbol + ".P")
+                is_decorrelated = decor_data.get("is_decorrelated", False)
+                
+                if is_decorrelated:
+                    if rsi_2h > 50 or trend_2h == "BULLISH_ARMED":
+                        bias_2h = "LONG_ONLY"
+                    elif rsi_2h < 50 or trend_2h == "BEARISH_ARMED":
+                        bias_2h = "SHORT_ONLY"
+                else:
+                    bias_2h = "TREND_SYNC"
+        except Exception as enriquecer_err:
+            logger.warning(f"Error enriching study response with 2H macro: {enriquecer_err}")
+
         return {
             "klines": klines,
             "patterns_abcd": patterns_abcd,
@@ -372,11 +399,15 @@ async def get_market_study(symbol: str, interval: str = "30", limit: int = 600):
             "patterns_123": [],
             "swing_alignment": swing_alignment,
             "fvg": fvg_list,
-            "ob": ob_list
+            "ob": ob_list,
+            "rsi_2h": rsi_2h,
+            "trend_2h": trend_2h,
+            "is_decorrelated": is_decorrelated,
+            "bias_2h": bias_2h
         }
     except Exception as e:
         logger.error(f"Error in get_market_study route: {e}")
-        return {"klines": [], "patterns_abcd": [], "patterns_mola": [], "patterns_123": [], "swing_alignment": "NEUTRAL", "fvg": [], "ob": []}
+        return {"klines": [], "patterns_abcd": [], "patterns_mola": [], "patterns_123": [], "swing_alignment": "NEUTRAL", "fvg": [], "ob": [], "rsi_2h": 50.0, "trend_2h": "NEUTRAL", "is_decorrelated": False, "bias_2h": "TREND_SYNC"}
 
 @router.get("/vision/stats")
 async def get_vision_stats():

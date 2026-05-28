@@ -1291,6 +1291,40 @@ async function loadData(s) {
 
     if (res4h.ok) {
         study4h = await res4h.json();
+        
+        // [V121 NEON BADGES] Telemetria em tempo real do viés de desgrude de 2H no Cockpit
+        const macroDirEl = document.getElementById('macro4hDir');
+        const macroSubEl = document.getElementById('macro4hSub');
+        if (macroDirEl && macroSubEl) {
+            const isDec = study4h.is_decorrelated;
+            const bias = study4h.bias_2h;
+            const rsi = study4h.rsi_2h ? study4h.rsi_2h.toFixed(1) : "—";
+            
+            if (isDec) {
+                if (bias === "LONG_ONLY") {
+                    macroDirEl.innerHTML = `🟢 LONG ONLY`;
+                    macroDirEl.style.color = "#00ff66";
+                    macroDirEl.style.textShadow = "0 0 10px rgba(0,255,102,0.8), 0 0 20px rgba(0,255,102,0.4)";
+                    macroSubEl.innerHTML = `DESGRUDE ALTA | RSI: ${rsi}`;
+                } else if (bias === "SHORT_ONLY") {
+                    macroDirEl.innerHTML = `🔴 SHORT ONLY`;
+                    macroDirEl.style.color = "#ff3333";
+                    macroDirEl.style.textShadow = "0 0 10px rgba(255,51,51,0.8), 0 0 20px rgba(255,51,51,0.4)";
+                    macroSubEl.innerHTML = `DESGRUDE BAIXA | RSI: ${rsi}`;
+                } else {
+                    macroDirEl.innerHTML = `🔵 TREND SYNC`;
+                    macroDirEl.style.color = "#00ccff";
+                    macroDirEl.style.textShadow = "0 0 10px rgba(0,204,255,0.8), 0 0 20px rgba(0,204,255,0.4)";
+                    macroSubEl.innerHTML = `CORRELAÇÃO BTC | RSI: ${rsi}`;
+                }
+            } else {
+                macroDirEl.innerHTML = `🔵 TREND SYNC`;
+                macroDirEl.style.color = "#00ccff";
+                macroDirEl.style.textShadow = "0 0 10px rgba(0,204,255,0.8), 0 0 20px rgba(0,204,255,0.4)";
+                macroSubEl.innerHTML = `CORRELAÇÃO BTC | RSI: ${rsi}`;
+            }
+        }
+
         const d4h = study4h.klines.map(x => ({ time: x[0]/1000, open: parseFloat(x[1]), high: parseFloat(x[2]), low: parseFloat(x[3]), close: parseFloat(x[4]), volume: parseFloat(x[5]) })).filter(k => !isNaN(k.time) && !isNaN(k.open) && !isNaN(k.high) && !isNaN(k.low) && !isNaN(k.close));
         series4h.candle.setData(d4h);
         series4h.vol.setData(d4h.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' })));
@@ -1397,21 +1431,11 @@ async function loadData(s) {
         }
     }
 
-    // [V5.8] 4H MACRO CARD: resumo direcional no painel superior
+    // [V5.8] 4H MACRO CARD: resumo direcional no painel superior (Desativado em favor dos Badges Neon de Desgrude 2H)
     if (res4hMacro && res4hMacro.ok) {
         try {
             const macro4h = await res4hMacro.json();
-            const km = macro4h.klines || [];
-            if (km.length >= 21) {
-                const closes4h = km.map(x => parseFloat(x[4]));
-                const sma21_4h = closes4h.slice(-21).reduce((a,b) => a+b, 0) / 21;
-                const last4h = closes4h[closes4h.length - 1];
-                const dir4h = last4h > sma21_4h ? 'BULLISH' : 'BEARISH';
-                const el = document.getElementById('macro4hDir');
-                const sub = document.getElementById('macro4hSub');
-                if (el) { el.textContent = dir4h; el.style.color = dir4h === 'BULLISH' ? 'var(--green)' : 'var(--red)'; }
-                if (sub) { sub.textContent = `SMA21: ${sma21_4h.toFixed(4)}`; }
-            }
+            // Sobrescrita desativada para manter a telemetria do desgrude em 2H de forma fluida e brilhante
         } catch(e) {}
     }
     
