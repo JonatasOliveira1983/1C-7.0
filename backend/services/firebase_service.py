@@ -658,8 +658,13 @@ class FirebaseService:
         """[V120] Força um reset absoluto do slot com registro de histórico no contexto multitenante."""
         success = await self.free_slot(slot_id, reason, username=username)
         if success and trade_data:
-            # Futura implementação: registrar trade_data em subcollection do usuário
-            pass
+            # [V121 FIX] Registrar o trade purgado no histórico do Postgres para aparecer na Vault
+            try:
+                from services.database_service import database_service
+                await database_service.log_trade(trade_data)
+                logger.info(f"📋 [HARD-RESET] Trade {trade_data.get('symbol')} registrado no histórico com motivo: {reason}")
+            except Exception as e:
+                logger.error(f"❌ [HARD-RESET] Falha ao registrar histórico para slot {slot_id}: {e}")
         return success
         
     async def promote_to_moonbag(self, slot_id: int):

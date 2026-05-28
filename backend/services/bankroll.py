@@ -377,9 +377,14 @@ class BankrollManager:
                     pos_entry = float(pos.get("avgPrice", 0))
 
                     # [V110.10 SANITY GUARD] Se pos_size ou pos_entry for zero/ínfimo,
-                    # é um slot fantasma com dados corrompidos. Limpar imediatamente.
+                    # pode ser dado transitório da API. Aguarda 90s antes de purgar.
                     if pos_size <= 0 or pos_entry <= 0:
-                        logger.warning(f"🚨 [SANITY GUARD] Ghost slot detected: {symbol} size={pos_size} entry={pos_entry}. CLEARING NOW.")
+                        opened_at_raw = slot.get("opened_at", 0) or 0
+                        age_sec = time.time() - opened_at_raw if opened_at_raw > 0 else 9999
+                        if age_sec < 90:
+                            logger.warning(f"⌛ [SANITY GUARD] {symbol} size={pos_size} entry={pos_entry} — aguardando grace period de 90s (atual: {age_sec:.0f}s).")
+                            continue
+                        logger.warning(f"🚨 [SANITY GUARD] Ghost slot confirmado: {symbol} size={pos_size} entry={pos_entry} após {age_sec:.0f}s. LIMPANDO.")
                         await firebase_service.hard_reset_slot(slot_id, reason="GHOST_ZERO_SIZE_PURGE")
                         continue
 
@@ -390,17 +395,19 @@ class BankrollManager:
                         real_margin = 1.0
                     
                     unrealised_pnl = float(pos.get("unrealisedPnl", 0))
-                    pnl_pct = (unrealised_pnl / real_margin * 100) if real_margin > 0 else 0
+                    raw_pnl_pct = (unrealised_pnl / real_margin * 100) if real_margin > 0 else 0
 
-                    # [V110.12.10] ABSOLUTE ROI SHIELD: Capping all active ROI at -100% (Liquidation Shield)
-                    # This prevents the surreal -2800% display and ensures the robot respects margin.
-                    if pnl_pct < -100.0:
-                        pnl_pct = -100.0
-                        logger.warning(f"💥 [ROI-SHIELD] {symbol} ROI capped at -100% to protect UI and logic consistency.")
-                    if pnl_pct > 500 or pnl_pct < -100:
-                        logger.warning(f"🚨 [SANITY GUARD] Impossible ROI detected for {symbol}: {pnl_pct:.1f}%. unrealised={unrealised_pnl} margin={real_margin}. CLEARING GHOST SLOT.")
-                        await firebase_service.hard_reset_slot(slot_id, reason=f"IMPOSSIBLE_ROI_GHOST_{pnl_pct:.0f}pct")
+                    # [V110.10.1] Verifica ROI irreal ANTES do cap (sinal claro de slot fantasma com dados corrompidos)
+                    if raw_pnl_pct > 500 or raw_pnl_pct < -200:
+                        logger.warning(f"🚨 [SANITY GUARD] ROI impossível para {symbol}: {raw_pnl_pct:.1f}%. unrealised={unrealised_pnl} margin={real_margin}. PURGANDO SLOT.")
+                        await firebase_service.hard_reset_slot(slot_id, reason=f"IMPOSSIBLE_ROI_GHOST_{raw_pnl_pct:.0f}pct")
                         continue
+
+                    # [V110.12.10] ABSOLUTE ROI SHIELD: Cap em -100% (Proteção de Liquidação)
+                    pnl_pct = max(raw_pnl_pct, -100.0)
+                    if raw_pnl_pct < -100.0:
+                        logger.warning(f"💥 [ROI-SHIELD] {symbol} ROI capeado em -100% (era {raw_pnl_pct:.1f}%).")
+
                     # V42.9: Inject symbol-specific ADX and Regime for Dashboard visibility
                     from services.signal_generator import signal_generator
                     regime_data = await signal_generator.detect_market_regime(symbol)
