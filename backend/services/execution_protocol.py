@@ -495,6 +495,19 @@ class ExecutionProtocol:
                 target_stop_blitz = 180.0
                 logger.info(f"[V110.137 BLITZ-UNIT2] {symbol} ROI={roi:.0f}% -> SL +180% (UNIDADE 2 GARANTIDA)")
 
+            elif roi >= 150.0:
+                # [V124] EMANCIPAÇÃO BLITZ: ROI >= 150% -> Liberar slot tático e mover para Moonbag
+                # SL fixado em +110% para garantir lucro mesmo que o preço recue
+                target_stop_blitz = 110.0
+                logger.info(f"[V124 BLITZ-EMANCIPAÇÃO] {symbol} ROI={roi:.0f}% >= 150% -> Emancipando para Moonbag! SL: +110%")
+                from services.okx_rest import okx_rest_service as bybit_rest_service
+                price_offset_pct = target_stop_blitz / (leverage * 100)
+                new_stop = entry * (1 + price_offset_pct) if side_norm == "buy" else entry * (1 - price_offset_pct)
+                new_stop = await bybit_rest_service.round_price(symbol, new_stop)
+                if not is_emancipated:
+                    return False, "EMANCIPATE_SLOT", new_stop
+                return False, None, new_stop
+
             elif roi >= 100.0:
                 target_stop_blitz = 95.0
                 logger.info(f"[V110.137 BLITZ-UNIT1] {symbol} ROI={roi:.0f}% -> SL +95% (UNIDADE 1 GARANTIDA)")
@@ -516,7 +529,6 @@ class ExecutionProtocol:
                    (side_norm == "sell" and (current_sl == 0 or new_stop < current_sl)):
                     return False, None, new_stop
 
-            # BLITZ: Nao emancipa automaticamente — fecha por SL ou Moonbag Condicional
             return False, None, None
 
         # 🌟 V110.65 ESCADINHA DE ELITE: Travas Progressivas Unificadas

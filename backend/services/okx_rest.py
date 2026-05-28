@@ -115,9 +115,11 @@ class OKXRest:
                         for f_slot in firestore_slots:
                             symbol = f_slot.get("symbol")
                             entry_price = float(f_slot.get("entry_price", 0))
-                            # [FIX] Do NOT adopt real trades from the Vault in PAPER MODE
-                            if symbol and symbol not in local_symbols and entry_price > 0 and f_slot.get("is_paper") is True:
-                                logger.warning(f"🚑 [V110.61 AMNESIA-GUARD] Recuperando ordem órfã do Firestore: {symbol}")
+                            # [V124 FIX] Removida condição is_paper — em PAPER mode, todo slot ativo
+                            # no Firestore é de paper. A condição antiga bloqueava toda recuperação
+                            # porque is_paper nunca era gravado, causando sumiço de ordens no restart.
+                            if symbol and symbol not in local_symbols and entry_price > 0:
+                                logger.warning(f"🚑 [V124 AMNESIA-GUARD] Recuperando ordem do Firestore após restart: {symbol} @ ${entry_price}")
                                 # Reconstuir objeto de posição Paper compatível com Bybit v5 Schema Fake
                                 recovered_pos = {
                                     "symbol": symbol,
@@ -130,11 +132,18 @@ class OKXRest:
                                     "takeProfit": str(f_slot.get("target_price", 0)),
                                     "opened_at": f_slot.get("opened_at", time.time()),
                                     "is_paper": True,
-                                    "entry_margin": f_slot.get("entry_margin", 0)
+                                    "slot_id": f_slot.get("id", 0),
+                                    "entry_margin": f_slot.get("entry_margin", 0),
+                                    "genesis_id": f_slot.get("genesis_id", ""),
+                                    "score": f_slot.get("score", 0),
+                                    "fleet_intel": f_slot.get("fleet_intel", {}),
+                                    "pensamento": f_slot.get("pensamento", ""),
+                                    "slot_type": f_slot.get("slot_type", "SNIPER"),
                                 }
                                 self.paper_positions.append(recovered_pos)
                 except Exception as recovery_error:
                     logger.error(f"⚠️ [V110.61] Falha no Amnesia-Guard: {recovery_error}")
+
 
             else:
                 # Silencioso se estiver vazio para não poluir o Cloud Run

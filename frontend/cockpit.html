@@ -5203,7 +5203,14 @@
                                             else if (status.includes('PROFIT_LOCK')) cfg = { label: 'LUCRO TRAVADO', color: 'bg-amber-500', icon: 'lock_person' };
                                             else if (status.includes('SL_0') || status.includes('SENTINEL')) cfg = { label: 'SENTINELA ATIVO', color: 'bg-cyan-600', icon: 'visibility' };
                                             else if (status === 'MONITORANDO' || !status) cfg = { label: 'STOP INICIAL', color: 'bg-blue-600/80', icon: 'security' };
-                                            else if (status === 'EMANCIPADO') return null;
+                                            else if (status === 'EMANCIPADO' || status === 'EMANCIPATED') {
+                                                return (
+                                                    <div className="bg-gradient-to-r from-yellow-500 to-amber-400 text-black text-[7px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg border border-yellow-300/50 animate-pulse whitespace-nowrap">
+                                                        <span className="material-icons-round text-[9px]">rocket_launch</span>
+                                                        EMANCIPANDO
+                                                    </div>
+                                                );
+                                            }
                                             else cfg = { label: status, color: 'bg-gray-600', icon: 'info' };
 
                                             return (
@@ -5756,7 +5763,7 @@
                                     if (status.includes('RISCO_ZERO')) cfg = { label: 'RISCO ZERO', color: 'bg-green-500', icon: 'verified_user' };
                                     else if (status.includes('PROFIT_LOCK')) cfg = { label: 'LUCRO TRAVADO', color: 'bg-amber-500', icon: 'lock_person' };
                                     else if (status.includes('SL_0') || status.includes('SENTINEL')) cfg = { label: 'SENTINELA ATIVO', color: 'bg-cyan-600', icon: 'visibility' };
-                                    else if (status === 'EMANCIPADO') return null;
+                                    else if (status === 'EMANCIPADO' || status === 'EMANCIPATED') cfg = { label: '🚀 EMANCIPANDO', color: 'bg-gradient-to-r from-yellow-500 to-amber-400 text-black animate-pulse', icon: 'rocket_launch' };
                                     else if (status === 'MONITORANDO' || !status) cfg = { label: 'STOP INICIAL', color: 'bg-blue-600/80', icon: 'security' };
 
                                     const rawIntel = activeSlot.fleet_intel || {};

@@ -37,6 +37,25 @@ class PortfolioGuardian:
         """Registra o callback no WebSocket da OKX para receber atualizações automáticas."""
         okx_ws_service.register_callback(self.evaluate_master_state)
         logger.info("🛡️ [GUARDIAN] Escuta ativada no WebSocket privado da OKX Master.")
+        # [V124] Inicia loop REST como fallback para garantir avaliação mesmo sem WS ativo
+        asyncio.create_task(self._rest_fallback_loop())
+        logger.info("🛡️ [GUARDIAN] Loop REST-Fallback iniciado (polling a cada 30s como redundância).")
+
+    async def _rest_fallback_loop(self):
+        """[V124] Loop de segurança: avalia posições via REST a cada 30s se o WS estiver silencioso."""
+        await asyncio.sleep(60)  # Grace period inicial — aguarda WS conectar
+        while True:
+            try:
+                # Só usa REST se o último update do WS foi há mais de 45s (WS silencioso)
+                ws_lag = time.time() - self.last_update_time
+                if ws_lag > 45:
+                    logger.warning(f"🛡️ [GUARDIAN-FALLBACK] WS silencioso por {ws_lag:.0f}s. Consultando REST OKX...")
+                    positions = await okx_service.get_positions()
+                    if positions:
+                        asyncio.create_task(self._process_evaluation(positions))
+            except Exception as e:
+                logger.error(f"❌ [GUARDIAN-FALLBACK] Erro no loop REST: {e}")
+            await asyncio.sleep(30)
 
     def get_status(self) -> Dict[str, Any]:
         """Retorna o status atual do Guardian para diagnóstico ou APIs externas."""
