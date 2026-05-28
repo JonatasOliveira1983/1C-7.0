@@ -6238,7 +6238,8 @@
             fleetRank, rankColor, historyLogs, tickers,
             systemState, protocolLabel, oracleStatus, oracleMessage, stabilizationProgress, btcAdx, realAdx, realDecorrelation, dominance,
             unifiedRegime, librarianIntel, ai_cascade,
-            filteredSignals, intelligenceMessage
+            filteredSignals, intelligenceMessage,
+            historyPage, setHistoryPage, historyLimit, loadingHistory, setSelectedHistoryLog
         }) => {
             const [selectedSlotId, setSelectedSlotId] = React.useState(null);
             const [gridMode, setGridMode] = React.useState('4'); // Default to 4 charts
@@ -6321,30 +6322,55 @@
                                 <MarketRadarWidget signals={filteredSignals} context={pulseData?.market_context} intelligenceMessage={intelligenceMessage} />
                             </section>
 
-                            <section className="pt-2 border-t border-white/5">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 flex items-center gap-2 mb-4">
-                                    <span className="material-icons-round text-sm">history</span>
-                                    Exec Log
-                                </h3>
-                                <div className="bg-black/30 rounded-2xl border border-white/5 overflow-hidden">
-                                    <table className="w-full text-left text-[10px]">
-                                        <tbody className="divide-y divide-white/[0.03]">
-                                            {historyLogs && historyLogs.slice(0, 5).map((log, i) => (
-                                                <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                                                    <td className="p-3">
-                                                        <div className="font-bold text-white">{log.symbol}</div>
-                                                        <div className="text-[8px] text-gray-600 uppercase font-black">{log.close_reason || 'Manual'}</div>
-                                                    </td>
-                                                    <td className="p-3 text-right">
-                                                        <div className={`font-black font-mono ${log.pnl >= 0 ? 'text-success' : 'text-red-400'}`}>
-                                                            {log.pnl >= 0 ? '+' : '-'}${Math.abs(log.pnl).toFixed(1)}
+                            <section className="pt-2 border-t border-white/5 flex flex-col">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 flex items-center gap-2">
+                                        <span className="material-icons-round text-sm">history</span>
+                                        Histórico da Vault
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setHistoryPage(p => Math.max(1, p-1))} className="text-gray-500 hover:text-white cursor-pointer" disabled={historyPage === 1}>
+                                            <span className="material-icons-round text-sm">chevron_left</span>
+                                        </button>
+                                        <span className="text-[9px] font-mono font-bold text-gray-400">{historyPage}</span>
+                                        <button onClick={() => setHistoryPage(p => p+1)} className="text-gray-500 hover:text-white cursor-pointer" disabled={historyLogs.length < historyLimit}>
+                                            <span className="material-icons-round text-sm">chevron_right</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto no-scrollbar">
+                                    {loadingHistory ? (
+                                        <p className="text-[9px] text-center text-gray-600 italic">Consultando arquivo...</p>
+                                    ) : historyLogs.length === 0 ? (
+                                        <p className="text-[9px] text-center text-gray-600 italic">Vazio</p>
+                                    ) : (
+                                        historyLogs.map((log, i) => {
+                                            const isProfit = (log.pnl || 0) >= 0;
+                                            return (
+                                                <div 
+                                                    key={i} 
+                                                    onClick={() => setSelectedHistoryLog && setSelectedHistoryLog(log)} 
+                                                    className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.04] active:bg-white/5 transition-all cursor-pointer"
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-white uppercase">{log.symbol}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            {log.genesis_id && <span className="text-[7px] font-mono text-white/30 uppercase block">🧬 {log.genesis_id}</span>}
+                                                            {log.vision_url && <span className="material-icons-round text-[10px] text-green-400 opacity-60">visibility</span>}
                                                         </div>
-                                                        <div className="text-[8px] text-gray-700">{new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                        <span className="text-[8px] text-gray-500 uppercase font-bold">{log.side}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className={`text-xs font-mono font-black ${isProfit ? 'text-success' : 'text-red-400'}`}>
+                                                            {isProfit ? '+' : '-'}${Math.abs(log.pnl || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                        <div className="text-[7px] text-gray-600 uppercase font-black">{new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </section>
 
@@ -6937,6 +6963,11 @@
                             ai_cascade={aiCascade}
                             filteredSignals={filteredSignals}
                             intelligenceMessage={intelligenceMessage}
+                            historyPage={historyPage}
+                            setHistoryPage={setHistoryPage}
+                            historyLimit={historyLimit}
+                            loadingHistory={loadingHistory}
+                            setSelectedHistoryLog={setSelectedHistoryLog}
                         />
                     </div>
 
