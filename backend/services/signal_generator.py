@@ -526,6 +526,7 @@ class SignalGenerator:
     async def _sync_radar_rtdb(self):
         """[V15.7.5] Synchronizes latest signals and decisions to RTDB for the frontend Radar."""
         try:
+            from services.bybit_ws import bybit_ws_service
             # V15.7.5: Added logging to verify sync is happening
             logger.info("📡 [RADAR-PULSE] Syncing signals and decisions to RTDB...")
             signals = await firebase_service.get_recent_signals(limit=25)
