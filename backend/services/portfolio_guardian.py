@@ -168,11 +168,145 @@ class PortfolioGuardian:
             logger.critical("🔪 [GUARDIAN] Enviando ordem de fechamento imediato em Lote na OKX (Knife-Drop)...")
             res = await okx_service.batch_close_positions(positions)
             logger.info(f"🛡️ [GUARDIAN] Resposta do Knife-Drop: {res}")
-            
-            # 2. Publica o sinal de pânico no broker MQTT do Hermes
+
+            # 2. [V122] Registrar histórico no Vault para cada posição fechada pelo Facão
+            try:
+                from services.firebase_service import firebase_service
+                from services.bankroll import bankroll_manager
+                from services.okx_rest import okx_rest_service
+                from services.time_utils import get_br_iso_str
+                import asyncio as _asyncio
+
+                # Aguarda breve para OKX sincronizar o PnL realizado
+                await _asyncio.sleep(3)
+
+                all_slots = await firebase_service.get_slots()
+
+                for pos in positions:
+                    try:
+                        inst_id = pos.get("instId", "")
+                        # Converte OKX (AVAX-USDT-SWAP) para padrão interno (AVAXUSDT)
+                        norm_symbol = inst_id.upper().replace("-USDT-SWAP", "USDT").replace("-USDC-SWAP", "USDC").replace("-", "")
+
+                        # Encontra o slot correspondente no Firebase
+                        matched_slot = None
+                        matched_slot_id = None
+                        for s in all_slots:
+                            s_sym = (s.get("symbol") or "").upper().replace(".P", "")
+                            if s_sym == norm_symbol:
+                                matched_slot = s
+                                matched_slot_id = s.get("id") or s.get("slot_id")
+                                break
+
+                        # Busca PnL realizado na OKX
+                        closed_list = []
+                        for attempt in range(3):
+                            closed_list = await okx_rest_service.get_closed_pnl(symbol=f"{norm_symbol}.P", limit=3)
+                            if closed_list:
+                                break
+                            logger.info(f"⏳ [KNIFE-DROP] PnL para {norm_symbol} ainda não disponível (tentativa {attempt+1}/3)...")
+                            await _asyncio.sleep(2)
+
+                        pnl_val = 0.0
+                        exit_price = 0.0
+                        qty = float(pos.get("pos", 0))
+                        order_id = f"KNIFE_DROP_{norm_symbol}_{int(time.time())}"
+
+                        if closed_list:
+                            last = closed_list[0]
+                            pnl_val = float(last.get("closedPnl", 0))
+                            exit_price = float(last.get("avgExitPrice", 0))
+                            qty = float(last.get("qty", qty))
+                            order_id = last.get("orderId", order_id)
+
+                        entry_price = float(pos.get("avgPx", 0)) if matched_slot is None else float(matched_slot.get("entry_price", pos.get("avgPx", 0)))
+                        side = "Buy" if pos.get("posSide", "long") == "long" else "Sell"
+                        entry_margin = float(pos.get("margin") or pos.get("mgnVal", 0))
+                        leverage = float(matched_slot.get("leverage", 50)) if matched_slot else 50.0
+                        score = matched_slot.get("score", 0) if matched_slot else 0
+                        pattern = matched_slot.get("pattern", "N/A") if matched_slot else "N/A"
+                        fleet_intel = matched_slot.get("fleet_intel", {}) if matched_slot else {}
+                        unified_conf = matched_slot.get("unified_confidence", 50) if matched_slot else 50
+                        pensamento = matched_slot.get("pensamento", "") if matched_slot else ""
+                        slot_type = matched_slot.get("slot_type", "SNIPER") if matched_slot else "SNIPER"
+
+                        pnl_percent = round((pnl_val / entry_margin) * 100, 2) if entry_margin > 0 else 0
+                        final_roi = round(((exit_price - entry_price) / entry_price) * 100 * leverage, 2) if entry_price > 0 and exit_price > 0 else pnl_percent
+                        if side == "Sell":
+                            final_roi = -final_roi
+
+                        close_time_str = get_br_iso_str()
+                        outcome_icon = "🔪 FACÃO" if pnl_val >= 0 else "🔪 FACÃO-LOSS"
+
+                        report = f"--- RELATÓRIO KNIFE-DROP V122 ---\n"
+                        report += f"GENESIS ID: {order_id}\n"
+                        report += f"SÍMBOLO: {norm_symbol}\n"
+                        report += f"MOTIVO: FACÃO AUTOMÁTICO (Trailing-Stop do Guardian)\n"
+                        report += f"ROI Pico: {self.max_roi_registered:.1f}% | ROI no Corte: {self.current_roi:.1f}%\n"
+                        report += f"\n📊 EXECUÇÃO:\n"
+                        report += f"  Entrada: ${entry_price:.6f} | Saída: ${exit_price:.6f}\n"
+                        report += f"  Qty: {qty} | Margem: ${entry_margin:.2f} | Lev: {leverage:.0f}x\n"
+                        report += f"\n📈 RESULTADO:\n"
+                        report += f"  {outcome_icon}\n"
+                        report += f"  PnL: ${pnl_val:.2f} ({pnl_percent:.1f}%)\n"
+                        report += f"  ROI Final: {final_roi:.1f}%\n"
+                        report += f"\n⚓ INTELIGÊNCIA (V56.0):\n"
+                        report += f"  Confiança Unificada: {unified_conf}%\n"
+                        if pensamento:
+                            report += f"\n💭 PENSAMENTO IA: {pensamento}\n"
+                        report += f"\n⏰ Fechamento: {close_time_str}\n"
+                        report += f"-----------------------------------"
+
+                        trade_data = {
+                            "symbol": f"{norm_symbol}.P",
+                            "side": side,
+                            "entry_price": entry_price,
+                            "exit_price": exit_price,
+                            "qty": qty,
+                            "order_id": order_id,
+                            "pnl": pnl_val,
+                            "slot_id": matched_slot_id or 0,
+                            "slot_type": slot_type,
+                            "close_reason": "KNIFE_DROP_FACÃO",
+                            "entry_margin": entry_margin,
+                            "leverage": leverage,
+                            "pnl_percent": pnl_percent,
+                            "final_roi": final_roi,
+                            "closed_at": close_time_str,
+                            "reasoning_report": report,
+                            "fleet_intel": fleet_intel,
+                            "unified_confidence": unified_conf,
+                            "pensamento": pensamento,
+                            "score": score,
+                            "pattern": pattern,
+                        }
+
+                        # Registra no Firebase (Firestore trade_history) e limpa o slot
+                        if matched_slot_id:
+                            await firebase_service.hard_reset_slot(
+                                slot_id=matched_slot_id,
+                                reason="KNIFE_DROP_FACÃO",
+                                pnl=pnl_val,
+                                trade_data=trade_data
+                            )
+                            logger.info(f"✅ [KNIFE-DROP] Slot {matched_slot_id} ({norm_symbol}) resetado e histórico salvo | PnL: ${pnl_val:.2f}")
+                        else:
+                            # Slot não encontrado: salva diretamente no trade_history
+                            await firebase_service.log_trade(trade_data)
+                            logger.info(f"✅ [KNIFE-DROP] Histórico salvo diretamente para {norm_symbol} (sem slot) | PnL: ${pnl_val:.2f}")
+
+                        # Atualiza contadores do ciclo 1/10
+                        await bankroll_manager.register_sniper_trade(trade_data)
+
+                    except Exception as pos_err:
+                        logger.error(f"❌ [KNIFE-DROP HISTORY] Falha ao registrar histórico para {pos.get('instId', '?')}: {pos_err}")
+
+            except Exception as hist_err:
+                logger.error(f"❌ [KNIFE-DROP HISTORY] Falha geral no registro de histórico: {hist_err}")
+
+            # 3. Publica o sinal de pânico no broker MQTT do Hermes
             try:
                 from services.hermes_broker import hermes_broker_service
-                # Publica sinal de PANIC para fechar posições de todos os cohorts/usuários instantaneamente
                 await hermes_broker_service.publish_panic_signal(positions)
             except Exception as mqtt_err:
                 logger.error(f"❌ [GUARDIAN] Falha ao publicar sinal de pânico no Hermes MQTT: {mqtt_err}")
