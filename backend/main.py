@@ -493,6 +493,12 @@ async def lifespan(app: FastAPI):
                 
                 # 3. Conecta WebSocket privado da OKX Master
                 await okx_ws_service.start()
+
+                # 4. Inicializa o Sentinel Auditor (Caixa-Preta da 1CrypTen)
+                from services.sentinel_auditor import sentinel_auditor
+                await sentinel_auditor.start()
+                logger.info("🛡️ [SaaS] Sentinel Auditor ONLINE e reconciliando!")
+
                 logger.info("✅ [SaaS] OKX e Hermes Broker inicializados com SUCESSO!")
             except Exception as saas_init_err:
                 logger.error(f"❌ [SaaS] Falha ao iniciar serviços OKX/Hermes: {saas_init_err}", exc_info=True)
@@ -635,7 +641,7 @@ if settings.SERVE_STATIC_FRONTEND:
 # =================================================================
 # ROUTES & MODULARIZATION (V110.25.0)
 # =================================================================
-from routes import trading, system, dashboard, market, aios, chat, vault, backtest_routes, auth
+from routes import trading, system, dashboard, market, aios, chat, vault, backtest_routes, auth, sentinel
 
 # Include Modulated Routers
 app.include_router(auth.router)
@@ -647,6 +653,7 @@ app.include_router(aios.router)
 app.include_router(chat.router)
 app.include_router(vault.router)
 app.include_router(backtest_routes.router)
+app.include_router(sentinel.router)
 
 # =================================================================
 # WEBSOCKET ENDPOINT (V110.175)

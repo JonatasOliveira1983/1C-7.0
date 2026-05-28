@@ -46,6 +46,9 @@ class PortfolioGuardian:
         await asyncio.sleep(60)  # Grace period inicial — aguarda WS conectar
         while True:
             try:
+                from services.sentinel_auditor import sentinel_auditor
+                sentinel_auditor.record_heartbeat("portfolio_guardian")
+
                 # Só usa REST se o último update do WS foi há mais de 45s (WS silencioso)
                 ws_lag = time.time() - self.last_update_time
                 if ws_lag > 45:

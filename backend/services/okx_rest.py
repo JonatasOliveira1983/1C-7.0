@@ -1454,6 +1454,9 @@ class OKXRest:
 
         while True:
             try:
+                from services.sentinel_auditor import sentinel_auditor
+                sentinel_auditor.record_heartbeat("real_execution_loop")
+
                 # 1. Get active slots AND moonbags from Firebase
                 slots = await firebase_service.get_active_slots()
                 moonbags = await firebase_service.get_moonbags()
@@ -1765,6 +1768,9 @@ class OKXRest:
         
         while True:
             try:
+                from services.sentinel_auditor import sentinel_auditor
+                sentinel_auditor.record_heartbeat("paper_execution_loop")
+
                 # [V110.23.5] Periodically refresh state from Firestore if any other instance modified it
                 # (Every 5 minutes or based on a last-update flag if we wanted to be fancy)
                 if time.time() - self._last_paper_load_time > 300:

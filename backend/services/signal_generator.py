@@ -2358,6 +2358,9 @@ class SignalGenerator:
 
         while self.is_running:
             try:
+                from services.sentinel_auditor import sentinel_auditor
+                sentinel_auditor.record_heartbeat("signal_generator")
+
                 # [V38.1] PRE-WARM 2H CACHE — Once on startup before first Stage 1 runs
                 if not hasattr(self, '_2h_warmup_done'):
                     self._2h_warmup_done = True
