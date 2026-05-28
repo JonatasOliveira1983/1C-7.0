@@ -1573,14 +1573,20 @@ class OKXRest:
                             if is_improvement:
                                 rounded_sl = await self.round_price(symbol, new_sl)
                                 result = await self.set_trading_stop(
-                                    category="linear", symbol=symbol, 
+                                    category="linear", symbol=symbol,
                                     stopLoss=str(rounded_sl), side=slot_data["side"]
                                 )
                                 if result.get("retCode") == 0:
-                                    upd = {"current_stop": rounded_sl, "timestamp_last_update": time.time()}
+                                    # [V123] Calcula status_risco baseado no ROI para atualizar o badge da UI
+                                    _roi_now = execution_protocol.calculate_roi(slot_data['entry_price'], current_price, side_norm, float(slot_data.get('leverage', 50)))
+                                    if _roi_now >= 110.0:   _status_risco = "PROFIT_LOCK"
+                                    elif _roi_now >= 70.0:  _status_risco = "RISCO_ZERO"
+                                    elif _roi_now >= 30.0:  _status_risco = "SL_0"
+                                    else:                   _status_risco = "MONITORANDO"
+                                    upd = {"current_stop": rounded_sl, "status_risco": _status_risco, "timestamp_last_update": time.time()}
                                     if is_moonbag: await firebase_service.update_moonbag(moon_uuid, upd)
                                     else: await firebase_service.update_slot(slot["id"], upd)
-                                    logger.info(f"🛡️ [REAL SL] {symbol} ROI: {execution_protocol.calculate_roi(slot_data['entry_price'], current_price, side_norm):.1f}% | SL: {rounded_sl}")
+                                    logger.info(f"🛡️ [V123 ESCADINHA] {symbol} ROI: {_roi_now:.1f}% | SL: {rounded_sl} | Status: {_status_risco}")
 
                         # 5b. Status Updates Sem Fechamento (ex: MAESTRIA)
                         if reason == "MAESTRIA_GUARD_ACTIVATE" and not should_close:

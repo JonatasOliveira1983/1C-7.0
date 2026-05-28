@@ -134,7 +134,10 @@ class SlotOperatorAgent(AIOSAgent):
 
         # 4. Escadinha de Stop Loss (Smart SL)
         new_stop_roi = self._calculate_escadinha_stop(roi_percent)
-        
+
+        # [V123] Mapeamento de status_risco para a UI (badge do card)
+        status_risco = self._get_status_risco(roi_percent)
+
         if new_stop_roi is not None:
             # Calcular novo preço de stop
             price_offset_pct = new_stop_roi / (leverage * 100)
@@ -142,7 +145,7 @@ class SlotOperatorAgent(AIOSAgent):
                 new_stop_price = entry_price * (1 + price_offset_pct)
             else:
                 new_stop_price = entry_price * (1 - price_offset_pct)
-            
+
             # Formatar precisão (evitar erro de API da Bybit)
             new_stop_price = await self.bybit_rest.format_precision(symbol, new_stop_price)
 
@@ -154,9 +157,23 @@ class SlotOperatorAgent(AIOSAgent):
                 should_update = True
 
             if should_update:
-                logger.info(f"🛡️ [SlotOperator-{self.slot_id}] {symbol} ROI={roi_percent:.1f}% -> Ajustando SL para +{new_stop_roi}% (Preço: {new_stop_price:.4f})")
+                logger.info(f"🛡️ [SlotOperator-{self.slot_id}] {symbol} ROI={roi_percent:.1f}% -> SL: +{new_stop_roi}% (${new_stop_price:.4f}) | Status: {status_risco}")
                 await self._update_stop_loss(symbol, side, new_stop_price, self.slot_id, qty)
-                await database_service.update_slot(self.slot_id, {"current_stop": new_stop_price})
+                # [V123] Atualiza current_stop + status_risco juntos (Postgres + Firebase)
+                update_payload = {"current_stop": new_stop_price, "status_risco": status_risco}
+                await database_service.update_slot(self.slot_id, update_payload)
+                try:
+                    from services.firebase_service import firebase_service
+                    slot_state = await firebase_service.get_slot(self.slot_id)
+                    if slot_state and slot_state.get("symbol"):
+                        await firebase_service.update_slot(self.slot_id, {"current_stop": new_stop_price, "status_risco": status_risco})
+                except Exception as fb_err:
+                    logger.warning(f"⚠️ [SlotOperator-{self.slot_id}] Firebase update falhou (não crítico): {fb_err}")
+        else:
+            # Mesmo sem avanço de escadinha, sincroniza o status_risco se necessário
+            current_status = slot.get("status_risco", "MONITORANDO")
+            if current_status != status_risco and status_risco == "MONITORANDO":
+                pass  # Não regride o status se já avançou
 
         # 5. Verificação de Emancipação para Moonbag (ROI >= 150%)
         if roi_percent >= 150.0:
@@ -209,6 +226,21 @@ class SlotOperatorAgent(AIOSAgent):
         if roi >= 50.0: return 25.0
         if roi >= 30.0: return 6.0
         return None
+
+    def _get_status_risco(self, roi: float) -> str:
+        """
+        [V123] Mapeia o ROI atual ao status_risco exibido no badge da UI.
+        Alinhado com a lógica do cockpit.html linha 5200-5207:
+        - PROFIT_LOCK  -> badge 'LUCRO TRAVADO'  (âmbar)
+        - RISCO_ZERO   -> badge 'RISCO ZERO'      (verde)
+        - SL_0         -> badge 'SENTINELA ATIVO' (ciano)
+        - MONITORANDO  -> badge 'STOP INICIAL'    (azul)
+        """
+        if roi >= 110.0: return "PROFIT_LOCK"        # SL em +80% → lucro garantido
+        if roi >= 70.0:  return "RISCO_ZERO"         # SL em +45% → sem risco de perda
+        if roi >= 50.0:  return "SL_0"               # SL em +25% → sentinela/break-even avançado
+        if roi >= 30.0:  return "SL_0"               # SL em +6%  → sentinela break-even básico
+        return "MONITORANDO"                         # Ainda no stop inicial
 
     async def _update_stop_loss(self, symbol: str, side: str, sl_price: float, slot_id: int, qty: float):
         """Atualiza o Stop Loss na Bybit (Real), OKX ou na memória (Paper)."""
