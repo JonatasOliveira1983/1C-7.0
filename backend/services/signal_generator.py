@@ -3699,9 +3699,11 @@ class SignalGenerator:
                 
         return None
 
-    def check_volume_climax(self, volumes, period=20, std_multiplier=2.0):
+    def check_volume_climax(self, volumes, period=20, std_multiplier=1.8):
         """
-        [V110.999] Verifica se o volume recente (último candle fechado) foi climático (absorção)
+        [V110.999] Verifica se o volume recente foi climático (absorção).
+        Robustamente adaptado para considerar o pico no próprio fundo/topo da divergência (offset de até 3 candles)
+        e usando limite dinâmico de 1.8 desvios padrão ou 1.8x a média (Relative Volume).
         """
         import pandas as pd
         if len(volumes) < period:
@@ -3711,10 +3713,18 @@ class SignalGenerator:
         mean_vol = vol_series.rolling(period).mean().iloc[-1]
         std_vol = vol_series.rolling(period).std().iloc[-1]
         
-        threshold = mean_vol + (std_multiplier * std_vol)
-        last_closed_volume = volumes[-2]
+        # 1. Standard deviation threshold
+        threshold_std = mean_vol + (std_multiplier * std_vol)
+        # 2. Relative volume threshold (1.8x mean volume is a massive spike)
+        threshold_rel = mean_vol * 1.8
         
-        return last_closed_volume > threshold
+        final_threshold = min(threshold_std, threshold_rel)
+        
+        # O clímax de volume capitulação costuma ocorrer no candle do próprio fundo/topo (L-3 ou L-4)
+        # ou na confirmação (L-2). Por isso pegamos o volume máximo entre os últimos 3 candles fechados.
+        target_volume = max(volumes[-2], volumes[-3], volumes[-4])
+        
+        return target_volume > final_threshold
 
     def find_pivots_30m(self, highs, lows, window=2):
         """
