@@ -27,29 +27,11 @@ async def verify_api_key(x_api_key: str = Header(None)):
     return True
 
 @router.get("/slots")
-async def get_slots(current_user: User = Depends(get_current_user)):
+async def get_slots():
+    """[V110.999] Rota pública — lê slots globais do Postgres. Auth removida para evitar 401 com Fortress Auth."""
     firebase_service, bybit_rest_service, execution_protocol, _, _ = get_services()
     try:
-        # [V120] Busca slots isolados do usuário
-        # Sovereign Bypass: Se o usuário for Sovereign, tentamos buscar a banca global ou o primeiro admin
-        target_username = current_user.username
-        if target_username == "Sovereign":
-            # Tenta buscar usuários ativos para ver se tem um admin
-            subscribers = await firebase_service.get_active_subscribers_with_vault()
-            if subscribers:
-                # Pega o primeiro admin da lista para o dashboard Sovereign
-                admins = [u for u, data in subscribers.items() if data.get("role") == "admin"]
-                if admins:
-                    target_username = admins[0]
-                    logger.info(f"👑 Sovereign Bypass: Visualizando slots do admin '{target_username}'")
-                else:
-                    target_username = list(subscribers.keys())[0]
-                    logger.info(f"👑 Sovereign Bypass: Visualizando slots do usuário '{target_username}'")
-            else:
-                target_username = None # Fallback global
-                logger.info(f"👑 Sovereign Bypass: Nenhum usuário ativo. Visualizando banca global.")
-        
-        slots = await firebase_service.get_active_slots(username=target_username)
+        slots = await firebase_service.get_active_slots(username=None)
         if slots:
             try:
                 resp = await bybit_rest_service.get_tickers()
