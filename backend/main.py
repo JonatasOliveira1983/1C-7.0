@@ -676,11 +676,30 @@ if settings.SERVE_STATIC_FRONTEND:
             path = "/app/frontend/observatory.html"
         
         with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+            html_content = f.read()
+            # Injeta Cache-Bust dinâmico na chamada dos scripts se necessário
+            # Adiciona um header de timestamp de deploy para invalidar em proxies CDN
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-obs-{time.time()}"
+                }
+            )
 
     @app.get("/")
     async def serve_index():
-        return FileResponse(os.path.join(FRONTEND_DIR, "cockpit.html"))
+        path = os.path.join(FRONTEND_DIR, "cockpit.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-cockpit-{time.time()}"
+                }
+            )
 
     @app.get("/n8n")
     @app.get("/n8n/")
@@ -695,7 +714,16 @@ if settings.SERVE_STATIC_FRONTEND:
     @app.get("/observatory.html")
     async def serve_observatory_legacy():
         """[V5.0] Sala de Observação Visual — 40 Elite Pairs"""
-        return FileResponse(os.path.join(FRONTEND_DIR, "observatory.html"))
+        path = os.path.join(FRONTEND_DIR, "observatory.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-obs-leg-{time.time()}"
+                }
+            )
 
     @app.get("/{full_path:path}")
     async def catch_all(full_path: str):
