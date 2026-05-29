@@ -449,10 +449,53 @@ async def lifespan(app: FastAPI):
                     """Publica slots ativos via WS a cada 5s para garantir sincronismo do Cockpit."""
                     while True:
                         try:
-                            from services.firebase_service import firebase_service as _fs
+                            from services.database_service import database_service as _ds
                             from services.websocket_service import websocket_service as _ws
                             
-                            slots = await _fs.get_active_slots()
+                            db_slots = await _ds.get_active_slots()
+                            
+                            # Convert SQLAlchemy Slot objects to dict lists for serialization
+                            slots = []
+                            for s in db_slots:
+                                if not isinstance(s, dict):
+                                    # Fallback caso seja um objeto ORM
+                                    s = {c.name: getattr(s, c.name) for c in s.__table__.columns}
+                                
+                                slots.append({
+                                    "id": s.get("id"),
+                                    "symbol": s.get("symbol"),
+                                    "side": s.get("side"),
+                                    "qty": s.get("qty"),
+                                    "entry_price": s.get("entry_price"),
+                                    "entry_margin": s.get("entry_margin"),
+                                    "current_stop": s.get("current_stop"),
+                                    "initial_stop": s.get("initial_stop"),
+                                    "order_id": s.get("order_id"),
+                                    "target_price": s.get("target_price"),
+                                    "leverage": s.get("leverage"),
+                                    "slot_type": s.get("slot_type") or "BLITZ",
+                                    "status_risco": s.get("status_risco"),
+                                    "pnl_percent": s.get("pnl_percent"),
+                                    "strategy": s.get("strategy"),
+                                    "strategy_label": s.get("strategy_label"),
+                                    "genesis_id": s.get("genesis_id"),
+                                    "opened_at": s.get("opened_at").isoformat() if s.get("opened_at") and hasattr(s.get("opened_at"), "isoformat") else (s.get("opened_at") or 0),
+                                    "updated_at": s.get("updated_at").isoformat() if s.get("updated_at") and hasattr(s.get("updated_at"), "isoformat") else (s.get("updated_at") or 0),
+                                    "pensamento": s.get("pensamento"),
+                                    "liq_price": s.get("liq_price"),
+                                    "structural_target": s.get("structural_target"),
+                                    "target_extended": s.get("target_extended"),
+                                    "is_ranging_sniper": s.get("is_ranging_sniper"),
+                                    "v42_tag": s.get("v42_tag"),
+                                    "move_room_pct": s.get("move_room_pct"),
+                                    "pattern": s.get("pattern"),
+                                    "unified_confidence": s.get("unified_confidence"),
+                                    "fleet_intel": s.get("fleet_intel"),
+                                    "is_reverse_sniper": s.get("is_reverse_sniper"),
+                                    "market_regime": s.get("market_regime"),
+                                    "rescue_activated": s.get("rescue_activated"),
+                                    "rescue_resolved": s.get("rescue_resolved")
+                                })
                             
                             if _ws.active_connections:
                                 await _ws.emit_slots(slots)
