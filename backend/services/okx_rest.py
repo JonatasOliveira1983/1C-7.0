@@ -1174,14 +1174,29 @@ class OKXRest:
                 return []
 
     async def get_orderbook(self, symbol: str, limit: int = 50) -> dict:
-        """[V12.0] Fetches L2 orderbook for localized depth analysis."""
+        """[V12.0] Fetches L2 orderbook for localized depth analysis from OKX public API."""
         try:
-            norm_symbol = self.normalize_symbol(symbol)
-            resp = await asyncio.to_thread(self.session.get_orderbook, category="linear", symbol=norm_symbol, limit=limit)
-            return resp.get("result", {})
+            from services.okx_service import okx_service
+            inst_id = okx_service.bybit_to_okx(symbol)
+            url = f"https://www.okx.com/api/v5/market/books?instId={inst_id}&sz={limit}"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        ob = data["data"][0]
+                        # OKX retorna bids/asks como [[px, sz, ...], ...]
+                        # Bybit espera: {"b": [[px, sz], ...], "a": [[px, sz], ...]}
+                        bids = [[float(b[0]), float(b[1])] for b in ob.get("bids", [])]
+                        asks = [[float(a[0]), float(a[1])] for a in ob.get("asks", [])]
+                        return {
+                            "b": bids,
+                            "a": asks
+                        }
+            return {"b": [], "a": []}
         except Exception as e:
-            logger.error(f"Error fetching orderbook for {symbol}: {e}")
-            return {}
+            logger.error(f"Error fetching orderbook from OKX for {symbol}: {e}")
+            return {"b": [], "a": []}
 
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20, *args, **kwargs):
         """Fetches historical klines for ATR and variation calculations from OKX Mainnet public API."""
@@ -1338,7 +1353,7 @@ class OKXRest:
     
     async def get_funding_rate(self, symbol: str) -> float:
         """
-        [V25.1] Fetches the current funding rate for a symbol.
+        [V25.1] Fetches the current funding rate for a symbol from OKX public API.
         Positive rate = longs pay shorts (bearish pressure).
         Negative rate = shorts pay longs (squeeze potential for longs).
         Returns rate as decimal (e.g., 0.0001 = 0.01%).
@@ -1353,21 +1368,23 @@ class OKXRest:
                 if cached and (time.time() - cached.get("ts", 0)) < 60:
                     return cached["rate"]
                 
-                response = await asyncio.wait_for(asyncio.to_thread(
-                    self.session.get_tickers,
-                    category=self.category,
-                    symbol=api_symbol
-                ), timeout=5.0)
+                from services.okx_service import okx_service
+                inst_id = okx_service.bybit_to_okx(symbol)
+                url = f"https://www.okx.com/api/v5/public/funding-rate?instId={inst_id}"
                 
-                ticker = response.get("result", {}).get("list", [{}])[0]
-                rate = float(ticker.get("fundingRate", 0))
-                
-                # Cache result
-                self._funding_cache[api_symbol] = {"rate": rate, "ts": time.time()}
-                
-                return rate
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("code") == "0" and data.get("data"):
+                            rate = float(data["data"][0].get("fundingRate", 0))
+                            # Cache result
+                            self._funding_cache[api_symbol] = {"rate": rate, "ts": time.time()}
+                            return rate
+                            
+                return 0.0
             except Exception as e:
-                logger.warning(f"Error fetching funding rate for {symbol}: {e}")
+                logger.warning(f"Error fetching funding rate from OKX for {symbol}: {e}")
                 return 0.0
     
     async def set_trading_stop(self, category: str, symbol: str, stopLoss: str, slTriggerBy: str = None, tpslMode: str = None, positionIdx: int = None, side: str = None):

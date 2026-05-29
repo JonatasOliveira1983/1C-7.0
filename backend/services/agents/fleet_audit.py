@@ -73,7 +73,18 @@ class FleetAudit(AIOSAgent):
                 
                 # [V80.6] Relaxed Panic for 50x/75x Leverage (Allow breathing room)
                 # Age < 60s is COMPLETELY IMMUNE to panic (Diplomatic Immunity)
-                age = now - opened_at
+                try:
+                    # Blindagem contra timestamp no formato datetime ou strings
+                    if isinstance(opened_at, (int, float)):
+                        opened_at_ts = float(opened_at)
+                    elif hasattr(opened_at, "timestamp"):
+                        opened_at_ts = opened_at.timestamp()
+                    else:
+                        opened_at_ts = float(opened_at or 0)
+                except Exception:
+                    opened_at_ts = now # fallback neutro se quebrar
+                
+                age = now - opened_at_ts
                 if age < 60:
                     continue
 
