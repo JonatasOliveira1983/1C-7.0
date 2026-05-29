@@ -3323,7 +3323,7 @@
                 // Secondary: REST Polling Fallback
                 const fetchMoonbags = async () => {
                     try {
-                        const resp = await fetch('/api/moonbags');
+                        const resp = await fetch(API_BASE + '/api/moonbags');
                         if (resp.ok) {
                             const data = await resp.json();
                             // Só atualiza via REST se não tivermos dados do sovereign_rtdb recentemente

@@ -2035,7 +2035,7 @@ renderSievePairs(initialDecisions);
 // [V127] Real-time regimes fetch for all monitored pairs
 async function fetchRadarRegimes() {
     try {
-        const res = await fetch('/api/radar/regimes?v=' + Date.now());
+        const res = await fetch(API_BASE + '/api/radar/regimes?v=' + Date.now());
         if (res.ok) {
             window.radarRegimes = await res.json();
             renderSievePairs(initialDecisions);
