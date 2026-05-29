@@ -251,43 +251,15 @@ class OKXRest:
         if self.is_initialized:
             return
 
-        logger.info("BybitREST: Initializing session and time sync...")
-        
-        # Create a temporary session to fetch server time
-        temp_session = HTTP(testnet=settings.BYBIT_TESTNET)
+        logger.info("OKXRest: Initializing sessions (No Bybit Fallback)...")
         try:
-            local_start = int(time.time() * 1000)
-            server_time_resp = await asyncio.to_thread(temp_session.get_server_time)
-            local_end = int(time.time() * 1000)
-            
-            # Compensation for RTT (Round Trip Time)
-            rtt = local_end - local_start
-            server_time = int(server_time_resp.get("result", {}).get("timeSecond", 0)) * 1000
-            if server_time == 0: 
-                server_time = int(int(server_time_resp.get("result", {}).get("timeNano", 0)) / 1000000)
-            
-            if server_time > 0:
-                # server_time is likely at (local_start + rtt/2)
-                self.time_offset = server_time - (local_start + rtt // 2)
-                logger.info(f"Bybit Time Sync (RTT Comp): Offset detected as {self.time_offset}ms. RTT: {rtt}ms. Applying patch...")
-                
-                # Monkeypatch pybit's internal helper to use synced time
-                import pybit._helpers as pybit_helpers
-                _orig_time = time.time
-                def synced_timestamp():
-                    # Intentionally add a small buffer (500ms) to avoid 'too far in past' vs 'too far in future' race
-                    return int((_orig_time() + (self.time_offset / 1000.0)) * 1000)
-                
-                pybit_helpers.generate_timestamp = synced_timestamp
-                logger.info("Bybit Time Patch applied successfully.")
-            
-            # [V110.23.5] PAPER STATE RECOVERY: Ensure state is loaded from Firestore BEFORE sync loop
+            self.time_offset = 0
             if self.execution_mode == "PAPER":
                 logger.info("📂 [V110.23.5] PAPER ENGINE: Loading persistent state from Firestore...")
                 await self._load_paper_state()
 
         except Exception as e:
-            logger.error(f"Failed to sync time with Bybit: {e}")
+            logger.error(f"Failed to initialize OKXRest state: {e}")
 
         # Create the actual global session
         self._global_session = self.get_session()
@@ -637,23 +609,36 @@ class OKXRest:
                 logger.error(f"Error fetching instrument info from OKX for {symbol}: {e}")
                 return {}
 
-        async with self._http_semaphore:
-            try:
-                api_symbol = self._strip_p(symbol)
-                if api_symbol in self._instrument_cache:
-                    return self._instrument_cache[api_symbol]
-    
-                # V5.2.4.3: Added 5s timeout
-                response = await asyncio.wait_for(asyncio.to_thread(self.session.get_instruments_info, category="linear", symbol=api_symbol), timeout=5.0)
-                info = response.get("result", {}).get("list", [{}])[0]
+        # Fallback público direcionado para a OKX via okx_service
+        try:
+            api_symbol = self._strip_p(symbol)
+            if api_symbol in self._instrument_cache:
+                return self._instrument_cache[api_symbol]
                 
-                if info:
-                    self._instrument_cache[api_symbol] = info
-                
-                return info
-            except Exception as e:
-                logger.error(f"Error fetching instrument info for {symbol}: {e}")
-                return {}
+            from services.okx_service import okx_service
+            details = await okx_service.get_instrument_details(symbol)
+            tick_size = details.get("tickSize", "0.01")
+            lot_size = details.get("lotSize", "1.0")
+            min_sz = details.get("minSz", "1.0")
+            
+            info = {
+                "priceFilter": {
+                    "tickSize": tick_size
+                },
+                "lotSizeFilter": {
+                    "qtyStep": lot_size,
+                    "minOrderQty": min_sz,
+                    "ctVal": details.get("ctVal", "1.0")
+                },
+                "leverageFilter": {
+                    "maxLeverage": "50.0"
+                }
+            }
+            self._instrument_cache[api_symbol] = info
+            return info
+        except Exception as e:
+            logger.error(f"Error fetching instrument info from OKX fallback for {symbol}: {e}")
+            return {}
 
     async def round_price(self, symbol: str, price: float) -> float:
         """
