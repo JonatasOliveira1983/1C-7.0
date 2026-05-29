@@ -511,6 +511,7 @@ html, body {
     <div class="hud-sep"></div>
     <div class="hud-item"><div class="hud-label">BTC / USD</div><div class="hud-val" id="btcP">0.00</div></div>
     <div class="hud-item"><div class="hud-label">VAR 1H</div><div class="hud-val" id="btcV">0.00%</div></div>
+    <div class="hud-item"><div class="hud-label">BTC DOM</div><div class="hud-val" id="btcDom" style="color: var(--amber)">0.0%</div></div>
     <div class="hud-sep"></div>
     <div class="traffic-light" id="trafficLight" title="Alinhamento Macro vs Micro">
         <span class="tl-lbl">CONFLUÊNCIA</span>
@@ -519,6 +520,11 @@ html, body {
         <div class="tl-dot tl-grn" id="tl-g"></div>
     </div>
     <div class="hud-item" style="margin-left: 10px"><div class="hud-label">MASTER DIR</div><div class="hud-val" id="btcm">—</div></div>
+    <div class="hud-sep"></div>
+    <div class="hud-item" style="margin-left: auto">
+        <div class="hud-label">ORACLE</div>
+        <div class="badge" id="oracleBadge" style="background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); font-size: 10px; font-weight: 900;">SECURE</div>
+    </div>
 </header>
  
  <!-- STRATEGY CONTROL CENTER -->
@@ -962,6 +968,42 @@ function syncRadar(data) {
         document.getElementById('btcm').style.color = ctx.btc_direction === 'UP' ? 'var(--green)' : ctx.btc_direction === 'DOWN' ? 'var(--red)' : 'var(--t2)';
     }
     
+    // Atualizar Dominância
+    if (ctx.btc_dominance !== undefined) {
+        const btcDomEl = document.getElementById('btcDom');
+        if (btcDomEl) {
+            btcDomEl.textContent = ctx.btc_dominance.toFixed(1) + '%';
+            btcDomEl.style.color = ctx.btc_dominance > 55 ? 'var(--red)' : 'var(--amber)';
+        }
+    }
+    
+    // Atualizar Oracle Badge
+    const oracleBadgeEl = document.getElementById('oracleBadge');
+    if (oracleBadgeEl) {
+        const status = ctx.oracle_status || 'SECURE';
+        const isTsunami = (ctx.btc_dominance > 55.0) && (Number(ctx.btc_adx || ctx.adx) > 30.0) && (ctx.btc_variation_1h > 0);
+        
+        if (isTsunami) {
+            oracleBadgeEl.textContent = 'TSUNAMI ACTIVE';
+            oracleBadgeEl.style.background = 'rgba(239,68,68,0.2)';
+            oracleBadgeEl.style.color = 'var(--red)';
+            oracleBadgeEl.style.borderColor = 'rgba(239,68,68,0.4)';
+            oracleBadgeEl.classList.add('animate-pulse');
+        } else if (status === 'STABILIZING') {
+            oracleBadgeEl.textContent = 'STABILIZING';
+            oracleBadgeEl.style.background = 'rgba(245,158,11,0.15)';
+            oracleBadgeEl.style.color = 'var(--amber)';
+            oracleBadgeEl.style.borderColor = 'rgba(245,158,11,0.3)';
+            oracleBadgeEl.classList.add('animate-pulse');
+        } else {
+            oracleBadgeEl.textContent = status;
+            oracleBadgeEl.style.background = 'rgba(16,185,129,0.15)';
+            oracleBadgeEl.style.color = 'var(--green)';
+            oracleBadgeEl.style.borderColor = 'rgba(16,185,129,0.3)';
+            oracleBadgeEl.classList.remove('animate-pulse');
+        }
+    }
+
     if (ctx.heat_index !== undefined) {
         const gh = document.getElementById('globalHeat');
         if (gh) {
@@ -1295,12 +1337,39 @@ async function loadData(s) {
         // [V121 NEON BADGES] Telemetria em tempo real do viés de desgrude de 2H no Cockpit
         const macroDirEl = document.getElementById('macro4hDir');
         const macroSubEl = document.getElementById('macro4hSub');
+        const intelStatusEl = document.getElementById('intelStatus');
+        
         if (macroDirEl && macroSubEl) {
             const isDec = study4h.is_decorrelated;
             const bias = study4h.bias_2h;
             const rsi = study4h.rsi_2h ? study4h.rsi_2h.toFixed(1) : "—";
             
-            if (isDec) {
+            // Injeta dynamic DVAP ou FLEX_MODE se estiverem ativos
+            const isFlexMode = study4h.is_flex_mode || (study4h.rsi_2h >= 43 && study4h.rsi_2h <= 57);
+            const isDvapActive = study4h.is_dvap_active || false;
+            
+            if (intelStatusEl) {
+                if (isDvapActive) {
+                    intelStatusEl.textContent = "DVAP SNIPER";
+                    intelStatusEl.style.color = "#FFD700"; // Gold
+                    intelStatusEl.style.textShadow = "0 0 10px rgba(255,215,0,0.8)";
+                } else if (isFlexMode) {
+                    intelStatusEl.textContent = "FLEX NEUTRAL";
+                    intelStatusEl.style.color = "#a855f7"; // Purple
+                    intelStatusEl.style.textShadow = "0 0 10px rgba(168,85,247,0.8)";
+                } else {
+                    intelStatusEl.textContent = "SYNCED";
+                    intelStatusEl.style.color = "var(--green)";
+                    intelStatusEl.style.textShadow = "none";
+                }
+            }
+            
+            if (isFlexMode) {
+                macroDirEl.innerHTML = `🟣 FLEX ACTIVE`;
+                macroDirEl.style.color = "#a855f7";
+                macroDirEl.style.textShadow = "0 0 10px rgba(168,85,247,0.8), 0 0 20px rgba(168,85,247,0.4)";
+                macroSubEl.innerHTML = `ZONA NEUTRA 2H | RSI: ${rsi}`;
+            } else if (isDec) {
                 if (bias === "LONG_ONLY") {
                     macroDirEl.innerHTML = `🟢 LONG ONLY`;
                     macroDirEl.style.color = "#00ff66";
