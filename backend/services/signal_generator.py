@@ -2511,6 +2511,21 @@ class SignalGenerator:
                     oracle_context=oracle_ctx
                 )
 
+                # 🆕 [V110.999] BTC CLIMATE & TSUNAMI DETECTOR
+                try:
+                    from services.agents.macro_analyst import macro_analyst
+                    btc_dominance = await macro_analyst._get_btc_dominance()
+                except Exception:
+                    btc_dominance = 58.0
+                
+                if btc_dominance <= 0:
+                    btc_dominance = 58.0
+                
+                btc_var_1h = bybit_ws_service.btc_variation_1h
+                self.is_btc_tsunami = (btc_dominance > 55.0) and (btc_adx > 30.0) and (btc_var_1h > 0)
+                if self.is_btc_tsunami:
+                    logger.warning(f"🚨 [BTC CLIMATE] TSUNAMI DETECTADO! Dominancia BTC: {btc_dominance:.1f}% | ADX: {btc_adx:.1f} | Var 1h: {btc_var_1h:.2f}%. Shorts em altcoins serao bloqueados globalmente.")
+
 
 
                 # [V71.1] HYSTERESIS ANTI-FLAP: Require N consecutive readings before switching mode
@@ -2682,6 +2697,11 @@ class SignalGenerator:
                         is_swing_macro = False
                         macro_bonus = 0
                         side_label = "Long" if cvd_val > 0 else "Short"
+                        
+                        # 🆕 [V110.999] BTC TSUNAMI SHORT BLOCK
+                        if getattr(self, 'is_btc_tsunami', False) and side_label == "Short":
+                            logger.debug(f"🔒 [BTC TSUNAMI BLOCK S1] SHORT em {symbol} bloqueado preventivamente pela dominancia/forca do BTC!")
+                            return None
                         
                         if trend_2h == 'BULLISH_ARMED' and trend_30m == 'BULLISH_TACTICAL':
                             if freshness_30m <= 5 and dist_from_sma < 1.5:
@@ -2865,10 +2885,55 @@ class SignalGenerator:
                             self.detect_market_regime("BTCUSDT.P") # [V42.9] RANGING BTC Guard
                         )
                     
+                    # 🆕 [V110.999] ZONE NEUTRA DE FLEXIBILIZAÇÃO (FLEX_MODE) & DVAP STRATEGY DETECTOR
+                    rsi_2h = macro_2h.get('rsi_2h', 50.0)
+                    is_flex_mode = (43.0 <= rsi_2h <= 57.0)
+                    is_dvap_play = False
+                    dvap_targets = None
+                    
+                    try:
+                        # Buscar velas de 30M para cálculo de Divergência, Volume e CHoCH
+                        klines_30m = await bybit_rest_service.get_klines(symbol=symbol, interval="30", limit=100)
+                        if klines_30m and len(klines_30m) >= 40:
+                            candles_30m = klines_30m[::-1]
+                            closes_30m = [float(c[4]) for c in candles_30m]
+                            highs_30m = [float(c[2]) for c in candles_30m]
+                            lows_30m = [float(c[3]) for c in candles_30m]
+                            volumes_30m = [float(c[5]) for c in candles_30m]
+                            
+                            # 1. Divergência IFR (RSI 14)
+                            div_type = self.check_ifr_divergence(closes_30m, highs_30m, lows_30m)
+                            # 2. Volume Clímax (absorção)
+                            vol_climax = self.check_volume_climax(volumes_30m, std_multiplier=1.8)
+                            
+                            if div_type and vol_climax:
+                                # 3. Encontrar Pivots táticos de 30M
+                                p_high, p_low = self.find_pivots_30m(highs_30m, lows_30m)
+                                current_close = closes_30m[-1]
+                                prev_close = closes_30m[-2]
+                                
+                                # 4. Gatilho CHoCH
+                                is_choch_buy = (current_close > p_high) and (prev_close <= p_high) and (div_type == "BULLISH")
+                                is_choch_sell = (current_close < p_low) and (prev_close >= p_low) and (div_type == "BEARISH")
+                                
+                                if is_choch_buy and side_label == "Long":
+                                    is_dvap_play = True
+                                    tp1, tp2 = self.calculate_fibonacci_targets("BUY", current_close, p_low)
+                                    dvap_targets = {"tp1": tp1, "tp2": tp2, "sl": p_low}
+                                    logger.info(f"💎 [DVAP STRATEGY TRIGGERED] {symbol} LONG! Divergencia: {div_type} | Volume Climax | CHoCH: {p_high} | SL = {p_low} | TP1 = {tp1}")
+                                elif is_choch_sell and side_label == "Short":
+                                    is_dvap_play = True
+                                    tp1, tp2 = self.calculate_fibonacci_targets("SELL", current_close, p_high)
+                                    dvap_targets = {"tp1": tp1, "tp2": tp2, "sl": p_high}
+                                    logger.info(f"💎 [DVAP STRATEGY TRIGGERED] {symbol} SHORT! Divergencia: {div_type} | Volume Climax | CHoCH: {p_low} | SL = {p_high} | TP1 = {tp1}")
+                    except Exception as dv_err:
+                        logger.error(f"Erro ao avaliar setup DVAP para {symbol}: {dv_err}")
+
                     # [V127] PROTOCOLO ALT BIAS ONLY (AltForceDirection Guard)
                     # O viés direcional macro de 2H é lei absoluta para moedas desgrudadas (is_decorrelated = True)
                     is_decorrelated_play = candidate.get('is_decorrelated', False)
-                    if is_decorrelated_play:
+                    # DVAP e FLEX_MODE ignoram o AltForceDirection Guard para evitar paralisia
+                    if is_decorrelated_play and not is_dvap_play and not is_flex_mode:
                         rsi_2h = macro_2h.get('rsi_2h', 50.0)
                         trend_2h = macro_2h.get('trend', 'NEUTRAL')
                         
@@ -2966,11 +3031,12 @@ class SignalGenerator:
                     btc_macro_dir = btc_dir.get('direction', 'NEUTRAL')
                     btc_macro_str = btc_dir.get('strength', 0)
                     is_decorrelation_play_s3 = candidate.get('is_decorrelated', False)
+                    is_exempt = is_decorrelation_play_s3 or is_dvap_play or is_flex_mode
                     
-                    if is_decorrelation_play_s3:
+                    if is_exempt:
                         master_shield_penalty = 0
                         trend_bonus = 0
-                        logger.info(f"🎯 [V33.1] {symbol} Decorrelation Play — SMA Shield SKIPPED")
+                        logger.info(f"🎯 [V110.999] {symbol} (DVAP={is_dvap_play}, FLEX={is_flex_mode}) — SMA Shield SKIPPED")
                     elif is_swing_macro_s3:
                         trend_bonus += 15  # [V40.2] Reduced from 25 to 15 (less free pass)
                         logger.info(f"🌊 [V40.2] {symbol} HYBRID SWING — SMA Shield Aligned (bonus reduced)")
@@ -3040,8 +3106,8 @@ class SignalGenerator:
                     # Para permitir testes de reversão SWING no Simulador.
                     fatal_penalty = -15 if _settings.BYBIT_EXECUTION_MODE == 'PAPER' else -40
                     
-                    if is_decorrelation_play:
-                        daily_penalty = 0  # [V33.1] Exempt: decorrelation IS the edge, not the daily trend
+                    if is_exempt:
+                        daily_penalty = 0  # [V110.999] Exempt: decorrelation/DVAP/FLEX is the edge
                         logger.info(f"🎯 [V33.1] {symbol} Decorrelation Play — Daily penalty SKIPPED (counter-trend is expected)")
                     elif is_swing_macro_s3:
                         # [V40.2] HYBRID: Reactivate partial daily penalty — if daily contradicts, reduce score
@@ -3074,8 +3140,8 @@ class SignalGenerator:
                     elif regime == 'TRENDING':
                         regime_penalty = 5  # Trending markets = bonus confidence
                         # [V27.6] MTF Alignment: If trending hard (ADX>25), block counter-trend wicks
-                        # [V33.1] Decorrelation plays are exempt — counter-trend IS expected
-                        if market_regime.get('adx', 0) > 25 and not is_decorrelation_play_s3:
+                        # [V33.1] Decorrelation/DVAP/FLEX plays are exempt — counter-trend IS expected
+                        if market_regime.get('adx', 0) > 25 and not is_exempt:
                             if side_label == 'Long' and trend_4h.get('trend') == 'bearish':
                                 regime_penalty -= 50 # Fatal penalty for counter-trend in heavy flow
                                 logger.info(f"🚫 [V27.6] MTF Alignment: {symbol} Long ignored against strong Bearish 4H (ADX > 25)")
@@ -3087,8 +3153,8 @@ class SignalGenerator:
                                 else:
                                     regime_penalty -= 50
                                     logger.info(f"🚫 [V27.6] MTF Alignment: {symbol} Short ignored against strong Bullish 4H (ADX > 25)")
-                        elif is_decorrelation_play_s3:
-                            logger.info(f"🎯 [V33.1] {symbol} Decorrelation Play — MTF Penalty SKIPPED")
+                        elif is_exempt:
+                            logger.info(f"🎯 [V110.999] {symbol} Exempt Play — MTF Penalty SKIPPED")
                     
                     # [V41.0] BTC GUARD — Penalidade Inteligente (não mais fatal para sinais fortes)
                     # Sinais fracos contra BTC = mortos. Sinais fortes contra BTC = penalidade severa.
@@ -3138,6 +3204,9 @@ class SignalGenerator:
                     elif 14 <= hour_utc < 21:  # Sessão US — maior volume, melhores tendências
                         final_score += 5
                     final_score = max(10, min(99, final_score))
+                    if is_dvap_play:
+                        final_score = 98
+                        logger.info(f"💎 [DVAP SCORE BOOST] final_score forcado para {final_score} para garantir execucao imediata!")
                     
                     # Shadow Needle Detection (uses 1m klines)
                     current_price_ws = bybit_ws_service.get_current_price(symbol)
@@ -3177,7 +3246,15 @@ class SignalGenerator:
                     if current_price_now <= 0:
                         current_price_now = macro_2h.get('current_price', 0)
                     
-                    if side_label == 'Long':
+                    if is_dvap_play and dvap_targets:
+                        structural_target = dvap_targets["tp1"]
+                        target_extended = dvap_targets["tp2"]
+                        if side_label == 'Long':
+                            move_room_pct = ((structural_target - current_price_now) / current_price_now * 100) if structural_target > current_price_now else 0.5
+                        else:
+                            move_room_pct = ((current_price_now - structural_target) / current_price_now * 100) if current_price_now > structural_target else 0.5
+                        logger.info(f"📐 [DVAP FIBO TARGETS] TP1={structural_target:.6f} | TP2={target_extended:.6f} | Room={move_room_pct:.2f}%")
+                    elif side_label == 'Long':
                         # [V41.1] Use target_long_ext (pivot + 2×ATR) for more realistic move room
                         structural_target = macro_2h.get('target_long_ext', macro_2h.get('target_long', 0))
                         target_extended = macro_2h.get('target_long_ext', 0)
@@ -3295,20 +3372,21 @@ class SignalGenerator:
                         "leverage": max_lev, # [V42.0] Exposing for Radar Badge
                         "side": "Buy" if side_label == "Long" else "Sell",  # [V27.1] Exposing side for Captain
                         "entry_price_signal": current_price_now,
-                        "suggested_sl": execution_protocol.calculate_structural_stop(current_price_now, macro_2h.get('pivot_low' if side_label == 'Long' else 'pivot_high', 0), "Buy" if side_label == "Long" else "Sell"),
-                        "layer": signal_layer,  # [V25.1] SNIPER or MOMENTUM
+                        "suggested_sl": dvap_targets["sl"] if (is_dvap_play and dvap_targets) else execution_protocol.calculate_structural_stop(current_price_now, macro_2h.get('pivot_low' if side_label == 'Long' else 'pivot_high', 0), "Buy" if side_label == "Long" else "Sell"),
+                        "layer": "SNIPER" if is_dvap_play else signal_layer,  # [V25.1] SNIPER or MOMENTUM
                         "is_shadow_strike": candidate.get('is_shadow_strike', False),
                         "is_trend_surf": trigger_result.get('is_trend_surf', False),
                         "market_environment": "Bullish" if cvd_val > 0 else "Bearish",
                         "market_regime": market_regime.get('regime', 'TRANSITION'),
                         "execution_style": "ATTACK" if market_regime.get("adx", 20) >= 28 else "AMBUSH",
                         "current_adx": market_regime.get("adx", 20),
-                        "strategy_class": self._classify_strategy(move_room_pct, entry_pattern, candidate.get('trend', 'sideways'), macro_2h.get('trend', 'sideways'), abs(cvd_val), market_regime.get('regime', 'TRANSITION')),
-                        "is_elite": signal_layer == "SNIPER",
+                        "strategy_class": "DVAP" if is_dvap_play else self._classify_strategy(move_room_pct, entry_pattern, candidate.get('trend', 'sideways'), macro_2h.get('trend', 'sideways'), abs(cvd_val), market_regime.get('regime', 'TRANSITION')),
+                        "is_elite": True if is_dvap_play else (signal_layer == "SNIPER"),
                         "reasoning": (
+                            f"{'💎 DVAP REVERSAL | ' if is_dvap_play else ''}"
                             f"{'🦇 SHADOW STRIKE | ' if candidate.get('is_shadow_strike') else ''}"
-                            f"{'🎯 SNIPER' if signal_layer == 'SNIPER' else '⚡ MOMENTUM'} {side_label} | "
-                            f"Trigger: {trigger_result.get('trigger_type', 'NONE')} | "
+                            f"{'🎯 SNIPER' if (is_dvap_play or signal_layer == 'SNIPER') else '⚡ MOMENTUM'} {side_label} | "
+                            f"Trigger: {'CHoCH 30M' if is_dvap_play else trigger_result.get('trigger_type', 'NONE')} | "
                             f"CVD: {cvd_val/1000:,.1f}k | "
                             f"Funding: {trigger_result.get('funding_rate', 0)*100:.4f}% | "
                             f"Room: {move_room_pct:.1f}%"
@@ -3337,7 +3415,7 @@ class SignalGenerator:
                             "scanned_at": datetime.now(timezone.utc).isoformat(),
                             "is_shadow_needle": is_stretched,
                             "stretch_pct": round(stretch_val, 2),
-                            "strategy_type": self._classify_strategy(move_room_pct, entry_pattern, candidate.get('trend', 'sideways'), macro_2h.get('trend', 'sideways'), abs(cvd_val), market_regime.get('regime', 'TRANSITION')),
+                            "strategy_type": "DVAP" if is_dvap_play else self._classify_strategy(move_room_pct, entry_pattern, candidate.get('trend', 'sideways'), macro_2h.get('trend', 'sideways'), abs(cvd_val), market_regime.get('regime', 'TRANSITION')),
                             "atr": bybit_ws_service.atr_cache.get(symbol, 0),
                             "structural_target": round(structural_target, 8),
                             "target_extended": round(target_extended, 8),
@@ -3357,7 +3435,7 @@ class SignalGenerator:
                             "decorrelation_data": candidate.get('decorrelation_data')
                         },
                         # [V39.0] Swing Macro flag — TOCAIA uses this to extend patience to 60min
-                        "is_swing_macro": candidate.get('is_swing_macro', False),
+                        "is_swing_macro": True if is_dvap_play else candidate.get('is_swing_macro', False),
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
                     await firebase_service.log_signal(signal_data)
@@ -3573,6 +3651,115 @@ class SignalGenerator:
             except Exception as e:
                 logger.error(f"Error in Outcome Tracker: {e}")
                 await asyncio.sleep(60)
+
+    def calculate_rsi(self, prices, period=14):
+        """Calcula o RSI (IFR) clássico usando Pandas"""
+        import pandas as pd
+        df = pd.Series(prices)
+        delta = df.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi.fillna(50).tolist()
+
+    def check_ifr_divergence(self, closes, highs, lows, period=14):
+        """
+        [V110.999] Detecta divergências clássicas no RSI(14)
+        """
+        if len(closes) < 30:
+            return None
+            
+        rsi = self.calculate_rsi(closes, period)
+        last_idx = len(closes) - 1
+        
+        # Bullish Divergence: Preço caindo (fundos menores), RSI subindo (fundos maiores) na sobrevenda (< 35)
+        fundos_preco = []
+        for i in range(last_idx - 15, last_idx - 1):
+            if lows[i] < lows[i-1] and lows[i] < lows[i+1]:
+                fundos_preco.append((i, lows[i], rsi[i]))
+                
+        if len(fundos_preco) >= 2:
+            fundos_preco = fundos_preco[-2:]
+            f1, f2 = fundos_preco[0], fundos_preco[1]
+            if f2[1] < f1[1] and f2[2] > f1[2] and f2[2] < 35:
+                return "BULLISH"
+
+        # Bearish Divergence: Preço subindo (topos maiores), RSI caindo (topos menores) na sobrecompra (> 65)
+        topos_preco = []
+        for i in range(last_idx - 15, last_idx - 1):
+            if highs[i] > highs[i-1] and highs[i] > highs[i+1]:
+                topos_preco.append((i, highs[i], rsi[i]))
+                
+        if len(topos_preco) >= 2:
+            topos_preco = topos_preco[-2:]
+            t1, t2 = topos_preco[0], topos_preco[1]
+            if t2[1] > t1[1] and t2[2] < t1[2] and t2[2] > 65:
+                return "BEARISH"
+                
+        return None
+
+    def check_volume_climax(self, volumes, period=20, std_multiplier=2.0):
+        """
+        [V110.999] Verifica se o volume recente (último candle fechado) foi climático (absorção)
+        """
+        import pandas as pd
+        if len(volumes) < period:
+            return False
+            
+        vol_series = pd.Series(volumes[:-1])
+        mean_vol = vol_series.rolling(period).mean().iloc[-1]
+        std_vol = vol_series.rolling(period).std().iloc[-1]
+        
+        threshold = mean_vol + (std_multiplier * std_vol)
+        last_closed_volume = volumes[-2]
+        
+        return last_closed_volume > threshold
+
+    def find_pivots_30m(self, highs, lows, window=2):
+        """
+        [V110.999] Identifica Topos (Pivot High) e Fundos (Pivot Low) locais
+        """
+        length = len(highs)
+        pivot_highs = []
+        pivot_lows = []
+        
+        for i in range(window, length - window):
+            is_high = True
+            for w in range(1, window + 1):
+                if highs[i] <= highs[i-w] or highs[i] <= highs[i+w]:
+                    is_high = False
+                    break
+            if is_high:
+                pivot_highs.append(highs[i])
+                
+            is_low = True
+            for w in range(1, window + 1):
+                if lows[i] >= lows[i-w] or lows[i] >= lows[i+w]:
+                    is_low = False
+                    break
+            if is_low:
+                pivot_lows.append(lows[i])
+                
+        last_high = pivot_highs[-1] if pivot_highs else highs[-2]
+        last_low = pivot_lows[-1] if pivot_lows else lows[-2]
+        
+        return last_high, last_low
+
+    def calculate_fibonacci_targets(self, signal_type, entry_price, stop_loss):
+        """
+        [V110.999] Calcula as expansões de Fibonacci (1.618 e 2.618) com base na amplitude do CHoCH.
+        """
+        amplitude = abs(entry_price - stop_loss)
+        
+        if signal_type == "BUY":
+            tp1 = entry_price + (amplitude * 1.618)
+            tp2 = entry_price + (amplitude * 2.618)
+        else:
+            tp1 = entry_price - (amplitude * 1.618)
+            tp2 = entry_price - (amplitude * 2.618)
+            
+        return round(tp1, 6), round(tp2, 6)
 
     def _load_auto_blocks(self):
         """[V100.1] Loads the persistent blocklist from disk."""
