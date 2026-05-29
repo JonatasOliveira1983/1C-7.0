@@ -5363,8 +5363,12 @@
             }, [eagleMode]);
 
             React.useEffect(() => {
-                setLocalSymbol(symbol || "BTCUSDT");
-            }, [symbol]);
+                if (focusedAsset && focusedAsset.symbol) {
+                    setLocalSymbol(focusedAsset.symbol);
+                } else {
+                    setLocalSymbol(symbol || "BTCUSDT");
+                }
+            }, [symbol, focusedAsset]);
 
             React.useEffect(() => {
                 isFirstLoadRef.current = true;

@@ -1846,6 +1846,19 @@ function renderSievePairs(decisions) {
     // Dados da decisão dinâmica (se houver, senão default)
     const d = decisionsMap.get(s) || { symbol: s, tier: 1, velocity: 0 };
     
+    // Injeta a micro-badge do regime em tempo real (DVAP, FLEX, LONG_ONLY, SHORT_ONLY)
+    const regime = window.radarRegimes && window.radarRegimes[s] ? window.radarRegimes[s] : { is_dvap_active: false, is_flex_mode: false, bias_2h: "TREND_SYNC" };
+    let badgeHtml = '';
+    if (regime.is_dvap_active) {
+        badgeHtml = `<span class="regime-badge" style="background:#FFD700; color:#000; font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; margin-left:5px; box-shadow:0 0 5px rgba(255,215,0,0.8); letter-spacing:0.05em">DVAP ⚡</span>`;
+    } else if (regime.is_flex_mode) {
+        badgeHtml = `<span class="regime-badge" style="background:#a855f7; color:#fff; font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; margin-left:5px; box-shadow:0 0 5px rgba(168,85,247,0.8)">FLEX</span>`;
+    } else if (regime.bias_2h === "LONG_ONLY") {
+        badgeHtml = `<span class="regime-badge" style="background:#10b981; color:#fff; font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; margin-left:5px">LONG</span>`;
+    } else if (regime.bias_2h === "SHORT_ONLY") {
+        badgeHtml = `<span class="regime-badge" style="background:#ef4444; color:#fff; font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; margin-left:5px">SHORT</span>`;
+    }
+
     const hasIgnition = ignitionMarkers[s] && ignitionMarkers[s].length > 0;
     const ignitionHtml = hasIgnition ? `<span class="material-icons-round bolt-active" style="font-size:14px">bolt</span>` : '';
     
@@ -1862,6 +1875,7 @@ function renderSievePairs(decisions) {
         <div style="display:flex; flex-direction:column; flex:1">
             <div style="display:flex; align-items:center; gap:8px">
                 <span class="pair-name">${s.replace('USDT','')}</span>
+                ${badgeHtml}
                 ${ignitionHtml}
             </div>
             <div class="heat-meter">
@@ -1962,6 +1976,21 @@ syncVisionStats();
 // [V5.5.0] Pre-render pairs using Elite Matrix while waiting for Radar
 const initialDecisions = Object.keys(MATRIX).map(s => ({ symbol: s, tier: 1, velocity: 0 }));
 renderSievePairs(initialDecisions);
+
+// [V127] Real-time regimes fetch for all monitored pairs
+async function fetchRadarRegimes() {
+    try {
+        const res = await fetch('/api/radar/regimes?v=' + Date.now());
+        if (res.ok) {
+            window.radarRegimes = await res.json();
+            renderSievePairs(initialDecisions);
+        }
+    } catch (e) {
+        console.warn("Failed to fetch radar regimes:", e);
+    }
+}
+fetchRadarRegimes();
+setInterval(fetchRadarRegimes, 30000);
 
 const bootGrid = document.getElementById('asset-boot-grid');
 for(let i=0; i<30; i++) {

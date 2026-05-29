@@ -440,3 +440,82 @@ async def get_vision_stats():
         "global_count": 42,
         "pair_counts": {}
     }
+
+@router.get("/radar/regimes")
+async def get_radar_regimes():
+    try:
+        services = get_services()
+        bybit_rest_service = services[0]
+        signal_generator = services[3]
+        
+        if not signal_generator:
+            return {}
+            
+        regimes = {}
+        pairs = [
+            "BTCUSDT", "ETHUSDT",
+            "AVAXUSDT", "PYTHUSDT", "APTUSDT", "SUIUSDT", "OPUSDT", "ARBUSDT", "RENDERUSDT", 
+            "NEARUSDT", "INJUSDT", "TIAUSDT", "LINKUSDT", "DOTUSDT", "ADAUSDT", "POLUSDT", 
+            "ATOMUSDT", "LTCUSDT", "BCHUSDT", "XLMUSDT", "XRPUSDT", "TRXUSDT", "SEIUSDT", 
+            "FILUSDT", "FTMUSDT", "AAVEUSDT", "ALGOUSDT", "IMXUSDT", "GALAUSDT", "GRTUSDT", 
+            "CRVUSDT", "EGLDUSDT", "ONDOUSDT", "FETUSDT", "JUPUSDT", "DYDXUSDT", "LDOUSDT",
+            "ICPUSDT", "STXUSDT", "THETAUSDT", "VETUSDT", "SANDUSDT"
+        ]
+        
+        async def check_pair_regime(symbol):
+            try:
+                macro_2h = await signal_generator.get_2h_macro_analysis(symbol + ".P")
+                rsi_2h = macro_2h.get("rsi_2h", 50.0)
+                trend_2h = macro_2h.get("trend", "NEUTRAL")
+                
+                decor_data = await signal_generator.detect_btc_decorrelation(symbol + ".P")
+                is_decorrelated = decor_data.get("is_decorrelated", False)
+                
+                bias_2h = "TREND_SYNC"
+                if is_decorrelated:
+                    if rsi_2h > 50 or trend_2h == "BULLISH_ARMED":
+                        bias_2h = "LONG_ONLY"
+                    elif rsi_2h < 50 or trend_2h == "BEARISH_ARMED":
+                        bias_2h = "SHORT_ONLY"
+                
+                is_flex_mode = (43.0 <= rsi_2h <= 57.0)
+                
+                is_dvap_active = False
+                try:
+                    klines_30m = await bybit_rest_service.get_klines(symbol=symbol + ".P", interval="30", limit=40)
+                    if klines_30m and len(klines_30m) >= 30:
+                        candles_30m = klines_30m[::-1]
+                        closes_30m = [float(c[4]) for c in candles_30m]
+                        highs_30m = [float(c[2]) for c in candles_30m]
+                        lows_30m = [float(c[3]) for c in candles_30m]
+                        volumes_30m = [float(c[5]) for c in candles_30m]
+                        
+                        div_type = signal_generator.check_ifr_divergence(closes_30m, highs_30m, lows_30m)
+                        vol_climax = signal_generator.check_volume_climax(volumes_30m, std_multiplier=1.8)
+                        
+                        if div_type and vol_climax:
+                            is_dvap_active = True
+                except:
+                    pass
+                
+                return symbol, {
+                    "is_dvap_active": is_dvap_active,
+                    "is_flex_mode": is_flex_mode,
+                    "bias_2h": bias_2h
+                }
+            except:
+                return symbol, {
+                    "is_dvap_active": False,
+                    "is_flex_mode": False,
+                    "bias_2h": "TREND_SYNC"
+                }
+
+        tasks = [check_pair_regime(s) for s in pairs]
+        results = await asyncio.gather(*tasks)
+        for sym, data in results:
+            regimes[sym] = data
+            
+        return regimes
+    except Exception as e:
+        logger.error(f"Error in get_radar_regimes: {e}")
+        return {}
