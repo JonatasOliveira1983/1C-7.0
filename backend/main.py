@@ -177,20 +177,8 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(1)
             logger.info("Step 0: Service modules loaded \u2705")
             
-            logger.warning("💥 [V110.518] DB SANITATION TRIGGERED!")
-            try:
-                from services.okx_rest import okx_rest_service
-                from services.firebase_service import firebase_service
-                okx_rest_service.paper_positions.clear()
-                # Clear Firebase/Postgres Slots unconditionally for this hotfix
-                for i in range(1, 5):
-                    try: 
-                        await firebase_service.hard_reset_slot(i, "[V110.518] GHOST SLOT PURGE")
-                    except Exception as ex: 
-                        pass
-                logger.info("✅ [V110.518] DB SANITATION EXECUTED SUCCESSFULLY! 💥")
-            except Exception as e:
-                logger.error(f"❌ [V110.518] DB SANITATION FAILED: {e}")
+            # [V110.518] DB SANITATION REMOVED TO PRESERVE ACTIVE ORDERS ON DEPLOYS/RESTARTS
+            logger.info("🛡️ [V110.519] Startup Order Persistence active. Skipping DB Sanitation.")
 
             
             logger.info("Step 2: Syncing Bybit Instruments...")
