@@ -214,10 +214,16 @@ class CaptainAgent(AIOSAgent):
                 logger.warning(f"⚠️ [TREND-DIVERGENCE] {symbol} {side} contra tendência H4 {lib_trend_4h}. Penalidade de -15 pts aplicada.")
 
             if "TRAP" in nectar_seal:
-                approved = False
-                reasons.append("⚠️🚫 LIBRARIAN TRAP SHIELD: Bloqueio absoluto por zona de armadilha.")
-                unified_score = 0 
-                logger.warning(f"⚠️ [LIBRARIAN-TRAP] {symbol} sinalizado como zona de armadilha. ORDEM ABORTADA.")
+                # [V110.999] Permite bypass do Trap Shield em modo PAPER ou para Sinais de Elite (SMC Score >= 95)
+                from config import settings
+                is_paper = settings.BYBIT_EXECUTION_MODE == "PAPER"
+                if is_paper or smc_score >= 95:
+                    logger.info(f"⚡ [LIBRARIAN-TRAP-BYPASS] {symbol} (SMC={smc_score}) ignorou Trap Shield (Paper={is_paper} | Elite={smc_score>=95}).")
+                else:
+                    approved = False
+                    reasons.append("⚠️🚫 LIBRARIAN TRAP SHIELD: Bloqueio absoluto por zona de armadilha.")
+                    unified_score = 0 
+                    logger.warning(f"⚠️ [LIBRARIAN-TRAP] {symbol} sinalizado como zona de armadilha. ORDEM ABORTADA.")
             
             # [BLOCK] Absolute Trap Risk from WhaleTracker (Institutional Divergence)
             if trap_risk:
@@ -943,7 +949,16 @@ class CaptainAgent(AIOSAgent):
 
             # [V110.38.0] ABSOLUTE TRAP SHIELD - Bloqueia QUALQUER entrada em moedas classificadas como TRAP
             if "TRAP" in nectar_seal:
-                logger.info(f"💎 [PAPER-TEST-FIRE] Ignorando TRAP SHIELD para {symbol} para forçar disparo.")
+                if bybit_rest_service.execution_mode == "PAPER" or score >= 95:
+                    logger.info(f"💎 [PAPER-TEST-FIRE] Ignorando TRAP SHIELD para {symbol} ({score}) para forçar disparo (Elite/Paper Bypass).")
+                else:
+                    msg = f"🛡️ [LIBRARIAN-TRAP-BLOCK] {symbol} ({side}) negado: Zona de armadilha pelo Bibliotecário. Abortando caçada."
+                    logger.warning(msg)
+                    await firebase_service.log_event("CAPTAIN", msg, "WARNING")
+                    if best_signal.get("id"):
+                        await firebase_service.update_signal_outcome(best_signal["id"], "LIBRARIAN_TRAP_BLOCKED")
+                    self.active_tocaias.discard(symbol)
+                    return
 
             # --- [V110.135] QUARTERMASTER ARMORY CHECK ---
             armory = await quartermaster_agent.check_armory(
