@@ -516,63 +516,111 @@ class OKXRest:
     @with_circuit_breaker(breaker_name="bybit_rest_public", fallback_return={"retCode": -1, "result": {"list": []}})
     async def get_tickers(self, symbol: str = None):
         """
-        Fetches ticker data from OKX Mainnet public API and translates to Bybit format.
-        If a symbol is provided, only that exact symbol's data is returned.
-        [V12.7] Added 2s cache for global fetches to avoid bandwidth blocks.
+        [V110.999] Busca preços em tempo real de forma ultra-resiliente.
+        Se a OKX bloquear o IP (comum em servidores de nuvem como Railway localizados nos EUA),
+        o sistema realiza fallback transparente e instantâneo para as APIs públicas da Bybit (api.bybit.com / api.bygames.com).
         """
         async with self._http_semaphore:
-            try:
-                # Check Cache for global scan
-                if symbol is None:
-                    now = time.time()
-                    if hasattr(self, "_global_ticker_cache") and (now - self._global_ticker_cache_time < 2.0):
-                        return self._global_ticker_cache
-                
-                from services.okx_service import okx_service
-                if symbol:
-                    inst_id = okx_service.bybit_to_okx(symbol)
-                    url = f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}"
-                else:
-                    url = "https://www.okx.com/api/v5/market/tickers?instType=SWAP"
+            # 1. Verificar Cache Global primeiro
+            if symbol is None:
+                now = time.time()
+                if hasattr(self, "_global_ticker_cache") and (now - self._global_ticker_cache_time < 2.0):
+                    return self._global_ticker_cache
 
-                async with httpx.AsyncClient(timeout=4.0) as client:
-                    response = await client.get(url)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get("code") == "0" and data.get("data"):
-                            okx_list = data["data"]
-                            translated_list = []
-                            for ot in okx_list:
-                                bybit_sym = okx_service.okx_to_bybit(ot.get("instId"))
-                                # Tira o .P para conformidade com a expectativa interna de get_tickers
-                                bybit_sym_clean = bybit_sym.replace(".P", "")
+            # 2. Tentar obter via OKX (com contingência de domínio alternativo AWS)
+            from services.okx_service import okx_service
+            okx_urls = []
+            if symbol:
+                inst_id = okx_service.bybit_to_okx(symbol)
+                okx_urls.append(f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}")
+                okx_urls.append(f"https://aws.okx.com/api/v5/market/ticker?instId={inst_id}")
+            else:
+                okx_urls.append("https://www.okx.com/api/v5/market/tickers?instType=SWAP")
+                okx_urls.append("https://aws.okx.com/api/v5/market/tickers?instType=SWAP")
+
+            okx_success = False
+            translated_list = []
+
+            for url in okx_urls:
+                try:
+                    async with httpx.AsyncClient(timeout=3.0) as client:
+                        response = await client.get(url)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get("code") == "0" and data.get("data"):
+                                okx_list = data["data"]
+                                for ot in okx_list:
+                                    bybit_sym = okx_service.okx_to_bybit(ot.get("instId"))
+                                    bybit_sym_clean = bybit_sym.replace(".P", "")
+                                    translated_list.append({
+                                        "symbol": bybit_sym_clean,
+                                        "lastPrice": ot.get("last", "0"),
+                                        "turnover24h": ot.get("volCcy24h", "0")
+                                    })
                                 
-                                translated_list.append({
-                                    "symbol": bybit_sym_clean,
-                                    "lastPrice": ot.get("last", "0"),
-                                    "turnover24h": ot.get("volCcy24h", "0")
-                                })
-                            
-                            # Filtra se houver símbolo específico
-                            if symbol:
-                                api_symbol = self.normalize_symbol(symbol)
-                                translated_list = [t for t in translated_list if t["symbol"] == api_symbol]
-                            
-                            res_payload = {
-                                "retCode": 0,
-                                "result": {
-                                    "list": translated_list
-                                }
-                            }
-                            
-                            if symbol is None:
-                                self._global_ticker_cache = res_payload
-                                self._global_ticker_cache_time = time.time()
+                                if symbol:
+                                    api_symbol = self.normalize_symbol(symbol)
+                                    translated_list = [t for t in translated_list if t["symbol"] == api_symbol]
                                 
-                            return res_payload
-            except Exception as e:
-                logger.error(f"Error fetching tickers from OKX for {symbol}: {e}")
-                
+                                if translated_list:
+                                    okx_success = True
+                                    break
+                except Exception as okx_err:
+                    logger.debug(f"[OKX-TICKER-TRY] Falha ao ler de {url}: {okx_err}")
+
+            if okx_success and translated_list:
+                res_payload = {"retCode": 0, "result": {"list": translated_list}}
+                if symbol is None:
+                    self._global_ticker_cache = res_payload
+                    self._global_ticker_cache_time = time.time()
+                return res_payload
+
+            # 3. FALLBACK DE ALTA DISPONIBILIDADE: Bybit APIs (Nativa e Espelho)
+            # Acionado se a OKX falhar devido a restrição de IP de servidores americanos.
+            logger.warning(f"⚠️ [OKX-REST FALLBACK] OKX Tickers falhou ou bloqueou conexão para {symbol or 'GLOBAL'}. Ativando contingência via Bybit!")
+            
+            bybit_urls = []
+            if symbol:
+                clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
+                bybit_urls.append(f"https://api.bybit.com/v5/market/tickers?category=linear&symbol={clean_sym}")
+                bybit_urls.append(f"https://api.bygames.com/v5/market/tickers?category=linear&symbol={clean_sym}")
+            else:
+                bybit_urls.append("https://api.bybit.com/v5/market/tickers?category=linear")
+                bybit_urls.append("https://api.bygames.com/v5/market/tickers?category=linear")
+
+            for url in bybit_urls:
+                try:
+                    async with httpx.AsyncClient(timeout=4.0) as client:
+                        response = await client.get(url)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get("retCode") == 0 and data.get("result", {}).get("list"):
+                                b_list = data["result"]["list"]
+                                bybit_translated = []
+                                for bt in b_list:
+                                    sym = bt.get("symbol", "").replace(".P", "").replace(".p", "").upper()
+                                    bybit_translated.append({
+                                        "symbol": sym,
+                                        "lastPrice": bt.get("lastPrice", "0"),
+                                        "turnover24h": bt.get("turnover24h", "0")
+                                    })
+                                
+                                if symbol:
+                                    api_symbol = self.normalize_symbol(symbol)
+                                    bybit_translated = [t for t in bybit_translated if t["symbol"] == api_symbol]
+
+                                if bybit_translated:
+                                    logger.info(f"✅ [OKX-REST FALLBACK SUCCESS] Tickers públicos da Bybit obtidos com sucesso em contingência!")
+                                    res_payload = {"retCode": 0, "result": {"list": bybit_translated}}
+                                    if symbol is None:
+                                        self._global_ticker_cache = res_payload
+                                        self._global_ticker_cache_time = time.time()
+                                    return res_payload
+                except Exception as byb_err:
+                    logger.debug(f"[BYBIT-FALLBACK-TRY] Falha em {url}: {byb_err}")
+
+            # 4. Fallback final em caso de apagão de rede completo
+            logger.error("🚨 [OKX-REST FATAL] Apagão de Rede Completo: OKX e Bybit falharam em fornecer tickers!")
             return {"retCode": -1, "result": {"list": []}}
 
     @with_circuit_breaker(breaker_name="bybit_rest_public", fallback_return={})
