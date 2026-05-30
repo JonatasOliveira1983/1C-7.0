@@ -399,7 +399,7 @@ class OKXService:
                         if data.get("data"):
                             ord_err = data["data"][0]
                             err_detail = f" | sCode: {ord_err.get('sCode')} | sMsg: {ord_err.get('sMsg')}"
-                            if ord_err.get("sCode") == "51001" and self.execution_mode == "PAPER":
+                            if ord_err.get("sCode") == "51001" and settings.BYBIT_EXECUTION_MODE == "PAPER":
                                 logger.warning(f"🤖 [OKX-REST MOCK] {inst_id} não existe na Testnet (erro 51001). Simulando execução local com sucesso.")
                                 return {
                                     "code": "0",
