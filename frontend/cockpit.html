@@ -4979,41 +4979,56 @@
             else if (roi >= 50) stage = { icon: '🌉', label: 'STAB', color: 'text-white' };
             else stage = { icon: '⚖️', label: 'BE+', color: 'text-amber-400' };
 
+            // 🌾 Calcula o próximo alvo do Ceifeiro dinamicamente para exibição no card
+            let nextCeifaRoi = 250;
+            if (roi >= 1200) nextCeifaRoi = 1200;
+            else if (roi >= 800) nextCeifaRoi = 1200;
+            else if (roi >= 600) nextCeifaRoi = 800;
+            else if (roi >= 450) nextCeifaRoi = 600;
+            else if (roi >= 350) nextCeifaRoi = 450;
+            else if (roi >= 250) nextCeifaRoi = 350;
+            
+            const move = nextCeifaRoi / ((Number(moonbag.leverage) || 50) * 100);
+            const targetPrice = side === 'LONG' ? entry * (1 + move) : entry * (1 - move);
+
             return (
-                <div className="moonbag-item cursor-pointer flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] px-1 transition-colors group" data-symbol={moonbag.symbol}>
-                    <div className="flex items-center gap-3">
-                        <div className="flex flex-col">
-                            <span className="text-[11px] font-black text-white font-mono leading-none">{symbol}</span>
-                            <span className={`text-[7px] font-bold uppercase ${side === 'LONG' ? 'text-white/60' : 'text-orange-500/60'}`}>{side}</span>
-                            {(moonbag.genesis_id || moonbag.order_id) && (
-                                <span className="text-[7px] font-mono text-white/40 uppercase block mt-0.5">
-                                    🧬 GENESIS: {moonbag.genesis_id || moonbag.order_id}
-                                </span>
+                <div className="cursor-pointer flex flex-col py-2 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] px-1 transition-colors group" data-symbol={moonbag.symbol}>
+                    {/* Linha Superior: Símbolo e PnL/ROI */}
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black text-white font-mono leading-none">{symbol}</span>
+                                <span className={`text-[7px] font-bold uppercase ${side === 'LONG' ? 'text-white/60' : 'text-orange-500/60'}`}>{side}</span>
+                                {(moonbag.genesis_id || moonbag.order_id) && (
+                                    <span className="text-[7px] font-mono text-white/40 uppercase block mt-0.5">
+                                        🧬 GENESIS: {moonbag.genesis_id || moonbag.order_id}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            {stage && (
+                                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                    <span className="text-[9px]">{stage.icon}</span>
+                                    <span className={`text-[7px] font-black uppercase tracking-tighter ${stage.color}`}>{stage.label}</span>
+                                </div>
                             )}
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                        {stage && (
-                            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px]">{stage.icon}</span>
-                                <span className={`text-[7px] font-black uppercase tracking-tighter ${stage.color}`}>{stage.label}</span>
-                            </div>
-                        )}
-                        <div className="text-right min-w-[70px]">
-                            <span className={`text-[12px] font-black font-mono leading-none ${roi >= 0 ? 'text-white' : 'text-red-400'}`}>
-                                {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%
-                            </span>
-                            <div className={`text-[9px] font-bold font-mono mt-0.5 ${roi >= 0 ? 'text-white/80' : 'text-orange-500/80'}`}>
-                                {roi >= 0 ? '+' : '-'}${Math.abs((roi / 100) * (moonbag.margin || 10)).toFixed(2)}
+                            <div className="text-right min-w-[70px]">
+                                <span className={`text-[12px] font-black font-mono leading-none ${roi >= 0 ? 'text-white' : 'text-red-400'}`}>
+                                    {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%
+                                </span>
+                                <div className={`text-[9px] font-bold font-mono mt-0.5 ${roi >= 0 ? 'text-white/80' : 'text-orange-500/80'}`}>
+                                    {roi >= 0 ? '+' : '-'}${Math.abs((roi / 100) * (moonbag.margin || 10)).toFixed(2)}
+                                </div>
                             </div>
                         </div>
                     </div>
-                    {/* [V110.126] Moonbag Tactical Targets */}
-                    <div className="flex justify-between items-center gap-4 px-2 py-1 mt-1 bg-white/[0.01] rounded text-[8px] font-mono opacity-60">
+                    {/* Linha Inferior: [V110.126] Moonbag Tactical Targets (E, S, T) */}
+                    <div className="flex justify-between items-center gap-2 px-2 py-1 mt-1.5 bg-white/[0.02] rounded text-[8px] font-mono opacity-85 border border-white/5 w-full">
                          <div className="flex gap-1"><span className="text-gray-500">E:</span><span className="text-white">${entry.toFixed(entry < 1 ? 5 : 2)}</span></div>
-                         <div className="flex gap-1"><span className="text-gray-500">S:</span><span className="text-orange-400">${Number(moonbag.stopLoss || 0).toFixed(Number(moonbag.stopLoss) < 1 ? 5 : 2)}</span></div>
-                         <div className="flex gap-1"><span className="text-gray-500">T:</span><span className="text-white">${(side === 'LONG' ? entry * (1 + 1.5/(Number(moonbag.leverage)||50)) : entry * (1 - 1.5/(Number(moonbag.leverage)||50))).toFixed(entry < 1 ? 5 : 2)}</span></div>
+                         <div className="flex gap-1"><span className="text-gray-500">S:</span><span className="text-orange-400">${Number(moonbag.current_stop || moonbag.stop_loss || moonbag.stopLoss || 0).toFixed(Number(moonbag.current_stop || moonbag.stop_loss || moonbag.stopLoss) < 1 ? 5 : 2)}</span></div>
+                         <div className="flex gap-1"><span className="text-gray-500">T:</span><span className="text-white">${targetPrice.toFixed(entry < 1 ? 5 : 2)}</span></div>
                     </div>
                 </div>
             );
