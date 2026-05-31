@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, Boolean, desc, select, update, delete
+from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, Boolean, desc, select, update, delete, text
 
 logger = logging.getLogger("DatabaseService")
 
@@ -275,6 +275,27 @@ class DatabaseService:
                 session.add(moon)
                 await session.commit()
                 logger.info(f"🚀 Moonbag criada para {slot['symbol']}")
+                
+                # [V110.183] Libera o slot no Postgres após emancipação
+                reset_data = {
+                    "symbol": None,
+                    "side": None,
+                    "qty": 0,
+                    "entry_margin": 0,
+                    "opened_at": None,
+                    "entry_price": 0,
+                    "initial_stop": 0,
+                    "current_stop": 0,
+                    "target_price": 0,
+                    "status_risco": "LIVRE",
+                    "pnl_percent": 0,
+                    "slot_type": None,
+                    "pattern": None,
+                    "pensamento": f"🔄 Emancipado: {slot['symbol']}",
+                    "rescue_activated": False,
+                    "rescue_resolved": False,
+                }
+                await self.update_slot(slot_id, reset_data)
                 return True
             except Exception as e:
                 logger.error(f"Erro ao promover {slot.get('symbol')} para moonbag: {e}")
@@ -290,12 +311,107 @@ class DatabaseService:
         return {}
 
     async def reset_system_data(self):
-        return True
+        """Purga total: limpa slots, moonbags, trade_history, order_genesis, banca=$100."""
+        try:
+            async with self.AsyncSessionLocal() as session:
+                # 1. Limpar trade_history
+                await session.execute(delete(TradeHistory))
+                
+                # 2. Limpar moonbags
+                await session.execute(delete(Moonbag))
+                
+                # 3. Limpar order_genesis (se existir)
+                try:
+                    await session.execute(text("DELETE FROM order_genesis"))
+                except:
+                    pass
+                
+                # 4. Resetar slots para LIVRE
+                now = datetime.utcnow()
+                await session.execute(
+                    update(Slot).values(
+                        symbol=None,
+                        side=None,
+                        qty=0.0,
+                        entry_price=0.0,
+                        entry_margin=0.0,
+                        current_stop=0.0,
+                        initial_stop=0.0,
+                        target_price=0.0,
+                        liq_price=0.0,
+                        pnl_percent=0.0,
+                        status_risco='LIVRE',
+                        order_id=None,
+                        genesis_id=None,
+                        vision_url=None,
+                        pensamento='ZERO RESET',
+                        score=0,
+                        opened_at=None,
+                        updated_at=now
+                    )
+                )
+                
+                # 5. Resetar banca para $100.00
+                banca = await session.get(BancaStatus, 1)
+                if banca:
+                    banca.saldo_total = 100.0
+                    banca.status = 'ZERO_RESET'
+                    banca.risco_real_percent = 0.0
+                    banca.updated_at = now
+                else:
+                    session.add(BancaStatus(
+                        id=1,
+                        saldo_total=100.0,
+                        status='ZERO_RESET',
+                        risco_real_percent=0.0,
+                        slots_disponiveis=4
+                    ))
+                
+                # 6. Resetar vault_cycles (se existir)
+                try:
+                    await session.execute(text("""
+                        UPDATE vault_cycles 
+                        SET sniper_wins = 0, cycle_profit = 0.0, cycle_losses = 0,
+                            total_trades_cycle = 0, accumulated_vault = 0.0
+                        WHERE id = 1
+                    """))
+                except:
+                    pass
+                
+                await session.commit()
+                logger.info("System data reset complete - all slots LIVRE, bank $100, history cleared.")
+                return True
+        except Exception as e:
+            logger.error(f"Error resetting system data: {e}")
+            return False
 
     # --- TRADE HISTORY ---
     async def log_trade(self, trade_data: dict):
         async with self.AsyncSessionLocal() as session:
             try:
+                # [V110.184] Converte qualquer datetime para string ISO no campo JSONB de metadados
+                clean_data = {}
+                for k, v in trade_data.items():
+                    if hasattr(v, "isoformat"):
+                        clean_data[k] = v.isoformat()
+                    else:
+                        clean_data[k] = v
+                
+                # Trata e converte o timestamp tipado para DateTime do SQLAlchemy
+                ts_val = trade_data.get("timestamp")
+                if isinstance(ts_val, str):
+                    try:
+                        from datetime import datetime as dt
+                        ts_val = dt.fromisoformat(ts_val.replace("Z", "+00:00"))
+                    except:
+                        ts_val = None
+                
+                if isinstance(ts_val, datetime):
+                    if ts_val.tzinfo is not None:
+                        ts_val = ts_val.replace(tzinfo=None)
+                else:
+                    ts_val = datetime.utcnow()
+                
                 new_trade = TradeHistory(
                     order_id=str(trade_data.get("order_id")),
                     genesis_id=trade_data.get("genesis_id"),
@@ -307,7 +423,8 @@ class DatabaseService:
                     exit_price=float(trade_data.get("exit_price", 0)),
                     strategy=trade_data.get("strategy"),
                     close_reason=trade_data.get("close_reason"),
-                    data=trade_data
+                    timestamp=ts_val,
+                    data=clean_data
                 )
                 session.add(new_trade)
                 await session.commit()
