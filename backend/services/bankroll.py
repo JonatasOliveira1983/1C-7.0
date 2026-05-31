@@ -1040,8 +1040,8 @@ class BankrollManager:
                 # [V29.1] HYBRID OCCUPIED COUNT: Anti-Flap Shield
                 # Prevent the Single Order Rule from breaking if memory is momentarily blank but Firestore is not
                 # [V110.0] Ignora slots emancipados no limite de capacidade
-                firestore_occupied = sum(1 for s in slots if s.get("symbol") and s.get("status") != "EMANCIPATED")
-                occupied_count = max(len([p for p in paper_positions if p.get("status") != "EMANCIPATED"]), firestore_occupied)
+                firestore_occupied = sum(1 for s in slots if s.get("symbol") and s.get("status") != "EMANCIPATED" and s.get("status_risco") != "EMANCIPATED")
+                occupied_count = max(len([p for p in paper_positions if p.get("status") != "EMANCIPATED" and p.get("status_risco") != "EMANCIPATED"]), firestore_occupied)
                 
                 # Check if symbol is already pending or active
                 if symbol:
@@ -1076,7 +1076,7 @@ class BankrollManager:
                 for i in range(1, 5):
                     slot = next((s for s in slots if s.get("id") == i), None)
                     slot_symbol = (slot.get("symbol") or "").replace(".P", "").upper() if slot else None
-                    slot_status = slot.get("status") if slot else None
+                    slot_status = (slot.get("status_risco") or slot.get("status")) if slot else None
                     is_ghost = slot and slot.get("symbol") and (float(slot.get("qty", 0)) <= 0 or float(slot.get("entry_price", 0)) <= 0)
                     if not slot or not slot_symbol or is_ghost or slot_status == "EMANCIPATED":
                         if not any(k[1] == i for k in self.pending_slots):
@@ -1119,8 +1119,14 @@ class BankrollManager:
             # [V110.8] Anti-Orphan Exchange Guard
             # Se já temos 4 ordens na Bybit/Simulação, BLOQUEIA mesmo que o Firebase diga que há slots vazios.
             live_positions = await bybit_rest_service.get_active_positions()
-            if len(live_positions) >= max_total_slots:
-                logger.warning(f"🚫 [EXCHANGE GUARD] Já existem {len(live_positions)} ordens na Bybit. Bloqueando abertura de {symbol} para evitar órfãos.")
+            
+            # [V110.178] Moonbag Exclusion: Ignore positions that are registered as Moonbags in the database
+            moonbags_data = await firebase_service.get_moonbags()
+            moon_symbols = {m.get("symbol", "").replace(".P", "").upper() for m in moonbags_data}
+            tactical_positions = [p for p in live_positions if p.get("symbol", "").replace(".P", "").upper() not in moon_symbols]
+            
+            if len(tactical_positions) >= max_total_slots:
+                logger.warning(f"🚫 [EXCHANGE GUARD] Já existem {len(tactical_positions)} ordens táticas ativas na Bybit. Bloqueando abertura de {symbol} para evitar órfãos.")
                 return None
 
             # [V12.0] Total Limit Check: Expanded to 4
@@ -1134,7 +1140,7 @@ class BankrollManager:
             for i in range(1, 5):
                 slot_data = slot_map.get(i)
                 is_ghost = slot_data and slot_data.get("symbol") and (float(slot_data.get("qty", 0)) <= 0 or float(slot_data.get("entry_price", 0)) <= 0)
-                if not slot_data or not slot_data.get("symbol") or is_ghost or slot_data.get("status") == "EMANCIPATED":
+                if not slot_data or not slot_data.get("symbol") or is_ghost or slot_data.get("status") == "EMANCIPATED" or slot_data.get("status_risco") == "EMANCIPATED":
                     logger.info(f"💎 [REAL-TEST-FIRE] Forçando Slot {i} disponivel para {slot_type}.")
                     return i
 

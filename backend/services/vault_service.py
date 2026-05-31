@@ -809,6 +809,11 @@ class VaultService:
         Returns: (allowed: bool, reason: str)
         """
         try:
+            # [V110.178] PAPER MODE BYPASS: Paper mode has no cycle restrictions
+            from services.okx_rest import okx_rest_service as bybit_rest_service
+            if bybit_rest_service and bybit_rest_service.execution_mode == "PAPER":
+                return True, "Paper mode bypasses Almirante restrictions"
+
             status = await self.get_cycle_status()
             
             # [V10.6.2] Master Toggle IGNORED for Autonomous Mode
