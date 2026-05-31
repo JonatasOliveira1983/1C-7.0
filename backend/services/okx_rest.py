@@ -1384,8 +1384,9 @@ class OKXRest:
         logger.warning(f"⚠️ [OKX-REST KLINES FALLBACK] Ativando contingência de candles via Bybit para {symbol} (Intervalo: {interval})")
         clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
         bybit_urls = [
-            f"https://api.bybit.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}",
-            f"https://api.bygames.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}"
+            f"https://api.bytick.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}",
+            f"https://api.bygames.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}",
+            f"https://api.bybit.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}"
         ]
 
         for url in bybit_urls:
