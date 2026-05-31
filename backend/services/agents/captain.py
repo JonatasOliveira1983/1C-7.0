@@ -994,20 +994,20 @@ class CaptainAgent(AIOSAgent):
             
             if is_counter_trend and bybit_rest_service.execution_mode != "PAPER":
                 can_bypass = False
-                # [V110.128] CONTRATENDÊNCIA VIOLENTA: Bloqueio total se var_15m > 0.6%
-                if abs(btc_variation_15m) >= 0.6:
+                # [V110.128] CONTRATENDÊNCIA VIOLENTA: Bloqueio total se var_15m > 0.8%
+                if abs(btc_variation_15m) >= 0.8:
                     can_bypass = False
                     logger.warning(f"🛑 [VIOLENT-TREND-BLOCK] {symbol} {side} contra tendência violenta do BTC ({btc_variation_15m:.2f}% em 15m). Riscos de massacre ignorados.")
-                elif score >= 95 and "NECTAR" in nectar_seal:
-                    # [V110.30.1] CONTRATENDÊNCIA: Apenas Sinais ELITE (Score >= 95) COM selo Néctar podem furar.
+                elif score >= 90 and ("NECTAR" in nectar_seal or "ELITE" in nectar_seal):
+                    # [V110.30.1] CONTRATENDÊNCIA: Sinais ELITE (Score >= 90) COM selo Néctar/Elite podem furar.
                     can_bypass = True
-                    logger.info(f"💎 [ELITE-BYPASS] {symbol} furando contra-tendência BTC {btc_dir} com Score {score} e selo Néctar.")
+                    logger.info(f"💎 [ELITE-BYPASS] {symbol} furando contra-tendência BTC {btc_dir} com Score {score} e selo {nectar_seal}.")
                 else:
                     can_bypass = False
-                    if score >= 95:
-                        logger.warning(f"🛑 [ABSOLUTE DIRECTION BLOCK] {symbol} {side} negado: Tem Score {score} mas faltando selo Néctar (Selo atual: {nectar_seal}).")
+                    if score >= 90:
+                        logger.warning(f"🛑 [ABSOLUTE DIRECTION BLOCK] {symbol} {side} negado: Tem Score {score} mas faltando selo Néctar/Elite (Selo atual: {nectar_seal}).")
                     else:
-                        logger.warning(f"🛑 [ABSOLUTE DIRECTION BLOCK] {symbol} {side} negado: Contra tendência BTC {btc_dir} (Score {score} < 95).")
+                        logger.warning(f"🛑 [ABSOLUTE DIRECTION BLOCK] {symbol} {side} negado: Contra tendência BTC {btc_dir} (Score {score} < 90).")
                     
                 if not can_bypass:
                     msg = f"🚫 [MACRO 110.128 BLOCK] Bloqueado {symbol} ({side}) contra a tendência BTC {btc_dir} (ADX={deep_macro['adx']:.1f} | Var15m={btc_variation_15m:.2f}%)."
@@ -1017,7 +1017,7 @@ class CaptainAgent(AIOSAgent):
                     self.active_tocaias.discard(symbol)
                     return
                 else:
-                    logger.info(f"🎯 [V110.128 BYPASS] Permitindo {symbol} ({side}) contra-tendência por critérios de Elite (Score >= 95).")
+                    logger.info(f"🎯 [V110.128 BYPASS] Permitindo {symbol} ({side}) contra-tendência por critérios de Elite (Score >= 90).")
             else:
                 logger.info(f"✅ [V67.3 TREND] {symbol} {side} a favor da tendência BTC {btc_dir}.")
 
@@ -1095,11 +1095,11 @@ class CaptainAgent(AIOSAgent):
 
             in_cooldown, remaining = await self.is_symbol_in_cooldown(symbol)
             if in_cooldown:
-                if score >= 95:
+                if score >= 90:
                     logger.info(f"⚡ V12.5 ELITE BYPASS: {symbol} score {score} furando cooldown!")
                     # Elite signal bypasses cooldown - continues execution
                 else:
-                    logger.info(f"⏱️ {symbol} no cooldown (score {score} < 95). Abortando.")
+                    logger.info(f"⏱️ {symbol} no cooldown (score {score} < 90 | Restante: {remaining:.0f}s). Abortando.")
                     await firebase_service.update_signal_outcome(best_signal["id"], "COOLDOWN_SKIP")
                     if slot_id: await firebase_service.free_slot(slot_id, "Cooldown Skip")
                     return

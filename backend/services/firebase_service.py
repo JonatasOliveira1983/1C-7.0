@@ -274,33 +274,50 @@ class FirebaseService:
         Logs a completed trade to history.
         [V110.112] BULLETPROOFING: Uses SERVER_TIMESTAMP and local backup.
         """
-        if not self.is_active: return
-        
         symbol = trade_data.get('symbol', 'UNKNOWN')
         order_id = trade_data.get('order_id')
         pnl = float(trade_data.get('pnl', 0))
 
+        # 0. [V110.999] SEMPRE PERSISTIR NO POSTGRESQL (Railway SSOT) INDEPENDENTE DO FIREBASE
         try:
-            # 1. [V110.114] Block ghost cleanups but allow real breakeven trades
-            close_reason = trade_data.get("close_reason", "")
-            _GHOST_TAGS = ["GHOST", "PURGE", "CLEANUP", "SYNC"]
-            is_ghost = any(tag in close_reason.upper() for tag in _GHOST_TAGS)
-            if abs(pnl) < 0.0001 and (is_ghost or not close_reason):
-                logger.info(f"🛡️ [VAULT-FILTER] Blocked ghost/zero PnL for {symbol}. Reason: {close_reason or 'N/A'}")
-                return
+            from services.database_service import database_service
+            pg_data = trade_data.copy()
+            if "timestamp" in pg_data and isinstance(pg_data["timestamp"], str):
+                try:
+                    pg_data["timestamp"] = datetime.datetime.fromisoformat(pg_data["timestamp"].replace("Z", "+00:00"))
+                except:
+                    pg_data["timestamp"] = datetime.datetime.utcnow()
+            elif "timestamp" not in pg_data:
+                pg_data["timestamp"] = datetime.datetime.utcnow()
+            
+            await database_service.log_trade(pg_data)
+            logger.info(f"✅ [POSTGRES-HISTORY] {symbol} logged in relational database.")
+        except Exception as pg_err:
+            logger.error(f"❌ [POSTGRES-HISTORY-ERROR] Failed to save in Postgres: {pg_err}")
 
-            # 2. Local Backup (Emergency Safety Net)
-            try:
-                backup_file = "trade_history_backup.json"
-                backup_entry = {**trade_data, "logged_at": datetime.datetime.now().isoformat()}
-                
-                import json, os
-                mode = 'a' if os.path.exists(backup_file) else 'w'
-                with open(backup_file, mode) as f:
-                    f.write(json.dumps(backup_entry) + "\n")
-            except Exception as be:
-                logger.warning(f"⚠️ [BACKUP-FAIL] Could not write local trade backup: {be}")
+        # 1. [V110.114] Block ghost cleanups but allow real breakeven trades
+        close_reason = trade_data.get("close_reason", "")
+        _GHOST_TAGS = ["GHOST", "PURGE", "CLEANUP", "SYNC"]
+        is_ghost = any(tag in close_reason.upper() for tag in _GHOST_TAGS)
+        if abs(pnl) < 0.0001 and (is_ghost or not close_reason):
+            logger.info(f"🛡️ [VAULT-FILTER] Blocked ghost/zero PnL for {symbol}. Reason: {close_reason or 'N/A'}")
+            return
 
+        # 2. Local Backup (Emergency Safety Net)
+        try:
+            backup_file = "trade_history_backup.json"
+            backup_entry = {**trade_data, "logged_at": datetime.datetime.now().isoformat()}
+            
+            import json, os
+            mode = 'a' if os.path.exists(backup_file) else 'w'
+            with open(backup_file, mode) as f:
+                f.write(json.dumps(backup_entry) + "\n")
+        except Exception as be:
+            logger.warning(f"⚠️ [BACKUP-FAIL] Could not write local trade backup: {be}")
+
+        if not self.is_active: return
+
+        try:
             # 3. Firestore Logging
             def _log():
                 final_data = trade_data.copy()
