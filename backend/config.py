@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     BYBIT_API_SECRET: Optional[str] = None
     BYBIT_CATEGORY: str = "linear"
     BYBIT_TESTNET: bool = False # FALSE = Mainnet Data (Real Prices)
-    BYBIT_EXECUTION_MODE: str = os.getenv("BYBIT_EXECUTION_MODE", "REAL") # "PAPER" = Simulated Execution
+    BYBIT_EXECUTION_MODE: str = os.getenv("BYBIT_EXECUTION_MODE", "PAPER") # "PAPER" = Simulated Execution
     BYBIT_SIMULATED_BALANCE: float = 100.0 # [V110.175] Reset para banca padrão Sniper
     FACTORY_RESET_V110: bool = False # [V110.29.0] Reset atômico do sistema
 
