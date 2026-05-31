@@ -187,8 +187,19 @@ class FleetAudit(AIOSAgent):
                         moon_id  = m.get("id")
                         m_symbol = (m.get("symbol") or "").replace(".P", "").upper()
                         promoted_at = m.get("promoted_at", 0)
+                        
+                        try:
+                            if isinstance(promoted_at, (int, float)):
+                                promoted_at_ts = float(promoted_at)
+                            elif hasattr(promoted_at, "timestamp"):
+                                promoted_at_ts = promoted_at.timestamp()
+                            else:
+                                promoted_at_ts = float(promoted_at or 0)
+                        except Exception:
+                            promoted_at_ts = now
+
                         # Buffer de 5 min para evitar race-condition na promocao
-                        if (now - promoted_at) < 300:
+                        if (now - promoted_at_ts) < 300:
                             continue
                         if m_symbol not in paper_moon_syms:
                             msg = f"[PAPER-AUDIT] GHOST MOONBAG: {m_symbol} ({moon_id}) no Firestore mas ausente em paper_moonbags. Purgando."

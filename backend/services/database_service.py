@@ -40,7 +40,7 @@ class Slot(Base):
     strategy = Column(String, nullable=True)
     strategy_label = Column(String, nullable=True)
     genesis_id = Column(String, nullable=True)
-    opened_at = Column(DateTime, nullable=True)
+    opened_at = Column(Float, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Metadados adicionais de auditoria, concorrência e UI
@@ -213,7 +213,7 @@ class DatabaseService:
             try:
                 # V110.176: Clean and convert date fields passed as floats/ints to datetime objects
                 clean_data = data.copy()
-                for key in ["opened_at", "updated_at"]:
+                for key in ["updated_at"]:
                     if key in clean_data:
                         val = clean_data[key]
                         if isinstance(val, (int, float)):

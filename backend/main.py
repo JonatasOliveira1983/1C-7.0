@@ -330,6 +330,7 @@ async def lifespan(app: FastAPI):
                         # [V110.25.1] Legacy startup cleanup removed to preserve slot persistence.
                         # BankrollManager now handles safe ghost-busting with 10m grace period.
                         logger.info("Step 3.1: Initial Sync COMPLETE ✅")
+
                     except Exception as e:
                         logger.error(f"Step 3.1: Initial Sync ERROR: {e}")
                 
