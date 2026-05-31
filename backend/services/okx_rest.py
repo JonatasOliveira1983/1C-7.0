@@ -1398,6 +1398,8 @@ class OKXRest:
                 gate_sym = gate_sym.replace("SHIB1000", "SHIB")
             if "PEPE1000" in gate_sym:
                 gate_sym = gate_sym.replace("PEPE1000", "PEPE")
+            if "LUNA2" in gate_sym:
+                gate_sym = gate_sym.replace("LUNA2", "LUNA")
                 
             if gate_sym.endswith("USDT"):
                 gate_sym = gate_sym[:-4] + "_USDT"

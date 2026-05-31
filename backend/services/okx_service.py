@@ -341,21 +341,27 @@ class OKXService:
             "clOrdId": cl_ord_id
         }
 
-        # Acopla o Stop Loss se fornecido
+        # Acopla o Stop Loss / Take Profit via attachAlgoOrds (Exigência Moderna da OKX API v5)
+        attach_list = []
+        algo_item = {}
+        
         if sl_price and sl_price > 0:
-            order_req.update({
-                "slOrdPx": "-1",  # Preço de mercado para disparar
+            algo_item.update({
+                "slOrdPx": "-1",
                 "slTriggerPx": f"{sl_price:.8f}".rstrip('0').rstrip('.'),
                 "slTriggerPxType": "last"
             })
-
-        # Acopla o Take Profit se fornecido
+            
         if tp_price and tp_price > 0:
-            order_req.update({
-                "tpOrdPx": "-1",  # Preço de mercado para disparar
+            algo_item.update({
+                "tpOrdPx": "-1",
                 "tpTriggerPx": f"{tp_price:.8f}".rstrip('0').rstrip('.'),
                 "tpTriggerPxType": "last"
             })
+            
+        if algo_item:
+            attach_list.append(algo_item)
+            order_req["attachAlgoOrds"] = attach_list
 
         if self.is_mock:
             logger.info(f"🤖 [OKX-REST MOCK] place_atomic_order simulada: {order_req}")
