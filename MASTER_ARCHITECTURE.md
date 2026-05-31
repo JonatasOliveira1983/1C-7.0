@@ -1,11 +1,16 @@
-# MASTER_ARCHITECTURE.md — V110.999 "SaaS v5.5.0"
+# MASTER_ARCHITECTURE.md — V110.180 "SaaS v5.5.0"
 # Fonte da Verdade Arquitetural — Sincronizado com RULES.md
 
 ## 🚀 ROADMAP DE VERSÕES & MARCOS TÉCNICOS
 
+*   **V110.180: POSTGRES TYPE CONCILIATION & AUDIT RESILIENCE [MAY 31]**
+    - **Postgres Datatype Mismatch Resolution**: Correção na tabela `slots` para alinhar o campo `opened_at` mapeado no SQLAlchemy como `Column(Float)` ao invés de `Column(DateTime)`, conciliando-o com o tipo `DOUBLE PRECISION` da coluna física no PostgreSQL do Railway. Isso eliminou o erro fatal `DatatypeMismatchError` que travava silenciosamente a persistência de novos slots.
+    - **FleetAudit DateTime Fallback**: Correção do crash no motor de auditoria contínua (`FleetAudit`) em modo PAPER, tratando de forma segura o campo `promoted_at` das moonbags (que variava entre `datetime`, `float` ou `None`) para evitar exceções do tipo `TypeError` na comparação de tempo.
+    - **Paper Slot Verification**: Teste cirúrgico ponta a ponta com a abertura bem-sucedida de ordens locais no Postgres compartilhado de produção no Railway (**ENAUSDT.P** no Slot 1 e **SOLUSDT** no Slot 2 com status **ATIVO**).
+
 *   **V110.999: RADAR PERSISTENCE & DESKTOP VAULT SYNC [MAY 28]**
     - **Radar Pulse PostgreSQL Persistence**: Os sinais e decisões do Radar Pulse agora são salvos de forma robusta e transparente na tabela `radar_pulse` do banco de dados Postgres de produção para sobreviver a resets de RAM do contêiner Railway.
-    - **Firebase Failover & Fallbacks**: Em caso de inatividade ou queda do SDK do Firebase, o backend redireciona a leitura de pulso de radar, banca e histórico (`trade_history`) diretamente para o Postgres em tempo real, eliminando o eterno "Scanning Slot..." na UI.
+    - **Firebase Failover & Fallbacks**: Em caso de inatividade ou queda do SDK do Firebase, o backend redireciona a leitura de pulso de radar, banca e histórico (`trade_history`) diretamente para o Postgres in-real-time, eliminando o eterno "Scanning Slot..." na UI.
     - **Unified Desktop/Mobile Vault UI**: Alinhamento visual do histórico da Vault no cockpit Desktop com o layout Mobile (cards ricos com badges, selo de prova do Agente Visão, genesys ID e TriumphModal de briefing de triunfo por clique).
     - **SignalGenerator Scope Fix**: Correção de escopo de variável local de `bybit_ws_service` que causava eterno status "Scanning Slot" em produção.
     - **Telegram /banca Command & Guardian Soul Shield**: Comando `/banca` no bot de Telegram integrado com leitura em tempo real e blindagem de persona com o `GUARDIAN_PROMPT.md` ativado sob a flag `HERMES_GUARDIAN=1` no Railway, junto com permissões corretas do Dockerfile.
@@ -342,5 +347,5 @@ O sistema opera em uma arquitetura de "Espelhamento Reativo Híbrido":
 
 ---
 
-*Documento atualizado em: 2026-05-28 (V110.999) Sincronizado*
+*Documento atualizado em: 2026-05-31 (V110.180) Sincronizado*
 *Este documento reflete a descentralização total da arquitetura via Agentes de Slot Independentes e resiliência total de dados via PostgreSQL.*
