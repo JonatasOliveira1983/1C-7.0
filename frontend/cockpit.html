@@ -4991,8 +4991,48 @@
             const move = nextCeifaRoi / ((Number(moonbag.leverage) || 50) * 100);
             const targetPrice = side === 'LONG' ? entry * (1 + move) : entry * (1 - move);
 
+            // 🎖️ Badge dinâmico do próximo alvo do Ceifeiro
+            const ceifeiroBadges = [
+                { minRoi: 0,    nextRoi: 250,  label: '1ª COL',   color: 'bg-blue-600/80',       icon: '🌾' },
+                { minRoi: 250,  nextRoi: 350,  label: '2ª COL',   color: 'bg-teal-500/80',        icon: '🌾' },
+                { minRoi: 350,  nextRoi: 450,  label: '3ª COL',   color: 'bg-purple-600/80',      icon: '🌾' },
+                { minRoi: 450,  nextRoi: 600,  label: 'GOLD',     color: 'bg-emerald-500/80',     icon: '🥇' },
+                { minRoi: 600,  nextRoi: 800,  label: 'CHOKE',    color: 'bg-amber-500/80',       icon: '⚡' },
+                { minRoi: 800,  nextRoi: 1200, label: 'HYPER 🔱', color: 'bg-red-600/80',         icon: '🔱' },
+                { minRoi: 1200, nextRoi: 1200, label: 'APEX 🔱',  color: 'bg-red-800/90',         icon: '🔱' },
+            ];
+            const ceifBadge = ceifeiroBadges.find(b => roi >= b.minRoi && roi < b.nextRoi) || ceifeiroBadges[ceifeiroBadges.length - 1];
+
+            // 💎 Badge de Profit-Lock baseado no stop atual
+            const stopVal = Number(moonbag.current_stop || moonbag.stop_loss || moonbag.stopLoss || 0);
+            let profitLockBadge = null;
+            if (stopVal > 0 && entry > 0) {
+                const stopRoi = (side === 'LONG'
+                    ? (stopVal / entry - 1)
+                    : (1 - stopVal / entry)
+                ) * 100 * (Number(moonbag.leverage) || 50);
+                if (stopRoi >= 110) {
+                    let lockColor = 'bg-emerald-600/90';
+                    let lockLabel = `💎 TRAVADO +${stopRoi.toFixed(0)}%`;
+                    if (stopRoi >= 600) { lockColor = 'bg-red-600/90'; lockLabel = `🔱 HYPER-LOCK +${stopRoi.toFixed(0)}%`; }
+                    else if (stopRoi >= 350) { lockColor = 'bg-amber-500/90'; lockLabel = `⚡ GOLD-LOCK +${stopRoi.toFixed(0)}%`; }
+                    else if (stopRoi >= 200) { lockColor = 'bg-teal-500/90'; lockLabel = `🛡️ PROFIT-LOCK +${stopRoi.toFixed(0)}%`; }
+                    profitLockBadge = { color: lockColor, label: lockLabel };
+                } else if (stopRoi >= 0) {
+                    profitLockBadge = { color: 'bg-blue-600/70', label: `🛡️ RISCO ZERO` };
+                }
+            }
+
             return (
-                <div className="cursor-pointer flex flex-col py-2 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] px-1 transition-colors group" data-symbol={moonbag.symbol}>
+                <div
+                    className="moonbag-item cursor-pointer py-2 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] px-1 transition-colors group"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', whiteSpace: 'normal', background: 'transparent', borderRadius: '0', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.03)', padding: '8px 4px' }}
+                    data-symbol={moonbag.symbol}
+                    data-entry={entry}
+                    data-sl={stopVal}
+                    data-side={moonbag.side}
+                    data-leverage={moonbag.leverage || 50}
+                >
                     {/* Linha Superior: Símbolo e PnL/ROI */}
                     <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
@@ -5001,20 +5041,19 @@
                                 <span className={`text-[7px] font-bold uppercase ${side === 'LONG' ? 'text-white/60' : 'text-orange-500/60'}`}>{side}</span>
                                 {(moonbag.genesis_id || moonbag.order_id) && (
                                     <span className="text-[7px] font-mono text-white/40 uppercase block mt-0.5">
-                                        🧬 GENESIS: {moonbag.genesis_id || moonbag.order_id}
+                                        🧬 {moonbag.genesis_id || moonbag.order_id}
                                     </span>
                                 )}
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-3">
-                            {stage && (
-                                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-[9px]">{stage.icon}</span>
-                                    <span className={`text-[7px] font-black uppercase tracking-tighter ${stage.color}`}>{stage.label}</span>
-                                </div>
-                            )}
-                            <div className="text-right min-w-[70px]">
+                        <div className="flex flex-col items-end gap-1">
+                            {/* 🌾 Badge do próximo alvo do Ceifeiro */}
+                            <div className={`${ceifBadge.color} text-white text-[7px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 border border-white/10 whitespace-nowrap`}>
+                                <span>{ceifBadge.icon}</span>
+                                <span>PRÓX: {ceifBadge.label} {ceifBadge.nextRoi}%</span>
+                            </div>
+                            <div className="text-right">
                                 <span className={`text-[12px] font-black font-mono leading-none ${roi >= 0 ? 'text-white' : 'text-red-400'}`}>
                                     {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%
                                 </span>
@@ -5024,11 +5063,19 @@
                             </div>
                         </div>
                     </div>
+
+                    {/* 💎 Badge de Profit-Lock */}
+                    {profitLockBadge && (
+                        <div className={`${profitLockBadge.color} text-white text-[7px] font-black px-2 py-0.5 mt-1 rounded flex items-center gap-1 border border-white/10 w-fit animate-triumph`}>
+                            {profitLockBadge.label}
+                        </div>
+                    )}
+
                     {/* Linha Inferior: [V110.126] Moonbag Tactical Targets (E, S, T) */}
                     <div className="flex justify-between items-center gap-2 px-2 py-1 mt-1.5 bg-white/[0.02] rounded text-[8px] font-mono opacity-85 border border-white/5 w-full">
                          <div className="flex gap-1"><span className="text-gray-500">E:</span><span className="text-white">${entry.toFixed(entry < 1 ? 5 : 2)}</span></div>
-                         <div className="flex gap-1"><span className="text-gray-500">S:</span><span className="text-orange-400">${Number(moonbag.current_stop || moonbag.stop_loss || moonbag.stopLoss || 0).toFixed(Number(moonbag.current_stop || moonbag.stop_loss || moonbag.stopLoss) < 1 ? 5 : 2)}</span></div>
-                         <div className="flex gap-1"><span className="text-gray-500">T:</span><span className="text-white">${targetPrice.toFixed(entry < 1 ? 5 : 2)}</span></div>
+                         <div className="flex gap-1"><span className="text-gray-500">S:</span><span className="text-orange-400">${stopVal.toFixed(stopVal < 1 ? 5 : 2)}</span></div>
+                         <div className="flex gap-1"><span className="text-gray-500">T:</span><span className="text-emerald-400">${targetPrice.toFixed(entry < 1 ? 5 : 2)} ({nextCeifaRoi}%)</span></div>
                     </div>
                 </div>
             );
@@ -6742,15 +6789,25 @@
                             {/* 3. MOONBAG VAULT */}
                             <section>
                                 <div onClick={(e) => {
-                                    // Pega o clique das moonbags, mas para ser cirúrgico, o ideal é o MoonbagVault receber a prop. Mas como fallback (interceptar o node pai):
+                                    // [V110.700] Clique cirúrgico na Moonbag → abre gráfico com trajetória completa
                                     const target = e.target.closest('.moonbag-item');
                                     if(target) {
                                        const sym = target.getAttribute('data-symbol');
+                                       const entry = parseFloat(target.getAttribute('data-entry') || 0);
+                                       const sl = parseFloat(target.getAttribute('data-sl') || 0);
+                                       const side = target.getAttribute('data-side') || 'Buy';
+                                       const leverage = parseFloat(target.getAttribute('data-leverage') || 50);
                                        if(sym) {
+                                           // Normaliza o símbolo para XYZUSDT format para o gráfico
+                                           const cleanSym = sym.replace('.P','').replace('.p','').replace('USDT','').toUpperCase() + 'USDT';
                                            setFocusedAsset({
                                                type: 'moonbag',
-                                               symbol: sym,
-                                               pensamento: `Ceifeiro: Observando Fibo 1.618. Posição Moonbag Livre de Risco.`,
+                                               symbol: cleanSym,
+                                               entry: entry,
+                                               sl: sl,
+                                               side: side,
+                                               leverage: leverage,
+                                               pensamento: `🌾 Ceifeiro: Moonbag em Surf Eterno — Alvos até 1200% ROI.`,
                                            });
                                            setGridMode('1');
                                        }
