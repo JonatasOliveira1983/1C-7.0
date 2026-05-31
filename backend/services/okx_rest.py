@@ -1297,7 +1297,7 @@ class OKXRest:
         # 1. Check cache WITHOUT lock (fast path)
         if cache_key in _GLOBAL_KLINES_CACHE:
             ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
-            if now - ts < 60.0:  # Cache de 60 segundos
+            if now - ts < 180.0:  # Cache de 180 segundos (3 minutos) para aliviar rate limits
                 return cached_data[:limit]
         
         # 2. Acquire lock to prevent Thundering Herd (multiple tasks asking for the same BTC candles at the same time)
@@ -1309,7 +1309,7 @@ class OKXRest:
             now = time.time()
             if cache_key in _GLOBAL_KLINES_CACHE:
                 ts, cached_data = _GLOBAL_KLINES_CACHE[cache_key]
-                if now - ts < 60.0:
+                if now - ts < 180.0:
                     return cached_data[:limit]
                     
         # 4. Tentar obter via OKX
@@ -1380,8 +1380,57 @@ class OKXRest:
         except Exception as e:
             logger.error(f"Error fetching klines from OKX public API for {symbol}: {e}")
 
-        # 5. FALLBACK DE ALTA DISPONIBILIDADE: Bybit APIs (se a OKX falhar ou der rate limit definitivo)
-        logger.warning(f"⚠️ [OKX-REST KLINES FALLBACK] Ativando contingência de candles via Bybit para {symbol} (Intervalo: {interval})")
+        # 5. FALLBACK DE ALTA DISPONIBILIDADE: Gate.io & Bybit APIs
+        logger.warning(f"⚠️ [OKX-REST KLINES FALLBACK] Ativando contingência de candles para {symbol} (Intervalo: {interval})")
+        
+        # A. Tentar via Gate.io (Livre de Geoblock de IPs americanos do Railway)
+        try:
+            gate_interval_map = {
+                "1": "1m", "3": "1m", "5": "5m", "15": "15m", "30": "30m",
+                "60": "1h", "120": "2h", "240": "4h", "D": "1d",
+                "1m": "1m", "3m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+                "1H": "1h", "2H": "2h", "4H": "4h", "1D": "1d"
+            }
+            gate_bar = gate_interval_map.get(str(interval), "1h")
+            
+            gate_sym = symbol.replace(".P", "").replace(".p", "").upper()
+            if "SHIB1000" in gate_sym:
+                gate_sym = gate_sym.replace("SHIB1000", "SHIB")
+            if "PEPE1000" in gate_sym:
+                gate_sym = gate_sym.replace("PEPE1000", "PEPE")
+                
+            if gate_sym.endswith("USDT"):
+                gate_sym = gate_sym[:-4] + "_USDT"
+            else:
+                gate_sym = gate_sym + "_USDT"
+                
+            gate_url = f"https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract={gate_sym}&interval={gate_bar}&limit={limit}"
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(gate_url)
+                if response.status_code == 200:
+                    gate_candles = response.json()
+                    if isinstance(gate_candles, list) and len(gate_candles) > 0:
+                        formatted = []
+                        for c in gate_candles:
+                            if isinstance(c, dict) and "t" in c and "o" in c:
+                                formatted.append([
+                                    str(int(c["t"]) * 1000), # start_time em ms
+                                    c["o"], # open
+                                    c["h"], # high
+                                    c["l"], # low
+                                    c["c"], # close
+                                    str(c.get("v", "0")), # volume
+                                    "0"  # turnover
+                                ])
+                        if formatted:
+                            logger.info(f"✅ [KLINES FALLBACK SUCCESS] Candles públicos da Gate.io obtidos com sucesso para {symbol}!")
+                            _GLOBAL_KLINES_CACHE[cache_key] = (time.time(), formatted)
+                            return formatted[:limit]
+        except Exception as gate_err:
+            logger.debug(f"[GATEIO-KLINES-FALLBACK-TRY] Falha ao obter da Gate.io: {gate_err}")
+
+        # B. Contingência secundária via Bybit (Caso a Gate.io falhe e o IP permita)
         clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
         bybit_urls = [
             f"https://api.bytick.com/v5/market/kline?category=linear&symbol={clean_sym}&interval={interval}&limit={limit}",
@@ -1397,7 +1446,6 @@ class OKXRest:
                         data = response.json()
                         if data.get("retCode") == 0 and data.get("result", {}).get("list"):
                             bybit_candles = data["result"]["list"]
-                            # Bybit retorna lista de arrays: [startTime, open, high, low, close, volume, turnover]
                             formatted = []
                             for c in bybit_candles:
                                 if len(c) >= 5:
@@ -1411,7 +1459,7 @@ class OKXRest:
                                         c[6] if len(c) > 6 else "0"  # turnover
                                     ])
                             if formatted:
-                                logger.info(f"✅ [OKX-REST KLINES FALLBACK SUCCESS] Candles públicos da Bybit obtidos com sucesso!")
+                                logger.info(f"✅ [BYBIT-FALLBACK SUCCESS] Candles públicos da Bybit obtidos com sucesso!")
                                 _GLOBAL_KLINES_CACHE[cache_key] = (time.time(), formatted)
                                 return formatted[:limit]
             except Exception as byb_err:
