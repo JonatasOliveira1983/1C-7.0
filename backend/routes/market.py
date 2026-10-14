@@ -10,7 +10,7 @@ logger = logging.getLogger("1CRYPTEN-MARKET")
 
 def get_services():
     services = [None] * 6
-    service_names = ["BybitRest", "BybitWS", "Firebase", "SignalGen", "Captain", "Oracle"]
+    service_names = ["OKXRest", "OKXWS", "Firebase", "SignalGen", "Captain", "Oracle"]
     
     try:
         from services.okx_rest import okx_rest_service as okx_rest_service
@@ -49,11 +49,10 @@ async def get_btc_regime():
 @router.get("/radar/pulse")
 async def get_radar_pulse():
     try:
-        _, _, firebase_service, _, _, _ = get_services()
-        if not firebase_service: return {"signals": [], "decisions": [], "updated_at": 0}
-        return await firebase_service.get_radar_pulse()
+        from app.services.laya_router_service import laya_sovereign_engine
+        return await laya_sovereign_engine.get_radar_pulse()
     except Exception as e:
-        logger.error(f"Error in /radar/pulse: {e}")
+        logger.error(f"Error in /radar/pulse (Laya Sovereign): {e}")
         return {"signals": [], "decisions": [], "updated_at": 0}
 
 
@@ -61,9 +60,29 @@ async def get_radar_pulse():
 async def get_radar_grid():
     try:
         _, _, firebase_service, _, _, _ = get_services()
-        if not firebase_service or not firebase_service.rtdb: return {}
-        grid_data = await asyncio.to_thread(firebase_service.rtdb.child("market_radar").get)
-        return grid_data if grid_data else {}
+        if firebase_service and firebase_service.rtdb:
+            grid_data = await asyncio.to_thread(firebase_service.rtdb.child("market_radar").get)
+            if grid_data:
+                return grid_data
+        
+        # Fallback soberano via Laya Pulse
+        from app.services.laya_router_service import laya_sovereign_engine
+        pulse = await laya_sovereign_engine.get_radar_pulse()
+        grid = {}
+        for s in pulse.get("signals", []):
+            sym = s.get("pair") or s.get("symbol", "").replace("-USDT-SWAP", "USDT")
+            grid[sym] = {
+                "score": s.get("score", 50.0),
+                "side": s.get("side", "NEUTRAL"),
+                "price": s.get("price", 0.0),
+                "ls_ratio": s.get("lsr", 1.0),
+                "oi_delta": s.get("oi_delta", 0.0),
+                "regime": s.get("regime", "LATERAL"),
+                "trend": "bullish" if s.get("side") in ("BUY", "LONG") else "bearish",
+                "strategy": s.get("strategy", "FLUXO BALEIA"),
+                "adx": pulse.get("market_context", {}).get("btc_adx", 20.0)
+            }
+        return grid
     except Exception as e:
         logger.error(f"Error fetching radar grid: {e}")
         return {}
@@ -225,7 +244,7 @@ async def get_system_state():
             "current": getattr(target_sig_gen, 'system_state', 'PAUSED') if target_sig_gen else 'OFFLINE',
             "slots_occupied": getattr(target_sig_gen, 'occupied_count', 0) if target_sig_gen else 0,
             "message": getattr(target_sig_gen, 'system_message', 'Iniciando...') if target_sig_gen else 'Sistema Indisponível',
-            "protocol": "Sniper V110.100",
+            "protocol": "Sniper V125.100",
             "is_thinking": is_thinking,
             "oracle_status": oracle_status,
             "oracle_message": oracle_status,

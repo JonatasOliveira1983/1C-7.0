@@ -36,7 +36,7 @@ class SignalGenerator:
         self.scan_interval = 5.0 # Reduced from 15s to 5s for V7.0 High-Precision Reactivity
         self.signal_queue = asyncio.PriorityQueue() # ⚡ V110.116: PriorityQueue for Elite Signals
         self._signal_counter = 0  # [V110.118] Tie-breaker para evitar TypeError ao comparar dicionários com mesmo score
-        self._api_semaphore = asyncio.Semaphore(5) # V15.1.3: Limit concurrent Bybit REST calls
+        self._api_semaphore = asyncio.Semaphore(5) # Limita chamadas REST concorrentes
         self.exhaustion_level = 0.0
         self.last_context_update = 0  # V5.1.0: Context Sync
         self.last_radar_sync = 0      # V32.0: Periodic Dashboard Sync
@@ -168,7 +168,7 @@ class SignalGenerator:
             if not klines or len(klines) < 10:
                 return {'has_trigger': False, 'trigger_type': None, 'confidence': 0, 'funding_rate': 0, 'volume_confirmed': False}
             
-            # Bybit returns newest first — reverse for chronological order
+            # Reverse for chronological order (API returns newest first)
             candles = klines[::-1]
             closes = [float(c[4]) for c in candles]
             highs = [float(c[2]) for c in candles]
@@ -536,6 +536,9 @@ class SignalGenerator:
             # V15.7.5: Added logging to verify sync is happening
             logger.info("📡 [RADAR-PULSE] Syncing signals and decisions to RTDB...")
             signals = await firebase_service.get_recent_signals(limit=25)
+            s1_in_pulse = sum(1 for s in signals if s.get("type") == "S1_LATERAL")
+            if s1_in_pulse > 0:
+                logger.info(f"📡 [RADAR-PULSE-S1] {s1_in_pulse} sinais S1_LATERAL entre {len(signals)} no pulse")
             decisions = []
             
             for sig in signals[:15]: # Top 15 decisions
@@ -543,7 +546,7 @@ class SignalGenerator:
                 if not symbol: continue
                 
                 # [V46.0] Real-time Pressure Injection for Radar
-                # We fetch live metrics from BybitWS to override staleFirestore data
+                # We fetch live metrics from WebSocket to override stale Firestore data
                 cvd_5m = okx_ws_public_service.get_cvd_score_time(symbol, 300)
                 cvd_total = okx_ws_public_service.get_cvd_score(symbol)
                 
@@ -801,8 +804,10 @@ class SignalGenerator:
                         direction = d_res.get('direction', 'Neutral')
                         signals = d_res.get('signals', [])
 
-                        # GATE: confiança mínima
-                        if not is_decor or confidence < 70:
+                        # [V124.5] GATE relaxado de 70 → 55 em lateral (ADX < 25) para encontrar
+                        # moedas com mais gás que o BTC mesmo sem correlação forte.
+                        min_conf = 55 if getattr(okx_ws_public_service, 'btc_adx', 25) < 25 else 70
+                        if not is_decor or confidence < min_conf:
                             return None
 
                         # GATE: CVD (gás real, não apenas ruído)
@@ -2267,7 +2272,7 @@ class SignalGenerator:
                 return {'trend': 'sideways', 'pattern': 'unknown', 'trend_strength': 0}
             
             candles = klines
-            # Bybit returns newest first, so reverse for chronological order
+            # Reverse for chronological order (API returns newest first)
             candles = candles[::-1]
             
             # Extract close prices
@@ -3025,6 +3030,47 @@ class SignalGenerator:
                 stage1_candidates = [r for r in stage1_results if r is not None]
                 logger.info(f"⚡ [RADAR-PERF] Estágio 1 Paralelo: {len(active_symbols_ws)} ativos em {s1_duration:.2f}s. Encontrados {len(stage1_candidates)} candidatos.")
 
+                # [V124.5] SANDBOX FEED: em lateral, os S1 candidates tambem alimentam o sandbox via Firebase.
+                # O sandbox depende de log_signal (Stage 3), mas Stage 3 exige confirmacao 5m que nao ocorre
+                # em CVD exhaustion no mercado lateral. Este bypass garante que o sandbox tenha sinais para testar.
+                if is_btc_lateral and stage1_candidates:
+                    try:
+                        import datetime as _dt
+                        s1_sandbox_count = 0
+                        for s1_candidate in stage1_candidates:
+                            s1_sym = s1_candidate['symbol'].replace('.P', '')
+                            s1_side = s1_candidate.get('side_label', 'Long')
+                            s1_score = min(s1_candidate.get('preliminary_score', 50), 99)
+                            s1_is_decor = s1_candidate.get('is_decorrelated', False)
+                            s1_price = okx_ws_public_service.get_current_price(s1_candidate['symbol'])
+                            if not s1_price or s1_price <= 0:
+                                continue
+                            s1_signal = {
+                                "id": f"s1_sb_{int(time.time())}_{s1_sym}_{s1_side[:1]}",
+                                "symbol": s1_sym,
+                                "score": max(10, s1_score),
+                                "side": "Buy" if s1_side == "Long" else "Sell",
+                                "direction": "LONG" if s1_side == "Long" else "SHORT",
+                                "type": "S1_LATERAL",
+                                "layer": "MOMENTUM",
+                                "strategy_class": "DECOR SHADOW" if s1_is_decor else "VELOCITY FLOW",
+                                "entry_price_signal": s1_price,
+                                "suggested_sl": s1_price * 0.95 if s1_side == "Long" else s1_price * 1.05,
+                                "explosion_score": 0,
+                                "explosion_signals": [],
+                                "leverage": 50,
+                                "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                                "market_regime": "RANGING",
+                                "current_adx": getattr(okx_ws_public_service, 'btc_adx', 20),
+                            }
+                            await firebase_service.log_signal(s1_signal)
+                            s1_sandbox_count += 1
+                        if s1_sandbox_count > 0:
+                            logger.info(f"🧪 [SANDBOX-FEED] {s1_sandbox_count} sinais S1 enviados ao sandbox via Firebase (lateral bypass).")
+                            asyncio.create_task(self._sync_radar_rtdb())
+                    except Exception as s1_sb_err:
+                        logger.error(f"[SANDBOX-FEED] Erro ao alimentar sandbox: {s1_sb_err}")
+
                 # [V28.2] Radar Expansion: Relaxed to $3M (was $5M) for more signal diversity in Paper Mode
                 # Filter for candidates
                 s1_filtered = []
@@ -3348,10 +3394,12 @@ class SignalGenerator:
                     # Se varejo está muito comprado (LS > 1.5), evitamos Longs. Se muito vendido (LS < 0.8), evitamos Shorts.
                     if side_label == "Long" and ls_ratio > 1.5: # V16.1: Slightly relaxed (was 1.3)
                         logger.info(f"🚫 [V15.6] {symbol} rejected: Very high LS Ratio ({ls_ratio:.2f})")
-                        # return None
+                        self.recent_rejections.append({"symbol": symbol, "reason": f"LS Ratio High ({ls_ratio:.2f})", "timestamp": time.time()})
+                        return None
                     if side_label == "Short" and ls_ratio < 0.7: # V16.1: Slightly relaxed (was 0.8)
                         logger.info(f"🚫 [V15.6] {symbol} rejected: Very low LS Ratio ({ls_ratio:.2f})")
-                        # return None
+                        self.recent_rejections.append({"symbol": symbol, "reason": f"LS Ratio Low ({ls_ratio:.2f})", "timestamp": time.time()})
+                        return None
                         
                     # 1. Macro & Trend Confluence
                     trend_1h = candidate.get('trend', 'sideways')
@@ -3947,7 +3995,7 @@ class SignalGenerator:
                 else:
                     # V15.7.5: Increased frequency (30s) and added more detail for empty batches
                     if time.time() - getattr(self, '_last_radar_empty_log', 0) > 30:
-                        logger.warning(f"⚠️ [RADAR-RT] Batch is EMPTY. Active symbols: {len(active_symbols)}. Check BybitWS connection.")
+                        logger.warning(f"⚠️ [RADAR-RT] Batch is EMPTY. Active symbols: {len(active_symbols)}. Check WebSocket connection.")
                         self._last_radar_empty_log = time.time()
                 
                 await asyncio.sleep(self.radar_interval)
@@ -4197,5 +4245,370 @@ class SignalGenerator:
             return True, int(expiry - now)
             
         return False, 0
+
+    # =========================================================================
+    # [V124.7] M30 SWING SCANNER — 3 estrategias no timeframe 30M
+    # Substitui o BlitzSniperAgent (que era versao simplificada e fraca).
+    # Reusa toda a infraestrutura de deteccao de padroes do SignalGenerator
+    # (DVAP, MOLA, FAS, LRT, TREND, DECOR) sobre dados M30.
+    # =========================================================================
+
+    def _sma(self, data: list, period: int) -> list:
+        result = []
+        for i in range(len(data)):
+            if i < period - 1:
+                result.append(None)
+            else:
+                result.append(sum(data[i - period + 1:i + 1]) / period)
+        return result
+
+    async def analyze_m30_swing(self, symbol: str, btc_direction: str = "LATERAL", btc_adx: float = 0.0) -> Optional[Dict]:
+        """
+        [V125 SWING-LAB] Analisa M30 e produz sinal SWING usando as 3 estratégias principais.
+        Motor primário do SandboxSwingService — substítui o BlitzSniperAgent.
+
+        Detecta e pontua:
+        - DVAP (divergência + volume climax + CHoCH) → ALPHA SHIELD (+20 pts)
+        - MOLA (BB squeeze) → ALPHA SHIELD (+15 pts)
+        - FAS (funding squeeze) → ALPHA SHIELD (+20 pts)
+        - LRT (liquidity sweep) → ALPHA SHIELD (+15 pts)
+        - TREND (SMA8/21 alignment) → VELOCITY FLOW (+10 pts)
+        - DECOR (decorrelation + CVD exhaustion) → DECOR SHADOW (+15 pts)
+        - Fibonacci Golden Zone (0.618–0.786) → Bônus universal (+20 pts)  [absorvido do Blitz]
+        - Price Action M30 (Wick Reclaim, Engulf, Sweep) → (+15 pts)         [absorvido do Blitz]
+        """
+        try:
+            from services.okx_rest import okx_rest_service
+            from services.okx_ws_public import okx_ws_public_service
+
+            # [V132-SWING-2H] Buscar klines no timeframe de 2H (120m)
+            klines = await okx_rest_service.get_klines(symbol=symbol, interval="120", limit=100)
+            if not klines or len(klines) < 30:
+                return None
+
+            candles = list(reversed(klines))
+            closes = [float(c[4]) for c in candles]
+            highs = [float(c[2]) for c in candles]
+            lows = [float(c[3]) for c in candles]
+            volumes = [float(c[5]) if len(c) > 5 else 0.0 for c in candles]
+            current_close = closes[-1]
+            current_high = highs[-1]
+            current_low = lows[-1]
+
+            sma8 = self._sma(closes, 8)
+            sma21 = self._sma(closes, 21)
+            sma8_now = sma8[-1] if sma8[-1] is not None else current_close
+            sma21_now = sma21[-1] if sma21[-1] is not None else current_close
+            sma8_prev = sma8[-2] if len(sma8) >= 2 and sma8[-2] is not None else sma8_now
+            sma21_prev = sma21[-2] if len(sma21) >= 2 and sma21[-2] is not None else sma21_now
+
+            # ── MICRO-GATILHO DE PRECISÃO (15m Stochastic RSI) ──────────────────
+            # Valida se a tendência imediata do 15m está alinhada para evitar entrar contra o movimento rápido
+            is_15m_long, is_15m_short = True, True
+            try:
+                klines_15m = await okx_rest_service.get_klines(symbol=symbol, interval="15", limit=40)
+                if klines_15m and len(klines_15m) >= 20:
+                    c15m_chron = list(reversed(klines_15m))
+                    closes_15m = [float(c[4]) for c in c15m_chron]
+                    
+                    # Calcular Stochastic RSI 15m
+                    from services.sandbox_scalping_engine import _calculate_stoch_rsi
+                    stoch_15m = _calculate_stoch_rsi(closes_15m)
+                    k_15m, d_15m = stoch_15m.get("k", 50.0), stoch_15m.get("d", 50.0)
+                    
+                    # Decidir direção recomendada baseada no cruzamento de 15m
+                    is_15m_long = k_15m > d_15m and k_15m < 75.0
+                    is_15m_short = k_15m < d_15m and k_15m > 25.0
+            except Exception as micro_err:
+                logger.error(f"[M30-SWING] Erro no micro-gatilho 15m: {micro_err}")
+                is_15m_long, is_15m_short = True, True # Fallback permissivo em caso de falha de dados
+
+            rsi_vals = self.calculate_rsi(closes, 14)
+            rsi_now = rsi_vals[-1] if rsi_vals else 50.0
+
+            vol_avg_10 = sum(volumes[-12:-2]) / 10.0 if len(volumes) >= 12 else (sum(volumes[-11:-1]) / 10.0 if len(volumes) >= 11 else 1.0)
+            vol_signal = volumes[-2] if len(volumes) >= 2 else volumes[-1]
+            vol_ratio = max(vol_signal, volumes[-1]) / vol_avg_10 if vol_avg_10 > 0 else 1.0
+
+            cvd = okx_ws_public_service.get_cvd_score(symbol) or 0
+            cvd_5m = okx_ws_public_service.get_cvd_score_time(symbol, 300) or 0
+
+            bb_width = None
+            try:
+                bb_width = okx_ws_public_service.bb_width_cache.get(symbol, 5.0)
+            except Exception:
+                pass
+
+            side = "NONE"
+            if sma8_now > sma21_now and sma8_prev > sma21_prev:
+                side = "Buy"
+            elif sma8_now < sma21_now and sma8_prev < sma21_prev:
+                side = "Sell"
+
+            is_dvap = False
+            is_mola = False
+            is_fas = False
+            is_lrt = False
+            is_decor = False
+            is_trend = (side != "NONE")
+
+            div_type = self.check_ifr_divergence(closes, highs, lows)
+            vol_climax = self.check_volume_climax(volumes)
+            if div_type and vol_climax:
+                p_high, p_low = self.find_pivots_30m(highs, lows)
+                if div_type == "BULLISH" and current_close > p_high and side == "Buy":
+                    is_dvap = True
+                elif div_type == "BEARISH" and current_close < p_low and side == "Sell":
+                    is_dvap = True
+
+            if bb_width is not None and bb_width < 1.5:
+                is_mola = True
+
+            try:
+                fas_res = await self.detect_fas_setup(symbol)
+                if fas_res.get("detected"):
+                    fas_side = fas_res.get("side", "")
+                    if (fas_side == "Long" and side == "Buy") or (fas_side == "Short" and side == "Sell"):
+                        is_fas = True
+            except Exception:
+                pass
+
+            try:
+                zones_15m = await self.get_15m_zones(symbol)
+                lrt_res = await self.detect_lrt_setup(symbol, zones_15m)
+                if lrt_res.get("detected"):
+                    lrt_side = lrt_res.get("side", "")
+                    if (lrt_side == "Long" and side == "Buy") or (lrt_side == "Short" and side == "Sell"):
+                        is_lrt = True
+            except Exception:
+                pass
+
+            if abs(cvd) > 50000 and rsi_now < 30 and side == "Buy":
+                is_decor = True
+            elif abs(cvd) > 50000 and rsi_now > 70 and side == "Sell":
+                is_decor = True
+
+            # ── Fibonacci Golden Zone (absorvido do BlitzSniperAgent) ──────────
+            # Calcula níveis Fibonacci do swing recente (30 candles)
+            is_fib_zone = False
+            fib_zone_str = None
+            fib_score = 0
+            try:
+                lookback = min(30, len(highs))
+                swing_high = max(highs[-lookback:])
+                swing_low  = min(lows[-lookback:])
+                fib_range  = swing_high - swing_low
+                if fib_range > 0:
+                    fib_618 = swing_high - fib_range * 0.618
+                    fib_786 = swing_high - fib_range * 0.786
+                    fib_low_z  = min(fib_618, fib_786)
+                    fib_high_z = max(fib_618, fib_786)
+                    # Preço atual dentro da Golden Zone?
+                    if fib_low_z <= current_close <= fib_high_z:
+                        is_fib_zone = True
+                        fib_zone_str = f"{min(0.618,0.786):.3f}-{max(0.618,0.786):.3f}"
+                        fib_score = 20
+                    # Próximo da zona (±0.5% do preço)?
+                    elif abs(current_close - fib_618) / current_close < 0.005 or \
+                         abs(current_close - fib_786) / current_close < 0.005:
+                        fib_score = 10
+                        fib_zone_str = f"NEAR_FIB"
+            except Exception:
+                pass
+
+            # ── Price Action M30 (absorvido do BlitzSniperAgent) ─────────────
+            # Detecta: Wick Reclaim, Bullish/Bearish Engulf, Sweep & Reclaim
+            pa_score = 0
+            pa_pattern = ""
+            try:
+                if len(candles) >= 3:
+                    c0_o, c0_h, c0_l, c0_c = float(candles[-1][1]), float(candles[-1][2]), float(candles[-1][3]), float(candles[-1][4])
+                    c1_o, c1_h, c1_l, c1_c = float(candles[-2][1]), float(candles[-2][2]), float(candles[-2][3]), float(candles[-2][4])
+                    c2_o, c2_h, c2_l, c2_c = float(candles[-3][1]), float(candles[-3][2]), float(candles[-3][3]), float(candles[-3][4])
+
+                    body0 = abs(c0_c - c0_o)
+                    range0 = c0_h - c0_l if c0_h > c0_l else 1e-9
+
+                    if side == "Buy":
+                        # Wick Reclaim Bullish: vela com cauda inferior grande + fecha acima do open
+                        lower_wick = c0_o - c0_l if c0_c >= c0_o else c0_c - c0_l
+                        if lower_wick > body0 * 1.5 and c0_c > c0_o:
+                            pa_score = 15; pa_pattern = "Wick Reclaim Bullish M30"
+                        # Bullish Engulf: vela atual engloba anterior
+                        elif c0_o < c1_c and c0_c > c1_o and body0 > abs(c1_c - c1_o) * 1.2:
+                            pa_score = 12; pa_pattern = "Bullish Engulf M30"
+                        # Sweep & Reclaim: preço varre low anterior e volta acima
+                        elif c0_l < c1_l and c0_c > c1_l:
+                            pa_score = 10; pa_pattern = "Sweep & Reclaim Bullish M30"
+                    else:  # Sell
+                        # Wick Reclaim Bearish: cauda superior grande + fecha abaixo do open
+                        upper_wick = c0_h - c0_o if c0_c <= c0_o else c0_h - c0_c
+                        if upper_wick > body0 * 1.5 and c0_c < c0_o:
+                            pa_score = 15; pa_pattern = "Wick Reclaim Bearish M30"
+                        # Bearish Engulf
+                        elif c0_o > c1_c and c0_c < c1_o and body0 > abs(c1_c - c1_o) * 1.2:
+                            pa_score = 12; pa_pattern = "Bearish Engulf M30"
+                        # Sweep & Reclaim Bearish
+                        elif c0_h > c1_h and c0_c < c1_h:
+                            pa_score = 10; pa_pattern = "Sweep & Reclaim Bearish M30"
+            except Exception:
+                pass
+
+            if not is_dvap and not is_mola and not is_fas and not is_lrt and not is_decor and not is_trend:
+                return None
+
+            if is_dvap:
+                raw_class = "DVAP"
+            elif is_mola:
+                raw_class = "MOLA"
+            elif is_fas:
+                raw_class = "FAS"
+            elif is_lrt:
+                raw_class = "LRT"
+            elif is_decor:
+                raw_class = "DECOR"
+            else:
+                raw_class = "TREND"
+
+            if raw_class in ("DVAP", "MOLA", "FAS", "LRT"):
+                strategy_class = "ALPHA SHIELD"
+            elif raw_class in ("DECOR",):
+                strategy_class = "DECOR SHADOW"
+            else:
+                strategy_class = "VELOCITY FLOW"
+
+            score = 50
+            reasons = []
+
+            if is_trend:
+                score += 10
+                reasons.append("SMA8/21 alinhado")
+
+            if vol_ratio >= 2.0:
+                score += 15
+                reasons.append(f"Volume 2x+ ({vol_ratio:.1f}x)")
+            elif vol_ratio >= 1.5:
+                score += 10
+                reasons.append(f"Volume elevado ({vol_ratio:.1f}x)")
+
+            if abs(cvd) > 100000:
+                score += 15
+                reasons.append("CVD forte")
+            elif abs(cvd) > 50000:
+                score += 10
+                reasons.append("CVD moderado")
+
+            if is_dvap:
+                score += 20
+                reasons.append("DVAP: divergencia + volume climax + CHoCH")
+            if is_mola:
+                score += 15
+                reasons.append("MOLA: BB squeeze")
+            if is_fas:
+                score += 20
+                reasons.append("FAS: funding extremo")
+            if is_lrt:
+                score += 15
+                reasons.append("LRT: liquidity sweep")
+            if is_decor:
+                score += 15
+                reasons.append("DECOR: CVD exhaustion + RSI extremo")
+
+            # Bônus absorvidos do BlitzSniperAgent
+            if fib_score > 0:
+                score += fib_score
+                if is_fib_zone:
+                    reasons.append(f"Fibonacci Golden Zone ({fib_zone_str})")
+                else:
+                    reasons.append("Próximo Fibonacci Zone")
+            if pa_score > 0:
+                score += pa_score
+                reasons.append(pa_pattern)
+
+            if score < 65:
+                return None
+            if btc_adx >= 30:
+                if btc_direction == "UP" and side == "Sell":
+                    return None
+                if btc_direction == "DOWN" and side == "Buy":
+                    return None
+
+            # [V132-SWING-2H] Aplicar micro-gatilho de precisão de 15m
+            if side == "Buy" and not is_15m_long:
+                logger.debug(f"[M30-SWING] {symbol} Buy descartado: sem confirmação de momentum de alta no 15m")
+                return None
+            if side == "Sell" and not is_15m_short:
+                logger.debug(f"[M30-SWING] {symbol} Sell descartado: sem confirmação de momentum de baixa no 15m")
+                return None
+
+            # Obtém preço atual para entry_price_signal
+            entry_px = 0.0
+            try:
+                entry_px = okx_ws_public_service.get_current_price(symbol) or 0.0
+            except Exception:
+                pass
+            if entry_px <= 0:
+                entry_px = current_close
+
+            signal = {
+                "id":            f"swing_{symbol.replace('.P','')}_{int(time.time())}",
+                "symbol":        symbol,
+                "side":          "Buy" if side == "Buy" else "Sell",
+                "score":         min(score, 99),
+                "layer":         "SWING",
+                "is_blitz":      False,           # [V125] não é mais BLITZ, é SWING
+                "slot_type":     "BLITZ_30M",     # mantido para compatibilidade de slots
+                "target_slot":   None,
+                "timeframe":     "30",
+                "strategy":      strategy_class,
+                "strategy_class": strategy_class,
+                "entry_price_signal": entry_px,  # [V125] Preço no momento do sinal
+                "indicators": {
+                    "sma8":         round(sma8_now, 6),
+                    "sma21":        round(sma21_now, 6),
+                    "rsi":          round(rsi_now, 1),
+                    "cvd":          cvd,
+                    "cvd_5m":       cvd_5m,
+                    "volume_ratio": round(vol_ratio, 2),
+                    "pattern":      raw_class,
+                    "bb_width":     bb_width,
+                    "fib_zone":     fib_zone_str,        # [V125] Fibonacci
+                    "pa_pattern":   pa_pattern or None,  # [V125] Price Action
+                    "is_fib_zone":  is_fib_zone,         # [V125]
+                    "sma_cross":    "UP" if (sma8_now > sma21_now) else "DOWN" if (sma8_now < sma21_now) else "NONE",
+                },
+                "reasons":       reasons,
+                "leverage":      20,
+                "timestamp":     time.time(),
+            }
+            return signal
+
+        except Exception as e:
+            logger.error(f"[M30-SWING] Erro ao analisar {symbol}: {e}")
+            return None
+
+    async def scan_m30_swing_watchlist(self, symbols: list, btc_direction: str = "LATERAL", btc_adx: float = 0.0) -> list:
+        """
+        [V124.7] Varre a watchlist em busca de setups M30 usando as 3 estrategias.
+        """
+        found = []
+        tasks = [self.analyze_m30_swing(sym, btc_direction, btc_adx) for sym in symbols]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for sym, result in zip(symbols, results):
+            if isinstance(result, Exception):
+                logger.error(f"[M30-SWING] Erro em {sym}: {result}")
+                continue
+            if result:
+                found.append(result)
+        found.sort(key=lambda s: s.get("score", 0), reverse=True)
+        if found:
+            logger.info(
+                f"[M30-SWING] {len(found)} setup(s) M30 encontrado(s): "
+                + ", ".join(f"{s['symbol']} {s['side']} ({s['strategy_class']} score={s['score']})" for s in found[:5])
+            )
+        else:
+            logger.debug("[M30-SWING] Nenhum setup M30 qualificado encontrado.")
+        return found
+
 
 signal_generator = SignalGenerator()

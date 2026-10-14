@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>1Crypten 7.0 — Hermes Intelligence Console</title>
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
+  <script src="/static/js/thinking_orbs.js"></script>
+  <style>
+    .chat-bubble {
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      max-width: 85%;
+      border: 1px solid var(--surface-border);
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    .chat-bubble-user {
+      background-color: var(--surface-charcoal);
+      color: #fff;
+      margin-left: auto;
+      border-color: #383838;
+    }
+    .chat-bubble-hermes {
+      background-color: var(--surface-iron);
+      color: var(--text-smoke);
+      margin-right: auto;
+      border-left: 3px solid var(--accent-gold);
+    }
+    .chip {
+      padding: 6px 12px;
+      background: #141414;
+      border: 1px solid var(--surface-border);
+      color: #aaa;
+      font-size: 11px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .chip:hover {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      background: #1e1e1e;
+    }
+    .hermes-layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .chat-viewport-card {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 100px);
+      min-height: 480px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+      .hermes-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 10px 8px !important;
+        gap: 10px !important;
+      }
+      .chat-viewport-card {
+        height: calc(100vh - 195px) !important;
+        min-height: 400px !important;
+        padding: 10px !important;
+      }
+      .chat-bubble {
+        max-width: 92% !important;
+        padding: 10px 12px !important;
+        font-size: 12px !important;
+      }
+      .chip {
+        font-size: 10px !important;
+        padding: 4px 8px !important;
+      }
+      #col-hermes-intel {
+        display: none !important;
+        width: 100% !important;
+      }
+      #col-hermes-chat {
+        display: flex !important;
+        width: 100% !important;
+      }
+    }
+    @media (min-width: 769px) {
+      #col-hermes-intel {
+        display: flex !important;
+      }
+      #col-hermes-chat {
+        display: flex !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="hermes-layout grid-mobile-stack">
+
+    <!-- Mobile Tab Switcher -->
+    <div class="mobile-only" style="width: 100%; display: flex; gap: 8px; margin-bottom: 2px;">
+      <button id="btn-tab-chat" class="btn-gold" style="flex: 1; padding: 7px 10px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="switchHermesTab('chat')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>CONSOLE CHAT</span>
+      </button>
+      <button id="btn-tab-intel" class="btn-ghost" style="flex: 1; padding: 7px 10px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="switchHermesTab('intel')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>INTEL & FROTA</span>
+      </button>
+    </div>
+
+    <!-- Left: Chat Viewport Column -->
+    <div id="col-hermes-chat" style="flex: 1; min-width: 0; width: 100%;">
+      <div class="card-lamborghini chat-viewport-card">
+        
+        <!-- Chat Header -->
+        <div class="card-lamborghini-header" style="flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px;">
+            <canvas class="thinking-orb-canvas" data-state="solving" data-size="20" data-color="#FCD535" width="20" height="20" style="width:20px;height:20px;"></canvas>
+            <span class="card-title" style="font-size: 11px; white-space: nowrap;">
+              HERMES <span class="desktop-only">ORCHESTRATOR</span>
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <span class="badge-gold desktop-only">LAYA CPU</span>
+            <button onclick="clearChatHistory()" class="btn-ghost" style="padding: 3px 8px; font-size: 10px;">LIMPAR</button>
+          </div>
+        </div>
+
+        <!-- Quick Chips (Horizontal Scrollable) -->
+        <div style="display: flex; gap: 6px; overflow-x: auto; padding: 6px 0; border-bottom: 1px solid var(--surface-border-subtle); margin-bottom: 10px; width: 100%; -webkit-overflow-scrolling: touch;">
+          <button class="chip" onclick="sendChip(this.innerText)">Regime de Mercado</button>
+          <button class="chip" onclick="sendChip(this.innerText)">Auditoria das Posições</button>
+          <button class="chip" onclick="sendChip(this.innerText)">Kronos Conviction</button>
+          <button class="chip" onclick="sendChip(this.innerText)">Piso de Defesa</button>
+        </div>
+
+        <!-- Messages Area -->
+        <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 6px 0; display: flex; flex-direction: column; width: 100%; min-width: 0;">
+          <div class="chat-bubble chat-bubble-hermes">
+            <b style="color: var(--accent-gold); display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase;">
+              HERMES ORCHESTRATOR • ONLINE
+            </b>
+            Saudações, Operador. Estou monitorando o motor de trading 1Crypten 7.0, a frota de agentes e o consenso quantitativo em tempo real. Como posso auxiliar na mesa de operações agora?
+          </div>
+        </div>
+
+        <!-- Input Area (Never Overflows) -->
+        <div style="display: flex; gap: 8px; align-items: center; padding-top: 10px; border-top: 1px solid var(--surface-border); width: 100%; box-sizing: border-box; margin-top: auto;">
+          <input id="chat-input" class="input-lamborghini" type="text" placeholder="Comando para o Hermes..." onkeydown="if(event.key==='Enter') sendMessage()" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 12px; height: 38px;">
+          <button onclick="sendMessage()" class="btn-gold" style="flex-shrink: 0; padding: 0 16px; height: 38px; font-size: 11px; white-space: nowrap;">ENVIAR</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: Intel Sidebar Column -->
+    <div id="col-hermes-intel" style="width: 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+      
+      <!-- Fleet Status -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">STATUS DA FROTA</span>
+          <span class="pulse-indicator"></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 11px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #aaa;">HERMES (Orquestrador):</span>
+            <b style="color: var(--trading-up);">ONLINE</b>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #aaa;">CAPTAIN (Consenso 5D):</span>
+            <b style="color: var(--trading-up);">ATIVO</b>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #aaa;">FLASH (Escadinha 1s):</span>
+            <b style="color: var(--trading-up);">CICLO 1S</b>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #aaa;">ORACLE (Regime ADX):</span>
+            <b style="color: var(--trading-up);">ONLINE</b>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #aaa;">KRONOS (Forecasting):</span>
+            <b style="color: var(--accent-gold);">AAAI 2026</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operational Parameters -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">PARÂMETROS DE RISCO</span>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 8px; color: #888;">
+          <div>LEVERAGE: <b style="color: #fff;">50X ISOLADA</b></div>
+          <div>RISK CAP: <b style="color: #fff;">40% DA BANCA</b></div>
+          <div>GARANTIA_4: <b style="color: var(--trading-up);">+4% ROI ➔ BE 0%</b></div>
+          <div>TRAILING: <b style="color: #fff;">75% PICO (SCALP) / 50% (SWING)</b></div>
+          <div>DEFESA: <b style="color: var(--accent-gold);">80% DO PICO PROTEGIDO</b></div>
+        </div>
+      </div>
+
+      <!-- Compliance Seal -->
+      <div class="card-lamborghini" style="border-left: 2px solid var(--accent-gold);">
+        <span class="card-title" style="margin-bottom: 6px; display: block;">AUDITORIA IMUTÁVEL</span>
+        <p style="font-size: 10px; color: #777; line-height: 1.4;">
+          Todas as ordens e decisões do Hermes são gravadas com timestamp ao segundo no PostgreSQL e carimbo criptográfico SHA-256 (Zero Mock Data).
+        </p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="/static/shell.js"></script>
+  <script>
+    mountLamborghiniShell('hermes');
+
+    function switchHermesTab(tab) {
+      const chatCol = document.getElementById("col-hermes-chat");
+      const intelCol = document.getElementById("col-hermes-intel");
+      const btnChat = document.getElementById("btn-tab-chat");
+      const btnIntel = document.getElementById("btn-tab-intel");
+
+      if (tab === 'chat') {
+        if (chatCol) chatCol.style.setProperty("display", "flex", "important");
+        if (intelCol) intelCol.style.setProperty("display", "none", "important");
+        if (btnChat) btnChat.className = "btn-gold";
+        if (btnIntel) btnIntel.className = "btn-ghost";
+      } else {
+        if (chatCol) chatCol.style.setProperty("display", "none", "important");
+        if (intelCol) intelCol.style.setProperty("display", "flex", "important");
+        if (btnChat) btnChat.className = "btn-ghost";
+        if (btnIntel) btnIntel.className = "btn-gold";
+      }
+    }
+
+    function appendMessage(role, text) {
+      const container = document.getElementById("chat-messages");
+      const bubble = document.createElement("div");
+      bubble.className = `chat-bubble chat-bubble-${role === 'user' ? 'user' : 'hermes'}`;
+      
+      const roleLabel = role === 'user' ? 'OPERADOR' : 'HERMES INTEL';
+      bubble.innerHTML = `
+        <b style="color: ${role === 'user' ? '#fff' : 'var(--accent-gold)'}; display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase;">
+          ${roleLabel}
+        </b>
+        <div>${text.replace(/\n/g, '<br>')}</div>
+      `;
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("chat-input");
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+
+      appendMessage("user", text);
+
+      try {
+        const res = await fetch("/api/v1/hermes/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, session_id: "default" })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          appendMessage("hermes", data.reply || data.response || "Comando processado.");
+        } else {
+          // Fallback para rota clássica de chat
+          const res2 = await fetch("/api/hermes/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text })
+          });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            appendMessage("hermes", data2.reply || data2.response || "Processado.");
+          } else {
+            appendMessage("hermes", "Erro ao conectar ao motor do Hermes.");
+          }
+        }
+      } catch (err) {
+        appendMessage("hermes", "Falha de rede ao contatar o orquestrador.");
+      }
+    }
+
+    function sendChip(text) {
+      document.getElementById("chat-input").value = text;
+      sendMessage();
+    }
+
+    function clearChatHistory() {
+      fetch("/api/v1/hermes/history", { method: "DELETE" });
+      document.getElementById("chat-messages").innerHTML = `
+        <div class="chat-bubble chat-bubble-hermes">
+          <b style="color: var(--accent-gold); display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase;">HERMES ORCHESTRATOR</b>
+          Histórico limpo. Pronto para nova sessão.
+        </div>`;
+    }
+  </script>
+</body>
+</html>

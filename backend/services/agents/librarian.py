@@ -35,7 +35,7 @@ class LibrarianAgent(AIOSAgent):
         )
         self.is_running = False
         self.study_interval = 7200  # 2 horas
-        self.last_study_time = 0
+        self.last_study_time = time.time()
         self.rankings = []
         self.live_rankings = {} # V110.100: Para feedback imediato via REST
         self.sector_insights = {}
@@ -58,8 +58,8 @@ class LibrarianAgent(AIOSAgent):
         self.is_running = True
         logger.info("📚 Librarian Agent V2.0 (Strategic): ONLINE.")
         
-        # V110.100: Initial Stagger - Wait 30s to allow API server to breathe on boot
-        await asyncio.sleep(30)
+        # V110.100: Initial Stagger - Wait 60s to allow API server and Cockpit to breathe on boot
+        await asyncio.sleep(60)
         
         while self.is_running:
             now = time.time()
@@ -238,14 +238,15 @@ class LibrarianAgent(AIOSAgent):
                 
                 sector = get_sector(symbol)
                 
-                # Baixar apenas o GAP de dados que falta
-                last_ts = data_extractor.get_last_timestamp(symbol, "1h")
+                # Baixar apenas o GAP de dados que falta (em thread pool para nunca travar o event loop do FastAPI)
+                last_ts = await asyncio.to_thread(data_extractor.get_last_timestamp, symbol, "1h")
                 # V2.1: Aumento de histórico para 1500 velas (cerca de 62 dias) para amostragem mais precisa
                 download_limit = 1500 if last_ts == 0 else 100
-                data_extractor.download_klines(symbol, "1h", limit=download_limit, start_time=last_ts)
+                await asyncio.to_thread(data_extractor.download_klines, symbol, "1h", limit=download_limit, start_time=last_ts)
                 
                 try:
-                    res = backtest_engine.simulate(
+                    res = await asyncio.to_thread(
+                        backtest_engine.simulate,
                         symbol=symbol,
                         interval="1h",
                         initial_balance=100.0,
@@ -257,15 +258,23 @@ class LibrarianAgent(AIOSAgent):
                         max_dd = float(res.get("max_drawdown", "0%").replace("%", ""))
 
                         # V110.100: O Bússola do Capitão - Análise HTF e Quality Seal
-                        last_ts_4h = data_extractor.get_last_timestamp(symbol, "4h")
-                        data_extractor.download_klines(symbol, "4h", limit=200 if last_ts_4h == 0 else 50, start_time=last_ts_4h)
+                        last_ts_4h = await asyncio.to_thread(data_extractor.get_last_timestamp, symbol, "4h")
+                        await asyncio.to_thread(data_extractor.download_klines, symbol, "4h", limit=200 if last_ts_4h == 0 else 50, start_time=last_ts_4h)
                         
-                        conn = data_extractor.get_db_connection()
-                        c = conn.cursor()
-                        c.execute("SELECT close FROM klines WHERE symbol = ? AND interval = ? ORDER BY start_time DESC LIMIT 20", (symbol, "4h"))
-                        klines_4h = [row[0] for row in c.fetchall()]
-                        conn.close()
-                        klines_4h.reverse()
+                        def _get_candle_data_from_db(sym):
+                            _conn = data_extractor.get_db_connection()
+                            try:
+                                _c = _conn.cursor()
+                                _c.execute("SELECT close FROM klines WHERE symbol = ? AND interval = ? ORDER BY start_time DESC LIMIT 20", (sym, "4h"))
+                                _k4 = [row[0] for row in _c.fetchall()]
+                                _k4.reverse()
+                                _c.execute("SELECT high, low, open, close FROM klines WHERE symbol = ? AND interval = ? ORDER BY start_time DESC LIMIT 100", (sym, "1h"))
+                                _k1 = _c.fetchall()
+                                return _k4, _k1
+                            finally:
+                                _conn.close()
+
+                        klines_4h, recent_klines = await asyncio.to_thread(_get_candle_data_from_db, symbol)
                         
                         trend_4h = "NEUTRAL"
                         if len(klines_4h) >= 20:
@@ -285,12 +294,6 @@ class LibrarianAgent(AIOSAgent):
 
                         # [V110.134] ASSET DNA UPGRADE: Wick Intensity & Retest Propensity
                         # Analisamos a estrutura das velas para identificar ativos "traiçoeiros"
-                        conn = data_extractor.get_db_connection()
-                        c = conn.cursor()
-                        c.execute("SELECT high, low, open, close FROM klines WHERE symbol = ? AND interval = ? ORDER BY start_time DESC LIMIT 100", (symbol, "1h"))
-                        recent_klines = c.fetchall()
-                        conn.close()
-
                         wick_intensities = []
                         retest_count = 0
                         for k in recent_klines:
@@ -393,7 +396,7 @@ class LibrarianAgent(AIOSAgent):
                 except Exception as e:
                     logger.error(f"Erro ao estudar {symbol}: {e}")
                 
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.3)
 
             # [V110.63.4] Blindagem de Tipo: Garante que win_rate e pnl sejam comparáveis (evita str vs int)
             def safe_sort_key(x):

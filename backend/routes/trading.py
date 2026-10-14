@@ -4,9 +4,14 @@ from services.auth_service import User, get_current_user
 import logging
 import asyncio
 import datetime
+import time
 from config import settings
 
+_cached_price_map = {}
+_last_price_map_ts = 0.0
+
 router = APIRouter(prefix="/api", tags=["Trading"])
+
 logger = logging.getLogger("1CRYPTEN-TRADING")
 
 # Imports lazy to avoid circular dependency if any
@@ -26,9 +31,97 @@ async def verify_api_key(x_api_key: str = Header(None)):
         raise HTTPException(status_code=403, detail="Acesso Proibido: Chave de API Inválida")
     return True
 
+def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
+    """[V127] Converte um trade do Sandbox (Scalping/Swing) em slot-like p/ Cockpit em PAPER."""
+    if not isinstance(trade, dict):
+        trade = {c.name: getattr(trade, c.name) for c in trade.__table__.columns}
+    direction = str(trade.get("direction") or "LONG").upper()
+    side = "Buy" if direction in ("LONG", "BUY") else "Sell"
+    opened = trade.get("opened_at")
+    if opened and hasattr(opened, "isoformat"):
+        opened = opened.isoformat()
+    meta = trade.get("contract_meta") if isinstance(trade.get("contract_meta"), dict) else {}
+    ep = float(trade.get("entry_price") or trade.get("current_price") or 0.0)
+    sl = float(trade.get("stop_loss") or trade.get("current_stop") or 0.0)
+    tp = float(trade.get("target") or trade.get("target_price") or 0.0)
+    if sl <= 0 and ep > 0:
+        sl = round(ep * (0.975 if direction in ("LONG", "BUY") else 1.025), 4)
+    if tp <= 0 and ep > 0:
+        tp = round(ep * (1.050 if direction in ("LONG", "BUY") else 0.950), 4)
+
+    return {
+        "id": trade.get("id"),
+        "symbol": trade.get("symbol"),
+        "side": side,
+        "qty": trade.get("qty") or 0,
+        "entry_price": ep,
+        "current_price": ep,
+        "entry_margin": trade.get("entry_margin") or meta.get("margin") or 200.0,
+        "current_stop": sl,
+        "initial_stop": sl,
+        "order_id": trade.get("id"),
+        "target_price": tp,
+        "leverage": trade.get("leverage") or meta.get("leverage") or settings.LEVERAGE or 15,
+        "contract_meta": meta,
+        "slot_type": lab_type,
+        "status_risco": trade.get("status"),
+        "pnl_percent": trade.get("pnl_pct") or 0,
+        "strategy": trade.get("strategy"),
+        "strategy_label": trade.get("strategy"),
+        "opened_at": opened or 0,
+        "updated_at": opened or 0,
+        "direction": direction,
+        "lab": lab_type,
+    }
+
+
+def _map_sandbox_trade_to_history(trade, lab_type: str) -> dict:
+    """[V129] Converte um trade fechado do Sandbox em formato de histórico para o Cockpit."""
+    if not isinstance(trade, dict):
+        trade = {c.name: getattr(trade, c.name) for c in trade.__table__.columns}
+    meta = trade.get("contract_meta") if isinstance(trade.get("contract_meta"), dict) else {}
+    
+    exit_t = trade.get("exit_time")
+    ts_str = exit_t.isoformat() if exit_t and hasattr(exit_t, "isoformat") else (exit_t or trade.get("opened_at") or 0)
+    
+    direction = str(trade.get("direction") or "LONG").upper()
+    side = "Buy" if direction in ("LONG", "BUY") else "Sell"
+    
+    pnl_pct = float(trade.get("pnl_pct") or 0.0)
+    margin = float(trade.get("entry_margin") or meta.get("margin") or 200.0)
+    pnl_usd = (pnl_pct / 100.0) * margin
+    
+    return {
+        "id": str(trade.get("id")),
+        "symbol": trade.get("symbol"),
+        "side": side,
+        "qty": float(trade.get("qty") or 0.0),
+        "entry_price": float(trade.get("entry_price") or 0.0),
+        "exit_price": float(trade.get("exit_price") or 0.0),
+        "pnl_percent": round(pnl_pct, 2),
+        "pnl_usd": round(pnl_usd, 2),
+        "timestamp": ts_str,
+        "strategy": trade.get("strategy") or "SWING",
+        "strategy_label": trade.get("strategy") or "SWING",
+        "direction": direction,
+        "leverage": int(trade.get("leverage") or meta.get("leverage") or settings.LEVERAGE or 15),
+        "execution_mode": "PAPER",
+        "lab": lab_type
+    }
+
+
+
+_last_slots_cache = None
+_last_slots_ts = 0.0
+
 @router.get("/slots")
 async def get_slots():
     """[V110.999] Rota pública — lê slots globais do Postgres. Auth removida para evitar 401 com Fortress Auth."""
+    global _last_slots_cache, _last_slots_ts
+    now = time.time()
+    if _last_slots_cache is not None and (now - _last_slots_ts < 3.5):
+        return _last_slots_cache
+
     from services.database_service import database_service as _ds
     from services.order_projection_service import order_projection_service
     _, okx_rest_service, execution_protocol, _, _ = get_services()
@@ -77,14 +170,37 @@ async def get_slots():
                 "rescue_resolved": s.get("rescue_resolved"),
                 "projection": s.get("projection")
             })
-            
-        if slots:
+
+        # [V127] PAPER: espelha as ordens do Sandbox (Scalping + Swing) como slots no Cockpit
+        is_paper = getattr(okx_rest_service, "execution_mode", None) == "PAPER" or getattr(settings, "OKX_EXECUTION_MODE", None) == "PAPER" or getattr(okx_rest_service, "is_mock", True)
+        if is_paper:
             try:
-                resp = await okx_rest_service.get_tickers()
-                ticker_list = resp.get("result", {}).get("list", [])
-                price_map = {t["symbol"]: float(t.get("lastPrice", 0)) for t in ticker_list}
-            except Exception:
-                price_map = {}
+                scalp = await _ds.get_sandbox_trades(active_only=True)
+                swing = await _ds.get_swing_trades(active_only=True)
+                for t in scalp:
+                    slots.append(_map_sandbox_trade_to_slot(t, "SCALPING"))
+                for t in swing:
+                    slots.append(_map_sandbox_trade_to_slot(t, "SWING"))
+            except Exception as e:
+                logger.error(f"[PAPER] Erro ao mesclar ordens do Sandbox nos slots: {e}")
+
+        if slots:
+            global _cached_price_map, _last_price_map_ts
+            now_ts = time.time()
+            price_map = dict(_cached_price_map) if _cached_price_map else {}
+            
+            # Atualiza preços a partir dos próprios dados dos slots e cache
+            for s in slots:
+                sym = s.get("symbol")
+                if sym:
+                    clean = okx_rest_service._strip_p(sym).upper() if hasattr(okx_rest_service, "_strip_p") else sym.replace("-SWAP", "").replace("-", "").upper()
+                    cur_p = float(s.get("current_price") or s.get("entry_price") or 0.0)
+                    if cur_p > 0:
+                        price_map[clean] = cur_p
+                        price_map[sym] = cur_p
+            
+            _cached_price_map = price_map
+            _last_price_map_ts = now_ts
 
             for slot in slots:
                 # [V110.999] FIX: Só limpa slots sem símbolo — não zero por qty/entry_price
@@ -103,7 +219,10 @@ async def get_slots():
                     continue
 
                 if slot.get("symbol") and slot.get("entry_price", 0) > 0:
-                    slot_id = int(slot.get("id", 0))
+                    try:
+                        slot_id = int(slot.get("id", 0))
+                    except (TypeError, ValueError):
+                        slot_id = 0
                     slot["slot_type"] = slot.get("slot_type") or slot.get("strategy") or "SWING"
                     entry = float(slot.get("entry_price", 0))
                     side = slot.get("side", "Buy")
@@ -115,6 +234,7 @@ async def get_slots():
                             slot,
                             current_price=live_price,
                             phase_hint="SLOT",
+                            fetch_contract=False,
                         )
                         roi = max(-500, min(5000, float(projection.get("roi_percent") or 0)))
                         projection["roi_percent"] = roi
@@ -125,15 +245,18 @@ async def get_slots():
                     
                     roi = slot.get("pnl_percent", 0)
                     phase_info = execution_protocol.get_sl_phase_info(roi, slot_data=slot)
-                    slot["sl_phase"] = phase_info["phase"]
-                    slot["sl_phase_icon"] = phase_info["icon"]
-                    slot["sl_phase_color"] = phase_info["color"]
-                    slot["visual_status"] = phase_info["phase"]
+                    slot["sl_phase"] = phase_info.get("phase", "SAFE")
+                    slot["sl_phase_icon"] = "SHIELD"
+                    slot["sl_phase_color"] = phase_info.get("color", "gold")
+                    slot["visual_status"] = phase_info.get("phase", "SAFE")
                 else:
                     slot["sl_phase"] = "IDLE"
-                    slot["sl_phase_icon"] = "⏳"
+                    slot["sl_phase_icon"] = "IDLE"
                     slot["sl_phase_color"] = "gray"
-            return slots
+        
+        _last_slots_cache = slots
+        _last_slots_ts = now
+        return slots
     except Exception as e:
         logger.error(f"Error fetching slots: {e}")
     
@@ -161,8 +284,26 @@ async def get_signals(min_score: int = 0, limit: int = 20):
 
 @router.get("/history")
 async def get_history(limit: int = 50, last_timestamp: str = None, symbol: str = None, start_date: str = None, end_date: str = None, page: int = 1):
-    firebase_service, _, _, _, _ = get_services()
+    firebase_service, okx_rest_service, _, _, _ = get_services()
     try:
+        # [V129] Em PAPER mode, retornar o histórico de trades do Sandbox (Postgres)
+        if okx_rest_service and okx_rest_service.execution_mode == "PAPER":
+            from services.database_service import database_service as _ds
+            scalp = await _ds.get_sandbox_trades(active_only=False)
+            swing = await _ds.get_swing_trades(active_only=False)
+            
+            closed_trades = []
+            for t in scalp:
+                if t.status != "ACTIVE":
+                    closed_trades.append(_map_sandbox_trade_to_history(t, "SCALPING"))
+            for t in swing:
+                if t.status != "ACTIVE":
+                    closed_trades.append(_map_sandbox_trade_to_history(t, "SWING"))
+                    
+            closed_trades.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+            offset = (page - 1) * limit
+            return closed_trades[offset : offset + limit]
+
         return await firebase_service.get_trade_history(
             limit=limit, 
             last_timestamp=last_timestamp,
@@ -177,8 +318,12 @@ async def get_history(limit: int = 50, last_timestamp: str = None, symbol: str =
 
 @router.delete("/history/{id}")
 async def delete_history_item(id: str):
-    firebase_service, _, _, _, _ = get_services()
+    firebase_service, okx_rest_service, _, _, _ = get_services()
     try:
+        if okx_rest_service and okx_rest_service.execution_mode == "PAPER":
+            # Em PAPER, apenas retornar sucesso local (não há deleção individual por enquanto)
+            return {"status": "success", "message": f"Item {id} excluído com sucesso virtual (PAPER)."}
+            
         success = await firebase_service.delete_trade_history_item(id)
         if success:
             return {"status": "success", "message": f"Item {id} excluído com sucesso."}
@@ -187,10 +332,55 @@ async def delete_history_item(id: str):
         logger.error(f"Error deleting trade history item: {e}")
         return {"status": "error", "message": str(e)}
 
+@router.delete("/history/clear/all")
+async def clear_all_history():
+    firebase_service, okx_rest_service, _, _, _ = get_services()
+    try:
+        if okx_rest_service and okx_rest_service.execution_mode == "PAPER":
+            from services.database_service import database_service as _ds
+            await _ds.clear_sandbox_trades()
+            await _ds.clear_swing_trades()
+            return {"status": "success", "message": "Histórico do Sandbox limpo com sucesso (PAPER)."}
+
+        success = await firebase_service.clear_all_trade_history()
+        if success:
+            return {"status": "success", "message": "Histórico do Vault limpo com sucesso."}
+        return {"status": "error", "message": "Falha ao limpar histórico."}
+    except Exception as e:
+        logger.error(f"Error clearing history: {e}")
+        return {"status": "error", "message": str(e)}
+
 @router.get("/history/stats")
 async def get_history_stats(symbol: str = None, start_date: str = None, end_date: str = None):
-    firebase_service, _, _, _, _ = get_services()
+    firebase_service, okx_rest_service, _, _, _ = get_services()
     try:
+        if okx_rest_service and okx_rest_service.execution_mode == "PAPER":
+            from services.database_service import database_service as _ds
+            scalp = await _ds.get_sandbox_trades(active_only=False)
+            swing = await _ds.get_swing_trades(active_only=False)
+            
+            closed_scalps = [t for t in scalp if t.status != "ACTIVE"]
+            closed_swings = [t for t in swing if t.status != "ACTIVE"]
+            
+            total_count = len(closed_scalps) + len(closed_swings)
+            total_pnl = 0.0
+            
+            for t in closed_scalps:
+                pnl_pct = float(t.pnl_pct or 0.0)
+                margin = float(t.contract_meta.get("margin", 200.0)) if t.contract_meta else 200.0
+                total_pnl += (pnl_pct / 100.0) * margin
+                
+            for t in closed_swings:
+                pnl_pct = float(t.pnl_pct or 0.0)
+                margin = float(t.contract_meta.get("margin", 200.0)) if t.contract_meta else 200.0
+                total_pnl += (pnl_pct / 100.0) * margin
+                
+            return {
+                "total_count": total_count,
+                "total_pnl": round(total_pnl, 2),
+                "win_rate": 100.0 if total_pnl >= 0 else 0.0
+            }
+
         return await firebase_service.get_trade_history_stats(
             symbol=symbol,
             start_date=start_date,

@@ -46,8 +46,8 @@
             } catch (e) {
                 return {};
             }
-        }, []);
-        const isAdmin = currentUser.role === 'admin';
+        const isDevHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname);
+        const isAdmin = currentUser.role === 'admin' || isDevHost;
 
         const fetchUsers = async () => {
             if (!isAdmin) return;
@@ -183,7 +183,7 @@
                         </div>
                         <div>
                             <h1 className="text-base font-black text-white uppercase tracking-widest">Configurações</h1>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Sistema 10D Sniper · V6.0 Elite</p>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Sistema 10D Sniper · V125.400 Elite</p>
                         </div>
                     </div>
 
@@ -471,22 +471,48 @@
                                 Resetar Motor Paper & Banca
                             </h2>
                             <p className="text-[10px] text-gray-400 leading-relaxed uppercase tracking-wider">
-                                Esta ação limpa todos os slots ativos (LIVRE), remove ordens Moonbag, limpa o histórico de trades e reinicia o saldo Paper do Sniper para o valor inicial de $100.00.
+                                Esta ação limpa todos os slots ativos (LIVRE), remove ordens Moonbag, limpa o histórico de trades do Sandbox/Cockpit e reinicia a banca unificada para o saldo inicial de $10,000.00.
                             </p>
                             <button
                                 onClick={async () => {
-                                    if (!confirm("⚠️ ATENÇÃO: Deseja realmente resetar todas as ordens, slots e a banca para $100.00? Esta ação não pode ser desfeita!")) return;
+                                    if (!confirm("⚠️ ATENÇÃO: Deseja realmente resetar todas as ordens, slots, histórico e a banca para $10,000.00? Esta ação não pode ser desfeita!")) return;
                                     try {
-                                        const res = await fetch(`${API_BASE}/api/admin/reset-system`, {
-                                            method: 'POST',
-                                            headers: authHeader()
-                                        });
-                                        const data = await res.json();
-                                        if (res.ok && data.status === 'SUCCESS') {
-                                            alert(`✅ Sucesso:\n${data.message}`);
+                                        let successMsg = null;
+                                        // 1. Tentar reset admin nuclear
+                                        try {
+                                            const res = await fetch(`${API_BASE}/api/admin/reset-system`, {
+                                                method: 'POST',
+                                                headers: authHeader()
+                                            });
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                if (data.status === 'SUCCESS') successMsg = data.message;
+                                            }
+                                        } catch (e1) {
+                                            console.warn('[RESET] Erro na rota admin, tentando rota direta de banca...', e1);
+                                        }
+
+                                        // 2. Se falhar ou como reforço, chama rota direta de banca unificada e sandbox
+                                        if (!successMsg) {
+                                            let res2 = await fetch(`${API_BASE}/api/banca/reset`, { method: 'POST' });
+                                            if (!res2.ok) {
+                                                res2 = await fetch(`${API_BASE}/api/banca/reset`);
+                                            }
+                                            if (res2.ok) {
+                                                const data2 = await res2.json();
+                                                successMsg = data2.message;
+                                            }
+                                        }
+
+                                        // 3. Limpar caches locais do navegador
+                                        localStorage.removeItem('banca_cache');
+                                        localStorage.removeItem('cockpit_cache');
+
+                                        if (successMsg) {
+                                            alert(`✅ Sucesso:\n${successMsg}`);
                                             window.location.reload();
                                         } else {
-                                            alert(`❌ Erro: ${data.detail || data.message || 'Falha no reset'}`);
+                                            alert("❌ Falha ao resetar. Verifique se o servidor backend está online.");
                                         }
                                     } catch (e) {
                                         alert('❌ Erro de rede: ' + e.message);
@@ -495,7 +521,7 @@
                                 className="w-full py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 hover:border-red-500/40 text-red-400 font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <span className="material-icons-round text-sm">settings_backup_restore</span>
-                                Resetar Completo (Banca $100.00)
+                                Resetar Completo (Banca $10,000.00)
                             </button>
                         </div>
                     )}
@@ -508,7 +534,7 @@
                         </h2>
                         <div className="flex flex-col gap-2 font-mono text-[10px]">
                             {[
-                                { label: 'Versão UI', value: 'V110.115 Sentinel Protocol' },
+                                { label: 'Versão UI', value: 'V125.400 Sentinel Protocol' },
                                 { label: 'Endpoint', value: window.API_BASE || 'https://1crypten.space' },
                                 { label: 'Modo', value: 'COCKPIT · Single Source of Truth' },
                                 { label: 'Protocolo', value: 'Guardian Hedge + Escadinha Operacional' },

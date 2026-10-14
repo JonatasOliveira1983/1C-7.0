@@ -162,13 +162,14 @@ async def admin_nuclear_reset(admin: User = Depends(check_admin_role)):
         except Exception as e:
             report.append(f"Firestore não disponível: {e}")
         
-        # 4. Limpar Postgres slots e moonbags e histórico, resetar banca para $20.00
+        # 4. Limpar slots, moonbags, histórico e trades Sandbox, resetar banca para target_balance
+        target_bal = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+        okx_rest_service.paper_balance = target_bal
         try:
-            # Forçamos a banca para $20 no banco
             await database_service.reset_system_data()
-            report.append("Postgres slots/moonbags/histórico zerado.")
+            report.append(f"Banco de dados zerado (Slots, Moonbags, SandboxTrades e Banca=${target_bal:.2f}).")
         except Exception as e:
-            report.append(f"Postgres reset parcial: {e}")
+            report.append(f"Reset de banco parcial: {e}")
         
         # Sincronizar RTDB e status de sistema
         try:
@@ -177,16 +178,17 @@ async def admin_nuclear_reset(admin: User = Depends(check_admin_role)):
                 firebase_service.rtdb.child("active_slots").delete()
                 firebase_service.rtdb.child("vault_history").delete()
                 firebase_service.rtdb.child("banca").update({
-                    "configured_balance": 100.0,
+                    "configured_balance": target_bal,
+                    "saldo_total": target_bal,
                     "pnl_realized": 0.0
                 })
-                report.append("Firebase RTDB (Slots/Vault/Banca) zerado para $100.00.")
+                report.append(f"Firebase RTDB (Slots/Vault/Banca) zerado para ${target_bal:.2f}.")
         except Exception as e:
             logger.warning(f"Erro ao atualizar status RTDB: {e}")
             
         return {
             "status": "SUCCESS",
-            "message": "Sistema resetado com sucesso (Banca de $100.00).",
+            "message": f"Sistema resetado com sucesso (Banca restaurada para ${target_bal:.2f}).",
             "report": report
         }
     except Exception as e:

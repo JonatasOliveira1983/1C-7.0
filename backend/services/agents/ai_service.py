@@ -9,8 +9,13 @@ try:
 except Exception:
     ZhipuAI = None
 
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
 from config import settings
+
 from services.sovereign_service import sovereign_service
 
 logger = logging.getLogger("AIService")

@@ -75,7 +75,49 @@ async def get_banca_data(request: Request):
     try:
         status = await firebase_service.get_banca_status(username=username)
         if not status or status.get("saldo_total", 0) == 0:
-            return {"saldo_total": 100.0, "risco_real_percent": 0.0, "slots_disponiveis": 4, "status": "DEFAULT_PAPER"}
+            status = {"saldo_total": 100.0, "risco_real_percent": 0.0, "slots_disponiveis": 4, "status": "DEFAULT_PAPER"}
+        
+        # Consulta direta em tempo real do saldo real OKX
+        from config import settings
+        api_key = settings.OKX_API_KEY_MASTER or settings.OKX_API_KEY
+        secret_key = settings.OKX_API_SECRET_MASTER or settings.OKX_API_SECRET
+        passphrase = settings.OKX_PASSPHRASE_MASTER or getattr(settings, "OKX_PASSPHRASE", None)
+        
+        if api_key and secret_key and passphrase:
+            try:
+                import httpx
+                from services.okx_service import okx_service
+                request_path = "/api/v5/account/balance"
+                url = "https://www.okx.com" + request_path
+                headers = okx_service._get_headers(
+                    "GET", request_path,
+                    custom_key=api_key,
+                    custom_secret=secret_key,
+                    custom_passphrase=passphrase
+                )
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    response = await client.get(url, headers=headers)
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        if res_data.get("code") == "0" and res_data.get("data"):
+                            real_val = float(res_data["data"][0].get("totalEq", 0.0))
+                            if real_val > 0:
+                                status["saldo_real_okx"] = real_val
+            except Exception as e:
+                logger.error(f"Erro ao obter saldo real em tempo real para a API: {e}")
+        
+        # [V127] Se estiver em modo PAPER, espelha a Banca Simulada Consolidada do Sandbox no Cockpit
+        if settings.OKX_EXECUTION_MODE == "PAPER":
+            try:
+                from services.database_service import database_service
+                sim_balance = await database_service.get_sandbox_unified_balance()
+            except Exception:
+                sim_balance = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+            status["saldo_total"] = sim_balance
+            status["configured_balance"] = sim_balance
+            # Removemos saldo_real_okx para que a UI flutue a banca base com o PnL aberto local
+            status.pop("saldo_real_okx", None)
+                
         return status
     except Exception as e:
         logger.error(f"Error fetching banca: {e}")
@@ -84,6 +126,80 @@ async def get_banca_data(request: Request):
 @router.post("/banca/update", dependencies=[Depends(verify_api_key)])
 async def update_banca(payload: dict):
     return {"status": "blocked", "message": "Banca fixa em $100 (modo PAPER). Atualização automática via PnL."}
+
+@router.api_route("/banca/reset", methods=["GET", "POST"])
+async def reset_banca_endpoint():
+    """[V149-V153] Reseta de forma imediata e atômica a banca unificada do Sandbox e Cockpit para $10,000.00"""
+    from services.database_service import database_service
+    from config import settings
+    target_bal = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+    report = []
+    try:
+        # 1. Reset no SQLite (Slots, Moonbags, SandboxTrades, SandboxSwingTrades e Banca=$10000)
+        await database_service.reset_system_data()
+        report.append(f"Banco SQLite zerado (Banca={target_bal:.2f}).")
+
+        # 2. Limpar memória RAM do OKX REST Service
+        try:
+            from services.okx_rest import okx_rest_service
+            if okx_rest_service:
+                okx_rest_service.paper_positions = []
+                okx_rest_service.paper_moonbags = []
+                okx_rest_service.paper_balance = target_bal
+                report.append("Memória OKX REST zerada.")
+        except Exception as e_okx:
+            report.append(f"Aviso OKX REST: {e_okx}")
+
+        # 3. Limpar pending_slots e recent_openings do BankrollManager
+        try:
+            from services.bankroll import bankroll_manager
+            if bankroll_manager:
+                bankroll_manager.pending_slots.clear()
+                if hasattr(bankroll_manager, "recent_openings"):
+                    bankroll_manager.recent_openings.clear()
+                report.append("BankrollManager destravado.")
+        except Exception as e_bm:
+            report.append(f"Aviso BankrollManager: {e_bm}")
+
+        # 4. Destravar Capitão e Guardião da Banca
+        try:
+            from services.agents.captain import captain_agent
+            if captain_agent:
+                captain_agent.reset_runtime_state()
+        except Exception:
+            pass
+
+        try:
+            from services.agents.bankroll_guardian import bankroll_guardian
+            if bankroll_guardian:
+                bankroll_guardian.reset_runtime_state()
+        except Exception:
+            pass
+
+        # 5. Sincronizar RTDB se ativo
+        try:
+            from services.firebase_service import firebase_service
+            if firebase_service and firebase_service.rtdb:
+                firebase_service.rtdb.child("active_slots").delete()
+                firebase_service.rtdb.child("vault_history").delete()
+                firebase_service.rtdb.child("banca").update({
+                    "configured_balance": target_bal,
+                    "saldo_total": target_bal,
+                    "pnl_realized": 0.0
+                })
+        except Exception:
+            pass
+
+        return {
+            "status": "SUCCESS",
+            "message": f"Banca restaurada com sucesso para ${target_bal:.2f}.",
+            "saldo_total": target_bal,
+            "configured_balance": target_bal,
+            "report": report
+        }
+    except Exception as e:
+        logger.error(f"Erro ao resetar banca: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao resetar banca: {str(e)}")
 
 @router.get("/banca-history")
 async def get_banca_history(limit: int = 50):

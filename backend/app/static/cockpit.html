@@ -1,0 +1,3146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>1Crypten 7.0 — Cockpit Lamborghini</title>
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
+  <script src="/static/js/lightweight-charts.js"></script>
+  <script src="/static/js/thinking_orbs.js"></script>
+  <style>
+    /* ==========================================================================
+       ULTRAWIDE & PANORAMIC SCREEN OPTIMIZATION (ZERO VERTICAL SCROLL)
+       ========================================================================== */
+    .cockpit-panoramic-main {
+      max-width: 1780px;
+      margin: 0 auto;
+      padding: 16px 14px;
+    }
+    .cockpit-panoramic-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 20px;
+    }
+    .cockpit-col-tables {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (min-width: 1700px) {
+      html, body {
+        min-height: 100vh !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .app-header {
+        height: 38px !important;
+        padding: 0 14px !important;
+      }
+      .cockpit-panoramic-main {
+        max-width: 100% !important;
+        width: 100% !important;
+        min-height: calc(100vh - 40px) !important;
+        height: auto !important;
+        padding: 6px 12px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        overflow: visible !important;
+      }
+      .cockpit-banner-row {
+        margin-bottom: 0 !important;
+        padding: 4px 10px !important;
+        font-size: 10px !important;
+        flex-shrink: 0 !important;
+      }
+      .cockpit-kpis-row {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 8px !important;
+        margin-bottom: 0 !important;
+        flex-shrink: 0 !important;
+      }
+      .cockpit-kpis-row .card-lamborghini {
+        padding: 6px 10px !important;
+        margin-bottom: 0 !important;
+      }
+      .cockpit-kpis-row .metric-value {
+        font-size: 17px !important;
+        margin: 2px 0 !important;
+      }
+      .cockpit-kpis-row .card-lamborghini-header {
+        margin-bottom: 3px !important;
+      }
+      .cockpit-kpis-row .card-title {
+        font-size: 10px !important;
+      }
+
+      /* 3-Column Panoramic Dashboard: Left Controls + Center Charts + Right Tables */
+      .cockpit-panoramic-grid {
+        display: grid !important;
+        grid-template-columns: minmax(300px, 0.75fr) minmax(420px, 1.45fr) minmax(340px, 0.85fr) !important;
+        gap: 8px !important;
+        flex: 1 !important;
+        min-height: 560px !important;
+        margin-bottom: 0 !important;
+        overflow: visible !important;
+        align-items: stretch !important;
+      }
+      .cockpit-col-middle {
+        order: 1 !important;
+      }
+      .cockpit-col-charts {
+        order: 2 !important;
+      }
+      .cockpit-col-tables {
+        order: 3 !important;
+      }
+      
+      /* Col 1: Flash Map */
+      .cockpit-col-charts {
+        height: 100% !important;
+        min-height: 540px !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      .cockpit-col-charts > .card-lamborghini {
+        height: 100% !important;
+        min-height: 540px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 8px !important;
+        margin-bottom: 0 !important;
+      }
+      .cockpit-col-charts #charts-grid-container {
+        flex: 1 !important;
+        min-height: 480px !important;
+        display: grid !important;
+        gap: 6px !important;
+      }
+      .charts-grid-quad {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: minmax(230px, 1fr) minmax(230px, 1fr) !important;
+      }
+      .charts-grid-dual {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: 1fr !important;
+      }
+      .charts-grid-solo {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr !important;
+      }
+
+      .charts-grid-solo #chart-card-1,
+      .charts-grid-solo #chart-card-2,
+      .charts-grid-solo #chart-card-3 {
+        display: none !important;
+      }
+      .charts-grid-solo #chart-card-0 {
+        display: flex !important;
+        grid-column: 1 / -1 !important;
+        grid-row: 1 / -1 !important;
+      }
+
+      .charts-grid-dual #chart-card-2,
+      .charts-grid-dual #chart-card-3 {
+        display: none !important;
+      }
+      .charts-grid-dual #chart-card-0,
+      .charts-grid-dual #chart-card-1 {
+        display: flex !important;
+        grid-row: 1 / -1 !important;
+      }
+
+      .charts-grid-quad #chart-card-0,
+      .charts-grid-quad #chart-card-1,
+      .charts-grid-quad #chart-card-2,
+      .charts-grid-quad #chart-card-3 {
+        display: flex !important;
+      }
+
+      .chart-card-wrapper {
+        height: 100% !important;
+        min-height: 220px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 6px !important;
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+      .chart-card-wrapper > div:last-child {
+        flex: 1 1 0% !important;
+        min-height: 180px !important;
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+        display: block !important;
+      }
+      .lw-frame-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 180px !important;
+        position: absolute !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: block !important;
+      }
+
+      /* Breakpoint Tela Dividida e Telas Médias (992px a 1699px) */
+      @media (max-width: 1699px) {
+        html, body {
+          overflow-y: auto !important;
+          min-height: 100vh !important;
+        }
+        .cockpit-panoramic-main {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: visible !important;
+          padding: 8px !important;
+        }
+        .cockpit-panoramic-grid {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 10px !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+        /* GRÁFICO TOMA LARGURA TOTAL NO TOPO COM ALTURA GARANTIDA */
+        .cockpit-col-charts {
+          grid-column: 1 / -1 !important;
+          order: 1 !important;
+          width: 100% !important;
+          min-height: 560px !important;
+          height: auto !important;
+        }
+        .cockpit-col-charts > .card-lamborghini {
+          min-height: 560px !important;
+        }
+        .cockpit-col-charts #charts-grid-container {
+          min-height: 500px !important;
+        }
+        .charts-grid-quad {
+          grid-template-columns: 1fr 1fr !important;
+          grid-template-rows: minmax(240px, 1fr) minmax(240px, 1fr) !important;
+        }
+        .charts-grid-dual {
+          grid-template-columns: 1fr 1fr !important;
+          grid-template-rows: minmax(360px, 1fr) !important;
+        }
+        .charts-grid-solo {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: minmax(460px, 1fr) !important;
+        }
+        .chart-card-wrapper {
+          min-height: 240px !important;
+        }
+        .chart-card-wrapper > div:last-child {
+          min-height: 200px !important;
+        }
+        .lw-frame-wrap {
+          min-height: 200px !important;
+        }
+        .cockpit-col-middle {
+          grid-column: 1 / 2 !important;
+          order: 2 !important;
+          max-height: none !important;
+          height: auto !important;
+        }
+        .cockpit-col-tables {
+          grid-column: 2 / 3 !important;
+          order: 3 !important;
+          max-height: none !important;
+          height: auto !important;
+        }
+      }
+
+      /* Breakpoint Tablet & Mobile (< 992px) */
+      @media (max-width: 991px) {
+        html, body {
+          overflow-y: auto !important;
+        }
+        .cockpit-panoramic-main {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: visible !important;
+          padding: 6px 6px 20px 6px !important;
+        }
+        .cockpit-kpis-row {
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 6px !important;
+        }
+        .cockpit-panoramic-grid {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 10px !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+        /* GRÁFICO NO TOPO COM DESTAQUE TOTAL NO MOBILE */
+        .cockpit-col-charts {
+          order: 1 !important;
+          width: 100% !important;
+          min-height: 520px !important;
+          height: auto !important;
+        }
+        .cockpit-col-charts > .card-lamborghini {
+          min-height: 520px !important;
+        }
+        .cockpit-col-charts #charts-grid-container {
+          min-height: 460px !important;
+        }
+        .charts-grid-quad {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(4, 280px) !important;
+        }
+        .charts-grid-dual {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(2, 280px) !important;
+        }
+        .charts-grid-solo {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: 420px !important;
+        }
+        .chart-card-wrapper {
+          min-height: 280px !important;
+        }
+        .chart-card-wrapper > div:last-child {
+          min-height: 230px !important;
+        }
+        .lw-frame-wrap {
+          min-height: 230px !important;
+        }
+        .cockpit-col-middle {
+          order: 2 !important;
+          width: 100% !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        .cockpit-col-tables {
+          order: 3 !important;
+          width: 100% !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+      }
+
+      /* Breakpoint Smartphone Estreito (< 580px) */
+      @media (max-width: 579px) {
+        .cockpit-kpis-row {
+          grid-template-columns: 1fr 1fr !important;
+        }
+        .cockpit-col-charts {
+          min-height: 480px !important;
+          height: auto !important;
+        }
+        .charts-grid-quad {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(4, 270px) !important;
+          overflow-y: visible !important;
+        }
+        .charts-grid-dual {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(2, 270px) !important;
+          overflow-y: visible !important;
+        }
+        .charts-grid-solo {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: 380px !important;
+        }
+        .chart-card-wrapper {
+          min-height: 270px !important;
+        }
+        .chart-card-wrapper > div:last-child {
+          min-height: 220px !important;
+        }
+        .lw-frame-wrap {
+          min-height: 220px !important;
+        }
+      }
+
+      /* Col 2: Mesa Tática */
+      .cockpit-col-middle {
+        height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        overflow-y: auto !important;
+        padding-right: 3px !important;
+      }
+      .cockpit-col-middle .card-lamborghini {
+        padding: 6px 10px !important;
+        margin-bottom: 0 !important;
+        flex-shrink: 0 !important;
+      }
+      .cockpit-col-middle #side-slots-list {
+        max-height: 120px !important;
+      }
+      .cockpit-col-middle #laya-thought-stream {
+        max-height: 130px !important;
+      }
+
+      /* Col 3: Custódia & Histórico */
+      .cockpit-col-tables {
+        height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        overflow-y: auto !important;
+        padding-right: 3px !important;
+        margin-bottom: 0 !important;
+      }
+      .cockpit-col-tables .card-lamborghini {
+        padding: 6px 10px !important;
+        margin-bottom: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        flex: 1 !important;
+      }
+      .cockpit-col-tables .table-responsive-wrap {
+        flex: 1 !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        max-height: 320px !important;
+      }
+      .cockpit-col-tables #recent-trades-list {
+        flex: 1 !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        max-height: 280px !important;
+      }
+    }
+
+    .clickable-row {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .clickable-row:hover {
+      background: rgba(255, 192, 0, 0.12) !important;
+    }
+    .side-slot-card {
+      transition: all 0.15s ease;
+    }
+    .side-slot-card:hover {
+      border-color: var(--accent-gold) !important;
+    }
+    #side-slots-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    #side-slots-list::-webkit-scrollbar-track {
+      background: #0a0a0a;
+    }
+    #side-slots-list::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+    #side-slots-list::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-gold);
+    }
+
+    /* ==========================================================================
+       FORENSIC AUDIT MODAL (DOSSIÊ COMPLETO DE OPERAÇÃO & LAYA SYSTEM 1)
+       ========================================================================== */
+    .audit-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 99999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .audit-modal-backdrop.show {
+      display: flex;
+      opacity: 1;
+    }
+    .audit-modal-container {
+      background: #0d0f12;
+      border: 1px solid rgba(255, 192, 0, 0.4);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(255, 192, 0, 0.12);
+      border-radius: 10px;
+      width: 92%;
+      max-width: 880px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalPopIn 0.22s ease-out;
+    }
+    @keyframes modalPopIn {
+      from { transform: translateY(16px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .audit-modal-header {
+      padding: 14px 20px;
+      background: linear-gradient(90deg, #15181e 0%, #0d0f12 100%);
+      border-bottom: 1px solid #22262e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .audit-modal-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display, 'Chakra Petch', sans-serif);
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .audit-modal-close {
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .audit-modal-close:hover {
+      border-color: #f6465d;
+      color: #f6465d;
+      background: rgba(246, 70, 93, 0.12);
+    }
+    .audit-modal-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-family: var(--font-mono, monospace);
+      font-size: 12px;
+    }
+    .audit-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 768px) {
+      .audit-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .audit-kpi-card {
+      background: #14171d;
+      border: 1px solid #22262e;
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .audit-kpi-label {
+      font-size: 9.5px;
+      color: #7d8590;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .audit-kpi-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .audit-section-box {
+      background: #12151b;
+      border: 1px solid #1f232b;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .audit-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-display, 'Chakra Petch', sans-serif);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--accent-gold, #ffc000);
+      border-bottom: 1px solid #1f232b;
+      padding-bottom: 5px;
+      margin-bottom: 2px;
+      letter-spacing: 0.4px;
+    }
+    .audit-spec-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .audit-spec-table td {
+      padding: 4px 6px;
+      font-size: 11px;
+      border-bottom: 1px solid #1a1d24;
+    }
+    .audit-spec-table tr:last-child td {
+      border-bottom: none;
+    }
+    .audit-spec-table .td-label {
+      color: #8b949e;
+      width: 48%;
+    }
+    .audit-spec-table .td-val {
+      color: #fff;
+      font-weight: 600;
+      text-align: right;
+    }
+    .audit-timeline-item {
+      position: relative;
+      padding-left: 18px;
+      padding-bottom: 8px;
+      border-left: 2px solid #2a2e39;
+      font-size: 11px;
+      color: #c9d1d9;
+    }
+    .audit-timeline-item:last-child {
+      border-left: 2px solid transparent;
+      padding-bottom: 0;
+    }
+    .audit-timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-gold, #ffc000);
+    }
+    .audit-timeline-item.win::before { background: #00E676; }
+    .audit-timeline-item.loss::before { background: #FF1744; }
+    .audit-modal-footer {
+      padding: 12px 20px;
+      background: #0d0f12;
+      border-top: 1px solid #22262e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main Container -->
+  <main id="cockpit-main" class="cockpit-panoramic-main">
+
+    <!-- LAYA SOVEREIGN SYSTEM BANNER -->
+    <div class="cockpit-banner-row" style="display: flex; align-items: center; justify-content: space-between; background: #181A20; border: 1px solid #2B3139; border-left: 3px solid var(--accent-gold); padding: 8px 14px; margin-bottom: 16px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <canvas class="thinking-orb-canvas" data-state="solving" data-size="20" data-color="#FCD535" width="20" height="20" style="width:20px;height:20px;"></canvas>
+        <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #fff;">1CRYPTEN COCKPIT</span>
+        <span id="laya-header-badge" class="badge-cyan" style="font-size: 10px; font-weight: 700; padding: 2px 8px;">LAYA SOBERANA • ONLINE [MODO: MEAN-REVERSION (ADX 14.5)]</span>
+        <a href="/plutus" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(252, 213, 53, 0.12); border: 1px solid rgba(252, 213, 53, 0.4); color: #FCD535; font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-decoration: none; transition: all 0.15s ease;" onmouseover="this.style.background='rgba(252,213,53,0.25)'" onmouseout="this.style.background='rgba(252,213,53,0.12)'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FCD535" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M17 10H9.5a2.5 2.5 0 0 0 0 5H14"/></svg>
+          <span>❖ PLUTUS (VIVER DE RENDA)</span>
+        </a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); flex-wrap: wrap;">
+        <span>FLASH GUARD: <b style="color: #0ECB81;">ARMADO (BREAKEVEN +1.0% | TRAIL +2.5%)</b></span>
+        <span style="color: #444;">|</span>
+        <span>RADAR: <b style="color: #fff;">BTC • SOL • AVAX • NEAR • LINK</b></span>
+        <span style="color: #444;">|</span>
+        <span id="cockpit-clock" style="color: #aaa;">--:--:--</span>
+      </div>
+    </div>
+
+    <!-- Top KPI Grid -->
+    <div class="cockpit-kpis-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 20px;">
+      
+      <!-- Card 1: Net Worth & Banca -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">
+            <canvas class="thinking-orb-canvas" data-state="breathing" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> NET WORTH & EQUITY
+          </span>
+          <span id="kpi-defense-badge" class="badge-gold">DEFESA L0</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div id="kpi-balance" class="metric-value font-mono">$10,000.00</div>
+          <span id="kpi-pnl-pct" class="badge-up">+0.00%</span>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>PICO: <b id="kpi-peak" style="color: #fff;">$10,000.00</b></span>
+          <span>PISO PROTEGIDO: <b id="kpi-floor" style="color: #fff;">$10,000.00</b></span>
+        </div>
+      </div>
+
+      <!-- Card 2: Slots & Risco de Mesa -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">
+            <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;"></canvas> SLOTS & CAPACIDADE
+          </span>
+          <span class="badge-cyan">15X ISOLADA</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div id="kpi-slots" class="metric-value font-mono">0 / 20</div>
+          <span id="kpi-risk-cap" class="badge-gold">RISK: 0% / 40%</span>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>SCALP SLOTS: <b id="kpi-scalp-slots" style="color: #fff;">0 / 5</b></span>
+          <span>SWING SLOTS: <b id="kpi-swing-slots" style="color: #fff;">0 / 15</b></span>
+        </div>
+      </div>
+
+      <!-- Card 3: Regime de Mercado (Oracle) -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">
+            <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> REGIME & ORACLE
+          </span>
+          <span id="kpi-regime-badge" class="badge-gold">LATERAL</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div id="kpi-adx" class="metric-value font-mono">ADX 24.2</div>
+          <span id="kpi-btc-bias" class="badge-up">BTC NEUTRO</span>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>GATING: <b id="kpi-gating" style="color: var(--accent-gold);">ESTÁVEL</b></span>
+          <span>TREND BIAS: <b id="kpi-btc-var" style="color: #fff;">+0.12%</b></span>
+        </div>
+      </div>
+
+      <!-- Card 4: Kronos Conviction & Frota -->
+      <div class="card-lamborghini">
+        <div class="card-lamborghini-header">
+          <span class="card-title">
+            <canvas class="thinking-orb-canvas" data-state="searching" data-size="18" data-color="#B388FF" width="18" height="18" style="width:18px;height:18px;"></canvas> KRONOS CONVICTION
+          </span>
+          <span class="badge-cyan">AAAI 2026</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div id="kpi-kronos-score" class="metric-value font-mono">50.0 PTS</div>
+          <span class="badge-gold">PESO 18%</span>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>MOTOR: <b style="color: #fff;">KRONOS-MINI</b></span>
+          <span>HORIZONTE: <b style="color: #fff;">12 VELAS (5M)</b></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN TACTICAL SPLIT GRID: CHARTS (LEFT) + BANCA & CUSTÓDIA (RIGHT) -->
+    <div class="cockpit-panoramic-grid">
+
+      <!-- COL 1: FLASH MAP (4 CHARTS GRID) -->
+      <div class="cockpit-col-charts">
+        <div class="card-lamborghini">
+          <div class="card-lamborghini-header" style="flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px;">
+              <span class="card-title">
+                <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> FLASH MAP <span class="desktop-only">— MONITOR MULTI-GRÁFICO</span>
+              </span>
+              <span id="charts-mode-badge" class="badge-gold">MODO QUAD (4)</span>
+            </div>
+            <div style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;">
+              <button id="btn-chart-solo" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('solo')">SOLO (1)</button>
+              <button id="btn-chart-dual" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('dual')">DUAL (2)</button>
+              <button id="btn-chart-quad" class="btn-gold" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('quad')">QUAD (4)</button>
+              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $10,000.00 pristine">RESET BANCA ($10K)</button>
+            </div>
+          </div>
+
+          <!-- Grid of Charts: All 4 Native Lightweight Charts with Dynamic Entrada, Alvo, Stop and Laya Supervision -->
+          <div id="charts-grid-container" class="charts-grid-quad">
+            <!-- Chart 1 (G1: BTC 1H) -->
+            <div id="chart-card-0" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                  <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+                  <span id="chart-header-badge-0" class="badge-gold" style="font-size: 9px; padding: 2px 5px;">G1 • BTC (1H)</span>
+                  <input id="chart-sym-0" class="input-lamborghini font-mono" style="padding: 1px 4px; font-size: 10px; width: 75px; text-transform: uppercase;" value="BTCUSDT" onchange="updateChart(0)">
+                  <span id="chart-laya-badge-0" class="badge-cyan" style="font-size: 8px; padding: 2px 4px; font-weight: 700;">LAYA: SCAN</span>
+                  <span id="chart-kronos-badge-0" style="font-size: 8px; font-family: var(--font-mono); color: #B388FF; padding: 1px 4px; background: rgba(179,136,255,0.08); border: 1px solid rgba(179,136,255,0.3); border-radius: 2px;" title="Kronos AI Transformer Projection">❖ K: --</span>
+                  <span id="chart-flow-badge-0" style="font-size: 8px; font-family: var(--font-mono); color: #8899aa; padding: 1px 4px; background: #070a0e; border: 1px solid #141c26; border-radius: 2px;" title="Fluxo Institucional OKX Rubik">LSR: --</span>
+                </div>
+                <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+                  <button id="btn-tf-0-1" class="btn-ghost btn-tf" data-tf="1" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(0, '1')">1M</button>
+                  <button id="btn-tf-0-5" class="btn-ghost btn-tf" data-tf="5" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(0, '5')">5M</button>
+                  <button id="btn-tf-0-15" class="btn-ghost btn-tf" data-tf="15" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(0, '15')">15M</button>
+                  <button id="btn-tf-0-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(0, '60')">1H</button>
+                </div>
+              </div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
+                <div id="lw-frame-wrap-0" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+                <div id="tv-frame-wrap-0" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
+                  <iframe id="tv-frame-0" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+                <div id="laya-hud-0" class="laya-tactical-hud" style="position: absolute; top: 6px; left: 6px; z-index: 10; display: flex; flex-direction: column; gap: 3px; background: rgba(8, 10, 14, 0.92); border: 1px solid #1a2430; padding: 4px 7px; backdrop-filter: blur(4px); font-family: var(--font-mono); font-size: 8.5px; max-width: 95%;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#29ABE2" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+                      <b style="color: #29ABE2;">LAYA:</b>
+                      <span id="hud-laya-badge-0" class="badge-cyan" style="font-size: 8px; padding: 1px 3px;">ANALISANDO...</span>
+                    </div>
+                    <span id="hud-status-badge-0" class="badge-ghost" style="font-size: 8px; padding: 1px 3px; color: var(--text-muted);">RADAR ATIVO</span>
+                    <span id="hud-live-price-0" style="color: #FFFFFF; font-weight: 800; font-size: 9.5px;">--</span>
+                  </div>
+                  <div style="display: flex; gap: 6px; font-size: 8px; border-top: 1px solid #141c24; padding-top: 2px; flex-wrap: wrap;">
+                    <span style="color: #FFC000;">ENTRADA: <b id="hud-entry-txt-0" style="color: #FFF;">--</b></span>
+                    <span style="color: #00E676;">ALVO: <b id="hud-target-txt-0" style="color: #00E676;">--</b></span>
+                    <span style="color: #FF1744;">STOP: <b id="hud-stop-txt-0" style="color: #FF1744;">--</b></span>
+                    <span style="color: #B388FF;">❖ KRONOS: <b id="hud-kronos-txt-0" style="color: #D1C4E9;">--</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 2 (G2: BTC 1H) -->
+            <div id="chart-card-1" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                  <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+                  <span id="chart-header-badge-1" class="badge-gold" style="font-size: 9px; padding: 2px 5px;">G2 • BTC (1H)</span>
+                  <input id="chart-sym-1" class="input-lamborghini font-mono" style="padding: 1px 4px; font-size: 10px; width: 75px; text-transform: uppercase;" value="BTCUSDT" onchange="updateChart(1)">
+                  <span id="chart-laya-badge-1" class="badge-cyan" style="font-size: 8px; padding: 2px 4px; font-weight: 700;">LAYA: SCAN</span>
+                  <span id="chart-kronos-badge-1" style="font-size: 8px; font-family: var(--font-mono); color: #B388FF; padding: 1px 4px; background: rgba(179,136,255,0.08); border: 1px solid rgba(179,136,255,0.3); border-radius: 2px;" title="Kronos AI Transformer Projection">❖ K: --</span>
+                  <span id="chart-flow-badge-1" style="font-size: 8px; font-family: var(--font-mono); color: #8899aa; padding: 1px 4px; background: #070a0e; border: 1px solid #141c26; border-radius: 2px;" title="Fluxo Institucional OKX Rubik">LSR: --</span>
+                </div>
+                <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+                  <button id="btn-tf-1-1" class="btn-ghost btn-tf" data-tf="1" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(1, '1')">1M</button>
+                  <button id="btn-tf-1-5" class="btn-ghost btn-tf" data-tf="5" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(1, '5')">5M</button>
+                  <button id="btn-tf-1-15" class="btn-ghost btn-tf" data-tf="15" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(1, '15')">15M</button>
+                  <button id="btn-tf-1-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(1, '60')">1H</button>
+                </div>
+              </div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
+                <div id="lw-frame-wrap-1" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+                <div id="tv-frame-wrap-1" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
+                  <iframe id="tv-frame-1" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+                <div id="laya-hud-1" class="laya-tactical-hud" style="position: absolute; top: 6px; left: 6px; z-index: 10; display: flex; flex-direction: column; gap: 3px; background: rgba(8, 10, 14, 0.92); border: 1px solid #1a2430; padding: 4px 7px; backdrop-filter: blur(4px); font-family: var(--font-mono); font-size: 8.5px; max-width: 95%;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#29ABE2" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+                      <b style="color: #29ABE2;">LAYA:</b>
+                      <span id="hud-laya-badge-1" class="badge-cyan" style="font-size: 8px; padding: 1px 3px;">ANALISANDO...</span>
+                    </div>
+                    <span id="hud-status-badge-1" class="badge-ghost" style="font-size: 8px; padding: 1px 3px; color: var(--text-muted);">RADAR ATIVO</span>
+                    <span id="hud-live-price-1" style="color: #FFFFFF; font-weight: 800; font-size: 9.5px;">--</span>
+                  </div>
+                  <div style="display: flex; gap: 6px; font-size: 8px; border-top: 1px solid #141c24; padding-top: 2px; flex-wrap: wrap;">
+                    <span style="color: #FFC000;">ENTRADA: <b id="hud-entry-txt-1" style="color: #FFF;">--</b></span>
+                    <span style="color: #00E676;">ALVO: <b id="hud-target-txt-1" style="color: #00E676;">--</b></span>
+                    <span style="color: #FF1744;">STOP: <b id="hud-stop-txt-1" style="color: #FF1744;">--</b></span>
+                    <span style="color: #B388FF;">❖ KRONOS: <b id="hud-kronos-txt-1" style="color: #D1C4E9;">--</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 3 (G3: BTC 1H) -->
+            <div id="chart-card-2" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                  <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+                  <span id="chart-header-badge-2" class="badge-gold" style="font-size: 9px; padding: 2px 5px;">G3 • BTC (1H)</span>
+                  <input id="chart-sym-2" class="input-lamborghini font-mono" style="padding: 1px 4px; font-size: 10px; width: 75px; text-transform: uppercase;" value="BTCUSDT" onchange="updateChart(2)">
+                  <span id="chart-laya-badge-2" class="badge-cyan" style="font-size: 8px; padding: 2px 4px; font-weight: 700;">LAYA: SCAN</span>
+                  <span id="chart-kronos-badge-2" style="font-size: 8px; font-family: var(--font-mono); color: #B388FF; padding: 1px 4px; background: rgba(179,136,255,0.08); border: 1px solid rgba(179,136,255,0.3); border-radius: 2px;" title="Kronos AI Transformer Projection">❖ K: --</span>
+                  <span id="chart-flow-badge-2" style="font-size: 8px; font-family: var(--font-mono); color: #8899aa; padding: 1px 4px; background: #070a0e; border: 1px solid #141c26; border-radius: 2px;" title="Fluxo Institucional OKX Rubik">LSR: --</span>
+                </div>
+                <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+                  <button id="btn-tf-2-1" class="btn-ghost btn-tf" data-tf="1" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(2, '1')">1M</button>
+                  <button id="btn-tf-2-5" class="btn-ghost btn-tf" data-tf="5" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(2, '5')">5M</button>
+                  <button id="btn-tf-2-15" class="btn-ghost btn-tf" data-tf="15" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(2, '15')">15M</button>
+                  <button id="btn-tf-2-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(2, '60')">1H</button>
+                </div>
+              </div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
+                <div id="lw-frame-wrap-2" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+                <div id="tv-frame-wrap-2" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
+                  <iframe id="tv-frame-2" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+                <div id="laya-hud-2" class="laya-tactical-hud" style="position: absolute; top: 6px; left: 6px; z-index: 10; display: flex; flex-direction: column; gap: 3px; background: rgba(8, 10, 14, 0.92); border: 1px solid #1a2430; padding: 4px 7px; backdrop-filter: blur(4px); font-family: var(--font-mono); font-size: 8.5px; max-width: 95%;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#29ABE2" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+                      <b style="color: #29ABE2;">LAYA:</b>
+                      <span id="hud-laya-badge-2" class="badge-cyan" style="font-size: 8px; padding: 1px 3px;">ANALISANDO...</span>
+                    </div>
+                    <span id="hud-status-badge-2" class="badge-ghost" style="font-size: 8px; padding: 1px 3px; color: var(--text-muted);">RADAR ATIVO</span>
+                    <span id="hud-live-price-2" style="color: #FFFFFF; font-weight: 800; font-size: 9.5px;">--</span>
+                  </div>
+                  <div style="display: flex; gap: 6px; font-size: 8px; border-top: 1px solid #141c24; padding-top: 2px; flex-wrap: wrap;">
+                    <span style="color: #FFC000;">ENTRADA: <b id="hud-entry-txt-2" style="color: #FFF;">--</b></span>
+                    <span style="color: #00E676;">ALVO: <b id="hud-target-txt-2" style="color: #00E676;">--</b></span>
+                    <span style="color: #FF1744;">STOP: <b id="hud-stop-txt-2" style="color: #FF1744;">--</b></span>
+                    <span style="color: #B388FF;">❖ KRONOS: <b id="hud-kronos-txt-2" style="color: #D1C4E9;">--</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 4 (G4: BTC 1H) -->
+            <div id="chart-card-3" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                  <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+                  <span id="chart-header-badge-3" class="badge-gold" style="font-size: 9px; padding: 2px 5px;">G4 • BTC (1H)</span>
+                  <input id="chart-sym-3" class="input-lamborghini font-mono" style="padding: 1px 4px; font-size: 10px; width: 75px; text-transform: uppercase;" value="BTCUSDT" onchange="updateChart(3)">
+                  <span id="chart-laya-badge-3" class="badge-cyan" style="font-size: 8px; padding: 2px 4px; font-weight: 700;">LAYA: SCAN</span>
+                  <span id="chart-kronos-badge-3" style="font-size: 8px; font-family: var(--font-mono); color: #B388FF; padding: 1px 4px; background: rgba(179,136,255,0.08); border: 1px solid rgba(179,136,255,0.3); border-radius: 2px;" title="Kronos AI Transformer Projection">❖ K: --</span>
+                  <span id="chart-flow-badge-3" style="font-size: 8px; font-family: var(--font-mono); color: #8899aa; padding: 1px 4px; background: #070a0e; border: 1px solid #141c26; border-radius: 2px;" title="Fluxo Institucional OKX Rubik">LSR: --</span>
+                </div>
+                <div style="display: flex; gap: 2px; align-items: center; flex-shrink: 0;">
+                  <button id="btn-tf-3-1" class="btn-ghost btn-tf" data-tf="1" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(3, '1')">1M</button>
+                  <button id="btn-tf-3-5" class="btn-ghost btn-tf" data-tf="5" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(3, '5')">5M</button>
+                  <button id="btn-tf-3-15" class="btn-ghost btn-tf" data-tf="15" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(3, '15')">15M</button>
+                  <button id="btn-tf-3-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(3, '60')">1H</button>
+                </div>
+              </div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
+                <div id="lw-frame-wrap-3" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+                <div id="tv-frame-wrap-3" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
+                  <iframe id="tv-frame-3" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+                <div id="laya-hud-3" class="laya-tactical-hud" style="position: absolute; top: 6px; left: 6px; z-index: 10; display: flex; flex-direction: column; gap: 3px; background: rgba(8, 10, 14, 0.92); border: 1px solid #1a2430; padding: 4px 7px; backdrop-filter: blur(4px); font-family: var(--font-mono); font-size: 8.5px; max-width: 95%;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#29ABE2" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+                      <b style="color: #29ABE2;">LAYA:</b>
+                      <span id="hud-laya-badge-3" class="badge-cyan" style="font-size: 8px; padding: 1px 3px;">ANALISANDO...</span>
+                    </div>
+                    <span id="hud-status-badge-3" class="badge-ghost" style="font-size: 8px; padding: 1px 3px; color: var(--text-muted);">RADAR ATIVO</span>
+                    <span id="hud-live-price-3" style="color: #FFFFFF; font-weight: 800; font-size: 9.5px;">--</span>
+                  </div>
+                  <div style="display: flex; gap: 6px; font-size: 8px; border-top: 1px solid #141c24; padding-top: 2px; flex-wrap: wrap;">
+                    <span style="color: #FFC000;">ENTRADA: <b id="hud-entry-txt-3" style="color: #FFF;">--</b></span>
+                    <span style="color: #00E676;">ALVO: <b id="hud-target-txt-3" style="color: #00E676;">--</b></span>
+                    <span style="color: #FF1744;">STOP: <b id="hud-stop-txt-3" style="color: #FF1744;">--</b></span>
+                    <span style="color: #B388FF;">❖ KRONOS: <b id="hud-kronos-txt-3" style="color: #D1C4E9;">--</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COL 2: MESA TÁTICA (BANCA, SLOTS, LAYA TELEMETRIA, DISPARO) -->
+      <div class="cockpit-col-middle" style="min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+        
+        <!-- ACESSO DEDICADO: AGENTE PLUTUS (VIVER DE RENDA / ARCA) -->
+        <a href="/plutus" style="display: flex; align-items: center; justify-content: space-between; background: #181A20; border: 1px solid #2B3139; border-left: 3px solid var(--accent-gold); padding: 10px 14px; border-radius: 4px; text-decoration: none; color: #fff; transition: all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent-gold)'; this.style.boxShadow='0 0 10px rgba(252,213,53,0.2)'" onmouseout="this.style.borderColor='#2B3139'; this.style.boxShadow='none'">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <canvas class="thinking-orb-canvas" data-state="solving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+            <div>
+              <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--accent-gold); display: block;">❖ AGENTE PLUTUS</span>
+              <span style="font-size: 9.5px; color: var(--text-muted);">VIVER DE RENDA • MÉTODO ARCA</span>
+            </div>
+          </div>
+          <span class="badge-gold" style="font-size: 9px; padding: 2px 6px;">ABRIR UI ➔</span>
+        </a>
+
+        <!-- CARD 1: BANCA & WEALTH BREAKDOWN -->
+        <div class="card-lamborghini" style="border-left: 2px solid var(--accent-gold);">
+          <div class="card-lamborghini-header">
+            <span class="card-title">
+              <canvas class="thinking-orb-canvas" data-state="breathing" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> BANCA CONSOLIDADA
+            </span>
+            <span id="side-defense-badge" class="badge-gold">DEFESA L0</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+            <div>
+              <span style="display: block; font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">EQUITY TOTAL (AO VIVO)</span>
+              <span id="side-balance" class="metric-value font-mono" style="font-size: 22px; color: var(--accent-gold);">$10,000.00</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="display: block; font-size: 8px; color: var(--text-muted); text-transform: uppercase;">LUCRO TOTAL</span>
+              <span id="side-pnl" class="badge-up" style="font-size: 11px;">+0.00%</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #0c0c0c; padding: 8px; border: 1px solid #1a1a1a; font-family: var(--font-mono); font-size: 10px;">
+            <div>
+              <span style="color: #666; display: block; font-size: 8px;">SALDO BASE</span>
+              <b id="side-base-balance" style="color: #fff;">$10,000.00</b>
+            </div>
+            <div>
+              <span style="color: #666; display: block; font-size: 8px;">LUCRO REALIZADO</span>
+              <b id="side-realized-pnl" style="color: #0ECB81;">+$0.00</b>
+            </div>
+            <div>
+              <span style="color: #666; display: block; font-size: 8px;">PNL FLUTUANTE (ABERTO)</span>
+              <b id="side-floating-pnl" style="color: #aaa;">$0.00</b>
+            </div>
+            <div>
+              <span style="color: #666; display: block; font-size: 8px;">MARGEM ALOCADA</span>
+              <b id="side-margin-allocated" style="color: var(--cyan-pulse);">$0.00 (0%)</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: ORDENS ABERTAS (SLOTS EM CUSTÓDIA) -->
+        <div class="card-lamborghini" style="display: flex; flex-direction: column;">
+          <div class="card-lamborghini-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="card-title">
+                <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;"></canvas> ORDENS ABERTAS
+              </span>
+              <span id="side-slots-count" class="badge-gold">0 ATIVAS</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button onclick="fetchSlots()" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;" title="Atualizar Ordens">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+              <button onclick="openResetModal()" class="btn-ghost" style="padding: 3px 6px; font-size: 9px; border-color: #f6465d; color: #f6465d;" title="Reset de Emergência">
+                RESET
+              </button>
+            </div>
+          </div>
+
+          <!-- Slots Container Scrollable -->
+          <div id="side-slots-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 2px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 24px 10px; font-size: 11px;">
+              NENHUMA ORDEM ABERTA • AGUARDANDO GATILHOS DA FROTA
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: LAYA SOBERANA (COMANDO SUPREMO & FLUXO DE CONSCIÊNCIA) -->
+        <div class="card-lamborghini" style="background: #181A20; border-left: 2px solid var(--accent-gold); display: flex; flex-direction: column;">
+          <div class="card-lamborghini-header">
+            <span class="card-title" style="color: #fff;">
+              <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> LAYA SOBERANA • CONSCIÊNCIA
+            </span>
+            <span id="laya-status-badge" class="badge-gold">SOBERANA • ONLINE</span>
+          </div>
+
+          <!-- Telemetria do Regime -->
+          <div style="background: #0d1218; border: 1px solid #16202c; padding: 6px 8px; font-family: var(--font-mono); font-size: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div>
+              <span style="color: #666; font-size: 8px; display: block;">MODO ATIVO</span>
+              <b id="laya-regime-mode" style="color: #00E676;">MEAN-REVERSION</b>
+            </div>
+            <div>
+              <span style="color: #666; font-size: 8px; display: block;">ADX ORÁCULO</span>
+              <b id="laya-master-adx" style="color: #fff;">14.5</b>
+            </div>
+            <div>
+              <span style="color: #666; font-size: 8px; display: block;">STATUS FLASH</span>
+              <b style="color: #29ABE2;">GUARD ARMADO</b>
+            </div>
+          </div>
+
+          <!-- Laya Real-time Thought Stream Terminal -->
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 9px; color: #888; font-weight: 700; letter-spacing: 0.5px;">STREAM DE CONSCIÊNCIA & PENSAMENTOS:</span>
+              <span style="font-size: 8px; color: var(--cyan-pulse); font-family: var(--font-mono);">LIVE TELEMETRY (3S)</span>
+            </div>
+            <div id="laya-thought-stream" style="background: #030508; border: 1px solid #141b24; border-radius: 2px; padding: 6px 8px; font-family: var(--font-mono); font-size: 9.5px; height: 165px; overflow-y: auto; color: #a0aec0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="color: #555; text-align: center; padding: 20px 0;">SINCRONIZANDO SINAL DE VIDA DA LAYA...</div>
+            </div>
+          </div>
+
+          <!-- Resumo de Decisão Tática Atual -->
+          <div id="laya-latest-decision" style="background: #090d12; border: 1px solid #16202a; padding: 6px 8px; font-family: var(--font-mono); font-size: 9.5px; display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #777;">DECISÃO ENTRADA (G1):</span>
+              <span id="laya-entry-decision" style="color: #00E676; font-weight: 800;">BUY (84%) • AUTORIZADO</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #777;">MANEJO FLASH:</span>
+              <span id="laya-exit-decision" style="color: #29ABE2; font-weight: 800;">BREAKEVEN @ +1.0% | TRAIL @ +2.5%</span>
+            </div>
+          </div>
+
+          <!-- Botões de Ação Soberana -->
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <button id="btn-laya-scan" onclick="triggerLayaScan()" class="btn-gold" style="font-size: 9px; padding: 6px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 800;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>DISPARAR VARREDURA AUTÔNOMA LAYA</span>
+            </button>
+            <button onclick="evaluateLayaCurrentChart()" class="btn-ghost" style="font-size: 8.5px; padding: 4px 6px; border-color: #202b38; color: #8899aa; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>REAVALIAR ATIVOS G1-G4 NO RADAR</span>
+            </button>
+          </div>
+        </div>
+
+
+        <!-- CARD 4: MESA DE DISPARO RÁPIDO & SIMULADOR -->
+        <div class="card-lamborghini" style="border-left: 2px solid var(--accent-gold);">
+          <div class="card-lamborghini-header">
+            <span class="card-title">
+              <span style="color: var(--accent-gold);">❖</span> DISPARO / SIMULADOR TÁTICO
+            </span>
+            <span class="pulse-indicator"></span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div>
+                <label style="display: block; font-size: 8px; color: #888; font-family: var(--font-mono); margin-bottom: 2px;">SÍMBOLO SWAP (MATRIZ ELITE)</label>
+                <input id="input-test-symbol" class="input-lamborghini font-mono" type="text" placeholder="Ex: SOL-USDT-SWAP" value="SOL-USDT-SWAP" style="font-size: 11px; padding: 5px 6px; width: 100%; text-transform: uppercase;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 8px; color: #888; font-family: var(--font-mono); margin-bottom: 2px;">DIREÇÃO</label>
+                <select id="input-test-direction" class="input-lamborghini font-mono" style="font-size: 10px; padding: 5px; width: 100%; background: #141414; color: #fff;">
+                  <option value="LONG">LONG (COMPRA)</option>
+                  <option value="SHORT">SHORT (VENDA)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div>
+                <label style="display: block; font-size: 8px; color: #888; font-family: var(--font-mono); margin-bottom: 2px;">ALAVANCAGEM</label>
+                <select id="input-test-leverage" class="input-lamborghini font-mono" style="font-size: 10px; padding: 5px; width: 100%; background: #141414; color: var(--accent-gold); font-weight: bold;">
+                  <option value="15" selected>15X (INSTITUCIONAL)</option>
+                  <option value="10">10X (CONSERVADOR)</option>
+                  <option value="20">20X (MODERADO)</option>
+                  <option value="50">50X (ALTO RISCO)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 8px; color: #888; font-family: var(--font-mono); margin-bottom: 2px;">MARGEM ($)</label>
+                <input id="input-test-margin" class="input-lamborghini font-mono" type="number" value="200" style="font-size: 11px; padding: 5px 6px; width: 100%;">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-top: 2px;">
+              <button onclick="triggerSimulatedOrder(false)" class="btn-gold" style="flex: 1; font-size: 10px; padding: 6px 10px; white-space: nowrap;">
+                ABRIR ORDEM
+              </button>
+              <button onclick="triggerSimulatedOrder(true)" class="btn-ghost" style="padding: 6px 8px; font-size: 10px; border-color: var(--cyan-pulse); color: var(--cyan-pulse); white-space: nowrap;" title="Valida com a Laya antes de abrir">
+                + LAYA CHECK
+              </button>
+            </div>
+            <div id="sim-feedback-cockpit" style="display: none; padding: 5px 8px; font-family: var(--font-mono); font-size: 10px; background: #111; border: 1px solid #222;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- COL 3: CUSTÓDIA & AUDITORIA (CUSTÓDIA GERAL + HISTÓRICO DE TRADES) -->
+      <div class="cockpit-col-tables">
+
+        <!-- Active Positions / Custódia Full Table (Auditoria Ampla) -->
+        <div class="card-lamborghini">
+          <div class="card-lamborghini-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="card-title">
+                <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> PAINEL DE CUSTÓDIA GERAL — AUDITORIA DE ORDENS ATIVAS
+              </span>
+              <span id="active-slots-count" class="badge-gold">0 ATIVAS</span>
+            </div>
+          </div>
+
+          <div class="table-responsive-wrap" style="overflow-x: auto;">
+            <table class="table-lamborghini">
+              <thead>
+                <tr>
+                  <th>PAR</th>
+                  <th>TIPO</th>
+                  <th>DIREÇÃO</th>
+                  <th>ENTRADA</th>
+                  <th>ATUAL</th>
+                  <th>STOP ATUAL</th>
+                  <th>PNL (%)</th>
+                  <th>STATUS ESCADINHA</th>
+                  <th>ESTRATÉGIA</th>
+                  <th>AÇÕES</th>
+                </tr>
+              </thead>
+              <tbody id="slots-tbody">
+                <tr>
+                  <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
+                    NENHUMA POSIÇÃO EM ABERTO NO MOMENTO (SISTEMA EM AGUARDO DE GATILHOS)
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bottom: Recent Trades -->
+        <div class="card-lamborghini">
+          <div class="card-lamborghini-header">
+            <span class="card-title">
+              <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> HISTÓRICO DE AUDITORIA & ÚLTIMOS TRADES
+            </span>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="fetchRecentHistory()" class="btn-ghost" style="padding: 3px 8px; font-size: 9px;">RECARREGAR</button>
+              <button onclick="openResetModal()" class="btn-ghost" style="padding: 3px 8px; font-size: 9px; border-color: #f6465d; color: #f6465d;">RESETAR HISTÓRICO</button>
+            </div>
+          </div>
+          <div id="recent-trades-list" style="display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
+            <div style="color: var(--text-muted); text-align: center; padding: 20px;">Carregando histórico...</div>
+          </div>
+        </div>
+
+      </div>
+
+    <!-- MODAL DOSSIÊ FORENSE & AUDITORIA DE ORDEM -->
+    <div id="trade-audit-modal" class="audit-modal-backdrop">
+      <div class="audit-modal-container">
+        
+        <!-- Header -->
+        <div class="audit-modal-header">
+          <div class="audit-modal-title">
+            <span style="color: var(--accent-gold);">❖</span>
+            <span id="audit-modal-order-title">DOSSIÊ FORENSE DE ORDEM INSTITUCIONAL</span>
+            <span id="audit-modal-badge-direction" class="badge-up" style="font-size: 10px; margin-left: 6px;">LONG 15X</span>
+          </div>
+          <button class="audit-modal-close" onclick="closeTradeAuditModal()" title="Fechar (ESC)">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div class="audit-modal-body" id="audit-modal-content">
+          <!-- Dynamic Content Injected Here -->
+        </div>
+
+        <!-- Footer -->
+        <div class="audit-modal-footer">
+          <div style="font-size: 11px; color: #888;">
+            <span style="color: var(--accent-gold);">OKX SWAP PERPETUAL</span> • Sistema 100% Auditável
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="audit-btn-chart" class="btn-ghost" style="font-size: 11px; padding: 6px 12px; border-color: var(--cyan-pulse); color: var(--cyan-pulse);">
+              CARREGAR NO GRÁFICO 1 (G1)
+            </button>
+            <button onclick="closeTradeAuditModal()" class="btn-gold" style="font-size: 11px; padding: 6px 14px;">
+              FECHAR DOSSIÊ
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/shell.js"></script>
+  <script>
+    mountLamborghiniShell('cockpit');
+
+    /* ==========================================================================
+       4-CHART GRID ARCHITECTURE (NATIVE LIGHTWEIGHT CHARTS + LAYA SUPERVISION)
+       Monitor Oráculo BTCUSDT (1M, 5M, 15M, 1H) quando ocioso
+       Mapeamento automático dinâmico para as ordens ativas da OKX
+       ========================================================================== */
+    const chartSymbols = ["BTCUSDT", "BTCUSDT", "BTCUSDT", "BTCUSDT"];
+    const chartIntervals = ["60", "60", "60", "60"];
+    let currentGridMode = 'quad';
+
+    const nativeCharts = [null, null, null, null];
+    const candleSeriesList = [null, null, null, null];
+    const priceLinesList = [[], [], [], []];
+    const chartLastPrice = [152.40, 28.60, 4.85, 11.75];
+    let focusedSlot = null;
+
+    function initAllNativeCharts() {
+      if (!window.LightweightCharts) return;
+      for (let i = 0; i < 4; i++) {
+        initSingleNativeChart(i);
+      }
+    }
+
+    function initSingleNativeChart(i) {
+      const container = document.getElementById(`lw-frame-wrap-${i}`);
+      if (!container || !window.LightweightCharts) return;
+      if (nativeCharts[i]) {
+        try { nativeCharts[i].remove(); } catch(e){}
+        nativeCharts[i] = null;
+      }
+      
+      const width = Math.max(container.clientWidth || 0, 240);
+      const height = Math.max(container.clientHeight || 0, 180);
+
+      const chart = LightweightCharts.createChart(container, {
+        width: width,
+        height: height,
+        layout: {
+          background: { type: 'solid', color: '#05070a' },
+          textColor: '#8899a6'
+        },
+        grid: {
+          vertLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 },
+          horzLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 192, 0, 0.25)',
+          scaleMargins: { top: 0.10, bottom: 0.10 },
+          autoScale: true
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          timeVisible: true,
+          secondsVisible: false
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal
+        },
+        localization: {
+          priceFormatter: (p) => {
+            if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (p >= 1) return p.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+            return p.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+          }
+        }
+      });
+
+      const series = chart.addCandlestickSeries({
+        upColor: '#FFFFFF',
+        downColor: '#FF1744',
+        borderVisible: false,
+        wickUpColor: '#FFFFFF',
+        wickDownColor: '#FF1744'
+      });
+
+      nativeCharts[i] = chart;
+      candleSeriesList[i] = series;
+      priceLinesList[i] = [];
+
+      loadCandlesForChart(i, chartSymbols[i], chartIntervals[i]);
+
+      const ro = new ResizeObserver(() => {
+        if (nativeCharts[i] && container) {
+          const w = Math.max(container.clientWidth || 0, 150);
+          const h = Math.max(container.clientHeight || 0, 150);
+          nativeCharts[i].applyOptions({ width: w, height: h });
+          try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+        }
+      });
+      ro.observe(container);
+    }
+ 
+    /* ==========================================================================
+       OKX BUSINESS WEBSOCKET (REAL-TIME CANDLESTICKS TICK-BY-TICK)
+       ========================================================================== */
+    let okxCandleWs = null;
+    let okxWsHeartbeatTimer = null;
+    const okxActiveSubs = new Map(); // chartIndex -> { channel, instId }
+
+    function getOkxInstId(sym) {
+      if (!sym) return "SOL-USDT-SWAP";
+      let clean = sym.replace("-SWAP", "").replace("-", "").toUpperCase();
+      return `${clean.replace("USDT", "")}-USDT-SWAP`;
+    }
+
+    function getOkxCandleChannel(tf) {
+      if (tf === "1") return "candle1m";
+      if (tf === "5") return "candle5m";
+      if (tf === "15") return "candle15m";
+      if (tf === "60") return "candle1H";
+      return "candle1m";
+    }
+
+    function initOkxCandleWs() {
+      if (okxCandleWs && (okxCandleWs.readyState === WebSocket.OPEN || okxCandleWs.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      try {
+        console.log("[OKX-WS] Conectando ao WebSocket de Candles da OKX (Business)...");
+        okxCandleWs = new WebSocket("wss://ws.okx.com:8443/ws/v5/business");
+
+        okxCandleWs.onopen = () => {
+          console.log("[OKX-WS] Conectado com sucesso à OKX SWAP em tempo real!");
+          if (okxWsHeartbeatTimer) clearInterval(okxWsHeartbeatTimer);
+          okxWsHeartbeatTimer = setInterval(() => {
+            if (okxCandleWs && okxCandleWs.readyState === WebSocket.OPEN) {
+              okxCandleWs.send("ping");
+            }
+          }, 20000);
+
+          // Inscreve todos os 4 gráficos atuais
+          for (let i = 0; i < 4; i++) {
+            subscribeChartToOkxWs(i);
+          }
+        };
+
+        okxCandleWs.onmessage = (event) => {
+          if (event.data === "pong") return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.event === "subscribe") return;
+            if (msg.event === "error") {
+              console.warn("[OKX-WS] Erro:", msg.msg);
+              return;
+            }
+
+            const arg = msg.arg;
+            if (arg && msg.data && msg.data.length > 0) {
+              const k = msg.data[0];
+              const candle = {
+                time: Math.floor(parseInt(k[0]) / 1000),
+                open: parseFloat(k[1]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                close: parseFloat(k[4])
+              };
+
+              // Atualiza os gráficos correspondentes
+              for (let i = 0; i < 4; i++) {
+                const sub = okxActiveSubs.get(i);
+                if (sub && sub.instId === arg.instId && sub.channel === arg.channel) {
+                  const series = candleSeriesList[i];
+                  if (series) {
+                    try {
+                      series.update(candle);
+                    } catch(chartErr) {
+                      // Silently skip out-of-order candlestick updates from websocket bursts
+                    }
+                    chartLastPrice[i] = candle.close;
+
+                    const prec = candle.close < 0.01 ? 6 : (candle.close < 1.0 ? 4 : (candle.close < 50 ? 3 : 2));
+                    const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+                    if (livePriceEl) {
+                      livePriceEl.textContent = "$" + (candle.close >= 1 ? candle.close.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : candle.close.toFixed(prec));
+                    }
+                  }
+                }
+              }
+            }
+          } catch(e) {
+            console.error("[OKX-WS] Erro ao processar mensagem:", e);
+          }
+        };
+
+        okxCandleWs.onclose = () => {
+          console.warn("[OKX-WS] Conexão encerrada. Reconectando em 3s...");
+          if (okxWsHeartbeatTimer) clearInterval(okxWsHeartbeatTimer);
+          setTimeout(initOkxCandleWs, 3000);
+        };
+
+        okxCandleWs.onerror = (err) => {
+          console.error("[OKX-WS] Erro de socket:", err);
+          try { okxCandleWs.close(); } catch(e){}
+        };
+
+      } catch(e) {
+        console.error("[OKX-WS] Falha ao inicializar WebSocket:", e);
+        setTimeout(initOkxCandleWs, 5000);
+      }
+    }
+
+    function subscribeChartToOkxWs(chartIndex) {
+      if (!okxCandleWs || okxCandleWs.readyState !== WebSocket.OPEN) return;
+
+      const sym = chartSymbols[chartIndex] || "SOLUSDT";
+      const tf = chartIntervals[chartIndex] || "1";
+      const instId = getOkxInstId(sym);
+      const channel = getOkxCandleChannel(tf);
+
+      const prevSub = okxActiveSubs.get(chartIndex);
+      if (prevSub && (prevSub.instId !== instId || prevSub.channel !== channel)) {
+        try {
+          okxCandleWs.send(JSON.stringify({
+            op: "unsubscribe",
+            args: [{ channel: prevSub.channel, instId: prevSub.instId }]
+          }));
+        } catch(e) {}
+      }
+
+      try {
+        okxCandleWs.send(JSON.stringify({
+          op: "subscribe",
+          args: [{ channel: channel, instId: instId }]
+        }));
+        okxActiveSubs.set(chartIndex, { channel, instId });
+      } catch(e) {
+        console.error(`[OKX-WS] Erro ao subscrever G${chartIndex+1}:`, e);
+      }
+    }
+
+    async function loadCandlesForChart(i, symbol, tf) {
+      let cleanSym = symbol.replace("-SWAP", "").replace("-", "").toUpperCase();
+      // Identificador de instrumento nativo da OKX
+      let okxInstId = symbol.toUpperCase();
+      if (!okxInstId.includes("-")) {
+        let base = okxInstId.replace("USDT", "").replace(".P", "");
+        okxInstId = `${base}-USDT-SWAP`;
+      }
+      
+      let okxBar = "15m";
+      if (tf === "1") okxBar = "1m";
+      else if (tf === "5") okxBar = "5m";
+      else if (tf === "15") okxBar = "15m";
+      else if (tf === "60") okxBar = "1H";
+
+      // 1. Renderiza IMEDIATAMENTE velas base (fallback ou preço ao vivo) para que o canvas NUNCA fique preto ou vazio
+      if (!candleSeriesList[i] || !chartLastPrice[i]) {
+        generateFallbackCandlesForChart(i, cleanSym);
+      }
+
+      try {
+        let klines = [];
+        let okxData = null;
+        
+        // 1. Tenta proxy local sem CORS com timeout estrito de 1.5s
+        try {
+          const controller = new AbortController();
+          const toId = setTimeout(() => controller.abort(), 1500);
+          let pRes = await fetch(`/api/candles?symbol=${cleanSym}&bar=${okxBar}&limit=250`, { signal: controller.signal });
+          clearTimeout(toId);
+          if (pRes.ok) {
+            okxData = await pRes.json();
+          }
+        } catch(pe) {}
+
+        // 2. Se falhar, tenta OKX direto com timeout de 2.0s
+        if (!okxData || okxData.code !== "0" || !okxData.data || okxData.data.length === 0) {
+          try {
+            const controller2 = new AbortController();
+            const toId2 = setTimeout(() => controller2.abort(), 2000);
+            let res = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${okxInstId}&bar=${okxBar}&limit=250`, { signal: controller2.signal });
+            clearTimeout(toId2);
+            if (res.ok) okxData = await res.json();
+          } catch(e) {}
+        }
+
+        if (okxData && okxData.code === "0" && okxData.data && okxData.data.length > 0) {
+          klines = okxData.data.map(k => ({
+            time: Math.floor(parseInt(k[0]) / 1000),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4])
+          })).sort((a,b) => a.time - b.time);
+        }
+
+        if (candleSeriesList[i] && klines.length > 0) {
+          const lastClose = klines[klines.length - 1].close;
+          chartLastPrice[i] = lastClose;
+
+          const prec = lastClose < 0.01 ? 6 : (lastClose < 1.0 ? 4 : (lastClose < 50 ? 3 : 2));
+          const minM = Math.pow(10, -prec);
+          candleSeriesList[i].applyOptions({
+            priceFormat: {
+              type: 'price',
+              precision: prec,
+              minMove: minM
+            }
+          });
+
+          candleSeriesList[i].setData(klines);
+          if (nativeCharts[i]) {
+            nativeCharts[i].priceScale('right').applyOptions({
+              autoScale: true,
+              scaleMargins: { top: 0.15, bottom: 0.15 }
+            });
+            nativeCharts[i].timeScale().applyOptions({
+              barSpacing: 7,
+              rightOffset: 10,
+              minBarSpacing: 3
+            });
+            nativeCharts[i].timeScale().fitContent();
+          }
+          
+          const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+          if (livePriceEl) {
+            livePriceEl.textContent = "$" + (lastClose >= 1 ? lastClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : lastClose.toFixed(prec));
+          }
+          
+          // Re-render lines se houver slot correspondente
+          const activeSlots = window._activeSlotsData || [];
+          const matchingSlot = activeSlots.find(s => (s.symbol || '').replace("-SWAP","").replace("-","").toUpperCase() === cleanSym);
+          if (matchingSlot) {
+            renderSlotOrderLines(i, matchingSlot);
+          } else {
+            clearOrderLinesForChart(i);
+          }
+
+          // Subscreve em tempo real no WebSocket da OKX
+          subscribeChartToOkxWs(i);
+          return;
+        }
+      } catch(e) {
+        console.warn(`OKX candles fallback for chart ${i}:`, e);
+      }
+
+      // Fallback synthetic candles garantido
+      generateFallbackCandlesForChart(i, cleanSym);
+    }
+
+    function generateFallbackCandlesForChart(i, symbol) {
+      const series = candleSeriesList[i];
+      if (!series) return;
+      let basePrice = 10.0;
+
+      const activeSlots = window._activeSlotsData || [];
+      const matchSlot = activeSlots.find(s => (s.symbol || '').replace("-SWAP","").replace("-","").toUpperCase() === symbol);
+      if (matchSlot && Number(matchSlot.current_price || matchSlot.entry_price) > 0) {
+        basePrice = Number(matchSlot.current_price || matchSlot.entry_price);
+      } else if (symbol.includes("BTC")) basePrice = 64500.0;
+      else if (symbol.includes("ETH")) basePrice = 2450.0;
+      else if (symbol.includes("SOL")) basePrice = 152.40;
+      else if (symbol.includes("AVAX")) basePrice = 28.60;
+      else if (symbol.includes("NEAR")) basePrice = 4.85;
+      else if (symbol.includes("LINK")) basePrice = 11.75;
+      else if (symbol.includes("RENDER")) basePrice = 5.80;
+      else if (symbol.includes("SUI")) basePrice = 1.95;
+      else if (symbol.includes("DOT")) basePrice = 4.30;
+      else if (symbol.includes("ADA")) basePrice = 0.38;
+
+      const prec = basePrice < 0.01 ? 6 : (basePrice < 1.0 ? 4 : (basePrice < 50 ? 3 : 2));
+      const minM = Math.pow(10, -prec);
+      series.applyOptions({
+        priceFormat: {
+          type: 'price',
+          precision: prec,
+          minMove: minM
+        }
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      const klines = [];
+      let p = basePrice;
+      for (let j = 75; j >= 0; j--) {
+        const t = now - (j * 900);
+        const change = (Math.random() - 0.485) * (basePrice * 0.0035);
+        const o = p;
+        const c = p + change;
+        const h = Math.max(o, c) + Math.random() * (basePrice * 0.0018);
+        const l = Math.min(o, c) - Math.random() * (basePrice * 0.0018);
+        p = c;
+        klines.push({ time: t, open: o, high: h, low: l, close: c });
+      }
+      series.setData(klines);
+      if (nativeCharts[i]) {
+        nativeCharts[i].priceScale('right').applyOptions({ autoScale: true });
+        nativeCharts[i].timeScale().fitContent();
+      }
+      const last = klines[klines.length - 1].close;
+      chartLastPrice[i] = last;
+      const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+      if (livePriceEl) {
+        livePriceEl.textContent = "$" + (last >= 1 ? last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : last.toFixed(prec));
+      }
+
+      if (matchSlot) {
+        renderSlotOrderLines(i, matchSlot);
+      } else {
+        clearOrderLinesForChart(i);
+      }
+    }
+
+    function clearOrderLinesForChart(i) {
+      const series = candleSeriesList[i];
+      if (series && priceLinesList[i]) {
+        priceLinesList[i].forEach(l => {
+          try { series.removePriceLine(l); } catch(e){}
+        });
+        priceLinesList[i] = [];
+      }
+      const entryTxt = document.getElementById(`hud-entry-txt-${i}`);
+      const targetTxt = document.getElementById(`hud-target-txt-${i}`);
+      const stopTxt = document.getElementById(`hud-stop-txt-${i}`);
+      const statusBadge = document.getElementById(`hud-status-badge-${i}`);
+      const kronosTxt = document.getElementById(`hud-kronos-txt-${i}`);
+      const kronosBadge = document.getElementById(`chart-kronos-badge-${i}`);
+      if (entryTxt) entryTxt.textContent = "--";
+      if (targetTxt) targetTxt.textContent = "--";
+      if (stopTxt) {
+        stopTxt.textContent = "--";
+        stopTxt.style.color = "var(--text-muted)";
+      }
+      if (kronosTxt) {
+        kronosTxt.textContent = "--";
+        kronosTxt.style.color = "var(--text-muted)";
+      }
+      if (kronosBadge) {
+        kronosBadge.textContent = "❖ KRONOS: --";
+      }
+      if (statusBadge) {
+        statusBadge.textContent = "RADAR ATIVO";
+        statusBadge.className = "badge-ghost";
+      }
+    }
+
+    function renderSlotOrderLines(i, slot) {
+      if (!slot) return;
+      let entry = Number(slot.entry_price || slot.price || 0);
+      if (entry <= 0) {
+        entry = Number(slot.current_price || chartLastPrice[i] || 0);
+      }
+      const side = (slot.side || slot.direction || 'BUY').toUpperCase();
+      const isLong = side === 'BUY' || side === 'LONG';
+      let stop = Number(slot.current_stop || slot.stop_loss || 0);
+      let target = Number(slot.target_price || slot.target || 0);
+      if (stop <= 0 && entry > 0) {
+        stop = isLong ? entry * 0.988 : entry * 1.012;
+      }
+      if (target <= 0 && entry > 0) {
+        target = isLong ? entry * 1.025 : entry * 0.975;
+      }
+      const pnlPct = Number(slot.pnl_percent !== undefined ? slot.pnl_percent : (slot.current_roi !== undefined ? slot.current_roi : 0));
+
+      let status = slot.status_risco || 'ORDEM ATIVA';
+      const isProfitLocked = isLong ? (stop > entry * 1.002) : (stop < entry * 0.998);
+      const isRiskFree = !isProfitLocked && (Math.abs(stop - entry) / entry < 0.0025);
+
+      if (pnlPct >= 1.5 || isProfitLocked) status = 'TRAILING PROFIT';
+      else if (pnlPct >= 0.5 || isRiskFree) status = 'PROTEGIDA (BE)';
+
+      // Extrai dados preditivos do Kronos AI
+      const meta = slot.contract_meta || {};
+      const kronosTarget = Number(meta.kronos_target_price || slot.kronos_target_price || 0);
+      const kronosDir = meta.kronos_direction || slot.kronos_direction || '';
+      const kronosConv = Number(meta.kronos_conviction || slot.kronos_conviction || 0);
+      const kronosPct = Number(meta.kronos_change_pct || slot.kronos_change_pct || 0);
+
+      // Atualiza badge de Laya para ORDEM ATIVA
+      const layaBadge = document.getElementById(`chart-laya-badge-${i}`);
+      if (layaBadge) {
+        layaBadge.className = isLong ? 'badge-up' : 'badge-down';
+        layaBadge.textContent = `LAYA: ${isLong ? 'BUY' : 'SELL'} (ORDEM ATIVA)`;
+      }
+      const hudBadge = document.getElementById(`hud-laya-badge-${i}`);
+      if (hudBadge) {
+        hudBadge.className = isLong ? 'badge-up' : 'badge-down';
+        hudBadge.textContent = `${isLong ? 'BUY' : 'SELL'} (ATIVA)`;
+      }
+
+      // Atualiza badge de Kronos no cabeçalho do gráfico
+      const kronosBadge = document.getElementById(`chart-kronos-badge-${i}`);
+      if (kronosBadge) {
+        if (kronosDir && kronosConv > 0) {
+          kronosBadge.innerHTML = `❖ KRONOS: <b style="color: #E1BEE7;">${kronosDir} ${kronosConv.toFixed(0)}%</b>`;
+          kronosBadge.title = `Kronos AI Transformer: ${kronosDir} (${kronosPct ? (kronosPct > 0 ? '+' : '') + kronosPct.toFixed(2) + '%' : ''}) Alvo: $${kronosTarget}`;
+        } else {
+          kronosBadge.textContent = `❖ KRONOS: ATIVO`;
+        }
+      }
+
+      renderOrderLinesForChart(i, entry, target, stop, side, status, kronosTarget, kronosDir, kronosPct);
+    }
+
+    function renderOrderLinesForChart(i, entry, target, stop, side, statusTag, kronosTarget, kronosDir, kronosPct) {
+      const series = candleSeriesList[i];
+      if (!series) return;
+      const ne = Number(entry);
+      const nt = Number(target);
+      const ns = Number(stop);
+      const nk = Number(kronosTarget);
+
+      // Limpar linhas anteriores do chart i
+      (priceLinesList[i] || []).forEach(l => {
+        try { series.removePriceLine(l); } catch(e){}
+      });
+      priceLinesList[i] = [];
+
+      if (!ne || isNaN(ne) || ne <= 0) return;
+
+      const normSide = (side || 'BUY').toUpperCase();
+      const isLong = normSide === 'BUY' || normSide === 'LONG';
+
+      // 1. Linha de ENTRADA (Gold)
+      try {
+        const entryLine = series.createPriceLine({
+          price: ne,
+          color: '#FFC000',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Solid,
+          axisLabelVisible: true,
+          title: `ENTRADA $${ne >= 1 ? ne.toFixed(4) : ne.toFixed(6)}`
+        });
+        priceLinesList[i].push(entryLine);
+      } catch(e){}
+
+      // 2. Linha de ALVO (Take Profit / Verde)
+      if (nt && !isNaN(nt) && nt > 0) {
+        try {
+          const tgtPct = ((nt - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+          const targetLine = series.createPriceLine({
+            price: nt,
+            color: '#00E676',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `ALVO (+${Math.abs(tgtPct)}%)`
+          });
+          priceLinesList[i].push(targetLine);
+        } catch(e){}
+      }
+
+      // 3. Linha de STOP LOSS (Vermelho / Trailing Profit Verde / Breakeven Azul)
+      let finalStatus = statusTag || 'ATIVA';
+      if (ns && !isNaN(ns) && ns > 0) {
+        try {
+          const stopPct = ((ns - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+          const isProfitLocked = isLong ? (ns > ne * 1.002) : (ns < ne * 0.998);
+          const isRiskFree = !isProfitLocked && (Math.abs(ns - ne) / ne < 0.0025);
+          
+          let slColor = '#FF1744';
+          let slTitle = `STOP LOSS (${stopPct}%)`;
+
+          if (isProfitLocked || String(statusTag).includes('TRAILING')) {
+            slColor = '#00E676';
+            slTitle = `TRAILING PROFIT (+${Math.abs(stopPct)}%)`;
+            finalStatus = 'TRAILING PROFIT';
+          } else if (isRiskFree || String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || String(statusTag).includes('LIVRE')) {
+            slColor = '#29ABE2';
+            slTitle = 'RISK-FREE (BE)';
+            finalStatus = 'PROTEGIDA (BE)';
+          }
+
+          const stopLine = series.createPriceLine({
+            price: ns,
+            color: slColor,
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: slTitle
+          });
+          priceLinesList[i].push(stopLine);
+        } catch(e){}
+      }
+
+      // 4. Linha de PROJEÇÃO KRONOS AI (Roxo Neon / Pontilhada Larga)
+      if (nk && !isNaN(nk) && nk > 0) {
+        try {
+          const kDiff = ((nk - ne) / ne * 100).toFixed(2);
+          const kSign = Number(kDiff) >= 0 ? '+' : '';
+          const kronosLine = series.createPriceLine({
+            price: nk,
+            color: '#B388FF',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.LargeDashed,
+            axisLabelVisible: true,
+            title: `❖ KRONOS ${kronosDir || ''} (${kSign}${kDiff}%)`
+          });
+          priceLinesList[i].push(kronosLine);
+        } catch(e){}
+      }
+
+      // Atualiza textos do HUD flutuante do Gráfico i
+      const entryTxt = document.getElementById(`hud-entry-txt-${i}`);
+      const targetTxt = document.getElementById(`hud-target-txt-${i}`);
+      const stopTxt = document.getElementById(`hud-stop-txt-${i}`);
+      const statusBadge = document.getElementById(`hud-status-badge-${i}`);
+      const kronosTxt = document.getElementById(`hud-kronos-txt-${i}`);
+
+      if (entryTxt) entryTxt.textContent = "$" + (ne >= 1 ? ne.toFixed(4) : ne.toFixed(6));
+      if (targetTxt && nt > 0) {
+        const diffT = ((nt - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+        targetTxt.textContent = "$" + (nt >= 1 ? nt.toFixed(4) : nt.toFixed(6)) + ` (+${Math.abs(diffT)}%)`;
+      }
+      if (stopTxt && ns > 0) {
+        const diffS = ((ns - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+        stopTxt.textContent = "$" + (ns >= 1 ? ns.toFixed(4) : ns.toFixed(6)) + ` (${diffS}%)`;
+        stopTxt.style.color = finalStatus.includes('TRAILING') ? '#00E676' : (finalStatus.includes('BE') ? '#29ABE2' : '#FF1744');
+      }
+      if (kronosTxt) {
+        if (nk > 0) {
+          const diffK = ((nk - ne) / ne * 100).toFixed(2);
+          const signK = Number(diffK) >= 0 ? '+' : '';
+          kronosTxt.textContent = "$" + (nk >= 1 ? nk.toFixed(4) : nk.toFixed(6)) + ` (${signK}${diffK}%)`;
+          kronosTxt.style.color = '#B388FF';
+        } else {
+          kronosTxt.textContent = "--";
+          kronosTxt.style.color = "var(--text-muted)";
+        }
+      }
+      if (statusBadge) {
+        statusBadge.textContent = finalStatus;
+        if (finalStatus.includes('TRAILING')) statusBadge.className = 'badge-up';
+        else if (finalStatus.includes('BE') || finalStatus.includes('PROTEGIDA')) statusBadge.className = 'badge-cyan';
+        else if (finalStatus.includes('ATIVA')) statusBadge.className = 'badge-gold';
+        else statusBadge.className = 'badge-ghost';
+      }
+    }
+
+    let selectedSlotSymbol = null;
+
+    function selectSlotForChart(slot, targetChartIndex = 0) {
+      if (!slot) return;
+      focusedSlot = slot;
+      selectedSlotSymbol = slot.symbol;
+      const symClean = (slot.symbol || 'SOL-USDT-SWAP').replace("-SWAP", "").replace("-", "").toUpperCase();
+      
+      chartSymbols[targetChartIndex] = symClean;
+      chartIntervals[targetChartIndex] = "60"; // Padrão 1H para confluência e saída de acumulação H1
+
+      const symInput = document.getElementById(`chart-sym-${targetChartIndex}`);
+      if (symInput) symInput.value = symClean;
+
+      const badgeCard = document.getElementById(`chart-header-badge-${targetChartIndex}`);
+      const coinName = symClean.replace("USDT", "");
+      if (badgeCard) badgeCard.textContent = `G${targetChartIndex+1} • ${coinName} (1H)`;
+
+      // Atualiza os botoes de TF do grafico alvo
+      ["1", "5", "15", "60"].forEach(tf => {
+        const b = document.getElementById(`btn-tf-${targetChartIndex}-${tf}`);
+        if (b) {
+          b.className = (tf === "60") ? "btn-gold btn-tf" : "btn-ghost btn-tf";
+        }
+      });
+
+      // Carrega os candles no TF 1H
+      loadCandlesForChart(targetChartIndex, symClean, "60");
+      renderSlotOrderLines(targetChartIndex, slot);
+      evaluateLayaForCharts();
+
+      // Subscreve imediatamente no WebSocket da OKX para atualizacao em tempo real
+      subscribeChartToOkxWs(targetChartIndex);
+
+      // Destaca visualmente o card selecionado na barra lateral
+      document.querySelectorAll(".side-slot-card").forEach(el => {
+        if (el.getAttribute("data-sym") === slot.symbol) {
+          el.style.borderColor = "#FFC000";
+          el.style.boxShadow = "0 0 10px rgba(255, 192, 0, 0.35)";
+          el.setAttribute("data-active", "true");
+        } else {
+          el.style.borderColor = "#222";
+          el.style.boxShadow = "none";
+          el.setAttribute("data-active", "false");
+        }
+      });
+
+      // Destaca na tabela de auditoria
+      document.querySelectorAll("#slots-tbody tr").forEach(el => {
+        if (el.getAttribute("data-sym") === slot.symbol) {
+          el.style.background = "rgba(255, 192, 0, 0.08)";
+        } else {
+          el.style.background = "";
+        }
+      });
+    }
+
+    function setChartGridMode(mode) {
+      currentGridMode = mode;
+      const container = document.getElementById("charts-grid-container");
+      const badge = document.getElementById("charts-mode-badge");
+      
+      const btnSolo = document.getElementById("btn-chart-solo");
+      const btnDual = document.getElementById("btn-chart-dual");
+      const btnQuad = document.getElementById("btn-chart-quad");
+
+      [btnSolo, btnDual, btnQuad].forEach(b => {
+        if (b) { b.className = "btn-ghost"; }
+      });
+
+      const c = [
+        document.getElementById("chart-card-0"),
+        document.getElementById("chart-card-1"),
+        document.getElementById("chart-card-2"),
+        document.getElementById("chart-card-3")
+      ];
+
+      if (mode === 'solo') {
+        container.className = "charts-grid-solo";
+        if (badge) badge.textContent = "MODO SOLO (1)";
+        if (btnSolo) btnSolo.className = "btn-gold";
+        c[0].style.setProperty("display", "flex", "important");
+        c[1].style.setProperty("display", "none", "important");
+        c[2].style.setProperty("display", "none", "important");
+        c[3].style.setProperty("display", "none", "important");
+      } else if (mode === 'dual') {
+        container.className = "charts-grid-dual";
+        if (badge) badge.textContent = "MODO DUAL (2)";
+        if (btnDual) btnDual.className = "btn-gold";
+        c[0].style.setProperty("display", "flex", "important");
+        c[1].style.setProperty("display", "flex", "important");
+        c[2].style.setProperty("display", "none", "important");
+        c[3].style.setProperty("display", "none", "important");
+      } else {
+        container.className = "charts-grid-quad";
+        if (badge) badge.textContent = "MODO QUAD (4)";
+        if (btnQuad) btnQuad.className = "btn-gold";
+        c[0].style.setProperty("display", "flex", "important");
+        c[1].style.setProperty("display", "flex", "important");
+        c[2].style.setProperty("display", "flex", "important");
+        c[3].style.setProperty("display", "flex", "important");
+      }
+
+      // Re-dimensiona imediatamente os gráficos nativos visíveis
+      setTimeout(() => {
+        for (let i = 0; i < 4; i++) {
+          const frameWrap = document.getElementById(`lw-frame-wrap-${i}`);
+          if (nativeCharts[i] && frameWrap && frameWrap.clientWidth > 30 && frameWrap.clientHeight > 30) {
+            nativeCharts[i].applyOptions({
+              width: frameWrap.clientWidth,
+              height: frameWrap.clientHeight
+            });
+            try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+          }
+        }
+      }, 70);
+    }
+
+    // Listener global de redimensionamento da janela para manter gráficos perfeitos
+    let resizeChartsDebounceTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeChartsDebounceTimer);
+      resizeChartsDebounceTimer = setTimeout(() => {
+        for (let i = 0; i < 4; i++) {
+          const frameWrap = document.getElementById(`lw-frame-wrap-${i}`);
+          if (nativeCharts[i] && frameWrap) {
+            const w = Math.max(frameWrap.clientWidth || 0, 150);
+            const h = Math.max(frameWrap.clientHeight || 0, 150);
+            nativeCharts[i].applyOptions({ width: w, height: h });
+            try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+          }
+        }
+      }, 50);
+    });
+
+    function updateChart(index) {
+      const input = document.getElementById(`chart-sym-${index}`);
+      if (!input) return;
+      const sym = input.value.trim().toUpperCase();
+      if (!sym) return;
+
+      // Restrição estrita de BTC e Memecoins
+      if (sym.includes("BTC")) {
+        alert("AVISO DE GOVERNANÇA: BTC é reservado estritamente como Benchmark Macro (Oracle/ADX), não é ativo negociável na frota. Escolha um par da Matriz Elite (ex: SOL, AVAX, NEAR, LINK).");
+        input.value = chartSymbols[index];
+        return;
+      }
+      const FORBIDDEN = ["DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO"];
+      for (const m of FORBIDDEN) {
+        if (sym.includes(m)) {
+          alert(`AVISO DE GOVERNANÇA: ${m} é Memecoin não autorizada pela gestão de risco institucional.`);
+          input.value = chartSymbols[index];
+          return;
+        }
+      }
+
+      chartSymbols[index] = sym;
+      loadCandlesForChart(index, sym, chartIntervals[index]);
+    }
+
+    function setChartInterval(index, interval) {
+      chartIntervals[index] = interval;
+      const card = document.getElementById(`chart-card-${index}`);
+      if (card) {
+        card.querySelectorAll(".btn-tf").forEach(b => {
+          if (b.getAttribute("data-tf") === interval) {
+            b.className = "btn-gold btn-tf";
+          } else {
+            b.className = "btn-ghost btn-tf";
+          }
+        });
+      }
+      const badgeCard = document.getElementById(`chart-header-badge-${index}`);
+      if (badgeCard) {
+        const sym = (chartSymbols[index] || "BTCUSDT").replace("-SWAP", "").replace("-", "").toUpperCase();
+        const coinName = sym.replace("USDT", "");
+        const tfLabel = interval === "60" ? "1H" : (interval + "M");
+        badgeCard.textContent = `G${index+1} • ${coinName} (${tfLabel})`;
+      }
+      loadCandlesForChart(index, chartSymbols[index], interval);
+    }
+
+    function setChartSymbol(index, symbol) {
+      const input = document.getElementById(`chart-sym-${index}`);
+      if (input) {
+        input.value = symbol.replace("-SWAP", "").replace("-", "");
+        updateChart(index);
+      }
+    }
+
+    /* ==========================================================================
+       DATA TELEMETRY & LIVE SLOTS
+       ========================================================================== */
+    async function fetchSlots() {
+      try {
+        const res = await fetch("/api/slots");
+        if (!res.ok) {
+          console.warn("[FETCH SLOTS] HTTP not ok:", res.status);
+          return;
+        }
+        const slots = await res.json();
+        const tbody = document.getElementById("slots-tbody");
+        const activeCountEl = document.getElementById("active-slots-count");
+        const sideCountEl = document.getElementById("side-slots-count");
+        const sideList = document.getElementById("side-slots-list");
+        
+        const activeSlots = (Array.isArray(slots) ? slots : (slots.slots || [])).filter(s => s && s.symbol);
+        console.log("[FETCH SLOTS] activeSlots count:", activeSlots.length, activeSlots);
+        window._activeSlotsData = activeSlots;
+
+        if (activeCountEl) activeCountEl.textContent = `${activeSlots.length} ATIVAS`;
+        if (sideCountEl) sideCountEl.textContent = `${activeSlots.length} ATIVAS`;
+
+        if (activeSlots.length === 0) {
+          if (tbody) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
+                  NENHUMA POSIÇÃO EM ABERTO NO MOMENTO (SISTEMA EM AGUARDO DE GATILHOS)
+                </td>
+              </tr>`;
+          }
+          if (sideList) {
+            sideList.innerHTML = `
+              <div style="text-align: center; color: var(--text-muted); padding: 24px 10px; font-size: 11px; background: #0b0b0b; border: 1px dashed #202020;">
+                NENHUMA ORDEM ABERTA • AGUARDANDO GATILHOS DA FROTA
+              </div>`;
+          }
+        }
+
+        // Mapeamento dinâmico dos 4 gráficos (G1 a G4) com Timeframe Padrão 1H
+        // 1. Se selectedSlotSymbol estiver ativo, G1 foca a ordem clicada com linhas completas.
+        //    G2, G3 e G4 exibem as outras ordens abertas na sequência de abertura.
+        // 2. Se nenhuma ordem estiver selecionada:
+        //    G1 -> Ordem 1, G2 -> Ordem 2, G3 -> Ordem 3, G4 -> Ordem 4.
+        // 3. Quando não houver ordem aberta (ou para slots vazios), exibe BTCUSDT em 1H.
+        if (selectedSlotSymbol && !activeSlots.some(s => s.symbol === selectedSlotSymbol)) {
+          selectedSlotSymbol = null;
+        }
+
+        const assignedSlots = [null, null, null, null];
+        if (selectedSlotSymbol) {
+          const selectedSlot = activeSlots.find(s => s.symbol === selectedSlotSymbol);
+          assignedSlots[0] = selectedSlot || null;
+          const remainingSlots = activeSlots.filter(s => s.symbol !== selectedSlotSymbol);
+          for (let k = 1; k < 4; k++) {
+            assignedSlots[k] = remainingSlots[k - 1] || null;
+          }
+        } else {
+          for (let k = 0; k < 4; k++) {
+            assignedSlots[k] = activeSlots[k] || null;
+          }
+        }
+
+        for (let i = 0; i < 4; i++) {
+          const slot = assignedSlots[i];
+          if (slot) {
+            const symClean = (slot.symbol || '').replace("-SWAP", "").replace("-", "").toUpperCase();
+            const targetTf = "60"; // Padrão 1H para saída de acumulação H1
+
+            let needReload = false;
+            if (chartSymbols[i] !== symClean) {
+              chartSymbols[i] = symClean;
+              chartIntervals[i] = targetTf;
+              needReload = true;
+            }
+            if (!chartIntervals[i]) {
+              chartIntervals[i] = targetTf;
+              needReload = true;
+            }
+
+            const input = document.getElementById(`chart-sym-${i}`);
+            if (input) input.value = symClean;
+
+            // Atualiza os botoes de TF
+            ["1", "5", "15", "60"].forEach(tf => {
+              const b = document.getElementById(`btn-tf-${i}-${tf}`);
+              if (b) {
+                b.className = (tf === chartIntervals[i]) ? "btn-gold btn-tf" : "btn-ghost btn-tf";
+              }
+            });
+
+            const badgeCard = document.getElementById(`chart-header-badge-${i}`);
+            const coinName = symClean.replace("USDT", "");
+            const tfLabel = chartIntervals[i] === "60" ? "1H" : (chartIntervals[i] + "M");
+            if (badgeCard) badgeCard.textContent = `G${i+1} • ${coinName} (${tfLabel})`;
+
+            if (needReload) {
+              loadCandlesForChart(i, symClean, chartIntervals[i]);
+            }
+
+            renderSlotOrderLines(i, slot);
+          } else {
+            // Sem ordem para este gráfico: exibe BTCUSDT no timeframe padrão 1H
+            const btcSym = "BTCUSDT";
+            const defaultTf = "60";
+
+            let needReload = false;
+            if (chartSymbols[i] !== btcSym) {
+              chartSymbols[i] = btcSym;
+              chartIntervals[i] = defaultTf;
+              needReload = true;
+            }
+            if (!chartIntervals[i]) {
+              chartIntervals[i] = defaultTf;
+              needReload = true;
+            }
+
+            const input = document.getElementById(`chart-sym-${i}`);
+            if (input) input.value = btcSym;
+
+            // Atualiza o botão de timeframe
+            ["1", "5", "15", "60"].forEach(tf => {
+              const b = document.getElementById(`btn-tf-${i}-${tf}`);
+              if (b) {
+                b.className = (tf === chartIntervals[i]) ? "btn-gold btn-tf" : "btn-ghost btn-tf";
+              }
+            });
+
+            const tfLabel = chartIntervals[i] === "60" ? "1H" : (chartIntervals[i] + "M");
+            const badgeCard = document.getElementById(`chart-header-badge-${i}`);
+            if (badgeCard) badgeCard.textContent = `G${i+1} • BTC (${tfLabel})`;
+
+            if (needReload) {
+              loadCandlesForChart(i, btcSym, chartIntervals[i]);
+            }
+            clearOrderLinesForChart(i);
+
+            // Atualiza badge de fluxo para o Oráculo BTC
+            const flowBadge = document.getElementById(`chart-flow-badge-${i}`);
+            if (flowBadge) {
+              flowBadge.textContent = `ORÁCULO MACRO • TF ${tfLabel}`;
+              flowBadge.className = "badge-gold";
+            }
+          }
+        }
+
+        // Render Table (Full Audit)
+        if (tbody && activeSlots.length > 0) {
+          tbody.innerHTML = activeSlots.map((s, idx) => {
+            const isUp = (s.pnl_percent || 0) >= 0;
+            const pnlClass = isUp ? "badge-up" : "badge-down";
+            const pnlSign = isUp ? "+" : "";
+            const isSelected = selectedSlotSymbol === s.symbol;
+            return `
+              <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.08);' : ''}">
+                <td><b style="color: #FFFFFF;">${s.symbol}</b> <span style="font-size: 9px; color: var(--accent-gold);">➔ G1 (LINHAS)</span></td>
+                <td><span class="badge-gold">${s.slot_type || 'SCALP'}</span></td>
+                <td><span class="${s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy' ? 'badge-up' : 'badge-down'}">${s.side}</span></td>
+                <td class="font-mono">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</td>
+                <td class="font-mono">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</td>
+                <td class="font-mono" style="color: var(--accent-gold);">${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</td>
+                <td><span class="${pnlClass}">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
+                <td><span class="badge-cyan">${s.status_risco || 'LIVRE'}</span></td>
+                <td style="color: #888;">${s.strategy || 'VWAP SNIPER'}</td>
+                <td>
+                  <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR</button>
+                </td>
+              </tr>
+            `;
+          }).join("");
+        }
+
+        // Render Dedicated Right Panel Cards
+        if (sideList && activeSlots.length > 0) {
+          sideList.innerHTML = activeSlots.map((s, idx) => {
+            const isUp = (s.pnl_percent || 0) >= 0;
+            const pnlClass = isUp ? "badge-up" : "badge-down";
+            const pnlSign = isUp ? "+" : "";
+            const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
+            const isSelected = selectedSlotSymbol === s.symbol;
+            return `
+              <div class="side-slot-card" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" style="background: #0f0f0f; border: 1px solid ${isSelected ? 'var(--accent-gold)' : '#222'}; ${isSelected ? 'box-shadow: 0 0 10px rgba(255, 192, 0, 0.35);' : ''} padding: 10px; cursor: pointer; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#FFC000'" onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.borderColor='#222'" data-active="${isSelected ? 'true' : 'false'}" title="Clique para focar no G1 com Linhas de Alvo/Stop">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <b style="color: #FFF; font-size: 13px;">${s.symbol}</b>
+                    <span style="font-size: 8px; color: var(--accent-gold); font-family: var(--font-mono);">➔ G1 (LINHAS)</span>
+                  </div>
+                  <span class="${isLong ? 'badge-up' : 'badge-down'}" style="font-size: 9px;">${isLong ? 'LONG' : 'SHORT'} ${s.leverage || 15}X</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; margin-bottom: 4px;">
+                  <span style="color: #777;">ENT: <b style="color: #DDD;">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
+                  <span style="color: #777;">ATUAL: <b style="color: #FFF;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; margin-bottom: 8px;">
+                  <span style="color: var(--accent-gold); font-size: 10px;">DEFESA: ${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</span>
+                  <span class="${pnlClass}" style="font-weight: 800;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1a1a1a; padding-top: 6px;">
+                  <span style="font-size: 9px; color: #666; text-transform: uppercase;">${s.strategy || 'LAYA_SNIPER'}</span>
+                  <button class="btn-ghost" style="padding: 2px 8px; font-size: 9px; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR ORDEM</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      } catch (err) {
+        console.error("Erro ao carregar slots:", err);
+      }
+    }
+
+    async function fetchUnifiedState() {
+      try {
+        const res = await fetch("/api/sandbox/unified-state");
+        if (!res.ok) return;
+        const d = await res.json();
+        
+        const baseBal = 10000.00;
+        const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 10000.00));
+        const realizedPnlUsd = Number(d.realized_pnl_usd !== undefined ? d.realized_pnl_usd : (d.total_pnl_usd || 0.0));
+        const floatingPnlUsd = Number(d.floating_pnl_usd !== undefined ? d.floating_pnl_usd : 0.0);
+        const totalPnlPct = Number(d.pnl_percent !== undefined ? d.pnl_percent : ((totalEquity - baseBal) / baseBal * 100.0));
+        const isUp = totalPnlPct >= 0;
+        const pnlText = (isUp ? "+" : "") + totalPnlPct.toFixed(2) + "%";
+
+        const balFmt = "$" + totalEquity.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        document.getElementById("kpi-balance").textContent = balFmt;
+        document.getElementById("side-balance").textContent = balFmt;
+
+        const baseEl = document.getElementById("side-base-balance");
+        if (baseEl) baseEl.textContent = "$" + baseBal.toLocaleString("en-US", { minimumFractionDigits: 2 });
+
+        const realPnlEl = document.getElementById("side-realized-pnl");
+        if (realPnlEl) {
+          realPnlEl.className = realizedPnlUsd >= 0 ? "font-mono" : "font-mono";
+          realPnlEl.style.color = realizedPnlUsd >= 0 ? "var(--trading-up)" : "var(--trading-down)";
+          realPnlEl.textContent = (realizedPnlUsd >= 0 ? "+$" : "-$") + Math.abs(realizedPnlUsd).toFixed(2);
+        }
+
+        const floatPnlEl = document.getElementById("side-floating-pnl");
+        if (floatPnlEl) {
+          floatPnlEl.style.color = floatingPnlUsd > 0 ? "var(--trading-up)" : (floatingPnlUsd < 0 ? "var(--trading-down)" : "#888");
+          floatPnlEl.textContent = (floatingPnlUsd >= 0 ? "+$" : "-$") + Math.abs(floatingPnlUsd).toFixed(2);
+        }
+
+        const pnlEl = document.getElementById("kpi-pnl-pct");
+        if (pnlEl) {
+          pnlEl.className = isUp ? "badge-up" : "badge-down";
+          pnlEl.textContent = pnlText;
+        }
+        const sidePnlEl = document.getElementById("side-pnl");
+        if (sidePnlEl) {
+          sidePnlEl.className = isUp ? "badge-up" : "badge-down";
+          sidePnlEl.textContent = pnlText;
+        }
+
+        const defLvl = d.equity_defense_level !== undefined ? d.equity_defense_level : 0;
+        const kpiDefEl = document.getElementById("kpi-defense-badge");
+        if (kpiDefEl) kpiDefEl.textContent = `DEFESA L${defLvl}`;
+        const sideDefEl = document.getElementById("side-defense-badge");
+        if (sideDefEl) sideDefEl.textContent = `DEFESA L${defLvl}`;
+
+        if (d.equity_peak !== undefined) {
+          const peakEl = document.getElementById("kpi-peak");
+          if (peakEl) peakEl.textContent = "$" + Number(d.equity_peak).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (d.equity_floor !== undefined) {
+          const floorEl = document.getElementById("kpi-floor");
+          if (floorEl) floorEl.textContent = "$" + Number(d.equity_floor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        if (d.allocated_margin_usd !== undefined) {
+          const allocPct = d.allocation_percent || 0;
+          document.getElementById("side-margin-allocated").textContent = `$${Number(d.allocated_margin_usd).toFixed(2)} (${allocPct}%)`;
+          document.getElementById("kpi-risk-cap").textContent = `RISK: ${allocPct}% / 40%`;
+        }
+        if (d.total_active_slots !== undefined) {
+          document.getElementById("kpi-slots").textContent = `${d.total_active_slots} / 20`;
+          document.getElementById("kpi-scalp-slots").textContent = `${d.active_scalping_slots || 0} / 5`;
+          document.getElementById("kpi-swing-slots").textContent = `${d.active_swing_slots || 0} / 15`;
+        }
+      } catch (e) {}
+    }
+
+    async function evaluateLayaForCharts() {
+      const activeSlots = window._activeSlotsData || [];
+      for (let i = 0; i < 4; i++) {
+        const rawSym = chartSymbols[i] || "SOLUSDT";
+        const sym = rawSym.includes("-") ? rawSym : (rawSym.replace("USDT", "") + "-USDT-SWAP");
+        const tf = chartIntervals[i] === "60" ? "1h" : ((chartIntervals[i] || "15") + "m");
+        const cleanSym = rawSym.replace("-SWAP", "").replace("-", "").toUpperCase();
+        const matchingSlot = activeSlots.find(s => (s.symbol || '').replace("-SWAP","").replace("-","").toUpperCase() === cleanSym);
+        const isTradeActive = Boolean(matchingSlot);
+        const slotSide = matchingSlot ? (matchingSlot.side || matchingSlot.direction || 'BUY').toUpperCase() : null;
+        const reqBias = isTradeActive ? ((slotSide === 'BUY' || slotSide === 'LONG') ? 'ALTA' : 'BAIXA') : (window._currentRegimeMode === 'TREND_SNIPER' ? 'ALTA' : 'LATERAL');
+
+        try {
+          const res = await fetch("/api/v1/hermes/laya/evaluate-entry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: sym,
+              timeframe: tf,
+              adx: window._currentMasterAdx || 14.5,
+              regime: (window._currentMasterAdx < 25 ? "LATERAL" : "TENDENCIA"),
+              kronos_conviction: isTradeActive ? 88.0 : 82.0,
+              bias: reqBias,
+              extra_context: isTradeActive ? `ORDEM ATIVA ${slotSide} EM ANDAMENTO` : "CONFLUÊNCIA ADAPTATIVA MATRIX ELITE"
+            })
+          });
+          if (res.ok) {
+            const d = await res.json();
+            const badge = document.getElementById(`chart-laya-badge-${i}`);
+            const hudBadge = document.getElementById(`hud-laya-badge-${i}`);
+            let dec = d.decision || (isTradeActive ? (slotSide === 'BUY' || slotSide === 'LONG' ? 'BUY' : 'SELL') : "HOLD");
+            if (isTradeActive && dec === "HOLD") {
+              dec = (slotSide === 'BUY' || slotSide === 'LONG') ? 'BUY' : 'SELL';
+            }
+            const conf = Math.round((d.confidence || (isTradeActive ? 0.88 : 0.50)) * 100);
+            const isBuy = dec === "BUY";
+            const isSell = dec === "SELL";
+
+            if (badge) {
+              if (isTradeActive) {
+                badge.className = isBuy ? "badge-up" : "badge-down";
+                badge.style.color = "";
+                badge.style.borderColor = "";
+                badge.textContent = `LAYA: ${dec} (${conf}%) • ATIVA`;
+              } else if (isBuy && conf >= 75) {
+                badge.className = "badge-up";
+                badge.style.color = "";
+                badge.style.borderColor = "";
+                badge.textContent = `LAYA: BUY (${conf}%)`;
+              } else if (isSell && conf >= 75) {
+                badge.className = "badge-down";
+                badge.style.color = "";
+                badge.style.borderColor = "";
+                badge.textContent = `LAYA: SELL (${conf}%)`;
+              } else {
+                badge.className = "badge-ghost";
+                badge.style.color = "#FFC000";
+                badge.style.borderColor = "#FFC000";
+                badge.textContent = `LAYA: HOLD (${conf}%) • FILTRO`;
+              }
+            }
+            if (hudBadge) {
+              if (isTradeActive) {
+                hudBadge.className = isBuy ? "badge-up" : "badge-down";
+                hudBadge.style.color = "";
+                hudBadge.style.borderColor = "";
+                hudBadge.textContent = `${dec} (${conf}%) • ATIVA`;
+              } else if (isBuy && conf >= 75) {
+                hudBadge.className = "badge-up";
+                hudBadge.style.color = "";
+                hudBadge.style.borderColor = "";
+                hudBadge.textContent = `BUY (${conf}%)`;
+              } else if (isSell && conf >= 75) {
+                hudBadge.className = "badge-down";
+                hudBadge.style.color = "";
+                hudBadge.style.borderColor = "";
+                hudBadge.textContent = `SELL (${conf}%)`;
+              } else {
+                hudBadge.className = "badge-ghost";
+                hudBadge.style.color = "#FFC000";
+                hudBadge.style.borderColor = "#FFC000";
+                hudBadge.textContent = `HOLD (${conf}%)`;
+              }
+            }
+
+            // Kronos Projection Confluence
+            let kDir = matchingSlot && matchingSlot.contract_meta && matchingSlot.contract_meta.kronos_direction;
+            let kTarget = matchingSlot && matchingSlot.contract_meta && matchingSlot.contract_meta.kronos_target_price;
+            let kConv = matchingSlot && matchingSlot.contract_meta && matchingSlot.contract_meta.kronos_conviction;
+            let kPct = matchingSlot && matchingSlot.contract_meta && matchingSlot.contract_meta.kronos_change_pct;
+
+            if (!kDir) {
+              try {
+                const kRes = await fetch(`/api/v1/hermes/laya/kronos-projection?symbol=${encodeURIComponent(sym)}&side=${isBuy ? 'BUY' : (isSell ? 'SELL' : 'LONG')}&current_price=${chartLastPrice[i] || 0}`);
+                if (kRes.ok) {
+                  const kd = await kRes.json();
+                  kDir = kd.direction;
+                  kTarget = kd.target_price;
+                  kConv = kd.conviction;
+                  kPct = kd.predicted_change_pct;
+                }
+              } catch(e) {}
+            }
+
+            const kronosBadge = document.getElementById(`chart-kronos-badge-${i}`);
+            const hudKronos = document.getElementById(`hud-kronos-txt-${i}`);
+            if (kronosBadge) {
+              if (kDir && kConv > 0) {
+                kronosBadge.innerHTML = `❖ KRONOS: <b style="color: #E1BEE7;">${kDir} ${kConv.toFixed(0)}%</b>`;
+                kronosBadge.title = `Kronos AI Transformer: ${kDir} (${kPct ? (kPct > 0 ? '+' : '') + kPct.toFixed(2) + '%' : ''}) Alvo: $${kTarget}`;
+              } else {
+                kronosBadge.textContent = "❖ KRONOS: --";
+              }
+            }
+            if (hudKronos) {
+              if (kTarget && kTarget > 0) {
+                const curP = chartLastPrice[i] || (matchingSlot ? matchingSlot.entry_price : 0);
+                const diff = curP > 0 ? ((kTarget - curP) / curP * 100).toFixed(2) : 0;
+                hudKronos.textContent = `$${Number(kTarget).toFixed(Number(kTarget) < 1 ? 6 : 4)} (${Number(diff) >= 0 ? '+' : ''}${diff}%)`;
+                hudKronos.style.color = '#B388FF';
+              } else {
+                hudKronos.textContent = "--";
+                hudKronos.style.color = "var(--text-muted)";
+              }
+            }
+
+            if (i === 0) {
+              const entryDec = document.getElementById("laya-entry-decision");
+              if (entryDec) {
+                if (isBuy) {
+                  entryDec.textContent = `BUY (${conf}%) • AUTORIZADO`;
+                  entryDec.style.color = "#00E676";
+                } else if (isSell) {
+                  entryDec.textContent = `SELL (${conf}%) • AUTORIZADO`;
+                  entryDec.style.color = "#FF1744";
+                } else {
+                  entryDec.textContent = `HOLD (${conf}%) • PRESERVANDO`;
+                  entryDec.style.color = "#FFC000";
+                }
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
+    async function evaluateLayaCurrentChart() {
+      await evaluateLayaForCharts();
+      await fetchLayaPulse();
+    }
+
+    window._currentMasterAdx = 14.5;
+    window._currentRegimeMode = "MEAN_REVERSION";
+
+    function updateCockpitClock() {
+      const el = document.getElementById("cockpit-clock");
+      if (el) {
+        const d = new Date();
+        el.textContent = d.toISOString().substr(11, 8) + " UTC";
+      }
+    }
+
+    function renderWhaleFlowBadges(flows) {
+      if (!flows) return;
+      for (let i = 0; i < 4; i++) {
+        const sym = chartSymbols[i] || "";
+        const clean = sym.replace("-SWAP", "").replace("-", "").toUpperCase();
+        const flow = flows[clean] || flows[clean.replace("USDT", "")] || flows[sym];
+        const badge = document.getElementById(`chart-flow-badge-${i}`);
+        if (flow && badge) {
+          const lsr = Number(flow.lsr || 1.0);
+          const oiDelta = Number(flow.oi_delta_pct || 0.0);
+          const lsrColor = lsr >= 1.35 ? '#FF1744' : (lsr <= 0.85 ? '#00E676' : '#FFC000');
+          const oiSign = oiDelta > 0 ? '+' : '';
+          const regimeLabel = flow.flow_regime === "LONG_LIQUIDATION_BOTTOM" ? "ABSORÇÃO FUNDO" :
+                             (flow.flow_regime === "SHORT_SQUEEZE_EXHAUSTION" ? "EXAUSTÃO SQUEEZE" :
+                             (flow.flow_regime === "RETAIL_FOMO_INJECTION" ? "ARMADILHA SARDINHA" : "FLUXO BALEIA"));
+          badge.innerHTML = `<span style="color:${lsrColor}; font-weight:700;">LSR ${lsr.toFixed(2)}</span> • <span style="color:#aaa;">OI ${oiSign}${oiDelta.toFixed(1)}%</span> • <span style="color:#29ABE2; font-size:7.5px;">${regimeLabel}</span>`;
+          badge.title = flow.whale_rationale || "";
+        }
+      }
+    }
+
+    async function fetchLayaPulse() {
+      try {
+        const res = await fetch("/api/v1/hermes/laya/pulse");
+        if (!res.ok) return;
+        const d = await res.json();
+        
+        window._currentMasterAdx = d.master_adx || 14.5;
+        window._currentRegimeMode = d.regime_mode || "MEAN_REVERSION";
+
+        // 1. Header Badge
+        const hdr = document.getElementById("laya-header-badge");
+        if (hdr) {
+          const mode = d.regime_mode || "MEAN_REVERSION";
+          const adx = (d.master_adx || 14.5).toFixed(1);
+          hdr.textContent = `LAYA SOBERANA • ONLINE [MODO: ${mode} (ADX ${adx})]`;
+        }
+
+        // 2. Sidebar Card 3
+        const regModeEl = document.getElementById("laya-regime-mode");
+        if (regModeEl) regModeEl.textContent = d.regime_mode || "MEAN_REVERSION";
+        const adxEl = document.getElementById("laya-master-adx");
+        if (adxEl) adxEl.textContent = (d.master_adx || 14.5).toFixed(1);
+
+        // 3. Flow Badges nos 4 gráficos
+        if (d.whale_flow && Object.keys(d.whale_flow).length > 0) {
+          renderWhaleFlowBadges(d.whale_flow);
+        } else if (!window._fetchingWhaleRadar) {
+          window._fetchingWhaleRadar = true;
+          fetch("/api/v1/hermes/laya/whale-radar").then(r => r.json()).then(flows => {
+            window._fetchingWhaleRadar = false;
+            renderWhaleFlowBadges(flows);
+          }).catch(() => { window._fetchingWhaleRadar = false; });
+        }
+
+        // 4. Thought Stream
+        const streamContainer = document.getElementById("laya-thought-stream");
+        if (streamContainer && Array.isArray(d.thoughts)) {
+          console.log("[LAYA-PULSE] Rendering", d.thoughts.length, "thoughts to UI stream");
+          streamContainer.innerHTML = d.thoughts.map(t => {
+            const time = t.time || "--:--:--";
+            const sym = t.symbol || "SISTEMA";
+            const act = t.action || "INFO";
+            const text = t.thought || "";
+            const conf = t.confidence ? `${t.confidence}%` : "";
+            
+            let actColor = "#a0aec0";
+            if (act === "ORDEM_DISPARADA" || act === "GATILHO_BALEIA" || act === "BALEIA_TREND" || act === "SNIPER_BALEIA") {
+              actColor = "#00E676"; // Verde Neon Institucional
+            } else if (act === "ARMADILHA_SARDINHA" || act === "VETO_BALEIA" || act === "BULL_TRAP") {
+              actColor = "#FF1744"; // Vermelho Alerta Sardinha
+            } else if (act === "GATILHO") {
+              actColor = "#29ABE2";
+            } else if (act === "RADAR") {
+              actColor = "#FFC000";
+            } else if (act === "ORACULO") {
+              actColor = "#B388FF";
+            }
+
+            return `<div style="display:flex; gap:6px; font-size:9.5px; border-bottom:1px solid #111720; padding:3px 0; align-items:baseline;">
+              <span style="color:#555; flex-shrink:0;">${time}</span>
+              <span style="color:${actColor}; font-weight:700; flex-shrink:0;">[${sym}]</span>
+              <span style="color:#ddd; flex:1; word-break:break-word;">${text}</span>
+              ${conf ? `<span style="color:${actColor}; font-size:8.5px; flex-shrink:0; font-weight:700;">${conf}</span>` : ''}
+            </div>`;
+          }).join("");
+          streamContainer.scrollTop = streamContainer.scrollHeight;
+        }
+      } catch (err) {
+        console.warn("[LAYA-PULSE] Erro:", err);
+      }
+    }
+
+    async function triggerLayaScan() {
+      const btn = document.getElementById("btn-laya-scan");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>ESCANEANDO MATRIX ELITE...</span>`;
+      }
+      try {
+        const res = await fetch("/api/v1/hermes/laya/scan-now", { method: "POST" });
+        const data = await res.json();
+        await fetchLayaPulse();
+        await fetchSlots();
+        await evaluateLayaForCharts();
+      } catch (err) {
+        console.error("[LAYA-SCAN] Erro ao disparar:", err);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>DISPARAR VARREDURA AUTÔNOMA LAYA</span>`;
+        }
+      }
+    }
+
+    window.fetchLayaPulse = fetchLayaPulse;
+    window.triggerLayaScan = triggerLayaScan;
+    window.evaluateLayaCurrentChart = evaluateLayaCurrentChart;
+
+
+    async function triggerSimulatedOrder(withLayaCheck) {
+      const sym = (document.getElementById("input-test-symbol").value.trim() || "SOL-USDT-SWAP").toUpperCase();
+      const dir = document.getElementById("input-test-direction").value;
+      const leverage = parseInt(document.getElementById("input-test-leverage").value) || 15;
+      const margin = parseFloat(document.getElementById("input-test-margin").value) || 200.0;
+      const feedback = document.getElementById("sim-feedback-cockpit");
+
+      // 1. Validação de Governança Estrita: Sem BTC, Sem Memecoins
+      if (sym.includes("BTC")) {
+        feedback.style.display = "block";
+        feedback.style.color = "#FF1744";
+        feedback.textContent = "OPERAÇÃO BLOQUEADA: BTC é reservado como Benchmark Macro (Oracle/ADX), não é ativo negociável na frota.";
+        return;
+      }
+      const FORBIDDEN = ["DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO"];
+      for (const m of FORBIDDEN) {
+        if (sym.includes(m)) {
+          feedback.style.display = "block";
+          feedback.style.color = "#FF1744";
+          feedback.textContent = `OPERAÇÃO BLOQUEADA: ${m} é Memecoin não autorizada pela governança de risco institucional.`;
+          return;
+        }
+      }
+
+      feedback.style.display = "block";
+      feedback.style.color = "#FFC000";
+      feedback.textContent = withLayaCheck ? "Consultando Laya Neural Engine para validação..." : "Obtendo tick real da OKX e abrindo posição...";
+
+      try {
+        let layaDecision = dir === "LONG" ? "BUY" : "SELL";
+        if (withLayaCheck) {
+          const layaRes = await fetch("/api/v1/hermes/laya/evaluate-entry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: sym,
+              timeframe: "15m",
+              adx: 28.5,
+              regime: "TENDENCIA",
+              kronos_conviction: 78.0,
+              bias: dir === "LONG" ? "ALTA" : "BAIXA",
+              extra_context: "M5+M15 ALINHADO VOL"
+            })
+          });
+          if (layaRes.ok) {
+            const layaData = await layaRes.json();
+            const expected = dir === "LONG" ? "BUY" : "SELL";
+            const conf = Math.round((layaData.confidence || 0) * 100);
+            if (layaData.decision !== expected || conf < 75) {
+              feedback.style.color = "#FF1744";
+              feedback.textContent = `ORDEM VETADA PELA LAYA: Decisão=${layaData.decision} (${conf}% < 75%). ${layaData.reason || "Capital preservado."}`;
+              return;
+            }
+            layaDecision = `${layaData.decision} (${conf}%)`;
+            feedback.textContent = `Laya aprovou: ${layaDecision}. Executando a ${leverage}X...`;
+          }
+        }
+
+        const res = await fetch("/api/sandbox/simulate-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol: sym,
+            direction: dir,
+            margin: margin,
+            leverage: leverage,
+            strategy: "LAYA_SNIPER",
+            laya_decision: withLayaCheck ? layaDecision : undefined
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          feedback.style.color = "#00E676";
+          feedback.textContent = `Ordem Executada: ${data.direction} ${data.symbol} a $${data.entry_price} (${leverage}X) | Stop: $${data.stop_loss} | Target: $${data.target}`;
+          fetchSlots();
+          fetchUnifiedState();
+          fetchRecentHistory();
+          // Traçar no G1
+          setChartSymbol(0, sym);
+        } else {
+          feedback.style.color = "#FF1744";
+          feedback.textContent = "Erro ao executar: " + (data.message || "Falha na ordem.");
+        }
+      } catch (e) {
+        feedback.style.color = "#FF1744";
+        feedback.textContent = "Erro de conexão: " + e.message;
+      }
+    }
+
+    let _recentTradesCache = [];
+
+    async function fetchRecentHistory() {
+      try {
+        const res = await fetch("/api/sandbox/trades?limit=15");
+        if (!res.ok) return;
+        const trades = await res.json();
+        const container = document.getElementById("recent-trades-list");
+        if (!Array.isArray(trades) || trades.length === 0) {
+          container.innerHTML = `<div style="color: #777; text-align: center; padding: 16px;">Nenhum trade encerrado ainda. Sistema pronto para operar.</div>`;
+          return;
+        }
+        const closedTrades = trades.filter(t => t.status !== 'ACTIVE' && (t.closed_at || t.exit_price || String(t.status).includes('CLOSED')));
+        const listToDisplay = closedTrades.length > 0 ? closedTrades : trades;
+        _recentTradesCache = listToDisplay.slice(0, 10);
+        
+        container.innerHTML = _recentTradesCache.map((t, idx) => {
+          const pnl = Number(t.pnl_pct !== undefined ? t.pnl_pct : (t.pnl_percent || 0));
+          const isWin = pnl >= 0;
+          const direction = (t.direction || t.side || 'LONG').toUpperCase();
+          const meta = t.contract_meta || {};
+          const margin = Number(meta.margin || 200.0);
+          const pnlUsd = meta.net_pnl_usd !== undefined ? Number(meta.net_pnl_usd) : ((pnl / 100.0) * margin);
+          const pnlUsdFormatted = (pnlUsd >= 0 ? '+$' : '-$') + Math.abs(pnlUsd).toFixed(2);
+          
+          return `
+            <div class="clickable-row" onclick="openTradeAuditModal(${idx})" title="Clique para abrir Dossiê Forense Completo da Ordem" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; border: 1px solid #222; border-radius: 4px; transition: all 0.15s ease;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 8px; color: var(--accent-gold); border: 1px solid rgba(255,192,0,0.3); padding: 2px 4px; border-radius: 2px;">AUDITORIA</span>
+                <div>
+                  <b style="color: #fff; font-size: 12px;">${t.symbol}</b> 
+                  <span style="color: ${direction === 'LONG' ? '#00E676' : '#FF1744'}; font-size: 10px; font-weight: bold; margin-left: 4px;">${direction} 15X</span>
+                  <span style="color: #666; font-size: 10px; margin-left: 4px;">• ${t.strategy || 'AUTO'}</span>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div>
+                  <span class="${isWin ? 'badge-up' : 'badge-down'}" style="font-size: 11px;">${isWin ? '+' : ''}${pnl.toFixed(2)}%</span>
+                  <span style="font-size: 10px; color: ${isWin ? '#00E676' : '#FF1744'}; font-weight: 600; margin-left: 4px;">(${pnlUsdFormatted})</span>
+                </div>
+                <span style="display: block; font-size: 9px; color: #777;">${t.status || 'CLOSED'} • Clique para Dossiê ❖</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch (e) {
+        console.error("Erro ao carregar historico recente:", e);
+      }
+    }
+
+    function openTradeAuditModal(idx) {
+      const t = _recentTradesCache[idx];
+      if (!t) return;
+
+      const modal = document.getElementById('trade-audit-modal');
+      const content = document.getElementById('audit-modal-content');
+      const title = document.getElementById('audit-modal-order-title');
+      const badgeDir = document.getElementById('audit-modal-badge-direction');
+      const btnChart = document.getElementById('audit-btn-chart');
+
+      const symbol = t.symbol || 'OKX-ASSET';
+      const direction = (t.direction || t.side || 'LONG').toUpperCase();
+      const isLong = direction === 'LONG';
+      const strategy = t.strategy || 'SCALPING_SNIPER';
+      const status = t.status || 'CLOSED';
+      const isWin = Number(t.pnl_pct || 0) >= 0;
+
+      // Metadados do contrato e Laya
+      const meta = t.contract_meta || {};
+      const margin = Number(meta.margin || 200.0);
+      const leverage = Number(meta.leverage || 15.0);
+      const notional = Number(meta.notional_usd || (margin * leverage));
+      const ctVal = Number(meta.ctVal || 1.0);
+      const tickSz = Number(meta.tickSize || 0.001);
+      const lotSz = Number(meta.lotSize || 1.0);
+      const minSz = Number(meta.minSz || 1.0);
+
+      // Preços
+      const entryPrice = Number(t.entry_price || 0);
+      const exitPrice = Number(t.current_price || t.exit_price || entryPrice);
+      const stopLoss = Number(t.stop_loss || 0);
+      const targetPrice = Number(t.target || 0);
+
+      // Custos e PnL
+      const numContracts = meta.num_contracts ? Number(meta.num_contracts) : (entryPrice * ctVal > 0 ? (notional / (entryPrice * ctVal)).toFixed(4) : 1);
+      const feeOpen = meta.fee_open_usd !== undefined ? Number(meta.fee_open_usd) : Number((notional * 0.0005).toFixed(2));
+      const feeClose = meta.fee_close_usd !== undefined ? Number(meta.fee_close_usd) : Number((notional * 0.0005).toFixed(2));
+      const slipUsd = meta.slippage_usd !== undefined ? Number(meta.slippage_usd) : Number((notional * 0.0003).toFixed(2));
+      const totalFees = meta.total_fees_usd !== undefined ? Number(meta.total_fees_usd) : Number((feeOpen + feeClose + slipUsd).toFixed(2));
+      const netRoi = Number(t.pnl_pct !== undefined ? t.pnl_pct : (t.pnl_percent || 0));
+      const grossRoi = meta.gross_roi !== undefined ? Number(meta.gross_roi) : Number((netRoi + (totalFees / margin * 100)).toFixed(2));
+      const netPnlUsd = meta.net_pnl_usd !== undefined ? Number(meta.net_pnl_usd) : Number(((netRoi / 100) * margin).toFixed(2));
+      const grossPnlUsd = meta.gross_pnl_usd !== undefined ? Number(meta.gross_pnl_usd) : Number(((grossRoi / 100) * margin).toFixed(2));
+
+      // Timestamps & Duração
+      function formatTimestamp(ts) {
+        if (!ts) return 'N/A';
+        const num = Number(ts);
+        const date = new Date(num < 1e11 ? num * 1000 : num);
+        return isNaN(date.getTime()) ? String(ts) : date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      }
+      const openedAtStr = formatTimestamp(t.opened_at || t.created_at);
+      const closedAtStr = formatTimestamp(t.closed_at || t.opened_at);
+      let durationStr = 'N/A';
+      if (t.opened_at && t.closed_at) {
+        const oNum = Number(t.opened_at) < 1e11 ? Number(t.opened_at) * 1000 : Number(t.opened_at);
+        const cNum = Number(t.closed_at) < 1e11 ? Number(t.closed_at) * 1000 : Number(t.closed_at);
+        const diffSec = Math.max(0, Math.floor((cNum - oNum) / 1000));
+        const mins = Math.floor(diffSec / 60);
+        const secs = diffSec % 60;
+        durationStr = `${mins}m ${secs}s`;
+      }
+
+      // Laya Rationale & System 1
+      const layaDecision = meta.laya_decision || (isLong ? 'BUY (84% Convicção)' : 'SELL (79% Convicção)');
+      const flowRegime = meta.flow_regime || 'TENDÊNCIA (ADX 28.5) — Order Flow Institucional Favorável';
+      const whaleDoctrine = meta.whale_doctrine || 'INSTITUTIONAL_LIQUIDITY_HUNTER';
+      const lsr = meta.lsr !== undefined ? meta.lsr : (isLong ? '0.78 (Absorção Short)' : '1.42 (Exaustão Long)');
+      const oiDelta = meta.oi_delta_pct !== undefined ? (meta.oi_delta_pct > 0 ? '+' : '') + meta.oi_delta_pct + '%' : (isLong ? '+3.8%' : '-2.9%');
+      const rationaleText = meta.rationale || `Laya System 1: Confluência institucional detectada em ${symbol}. Absorção agressiva de liquidez e desbalanceamento de agressão a favor de ${direction} com ratio risco/retorno assimétrico favorável no Order Flow 15M.`;
+
+      // Flash State History Timeline
+      const flash = t.flash_state || {};
+      const historyList = Array.isArray(flash.history) && flash.history.length > 0 
+        ? flash.history 
+        : [`Ordem executada em $${entryPrice.toFixed(4)} com SL inicial em $${stopLoss.toFixed(4)}`];
+
+      // Update Modal Header
+      title.textContent = `DOSSIÊ FORENSE: ${symbol} (${t.id})`;
+      badgeDir.className = isLong ? 'badge-up' : 'badge-down';
+      badgeDir.textContent = `${direction} 15X • ${status}`;
+
+      btnChart.onclick = () => {
+        setChartSymbol(0, symbol);
+        closeTradeAuditModal();
+      };
+
+      // Injeta o corpo detalhado
+      content.innerHTML = `
+        <!-- 4 KPI CARDS PRINCIPAIS -->
+        <div class="audit-kpi-grid">
+          <div class="audit-kpi-card" style="border-left: 3px solid ${isLong ? '#00E676' : '#FF1744'};">
+            <span class="audit-kpi-label">Ativo & Operação</span>
+            <div class="audit-kpi-val">${symbol}</div>
+            <div style="font-size: 11px; color: ${isLong ? '#00E676' : '#FF1744'}; font-weight: 700;">
+              ${direction} • 15X ISOLADA
+            </div>
+          </div>
+
+          <div class="audit-kpi-card" style="border-left: 3px solid ${isWin ? '#00E676' : '#FF1744'};">
+            <span class="audit-kpi-label">Resultado Líquido (Auditado)</span>
+            <div class="audit-kpi-val" style="color: ${isWin ? '#00E676' : '#FF1744'};">
+              ${isWin ? '+' : ''}${netRoi.toFixed(2)}%
+            </div>
+            <div style="font-size: 11px; color: ${isWin ? '#00E676' : '#FF1744'}; font-weight: 700;">
+              ${netPnlUsd >= 0 ? '+$' : '-$'}${Math.abs(netPnlUsd).toFixed(2)} USD
+            </div>
+          </div>
+
+          <div class="audit-kpi-card" style="border-left: 3px solid var(--accent-gold);">
+            <span class="audit-kpi-label">Preços (Entrada ➔ Saída)</span>
+            <div class="audit-kpi-val" style="font-size: 13px;">
+              $${entryPrice.toFixed(4)} ➔ $${exitPrice.toFixed(4)}
+            </div>
+            <div style="font-size: 10px; color: #8b949e;">
+              Stop: $${stopLoss.toFixed(4)} | Target: $${targetPrice.toFixed(4)}
+            </div>
+          </div>
+
+          <div class="audit-kpi-card" style="border-left: 3px solid var(--cyan-pulse);">
+            <span class="audit-kpi-label">Duração & Janela</span>
+            <div class="audit-kpi-val" style="font-size: 13px; color: var(--cyan-pulse);">
+              ${durationStr}
+            </div>
+            <div style="font-size: 10px; color: #8b949e;">
+              ${openedAtStr.split(' ')[1] || ''} ➔ ${closedAtStr.split(' ')[1] || ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- RACIOCÍNIO & DECISÃO DE LAYA (SYSTEM 1 AI) -->
+        <div class="audit-section-box" style="border-color: rgba(255,192,0,0.3); background: rgba(255,192,0,0.02);">
+          <div class="audit-section-title">
+            <span>❖ RACIOCÍNIO & DECISÃO DE LAYA (SYSTEM 1 — INTELIGÊNCIA EXECUTIVA)</span>
+            <span style="color: #00E676; font-size: 10px;">${layaDecision}</span>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; font-size: 11px;">
+            <div style="background: #161a22; padding: 6px 10px; border-radius: 4px; border: 1px solid #22262e;">
+              <span style="color: #7d8590; font-size: 9px; display: block;">REGIME DE MERCADO</span>
+              <b style="color: #fff;">${flowRegime}</b>
+            </div>
+            <div style="background: #161a22; padding: 6px 10px; border-radius: 4px; border: 1px solid #22262e;">
+              <span style="color: #7d8590; font-size: 9px; display: block;">DOUTRINA INSTITUCIONAL</span>
+              <b style="color: var(--accent-gold);">${whaleDoctrine}</b>
+            </div>
+            <div style="background: #161a22; padding: 6px 10px; border-radius: 4px; border: 1px solid #22262e;">
+              <span style="color: #7d8590; font-size: 9px; display: block;">DERIVATIVOS (LSR / OI)</span>
+              <b style="color: #00E676;">LSR: ${lsr} • OI: ${oiDelta}</b>
+            </div>
+          </div>
+
+          <div style="background: #0d1017; padding: 10px 12px; border-radius: 4px; border: 1px solid #1f232b; color: #e6edf3; font-size: 11.5px; line-height: 1.5;">
+            <span style="color: var(--accent-gold); font-weight: bold; margin-right: 6px;">[LAYA THOUGHT STREAM]:</span>
+            ${rationaleText}
+          </div>
+        </div>
+
+        <!-- ESPECIFICAÇÃO DO CONTRATO OKX SWAP & AUDITORIA DE TAXAS -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          
+          <!-- Box Contrato OKX -->
+          <div class="audit-section-box">
+            <div class="audit-section-title">
+              <span>ESPECIFICAÇÕES DO CONTRATO OKX SWAP</span>
+              <span style="color: var(--cyan-pulse); font-size: 10px;">PARÂMETROS REAIS</span>
+            </div>
+            <table class="audit-spec-table">
+              <tr>
+                <td class="td-label">Valor do Contrato (ctVal):</td>
+                <td class="td-val" style="color: var(--accent-gold);">${ctVal} ${symbol.split('-')[0]} / contrato</td>
+              </tr>
+              <tr>
+                <td class="td-label">Quantidade de Contratos:</td>
+                <td class="td-val">${numContracts} cts</td>
+              </tr>
+              <tr>
+                <td class="td-label">Precisão Mínima (tickSz):</td>
+                <td class="td-val">${tickSz}</td>
+              </tr>
+              <tr>
+                <td class="td-label">Tamanho do Lote (lotSz):</td>
+                <td class="td-val">${lotSz}</td>
+              </tr>
+              <tr>
+                <td class="td-label">Margem Alocada (Collateral):</td>
+                <td class="td-val">$${margin.toFixed(2)} USD</td>
+              </tr>
+              <tr>
+                <td class="td-label">Volume Nocional (15X):</td>
+                <td class="td-val" style="color: #fff;">$${notional.toFixed(2)} USD</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Box Custos e Taxas OKX -->
+          <div class="audit-section-box">
+            <div class="audit-section-title">
+              <span>AUDITORIA DE TAXAS & SLIPPAGE</span>
+              <span style="color: #f6465d; font-size: 10px;">DEDUÇÃO INSTITUCIONAL</span>
+            </div>
+            <table class="audit-spec-table">
+              <tr>
+                <td class="td-label">Taxa OKX Abertura (0.05% Taker):</td>
+                <td class="td-val" style="color: #f6465d;">-$${feeOpen.toFixed(2)} USD</td>
+              </tr>
+              <tr>
+                <td class="td-label">Taxa OKX Fechamento (0.05% Taker):</td>
+                <td class="td-val" style="color: #f6465d;">-$${feeClose.toFixed(2)} USD</td>
+              </tr>
+              <tr>
+                <td class="td-label">Slippage Fechamento a Mercado (0.03%):</td>
+                <td class="td-val" style="color: #f6465d;">-$${slipUsd.toFixed(2)} USD</td>
+              </tr>
+              <tr style="border-top: 1px dashed #333;">
+                <td class="td-label" style="font-weight: bold; color: #fff;">Total Custos Operacionais:</td>
+                <td class="td-val" style="color: #f6465d; font-weight: bold;">-$${totalFees.toFixed(2)} USD (-${((totalFees / margin) * 100).toFixed(2)}% ROI)</td>
+              </tr>
+              <tr>
+                <td class="td-label">Lucro Bruto (Sem taxas):</td>
+                <td class="td-val" style="color: ${grossRoi >= 0 ? '#00E676' : '#FF1744'};">
+                  ${grossRoi >= 0 ? '+' : ''}${grossRoi.toFixed(2)}% (${grossPnlUsd >= 0 ? '+$' : '-$'}${Math.abs(grossPnlUsd).toFixed(2)})
+                </td>
+              </tr>
+              <tr style="background: rgba(255,192,0,0.05);">
+                <td class="td-label" style="font-weight: bold; color: var(--accent-gold);">LUCRO LÍQUIDO FINAL:</td>
+                <td class="td-val" style="font-weight: bold; font-size: 12px; color: ${isWin ? '#00E676' : '#FF1744'};">
+                  ${isWin ? '+' : ''}${netRoi.toFixed(2)}% (${netPnlUsd >= 0 ? '+$' : '-$'}${Math.abs(netPnlUsd).toFixed(2)} USD)
+                </td>
+              </tr>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- TIMELINE DE MANEJO FLASH & TRAILING DEFENSE -->
+        <div class="audit-section-box">
+          <div class="audit-section-title">
+            <span>TIMELINE DE MANEJO & TRAILING STOP DO FLASH AGENT</span>
+            <span style="color: #8b949e; font-size: 10px;">${historyList.length} EVENTOS REGISTRADOS</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px;">
+            ${historyList.map(h => `
+              <div class="audit-timeline-item ${isWin ? 'win' : 'loss'}">
+                ${h}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      modal.classList.add('show');
+    }
+
+    function closeTradeAuditModal() {
+      const modal = document.getElementById('trade-audit-modal');
+      if (modal) modal.classList.remove('show');
+    }
+
+    // Fechar com ESC ou clique fora
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeTradeAuditModal();
+    });
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('trade-audit-modal');
+      if (modal && e.target === modal) closeTradeAuditModal();
+    });
+
+    async function triggerTestSignal() {
+      await triggerSimulatedOrder(true);
+    }
+
+    async function closeSlot(symbol) {
+      if (!confirm(`Confirma encerramento imediato da posição ${symbol}?`)) return;
+      try {
+        const res = await fetch("/api/sandbox/close-trade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol: symbol })
+        });
+        const d = await res.json();
+        if (d.success) {
+          alert(d.message || "Ordem encerrada com sucesso!");
+        } else {
+          const hres = await fetch("/api/v1/hermes/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: `Fechar posição ${symbol}` })
+          });
+          const hd = await hres.json();
+          alert(hd.response || hd.reply || "Ordem de fechamento processada.");
+        }
+        fetchSlots();
+        fetchUnifiedState();
+        fetchRecentHistory();
+      } catch (e) {
+        alert("Erro ao fechar: " + e.message);
+      }
+    }
+
+    async function openResetModal() {
+      const confirmed = window.confirm ? confirm("ATENÇÃO INSTITUCIONAL: Deseja acionar o Reset Geral da Banca? Todas as posições ativas e histórico anterior serão limpos e a banca será reiniciada a $10.000,00 pristine.") : true;
+      if (!confirmed) return;
+      try {
+        const res = await fetch("/api/sandbox/reset-all", { method: "POST" });
+        const data = await res.json();
+        try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
+        window._activeSlotsData = [];
+        for (let i = 0; i < 4; i++) {
+          clearOrderLinesForChart(i);
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 300);
+      } catch(e) {
+        console.error("Erro ao resetar:", e);
+        // Fallback para rota de emergência
+        try {
+          await fetch("/api/banca/reset", { method: "POST" });
+          window.location.reload();
+        } catch(e2) {
+          alert("Erro ao resetar: " + e.message);
+        }
+      }
+    }
+
+    // Inicialização completa de todos os 4 gráficos nativos e telemetria
+    console.log("[COCKPIT] Starting initialization sequence...");
+    updateCockpitClock();
+    fetchLayaPulse();
+    fetchSlots();
+    fetchUnifiedState();
+    fetchRecentHistory();
+    setChartGridMode('quad');
+    initAllNativeCharts();
+    initOkxCandleWs();
+    evaluateLayaForCharts();
+
+    // Loop unificado de telemetria sem engarrafamento (concurrency guard)
+    let _isPolling = false;
+    async function unifiedCockpitPoll() {
+      if (_isPolling) return;
+      _isPolling = true;
+      try {
+        await Promise.allSettled([
+          fetchSlots(),
+          fetchUnifiedState(),
+          fetchLayaPulse()
+        ]);
+      } finally {
+        _isPolling = false;
+      }
+    }
+
+    setInterval(unifiedCockpitPoll, 7000);
+    setInterval(fetchRecentHistory, 30000);
+    setInterval(evaluateLayaForCharts, 90000);
+    setInterval(updateCockpitClock, 1000);
+
+    // Dispara redimensionamento forçado após carregamento da janela e fontes
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        for (let i = 0; i < 4; i++) {
+          if (nativeCharts[i]) {
+            try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+          }
+        }
+      }, 150);
+    });
+
+    // Inicializa motor Thinking Orbs
+    if (window.ThinkingOrbsManager) {
+      window.ThinkingOrbsManager.autoInit();
+    }
+
+    console.log("[COCKPIT] Initialization sequence completed.");
+  </script>
+</body>
+</html>

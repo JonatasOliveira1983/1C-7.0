@@ -134,6 +134,58 @@ class SandboxTrade(Base):
     explosion_score = Column(Float, default=0.0)
     explosion_signals = Column(JSON, nullable=True)
 
+class SandboxSwingTrade(Base):
+    """
+    [Swing Lab V2.0] Motor primário de detecção e tracking de trades Swing.
+
+    V2.0: O SandboxSwingService é o motor primário — detecta setups M30 de forma autônoma
+    e abre posições VIRTUAIS. Quando SWING_MIRROR_MODE=ON, espelha na conta real OKX.
+
+    Separado do SandboxTrade (Scalping Lab) para refinamento independente das inteligências.
+    Cross-Block: o mesmo ativo não pode estar ativo nesta tabela E em sandbox_trades.
+
+    Estratégias suportadas:
+      - ALPHA SHIELD (DVAP, MOLA, FAS, LRT)
+      - VELOCITY FLOW (TREND, ABCD, 1-2-3)
+      - DECOR SHADOW (DECOR, DECOR_HUNTER)
+    """
+    __tablename__ = "sandbox_swing_trades"
+    id              = Column(String, primary_key=True)         # Ex: "swing_BTCUSDT_1720000000"
+    symbol          = Column(String, nullable=False)
+    strategy        = Column(String, nullable=True, default=None)  # ALPHA SHIELD | VELOCITY FLOW | DECOR SHADOW
+    direction       = Column(String, nullable=False)           # "LONG" | "SHORT"
+    entry_price     = Column(Float, nullable=False)
+    current_price   = Column(Float, nullable=False)
+    stop_loss       = Column(Float, nullable=True)
+    target          = Column(Float, nullable=True)
+    max_roi         = Column(Float, default=0.0)
+    current_roi     = Column(Float, default=0.0)
+    pnl_pct         = Column(Float, default=0.0)
+    status          = Column(String, default="ACTIVE")         # ACTIVE | CLOSED_SL | CLOSED_TRAILING | EMANCIPATED
+    opened_at       = Column(Float, nullable=False)
+    closed_at       = Column(Float, nullable=True)
+    flash_state     = Column(JSON, nullable=True)              # {phase, active_level, stop_roi, history}
+    contract_meta   = Column(JSON, nullable=True)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    # Campos de análise técnica
+    blitz_score     = Column(Float, default=0.0)               # Score do sinal (0-100)
+    fib_zone        = Column(String, nullable=True)            # Ex: "0.618-0.786" (Fibonacci Golden Zone)
+    sma_cross       = Column(String, nullable=True)            # "UP" | "DOWN" | "NONE"
+    cvd_value       = Column(Float, default=0.0)               # Cumulative Volume Delta
+    volume_ratio    = Column(Float, default=0.0)               # Volume relativo (1.5 = 1.5x média)
+    pa_pattern      = Column(String, nullable=True)            # Ex: "Wick Reclaim Bullish M30"
+    reasons         = Column(JSON, nullable=True)              # Lista de strings do raciocínio
+    blitz_unit      = Column(Integer, default=0)               # 0=inicial, 1=+100% ROI, 2=+200%, 3=+300%
+    # [V125] Campos do Motor Primário
+    mirror_order_id = Column(String, nullable=True)            # ID da ordem real se SWING_MIRROR_MODE=ON
+    swing_tf        = Column(String, nullable=True, default="M30")  # Timeframe do setup detectado
+    explosion_score = Column(Float, default=0.0)
+    explosion_signals = Column(JSON, nullable=True)
+    # [V127] Stop inicial configurável
+    stop_method     = Column(String, nullable=True)            # "CONFIG" | "LEGADO"
+    stop_roi_target = Column(Float, nullable=True)             # ROI-alvo do stop inicial (%)
+
+
 class RadarPulse(Base):
     __tablename__ = "radar_pulse"
     id = Column(Integer, primary_key=True)
@@ -156,6 +208,27 @@ class PhaseDetectorHistory(Base):
     data_type = Column(String, nullable=False, index=True)  # OI, CVD, BB_WIDTH, VOLUME, RANGE
     value = Column(JSON, nullable=False)  # Dado serializado (dict ou float)
     timestamp = Column(Float, nullable=False, index=True)  # Unix timestamp
+
+
+# [V126] Hermes Chat — Persistência de sessões e mensagens
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    id = Column(String, primary_key=True)  # UUID
+    title = Column(String, default="Nova conversa")
+    user_id = Column(String, default="jonatas")
+    model = Column(String, default="deepseek-chat")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    message_count = Column(Integer, default=0)
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String, index=True, nullable=False)
+    role = Column(String, nullable=False)  # "user" | "assistant" | "system"
+    content = Column(String, nullable=False)
+    context = Column(JSON, nullable=True)  # dimensões, compliance, etc
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 LEGACY_VAULT_CYCLE_FIELDS = (
@@ -207,22 +280,67 @@ class DatabaseService:
             db_url = "sqlite+aiosqlite:///local_sniper.db"
             logger.warning("DATABASE_URL not found or invalid. Using local SQLite.")
 
-        self.engine = create_async_engine(db_url, echo=False)
+        # Pool para PostgreSQL com pre-ping + recycle para evitar dead connections
+        # Railway Postgres Hobby permite ~15 conexões simultâneas.
+        # pool_size=5 + max_overflow=3 = max 8 conexões, bem abaixo do limite.
+        # pool_timeout=10 para falhar rápido se o pool estiver cheio.
+        pool_kwargs = {}
+        if "postgresql" in db_url:
+            pool_kwargs = {
+                "pool_size": 5,
+                "max_overflow": 3,
+                "pool_pre_ping": True,
+                "pool_recycle": 60,
+                "pool_timeout": 10,
+            }
+        elif "sqlite" in db_url:
+            pool_kwargs = {
+                "connect_args": {"timeout": 30.0}
+            }
+        self.engine = create_async_engine(db_url, echo=False, **pool_kwargs)
+        if "sqlite" in db_url:
+            from sqlalchemy import event
+            @event.listens_for(self.engine.sync_engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                try:
+                    cursor = dbapi_connection.cursor()
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+                    cursor.execute("PRAGMA busy_timeout=30000")
+                    cursor.close()
+                except Exception:
+                    pass
         self.AsyncSessionLocal = sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )
         self.is_active = False
+        self._active_trades_cache = None
+        self._active_trades_ts = 0.0
+        
+        # [V126-LOCK-IN] Controle em memória para o Protocolo de Defesa de Lucros
+        self.lock_in_active = False
+        self.lock_in_floor_balance = 10000.0
+        self.lock_in_trigger_balance = 11000.0
+        self.current_consolidated_balance = 10000.0
+
+        # [V128-EQUITY-DEFENSE] Defesa progressiva de patrimônio
+        self.equity_peak = 10000.0
+        self.equity_defense_level = 0  # 0=OFF, 1=LEVE, 2=MODERADO, 3=FORTE, 4=CRITICO
+        self.equity_floor = 10000.0
+        self.equity_defense_stop_pct = 5.0
 
     async def initialize(self):
         """Inicializa as tabelas no banco de dados."""
         try:
             async with self.engine.begin() as conn:
+                if "sqlite" in self.engine.url.drivername:
+                    await conn.execute(text("PRAGMA journal_mode=WAL;"))
+                    await conn.execute(text("PRAGMA busy_timeout=30000;"))
                 await conn.run_sync(Base.metadata.create_all)
                 
                 # Executar migrações auto-healing
                 if "postgresql" in self.engine.url.drivername or "sqlite" in self.engine.url.drivername:
                     logger.info("🔧 Rodando migrações auto-healing...")
-                    from sqlalchemy import text
                     # Definir colunas necessárias com tipos Postgres correspondentes
                     migrations = [
                         ("slots", "entry_margin", "DOUBLE PRECISION"),
@@ -279,8 +397,25 @@ class DatabaseService:
                         ("vault_cycles", "updated_at", "TIMESTAMP"),
                         # [V121] Phase Detector — explosion score + signals no sandbox
                         ("sandbox_trades", "explosion_score", "DOUBLE PRECISION"),
-                        ("sandbox_trades", "explosion_signals", "JSONB")
+                        ("sandbox_trades", "explosion_signals", "JSONB"),
+                        # [Swing Lab] Colunas extras do BlitzSniperAgent
+                        ("sandbox_swing_trades", "blitz_score", "DOUBLE PRECISION"),
+                        ("sandbox_swing_trades", "fib_zone", "TEXT"),
+                        ("sandbox_swing_trades", "sma_cross", "TEXT"),
+                        ("sandbox_swing_trades", "cvd_value", "DOUBLE PRECISION"),
+                        ("sandbox_swing_trades", "volume_ratio", "DOUBLE PRECISION"),
+                        ("sandbox_swing_trades", "pa_pattern", "TEXT"),
+                        ("sandbox_swing_trades", "reasons", "JSONB"),
+                        ("sandbox_swing_trades", "blitz_unit", "INTEGER"),
+                        ("sandbox_swing_trades", "mirror_order_id", "TEXT"),
+                        ("sandbox_swing_trades", "swing_tf", "TEXT"),
+                        ("sandbox_swing_trades", "explosion_score", "DOUBLE PRECISION"),
+                        ("sandbox_swing_trades", "explosion_signals", "JSONB"),
+                        ("sandbox_swing_trades", "stop_method", "TEXT"),
+                        ("sandbox_swing_trades", "stop_roi_target", "DOUBLE PRECISION")
                     ]
+
+
                     for table, col, col_type in migrations:
                         try:
                             # SQLite doesn't support 'IF NOT EXISTS' in ALTER TABLE ADD COLUMN
@@ -409,6 +544,7 @@ class DatabaseService:
     async def update_banca_status(self, data: dict):
         async with self.AsyncSessionLocal() as session:
             try:
+                data.pop("id", None)  # Remove id do dict para evitar conflito
                 # Sempre ID 1 para banca única
                 obj = await session.get(BancaStatus, 1)
                 if not obj:
@@ -426,11 +562,8 @@ class DatabaseService:
             obj = await session.get(BancaStatus, 1)
             if obj:
                 res = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
-                # [V125 FIX] Força saldo_total e configured_balance no modo PAPER
-                from config import settings
-                if settings.OKX_EXECUTION_MODE == "PAPER":
-                    res["saldo_total"] = 100.0
-                    res["configured_balance"] = 100.0
+                # [V127] Em PAPER o saldo_total/configured_balance é definido pelo bankroll/update_banca_status
+                # (espelho da Banca do Sandbox). Não forçar valores fixos aqui.
                 return res
             return {"saldo_total": 0, "risco_real_percent": 0, "slots_disponiveis": 4, "status": "UNKNOWN"}
 
@@ -474,6 +607,17 @@ class DatabaseService:
             slots = result.scalars().all()
             rows = [{c.name: getattr(s, c.name) for c in s.__table__.columns} for s in slots]
             return await self._attach_order_projections(rows, phase_hint="SLOT")
+
+    async def clear_all_slots(self):
+        """Limpa todos os slots da frota ativa."""
+        async with self.AsyncSessionLocal() as session:
+            try:
+                await session.execute(delete(Slot))
+                await session.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error clearing slots: {e}")
+                return False
 
     async def get_slot(self, slot_id: int):
         async with self.AsyncSessionLocal() as session:
@@ -617,6 +761,7 @@ class DatabaseService:
                 order,
                 current_price=current_price,
                 phase_hint=phase_hint,
+                fetch_contract=False,
             )
             enriched.append(order)
         return enriched
@@ -702,15 +847,27 @@ class DatabaseService:
         return None
 
     async def reset_system_data(self):
-        """Purga total: limpa slots, moonbags, trade_history, order_genesis, banca=$100."""
+        """Purga total: limpa slots, moonbags, trade_history, sandbox_trades, sandbox_swing_trades, banca=$10000."""
         try:
+            from config import settings
+            target_balance = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+
             async with self.AsyncSessionLocal() as session:
-                # 1. Limpar trade_history
+                # 1. Limpar trade_history e moonbags legados
                 await session.execute(delete(TradeHistory))
-                
-                # 2. Limpar moonbags
                 await session.execute(delete(Moonbag))
-                
+
+                # 2. Limpar trades simulados do Sandbox (Scalping Lab e Swing Lab)
+                try:
+                    await session.execute(delete(SandboxTrade))
+                except Exception as e_st:
+                    logger.warning(f"Aviso ao deletar SandboxTrade: {e_st}")
+
+                try:
+                    await session.execute(delete(SandboxSwingTrade))
+                except Exception as e_sst:
+                    logger.warning(f"Aviso ao deletar SandboxSwingTrade: {e_sst}")
+
                 # 3. Limpar order_genesis (se existir)
                 try:
                     await session.execute(text("DELETE FROM order_genesis"))
@@ -759,9 +916,7 @@ class DatabaseService:
                     )
                 )
                 
-                # 5. Resetar banca para a banca simulada configurada (default $20.00)
-                from config import settings
-                target_balance = getattr(settings, "OKX_SIMULATED_BALANCE", 20.0)
+                # 5. Resetar banca para a banca simulada configurada (default $10,000.00)
                 banca = await session.get(BancaStatus, 1)
                 if banca:
                     banca.saldo_total = target_balance
@@ -791,8 +946,52 @@ class DatabaseService:
                     pass
                 
                 await session.commit()
-                logger.info(f"System data reset complete - all slots LIVRE, bank ${target_balance:.2f}, history cleared.")
-                return True
+
+            # 7. Resetar métricas in-memory de Equity Defense e consolidado
+            self.equity_peak = target_balance
+            self.equity_floor = target_balance
+            self.equity_defense_level = 0
+            self.equity_defense_stop_pct = 0.0
+            self.current_consolidated_balance = target_balance
+            self.lock_in_active = False
+
+            # 8. Resetar caches em memória dos serviços Sandbox
+            try:
+                from services.sandbox_service import sandbox_service
+                sandbox_service.base_balance_cache = target_balance
+                sandbox_service.active_trades.clear()
+                if hasattr(sandbox_service, "_peak_roi_cache"):
+                    sandbox_service._peak_roi_cache.clear()
+                if hasattr(sandbox_service, "_auto_blocklist"):
+                    sandbox_service._auto_blocklist.clear()
+                if hasattr(sandbox_service, "_consecutive_stops"):
+                    sandbox_service._consecutive_stops.clear()
+                if hasattr(sandbox_service, "_stop_cooldown"):
+                    sandbox_service._stop_cooldown.clear()
+            except Exception as e_sb:
+                logger.warning(f"Aviso ao resetar cache sandbox_service: {e_sb}")
+
+            try:
+                from services.sandbox_swing_service import sandbox_swing_service
+                sandbox_swing_service.active_trades.clear()
+                sandbox_swing_service.closed_trades.clear()
+            except Exception as e_ssw:
+                logger.warning(f"Aviso ao resetar cache sandbox_swing_service: {e_ssw}")
+
+            # 9. Resetar memória de inteligência e cooldowns da Laya Soberana
+            try:
+                from app.services.laya_router_service import laya_router_service
+                laya_router_service._symbol_cooldowns.clear()
+                laya_router_service.candidate_setups.clear()
+                laya_router_service._last_traded_pair = None
+                laya_router_service.thought_stream.clear()
+                laya_router_service._seed_initial_thoughts()
+                logger.info("🧠 [LAYA] Memória de cooldowns e setups reiniciada com sucesso.")
+            except Exception as e_laya:
+                logger.warning(f"Aviso ao resetar Laya: {e_laya}")
+
+            logger.info(f"System data reset complete - all slots LIVRE, bank ${target_balance:.2f}, sandbox history cleared.")
+            return True
         except Exception as e:
             logger.error(f"Error resetting system data: {e}")
             return False
@@ -864,6 +1063,28 @@ class DatabaseService:
                     session.add(new_trade)
                 await session.commit()
                 logger.info(f"✅ Trade logged in Postgres: {trade_data.get('symbol')}")
+
+                try:
+                    from services.galaxy_memory_service import galaxy_memory_service
+                    galaxy_payload = {
+                        "id": new_trade.id or order_id,
+                        "order_id": order_id,
+                        "genesis_id": new_trade.genesis_id,
+                        "symbol": new_trade.symbol,
+                        "side": new_trade.side,
+                        "pnl": new_trade.pnl,
+                        "pnl_percent": new_trade.pnl_percent,
+                        "entry_price": new_trade.entry_price,
+                        "exit_price": new_trade.exit_price,
+                        "strategy": new_trade.strategy,
+                        "close_reason": new_trade.close_reason,
+                        "timestamp": new_trade.timestamp,
+                        "vision_url": new_trade.vision_url
+                    }
+                    asyncio.create_task(galaxy_memory_service.save_trade_memory(galaxy_payload))
+                except Exception as g_err:
+                    logger.error(f"Error logging to Memory Galaxy: {g_err}")
+
             except Exception as e:
                 logger.error(f"Error logging trade: {e}")
 
@@ -954,17 +1175,35 @@ class DatabaseService:
         async with self.AsyncSessionLocal() as session:
             try:
                 obj = await session.get(SandboxTrade, trade_data.get("id"))
+                valid_cols = {c.name for c in SandboxTrade.__table__.columns}
+                filtered_data = {k: v for k, v in trade_data.items() if k in valid_cols}
+                if "contract_meta" in valid_cols and "laya_decision" in trade_data:
+                    meta = filtered_data.get("contract_meta") or {}
+                    if isinstance(meta, dict):
+                        meta["laya_decision"] = trade_data["laya_decision"]
+                        filtered_data["contract_meta"] = meta
                 if not obj:
-                    obj = SandboxTrade(**trade_data)
+                    obj = SandboxTrade(**filtered_data)
                     session.add(obj)
                     await session.commit()
+                    self._active_trades_cache = None
                     logger.info(f"🧪 Sandbox trade {trade_data.get('id')} saved in Postgres.")
+                    return True
+                else:
+                    for k, v in filtered_data.items():
+                        setattr(obj, k, v)
+                    await session.commit()
+                    self._active_trades_cache = None
                     return True
             except Exception as e:
                 logger.error(f"Error saving sandbox trade in database: {e}")
             return False
 
     async def get_sandbox_trades(self, active_only: bool = False):
+        now = time.time()
+        if active_only and self._active_trades_cache is not None and (now - self._active_trades_ts < 1.0):
+            return self._active_trades_cache
+
         async with self.AsyncSessionLocal() as session:
             try:
                 if active_only:
@@ -972,7 +1211,11 @@ class DatabaseService:
                 else:
                     q = select(SandboxTrade).order_by(desc(SandboxTrade.opened_at))
                 res = await session.execute(q)
-                return res.scalars().all()
+                trades = res.scalars().all()
+                if active_only:
+                    self._active_trades_cache = trades
+                    self._active_trades_ts = now
+                return trades
             except Exception as e:
                 logger.error(f"Error getting sandbox trades: {e}")
             return []
@@ -994,6 +1237,7 @@ class DatabaseService:
                         if hasattr(obj, k):
                             setattr(obj, k, v)
                     await session.commit()
+                    self._active_trades_cache = None
                     return True
             except Exception as e:
                 logger.error(f"Error updating sandbox trade {trade_id}: {e}")
@@ -1005,11 +1249,140 @@ class DatabaseService:
                 q = delete(SandboxTrade)
                 await session.execute(q)
                 await session.commit()
+                self._active_trades_cache = None
                 logger.info("🧪 Sandbox trades database table cleared.")
+                # [V129] Reset in-memory equity defense metrics to avoid false CRITICAL alert
+                self.equity_peak = 10000.0
+                self.equity_floor = 10000.0
+                self.equity_defense_level = 0
                 return True
             except Exception as e:
                 logger.error(f"Error clearing sandbox trades: {e}")
             return False
+
+    # =========================================================================
+    # ████  SANDBOX SWING TRADES (Swing Lab — BlitzSniperAgent)  ████
+    # =========================================================================
+
+    async def save_swing_trade(self, trade_data: dict):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                obj = await session.get(SandboxSwingTrade, trade_data.get("id"))
+                valid_cols = {c.name for c in SandboxSwingTrade.__table__.columns}
+                filtered_data = {k: v for k, v in trade_data.items() if k in valid_cols}
+                if "target" not in filtered_data and "take_profit" in trade_data:
+                    filtered_data["target"] = trade_data["take_profit"]
+                if not obj:
+                    obj = SandboxSwingTrade(**filtered_data)
+                    session.add(obj)
+                    await session.commit()
+                    logger.info(f"[SWING-LAB] Trade {trade_data.get('id')} salvo no Postgres.")
+                    return True
+                else:
+                    for k, v in filtered_data.items():
+                        setattr(obj, k, v)
+                    await session.commit()
+                    return True
+            except Exception as e:
+                logger.error(f"Error saving swing trade: {e}")
+            return False
+
+    async def get_swing_trades(self, active_only: bool = False):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                if active_only:
+                    q = select(SandboxSwingTrade).where(SandboxSwingTrade.status == "ACTIVE").order_by(desc(SandboxSwingTrade.opened_at))
+                else:
+                    q = select(SandboxSwingTrade).order_by(desc(SandboxSwingTrade.opened_at))
+                res = await session.execute(q)
+                return res.scalars().all()
+            except Exception as e:
+                logger.error(f"Error getting swing trades: {e}")
+            return []
+
+    async def get_swing_trade(self, trade_id: str):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                return await session.get(SandboxSwingTrade, trade_id)
+            except Exception as e:
+                logger.error(f"Error getting swing trade {trade_id}: {e}")
+            return None
+
+    async def update_swing_trade(self, trade_id: str, data: dict):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                obj = await session.get(SandboxSwingTrade, trade_id)
+                if obj:
+                    for k, v in data.items():
+                        if hasattr(obj, k):
+                            setattr(obj, k, v)
+                    await session.commit()
+                    logger.info(f"⚡ [DEBUG] update_swing_trade({trade_id}) data={data}")
+                    return True
+            except Exception as e:
+                logger.error(f"Error updating swing trade {trade_id}: {e}")
+            return False
+
+    async def clear_swing_trades(self):
+        async with self.AsyncSessionLocal() as session:
+            try:
+                q = delete(SandboxSwingTrade)
+                await session.execute(q)
+                await session.commit()
+                logger.info("[SWING-LAB] Swing trades cleared.")
+                # [V129] Reset in-memory equity defense metrics to avoid false CRITICAL alert
+                self.equity_peak = 10000.0
+                self.equity_floor = 10000.0
+                self.equity_defense_level = 0
+                return True
+            except Exception as e:
+                logger.error(f"Error clearing swing trades: {e}")
+            return False
+
+    async def get_sandbox_unified_balance(self) -> float:
+        """
+        [V127.1] Retorna a Banca Simulada Consolidada do Sandbox (Scalping Lab + Swing Lab).
+        Calcula APENAS o PnL REALIZADO (trades fechados) para evitar dupla contagem
+        com o PnL não realizado que é calculado separadamente pelo bankroll_guardian.
+        
+        Em PAPER mode esta deve ser a 'Banca' exibida no Cockpit.
+        """
+        from config import settings
+        from sqlalchemy import select, func
+        try:
+            async with self.AsyncSessionLocal() as session:
+                # [V127.1] Filtrar APENAS trades FECHADOS (realizados)
+                # Status fechados: Qualquer status diferente de ACTIVE (evita ignorar CLOSED_EQUITY_DEFENSE)
+                scalp_res = await session.execute(
+                    select(SandboxTrade.pnl_pct, SandboxTrade.contract_meta).where(
+                        SandboxTrade.status != "ACTIVE"
+                    )
+                )
+                swing_res = await session.execute(
+                    select(SandboxSwingTrade.pnl_pct, SandboxSwingTrade.contract_meta).where(
+                        SandboxSwingTrade.status != "ACTIVE"
+                    )
+                )
+                
+                total_pnl_usd = 0.0
+                for row in scalp_res.all():
+                    pnl_pct = float(row[0] or 0.0)
+                    meta = row[1] or {}
+                    margin = float(meta.get("margin", 200.0))
+                    total_pnl_usd += (pnl_pct / 100.0) * margin
+                    
+                for row in swing_res.all():
+                    pnl_pct = float(row[0] or 0.0)
+                    meta = row[1] or {}
+                    margin = float(meta.get("margin", 200.0))
+                    total_pnl_usd += (pnl_pct / 100.0) * margin
+
+                current_balance = 10000.0 + total_pnl_usd
+                logger.info(f"[V127.1] Sandbox realized balance = {current_balance:.2f} (total_pnl_usd={total_pnl_usd:.2f})")
+                return round(current_balance, 2)
+        except Exception as e:
+            logger.exception(f"[V127.1] Erro ao calcular saldo realizado do Sandbox: {e}")
+            return 10000.0
 
     # ==================== PHASE DETECTOR HISTORY (V120) ====================
 
@@ -1098,5 +1471,118 @@ class DatabaseService:
                     logger.info(f"🧹 [PHASE-DETECTOR] {deleted} snapshots antigos removidos (> {max_age_hours}h)")
             except Exception as e:
                 logger.error(f"Error cleaning phase detector history: {e}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # [V126] HERMES CHAT — CRUD de Sessões
+    # ═══════════════════════════════════════════════════════════════
+
+    async def create_chat_session(self, session_id: str, title: str = "Nova conversa", model: str = "deepseek-chat", user_id: str = "jonatas") -> dict:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                s = ChatSession(id=session_id, title=title, model=model, user_id=user_id)
+                session.add(s)
+                await session.commit()
+                return {"id": s.id, "title": s.title, "model": s.model, "created_at": str(s.created_at), "message_count": 0}
+            except Exception as e:
+                logger.error(f"Error creating chat session: {e}")
+                return None
+
+    async def get_chat_sessions(self, user_id: str = "jonatas", limit: int = 50) -> list:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                q = (
+                    select(ChatSession)
+                    .where(ChatSession.user_id == user_id)
+                    .order_by(desc(ChatSession.updated_at))
+                    .limit(limit)
+                )
+                result = await session.execute(q)
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": r.id,
+                        "title": r.title,
+                        "model": r.model,
+                        "created_at": str(r.created_at),
+                        "updated_at": str(r.updated_at),
+                        "message_count": r.message_count,
+                    }
+                    for r in rows
+                ]
+            except Exception as e:
+                logger.error(f"Error listing chat sessions: {e}")
+                return []
+
+    async def get_chat_messages(self, session_id: str) -> list:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                q = (
+                    select(ChatMessage)
+                    .where(ChatMessage.session_id == session_id)
+                    .order_by(ChatMessage.created_at)
+                )
+                result = await session.execute(q)
+                rows = result.scalars().all()
+                return [
+                    {
+                        "id": r.id,
+                        "role": r.role,
+                        "content": r.content,
+                        "context": r.context,
+                        "created_at": str(r.created_at),
+                    }
+                    for r in rows
+                ]
+            except Exception as e:
+                logger.error(f"Error loading chat messages: {e}")
+                return []
+
+    async def save_chat_message(self, session_id: str, role: str, content: str, context: dict = None) -> bool:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                msg = ChatMessage(session_id=session_id, role=role, content=content, context=context)
+                session.add(msg)
+                # Update session message count and timestamp
+                await session.execute(
+                    update(ChatSession)
+                    .where(ChatSession.id == session_id)
+                    .values(
+                        message_count=ChatSession.message_count + 1,
+                        updated_at=datetime.utcnow,
+                    )
+                )
+                await session.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error saving chat message: {e}")
+                return False
+
+    async def delete_chat_session(self, session_id: str) -> bool:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                # Delete messages first
+                await session.execute(delete(ChatMessage).where(ChatMessage.session_id == session_id))
+                # Delete session
+                await session.execute(delete(ChatSession).where(ChatSession.id == session_id))
+                await session.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error deleting chat session: {e}")
+                return False
+
+    async def rename_chat_session(self, session_id: str, title: str) -> bool:
+        async with self.AsyncSessionLocal() as session:
+            try:
+                await session.execute(
+                    update(ChatSession)
+                    .where(ChatSession.id == session_id)
+                    .values(title=title)
+                )
+                await session.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error renaming chat session: {e}")
+                return False
+
 
 database_service = DatabaseService()

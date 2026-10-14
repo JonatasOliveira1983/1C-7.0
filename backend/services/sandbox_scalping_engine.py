@@ -1,0 +1,724 @@
+# -*- coding: utf-8 -*-
+"""
+[VWAP SNIPER] SandboxScalpingEngine - V1.0
+===========================================
+Motor primario e EXCLUSIVO do Scalping Lab.
+
+Opera em timeframes de 1m e 5m para capturar momentum
+de curtissimo prazo com 50x de alavancagem.
+
+Estrategia: VWAP SNIPER
+  Camada 1 - Filtro de Tendencia (5m):
+    - EMA 200 (5m) define a direcao dominante.
+    - So entrar LONG se preco > EMA200, SHORT se preco < EMA200.
+
+  Camada 2 - Zona de Entrada (1m):
+    - VWAP intradiario calculado sobre os candles de 1m.
+    - Preco deve estar dentro de 0.15% da linha VWAP.
+
+  Camada 3 - Gatilho (1m):
+    - Stochastic RSI (14, 14, 3, 3).
+    - Long: K cruza D de baixo pra cima saindo da sobrevenda (<25).
+    - Short: K cruza D de cima pra baixo saindo da sobrecompra (>75).
+
+  Bonus - Liquidity Sweep:
+    - Pin Bar/Hammer de rejeicao de maxima/minima anterior.
+
+Score final minimo: 60/100 para abrir posicao.
+Stop Loss: 1.0x ATR do 1m, maximo -15% ROI (= 0.3% no preco com 50x).
+"""
+
+import asyncio
+import logging
+import time
+from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger("ScalpingEngine")
+
+# ── Constantes V131 — Correção de Alavancagem e Stop ──────────────────────────
+# [V131-FIX] Bug crítico detectado: leverage estava em 10x mas sandbox_service
+# monitora stops com 50x real. Resultado: stop calculado em 0.6% de movimento
+# do preço, mas monitorado como -30% ROI com 50x → trades fechando com -25%/-31%.
+# Correção: reverter para 50x + stop -8% ROI (= 0.16% de movimento no preço).
+# Isso é correto para scalping M1/M5 com VWAP SNIPER.
+# [V131] Manter VWAP_TOLERANCE 0.30% e MIN_SCORE 65 (mais sinais = mais dados)
+_LEVERAGE           = 50.0   # [V131-FIX] Restaurado de 10x (V130) para 50x
+_MARGIN_PER_TRADE   = 200.0
+_SCAN_INTERVAL      = 30
+_MAX_SLOTS          = 5
+_MIN_SCORE          = 60
+_MAX_STOP_ROI       = -12.0
+_VWAP_TOLERANCE_PCT = 0.65
+_STOCH_OVERSOLD     = 25.0
+_STOCH_OVERBOUGHT   = 75.0
+_EMA_PERIOD         = 200
+_MIN_ATR_PCT        = 0.02
+
+
+# ── Utilitarios de Indicadores ─────────────────────────────────────────────────
+
+def _calculate_ema(values: List[float], period: int) -> float:
+    """EMA classica com inicializacao SMA."""
+    if not values or len(values) < period:
+        return 0.0
+    multiplier = 2.0 / (period + 1)
+    ema = sum(values[:period]) / period
+    for price in values[period:]:
+        ema = (price - ema) * multiplier + ema
+    return ema
+
+
+def _calculate_vwap(candles: list) -> float:
+    """VWAP intradiario: sum(TP*Vol) / sum(Vol). TP = (H+L+C)/3."""
+    if not candles:
+        return 0.0
+    cum_tpv = 0.0
+    cum_vol = 0.0
+    for c in candles:
+        try:
+            high  = float(c[2] if isinstance(c, list) else c.get('high', c[2] if isinstance(c, list) else 0))
+            low   = float(c[3] if isinstance(c, list) else c.get('low',  c[3] if isinstance(c, list) else 0))
+            close = float(c[4] if isinstance(c, list) else c.get('close',c[4] if isinstance(c, list) else 0))
+            vol   = float(c[5] if isinstance(c, list) else c.get('volume', c[5] if isinstance(c, list) else 0)) or 0.0
+        except (IndexError, ValueError, TypeError):
+            continue
+        tp = (high + low + close) / 3.0
+        cum_tpv += tp * vol
+        cum_vol  += vol
+    return cum_tpv / cum_vol if cum_vol > 0 else 0.0
+
+
+def _parse_close(c) -> float:
+    """Extrai o preco de fechamento de um candle (lista ou dict)."""
+    try:
+        if isinstance(c, list):
+            return float(c[4])
+        return float(c.get('close') or c.get('c') or 0)
+    except (IndexError, ValueError, TypeError):
+        return 0.0
+
+
+def _parse_ohlcv(c):
+    """Extrai open, high, low, close de um candle."""
+    try:
+        if isinstance(c, list):
+            return float(c[1]), float(c[2]), float(c[3]), float(c[4])
+        return (float(c.get('open', 0)), float(c.get('high', 0)),
+                float(c.get('low', 0)),  float(c.get('close', 0)))
+    except (IndexError, ValueError, TypeError):
+        return 0.0, 0.0, 0.0, 0.0
+
+
+def _calculate_rsi(closes: List[float], period: int = 14) -> List[float]:
+    """RSI de Wilder."""
+    if len(closes) < period + 1:
+        return []
+    gains, losses = [], []
+    for i in range(1, len(closes)):
+        d = closes[i] - closes[i - 1]
+        gains.append(max(d, 0.0))
+        losses.append(max(-d, 0.0))
+    ag = sum(gains[:period]) / period
+    al = sum(losses[:period]) / period
+    rsi_values = []
+    for i in range(period, len(gains)):
+        if al == 0:
+            rsi_values.append(100.0)
+        else:
+            rsi_values.append(100.0 - (100.0 / (1.0 + ag / al)))
+        ag = (ag * (period - 1) + gains[i]) / period
+        al = (al * (period - 1) + losses[i]) / period
+    return rsi_values
+
+
+def _calculate_stoch_rsi(closes: List[float], rsi_period: int = 14,
+                          stoch_period: int = 14, k_smooth: int = 3,
+                          d_smooth: int = 3) -> Dict[str, float]:
+    """Stochastic RSI com suavizacao K e D."""
+    empty = {"k": 50.0, "d": 50.0, "prev_k": 50.0, "prev_d": 50.0}
+    rsi = _calculate_rsi(closes, rsi_period)
+    if len(rsi) < stoch_period + k_smooth + d_smooth:
+        return empty
+
+    raw = []
+    for i in range(stoch_period - 1, len(rsi)):
+        w = rsi[i - stoch_period + 1: i + 1]
+        lo, hi = min(w), max(w)
+        rng = hi - lo
+        raw.append(((rsi[i] - lo) / rng * 100.0) if rng > 0 else 50.0)
+
+    if len(raw) < k_smooth + d_smooth:
+        return empty
+
+    k_vals = [sum(raw[i - k_smooth + 1: i + 1]) / k_smooth
+               for i in range(k_smooth - 1, len(raw))]
+    if len(k_vals) < d_smooth + 1:
+        return empty
+
+    d_vals = [sum(k_vals[i - d_smooth + 1: i + 1]) / d_smooth
+               for i in range(d_smooth - 1, len(k_vals))]
+    if len(d_vals) < 2:
+        return empty
+
+    return {
+        "k":      round(k_vals[-1], 2),
+        "d":      round(d_vals[-1], 2),
+        "prev_k": round(k_vals[-2], 2),
+        "prev_d": round(d_vals[-2], 2),
+    }
+
+
+def _detect_liquidity_sweep(candles_1m: list, direction: str) -> bool:
+    """Detecta Pin Bar/Hammer nos ultimos 3 candles (armadilha de liquidez)."""
+    for c in candles_1m[-3:]:
+        o, h, l, cl = _parse_ohlcv(c)
+        total = h - l
+        if total <= 0:
+            continue
+        lower_wick = min(o, cl) - l
+        upper_wick = h - max(o, cl)
+        if direction == 'LONG':
+            if lower_wick / total >= 0.60 and cl > (l + total * 0.67):
+                return True
+        else:
+            if upper_wick / total >= 0.60 and cl < (h - total * 0.67):
+                return True
+    return False
+
+
+def _calculate_atr_1m(candles: list, period: int = 14) -> float:
+    """ATR medio dos ultimos `period` candles de 1m."""
+    tr_list = []
+    for i in range(1, len(candles)):
+        _, h, l, _ = _parse_ohlcv(candles[i])
+        _, _, _, pc = _parse_ohlcv(candles[i - 1])
+        if h <= 0 or l <= 0:
+            continue
+        tr = max(h - l, abs(h - pc), abs(l - pc))
+        tr_list.append(tr)
+    if not tr_list:
+        return 0.0
+    return sum(tr_list[-period:]) / min(len(tr_list), period)
+
+
+# ── Motor Principal ────────────────────────────────────────────────────────────
+
+class SandboxScalpingEngine:
+    """
+    [V1.0] VWAP SNIPER - Motor autonomo de Scalping M1/M5.
+    Roda em paralelo com o Radar de 1s e o Swing Lab M30.
+    """
+
+    def __init__(self):
+        self._running         = False
+        self._scan_task: Optional[asyncio.Task] = None
+        self._processed: set  = set()
+        self._peak_roi_cache: Dict[str, float] = {}
+        self._last_scan: Dict[str, Any] = {}  # [V128] Diagnóstico do último scan
+        self._open_lock: asyncio.Lock = asyncio.Lock()  # [V131] Anti-race-condition
+
+    # ── Start / Stop ────────────────────────────────────────────────────────────
+
+    async def start(self):
+        if self._running:
+            return
+        self._running   = True
+        self._scan_task = asyncio.create_task(self._scan_loop())
+        logger.info(
+            "[VWAP-SNIPER] Motor iniciado | "
+            f"Leverage={_LEVERAGE:.0f}x | Margem=${_MARGIN_PER_TRADE:.2f} | "
+            f"Scan a cada {_SCAN_INTERVAL}s | Min Score={_MIN_SCORE}"
+        )
+
+    async def stop(self):
+        self._running = False
+        if self._scan_task:
+            self._scan_task.cancel()
+        logger.info("[VWAP-SNIPER] Motor parado.")
+
+    # ── Scan Loop ───────────────────────────────────────────────────────────────
+
+    async def _scan_loop(self):
+        await asyncio.sleep(20.0)
+        logger.info(f"[VWAP-SNIPER] Scan autonomo iniciado (intervalo={_SCAN_INTERVAL}s).")
+        while self._running:
+            try:
+                await self._run_scan_cycle()
+            except Exception as e:
+                logger.error(f"[VWAP-SNIPER] Erro no ciclo: {e}")
+                import traceback; traceback.print_exc()
+            await asyncio.sleep(_SCAN_INTERVAL)
+
+    async def _run_scan_cycle(self):
+        """Ciclo completo: verifica slots, varre watchlist, abre melhor sinal."""
+        from services.database_service import database_service
+        from config import settings
+
+        all_active = await database_service.get_sandbox_trades(active_only=True)
+        active_scalp = [t for t in all_active if t.strategy == "VWAP SNIPER"]
+        if len(active_scalp) >= _MAX_SLOTS:
+            logger.debug(f"[VWAP-SNIPER] Slots cheios ({len(active_scalp)}/{_MAX_SLOTS}).")
+            return
+
+        watchlist = list(getattr(settings, 'SCALPING_WATCHLIST', None) or getattr(settings, 'RADAR_WATCHLIST', None) or [
+            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+            "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ADAUSDT",
+            "DOTUSDT", "LTCUSDT", "UNIUSDT", "ATOMUSDT", "NEARUSDT",
+        ])
+
+        # [V128] Watchlist independente — não usa blocklist do Swing
+        # A SCALPING_WATCHLIST já contém apenas pares aprovados para scalping
+
+        logger.info(
+            f"[VWAP-SNIPER] Scan M1/M5 | {len(watchlist)} ativos | "
+            f"Slots: {len(active_scalp)}/{_MAX_SLOTS}"
+        )
+
+        sem = asyncio.Semaphore(5)
+
+        async def _sem_analyze(sym):
+            async with sem:
+                return await self._analyze_symbol(sym)
+
+        results = await asyncio.gather(
+            *[_sem_analyze(s) for s in watchlist],
+            return_exceptions=True
+        )
+
+        signals = [r for sym, r in zip(watchlist, results)
+                   if r and not isinstance(r, Exception)]
+        signals.sort(key=lambda s: s.get('score', 0), reverse=True)
+
+        # [V128] Diagnóstico
+        rejected = [sym for sym, r in zip(watchlist, results) if r is None and not isinstance(r, Exception)]
+        errors = [f"{sym}:{r}" for sym, r in zip(watchlist, results) if isinstance(r, Exception)]
+        self._last_scan = {
+            "time": time.time(),
+            "watchlist": len(watchlist),
+            "signals": len(signals),
+            "rejected": rejected,
+            "errors": errors[:5],
+            "signal_details": [{"sym": s["symbol"], "dir": s["direction"], "score": s["score"]} for s in signals[:3]],
+        }
+
+        if not signals:
+            logger.info("[VWAP-SNIPER] Nenhum setup M1 qualificado neste ciclo.")
+            return
+
+        logger.info(f"[VWAP-SNIPER] {len(signals)} setup(s) qualificado(s).")
+        for sig in signals:
+            # [V131] Refetch atômico dentro do lock para evitar race condition
+            # (dois ciclos de scan paralelos passando pelo check e abrindo 2 trades)
+            async with self._open_lock:
+                fresh_all = await database_service.get_sandbox_trades(active_only=True)
+                fresh_scalp = [t for t in fresh_all if t.strategy == "VWAP SNIPER"]
+                if len(fresh_scalp) >= _MAX_SLOTS:
+                    break
+                opened = await self._try_open_trade(sig)
+            if opened:
+                break
+
+    # ── Analise de Simbolo ──────────────────────────────────────────────────────
+
+    async def _analyze_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Orquestra as 3 camadas de confirmacao do VWAP SNIPER.
+        Retorna sinal dict se score >= _MIN_SCORE, senao None.
+        """
+        try:
+            from services.okx_rest import okx_rest_service
+            from services.okx_ws_public import okx_ws_public_service
+            from config import settings
+
+            norm = symbol.replace('.P', '').upper()
+            
+            # [V128] Watchlist independente — sem blocklist do Swing
+
+            score = 0
+            log   = []
+
+            # ── CAMADA 1: EMA200 no 5m ──────────────────────────────────────────
+            c5m = await okx_rest_service.get_klines(norm, interval='5', limit=220)
+            if not c5m or len(c5m) < 210:
+                return None
+
+            c5m_chron  = list(reversed(c5m))
+            closes_5m  = [_parse_close(c) for c in c5m_chron]
+            closes_5m  = [v for v in closes_5m if v > 0]
+
+            if len(closes_5m) < _EMA_PERIOD:
+                return None
+
+            ema200     = _calculate_ema(closes_5m, _EMA_PERIOD)
+            cur_price  = closes_5m[-1]
+
+            if ema200 <= 0:
+                return None
+
+            pct_ema = ((cur_price - ema200) / ema200) * 100.0
+            if pct_ema > 0.15:
+                direction, side = 'LONG', 'Buy'
+            elif pct_ema < -0.15:
+                direction, side = 'SHORT', 'Sell'
+            else:
+                return None   # ambiguo - muito proximo da EMA
+
+            # ── NOVO FILTRO: Bias do BTC 15m (Trend Bias) ───────────────────────
+            # Evita entrar contra a direção imediata do mercado macro/BTC
+            try:
+                btc_c15m = await okx_rest_service.get_klines("BTC-USDT", interval='15', limit=5)
+                if btc_c15m and len(btc_c15m) >= 2:
+                    btc_chron = list(reversed(btc_c15m))
+                    btc_open = _parse_close(btc_chron[-2])
+                    btc_curr = _parse_close(btc_chron[-1])
+                    if btc_open > 0:
+                        btc_var_pct = ((btc_curr - btc_open) / btc_open) * 100.0
+                        if direction == 'LONG' and btc_var_pct < -0.40:
+                            logger.debug(f"[VWAP-SNIPER] {norm} LONG descartado: BTC caindo forte ({btc_var_pct:.2f}%)")
+                            return None
+                        if direction == 'SHORT' and btc_var_pct > 0.40:
+                            logger.debug(f"[VWAP-SNIPER] {norm} SHORT descartado: BTC subindo forte ({btc_var_pct:.2f}%)")
+                            return None
+            except Exception as btc_err:
+                logger.error(f"[VWAP-SNIPER] Erro ao buscar bias do BTC: {btc_err}")
+
+            # ── Volume Relativo de 5m (usando candle consolidado) ──────────────────────
+            try:
+                volumes_5m = []
+                for c in c5m_chron[-20:]:
+                    vol = float(c[5] if isinstance(c, list) else c.get('volume', c[5] if isinstance(c, list) else 0)) or 0.0
+                    volumes_5m.append(vol)
+                if len(volumes_5m) >= 10:
+                    avg_vol = sum(volumes_5m[:-2]) / (len(volumes_5m) - 2) if len(volumes_5m) > 2 else sum(volumes_5m) / len(volumes_5m)
+                    last_vol = max(volumes_5m[-1], volumes_5m[-2]) if len(volumes_5m) >= 2 else volumes_5m[-1]
+                    if avg_vol > 0 and last_vol < (avg_vol * 0.70):
+                        logger.debug(f"[VWAP-SNIPER] {norm} descartado por baixo volume relativo (Vol={last_vol:.1f} vs Avg={avg_vol:.1f})")
+                        return None
+            except Exception as vol_err:
+                logger.error(f"[VWAP-SNIPER] Erro ao calcular volume relativo de 5m: {vol_err}")
+
+            # Cooldown pós-stop
+            from sqlalchemy import select, desc
+            from services.database_service import database_service as _db, SandboxTrade
+            async with _db.AsyncSessionLocal() as session:
+                q = select(SandboxTrade).where(
+                    SandboxTrade.symbol == norm,
+                    SandboxTrade.direction == direction,
+                    SandboxTrade.strategy == "VWAP SNIPER",
+                    SandboxTrade.status != "ACTIVE"
+                ).order_by(desc(SandboxTrade.closed_at)).limit(1)
+                res = await session.execute(q)
+                last_closed = res.scalar_one_or_none()
+                if last_closed:
+                    if last_closed.pnl_pct <= 0:
+                        q_consec = select(SandboxTrade).where(
+                            SandboxTrade.symbol == norm,
+                            SandboxTrade.direction == direction,
+                            SandboxTrade.strategy == "VWAP SNIPER"
+                        ).order_by(desc(SandboxTrade.opened_at)).limit(5)
+                        res_consec = await session.execute(q_consec)
+                        recent_trades = res_consec.scalars().all()
+                        
+                        consec_losses = 0
+                        for rt in recent_trades:
+                            if rt.status == "ACTIVE":
+                                continue
+                            if rt.pnl_pct <= 0:
+                                consec_losses += 1
+                            else:
+                                break
+                        
+                        cooldown_secs = 900.0 if consec_losses >= 2 else 600.0  # 15min / 10min (V128: reduzido de 60/30)
+                        elapsed = time.time() - (last_closed.closed_at or 0.0)
+                        if elapsed < cooldown_secs:
+                            logger.debug(
+                                f"[VWAP-SNIPER] {norm} {direction} em cooldown pós stop-out: "
+                                f"{int(cooldown_secs - elapsed)}s restantes (losses: {consec_losses})"
+                            )
+                            return None
+
+            score += 30
+            log.append(f"EMA200_5M:{direction}({pct_ema:+.2f}%)")
+
+            # ── CAMADA 2: VWAP no 1m ────────────────────────────────────────────
+            c1m = await okx_rest_service.get_klines(norm, interval='1', limit=390)
+            if not c1m or len(c1m) < 30:
+                return None
+
+            c1m_chron = list(reversed(c1m))
+            vwap      = _calculate_vwap(c1m_chron)
+            if vwap <= 0:
+                return None
+
+            pct_vwap = abs((cur_price - vwap) / vwap) * 100.0
+            if pct_vwap > _VWAP_TOLERANCE_PCT:
+                return None   # preco longe da VWAP
+
+            score += 25
+            log.append(f"VWAP_TOUCH({pct_vwap:.3f}%)")
+
+            # ── CAMADA 3: Stochastic RSI no 1m ──────────────────────────────────
+            closes_1m = [_parse_close(c) for c in c1m_chron]
+            closes_1m = [v for v in closes_1m if v > 0]
+
+            if len(closes_1m) < 60:
+                return None
+
+            stoch = _calculate_stoch_rsi(closes_1m)
+            k, d, pk, pd = stoch['k'], stoch['d'], stoch['prev_k'], stoch['prev_d']
+
+            # [REFINADO] Gatilho de Momentum Stochastic RSI
+            # LONG: K cruza D ou está em expansão altista na zona de compra (k < 42 e k > d)
+            # SHORT: K cruza D ou está em expansão baixista na zona de venda (k > 58 e k < d)
+            if direction == 'LONG':
+                if not ((k < 42.0 and k > d) or (pk <= pd and k > d and k < 50.0)):
+                    return None
+            else:
+                if not ((k > 58.0 and k < d) or (pk >= pd and k < d and k > 50.0)):
+                    return None
+
+            score += 30
+            log.append(f"STOCH_CROSS:K={k:.1f}/D={d:.1f}")
+
+            # ── BONUS: Liquidity Sweep ───────────────────────────────────────────
+            sweep = _detect_liquidity_sweep(c1m_chron, direction)
+            if sweep:
+                score += 15
+                log.append("LIQUIDITY_SWEEP")
+
+            if score < _MIN_SCORE:
+                return None
+
+            # ── Stop Loss baseado em ATR ─────────────────────────────────────────
+            atr = _calculate_atr_1m(c1m_chron)
+
+            # [V126] Filtro de ATR minimo: mercado sem volatilidade gera stops
+            # microscopicos que sao violados por ruido, causando losses desnecessarios.
+            atr_pct = (atr / cur_price) * 100.0 if cur_price > 0 else 0.0
+            if atr_pct < _MIN_ATR_PCT:
+                logger.debug(
+                    f"[VWAP-SNIPER] {norm} ATR muito baixo ({atr_pct:.4f}% < {_MIN_ATR_PCT}%) — mercado sem volatilidade. Descartado."
+                )
+                return None
+
+            max_dist = cur_price * (abs(_MAX_STOP_ROI) / (_LEVERAGE * 100.0))
+            if atr > 0:
+                raw_stop = cur_price - atr if direction == 'LONG' else cur_price + atr
+                if direction == 'LONG':
+                    stop = max(raw_stop, cur_price - max_dist)
+                else:
+                    stop = min(raw_stop, cur_price + max_dist)
+            else:
+                stop = (cur_price - max_dist) if direction == 'LONG' else (cur_price + max_dist)
+
+            logger.info(
+                f"[VWAP-SNIPER] {norm} {direction} | Score={score} | "
+                f"Price={cur_price:.6f} | VWAP={vwap:.6f} | EMA200={ema200:.6f} | "
+                f"K={k:.1f}/D={d:.1f} | Stop={stop:.6f} | {log}"
+            )
+
+            return {
+                "symbol":            norm,
+                "side":              side,
+                "direction":         direction,
+                "strategy":          "VWAP SNIPER",
+                "strategy_class":    "VWAP SNIPER",
+                "score":             score,
+                "entry_price_signal": cur_price,
+                "stop_price":        stop,
+                "vwap":              vwap,
+                "ema200_5m":         ema200,
+                "stoch_k":           k,
+                "stoch_d":           d,
+                "liquidity_sweep":   sweep,
+                "signals":           log,
+                "timestamp":         time.time(),
+            }
+
+        except Exception as e:
+            import traceback
+            logger.info(f"[VWAP-SNIPER] Erro ao analisar {symbol}: {e}")
+            logger.info(traceback.format_exc())
+            return None
+
+    # ── Abertura de Trade ────────────────────────────────────────────────────────
+
+    async def _try_open_trade(self, signal: Dict[str, Any]) -> bool:
+        """Salva o trade virtual no banco (tabela sandbox_trades)."""
+        try:
+            from services.database_service import database_service
+            from services.okx_ws_public import okx_ws_public_service
+
+            symbol    = signal['symbol']
+            direction = signal['direction']
+            score     = signal['score']
+
+            # Anti-duplicata por simbolo+direcao (apenas VWAP SNIPER)
+            all_active = await database_service.get_sandbox_trades(active_only=True)
+            active = [t for t in all_active if t.strategy == "VWAP SNIPER"]
+
+            # [V131-FIX] Bloquear abertura se o par já tem QUALQUER trade ativo
+            # (mesmo direção OU direção oposta). Evita hedge acidental LONG+SHORT
+            # no mesmo par que detectamos no diagnóstico (XRPUSDT, INJUSDT).
+            if any(t.symbol.replace('.P', '').upper() == symbol for t in active):
+                logger.debug(f"[VWAP-SNIPER] {symbol} já tem trade ativo — bloqueado (anti-hedge).")
+                return False
+
+            # [V128] Anti-dup: cooldown para trades FECHADOS recentemente (mesmo symbol+direcao)
+            all_closed = await database_service.get_sandbox_trades(active_only=False)
+            for t in all_closed:
+                if (t.strategy == "VWAP SNIPER"
+                    and t.symbol.replace('.P', '').upper() == symbol
+                    and t.direction == direction
+                    and t.status != "ACTIVE"
+                    and t.closed_at
+                    and (time.time() - t.closed_at) < 600):  # 10 min cooldown
+                    logger.debug(f"[VWAP-SNIPER] {symbol} {direction} em cooldown pós-trade fechado")
+                    return False
+
+            # Cross-block com Swing Lab
+            swing = await database_service.get_swing_trades(active_only=True)
+            if any(t.symbol.replace('.P', '').upper() == symbol for t in swing):
+                logger.debug(f"[VWAP-SNIPER] {symbol} no Swing Lab. Cross-block.")
+                return False
+
+            # Dedup por janela de 1 minuto
+            sig_id = f"vwap_{symbol}_{direction}_{int(signal.get('timestamp', time.time()) // 60)}"
+            if sig_id in self._processed:
+                return False
+            self._processed.add(sig_id)
+            if len(self._processed) > 500:
+                self._processed.clear()
+
+            # Preco de entrada
+            cur_price = float(signal.get('entry_price_signal') or 0)
+            if cur_price <= 0:
+                cur_price = okx_ws_public_service.get_current_price(symbol) or 0
+            if cur_price <= 0:
+                return False
+
+            # Stop Loss
+            stop = float(signal.get('stop_price') or 0)
+            if stop <= 0:
+                dist = cur_price * (abs(_MAX_STOP_ROI) / (_LEVERAGE * 100.0))
+                stop = (cur_price - dist) if direction == 'LONG' else (cur_price + dist)
+
+            # [V133] Filtro R:R mínimo — rejeita trades com Risk/Reward < 1.5
+            # Risk = distância entry→stop em preço (em termos de ROI)
+            # Target projetado = 3x o risco (R:R 1:3 mínimo para scalping)
+            risk_pct = abs(cur_price - stop) / cur_price * 100.0  # % do preço
+            risk_roi = risk_pct * _LEVERAGE  # ROI do stop (ex: 0.24% × 50 = 12%)
+            target_roi = risk_roi * 3.0  # Target = 3x o risco
+            # Garantir target mínimo de +15% ROI para scalping
+            target_roi = max(target_roi, 15.0)
+            # R:R projetado = target / risk (mínimo 1.5)
+            projected_rr = target_roi / risk_roi if risk_roi > 0 else 0
+            if projected_rr < 1.5:
+                logger.info(
+                    f"[VWAP-SNIPER] {symbol} {direction} rejeitado: R:R projetado {projected_rr:.2f} < 1.5 "
+                    f"(risk={risk_roi:.1f}% ROI, target={target_roi:.1f}% ROI)"
+                )
+                return False
+
+            trade_id = f"vwap_{symbol}_{int(time.time())}"
+
+            # [V130-FIX] Position sizing dinâmico por score do sinal (VWAP SNIPER).
+            # Base: 2% da banca total, com multiplicador por convicção:
+            #   score >= 85 → 100% da margem base
+            #   score 70-84 →  60% da margem base
+            #   score < 70 →  30% da margem base (score mínimo já é 65)
+            current_balance = await database_service.get_sandbox_unified_balance()
+            base_margin = round(current_balance * 0.02, 2)
+            if score >= 85:
+                score_mult = 1.0
+            elif score >= 70:
+                score_mult = 0.60
+            else:
+                score_mult = 0.30
+            dynamic_margin = round(base_margin * score_mult, 2)
+
+            contract_meta = signal.get("contract_meta") or {}
+            if not isinstance(contract_meta, dict):
+                contract_meta = {}
+            contract_meta["margin"] = dynamic_margin
+            logger.info(
+                f"[V130-POSITION-SIZING] VWAP {symbol} score={score} "
+                f"mult={score_mult:.2f} margem=${dynamic_margin:.2f} "
+                f"(base=${base_margin:.2f})"
+            )
+
+            # [STRICT INSTITUTIONAL LAYA GATING]
+            # Capitão e motores SÓ abrem posição se Laya concordar plenamente com convicção institucional >= 75%
+            expected_dir = "BUY" if direction == "LONG" else "SELL"
+            laya_decision_str = "BUY (85%)" if direction == "LONG" else "SELL (85%)"
+            try:
+                from app.services.laya_router_service import laya_router_service
+                laya_eval = laya_router_service.evaluate_entry(
+                    f"Par: {symbol} 5m | Regime: VWAP_SNIPER | Convicção: {score} pts | Sinal: {direction} | M5+M15 ALINHADO VOL"
+                )
+                laya_dec = laya_eval.get("decision", "HOLD")
+                laya_conf = laya_eval.get("confidence", 0.0)
+                if laya_dec != expected_dir or laya_conf < 0.75:
+                    logger.info(
+                        f"🧠 [LAYA-STRICT-GATE] Scalp vetado em {symbol} ({direction}): "
+                        f"Laya={laya_dec} ({int(laya_conf*100)}% conf < 75% mínimo). Razão: {laya_eval.get('reason')}"
+                    )
+                    return False
+                laya_decision_str = f"{laya_dec} ({int(laya_conf*100)}%)"
+            except Exception as laya_err:
+                logger.warning(f"[LAYA-SCALP] Falha ao consultar Laya: {laya_err}")
+                return False
+
+            trade_data = {
+                "id":            trade_id,
+                "symbol":        symbol,
+                "strategy":      "VWAP SNIPER",
+                "direction":     direction,
+                "entry_price":   cur_price,
+                "current_price": cur_price,
+                "stop_loss":     stop,
+                "target":        None,
+                "max_roi":       0.0,
+                "current_roi":   0.0,
+                "pnl_pct":       0.0,
+                "status":        "ACTIVE",
+                "opened_at":     time.time(),
+                "closed_at":     None,
+                "laya_decision": laya_decision_str,
+                "flash_state": {
+                    "phase":             "ESCADINHA",
+                    "active_level":      "INICIAL",
+                    "stop_roi":          _MAX_STOP_ROI,
+                    "has_taken_partial": False,
+                    "partial_roi":       0.0,
+                    "history": [
+                        f"VWAP SNIPER: Score={score} | Laya={laya_decision_str} | "
+                        f"VWAP={signal.get('vwap', 0):.6f} | "
+                        f"EMA200_5m={signal.get('ema200_5m', 0):.6f} | "
+                        f"K={signal.get('stoch_k', 0):.1f}/D={signal.get('stoch_d', 0):.1f} | "
+                        f"Sweep={'SIM' if signal.get('liquidity_sweep') else 'NAO'} | "
+                        f"MargemDinamica=${dynamic_margin:.2f}"
+                    ],
+                },
+                "contract_meta":     contract_meta,
+                "explosion_score":   score,
+                "explosion_signals": signal.get("signals", []),
+            }
+
+            await database_service.save_sandbox_trade(trade_data)
+            self._peak_roi_cache[trade_id] = 0.0
+
+            logger.info(
+                f"[VWAP-SNIPER] Trade aberto: {symbol} {direction} | "
+                f"Entrada={cur_price:.6f} | Stop={stop:.6f} | Score={score}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"[VWAP-SNIPER] Erro ao abrir trade {signal.get('symbol')}: {e}")
+            import traceback; traceback.print_exc()
+            return False
+
+
+# ── Instancia global ──────────────────────────────────────────────────────────
+sandbox_scalping_engine = SandboxScalpingEngine()

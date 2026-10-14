@@ -1,1 +1,0 @@
-# Limpo por segurança.

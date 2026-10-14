@@ -1,0 +1,45 @@
+{
+  "version": "1Crypten-Laya-Calibrated-V1.0",
+  "trained_at": 1790959830.997807,
+  "total_samples": 50,
+  "priors": {
+    "BUY": 0.52,
+    "SELL": 0.2,
+    "HOLD": 0.28
+  },
+  "temperature": 0.85,
+  "regime_multipliers": {
+    "CONSOLIDATION_ABSORPTION": {
+      "sample_count": 4,
+      "avg_pnl_pct": 1.23,
+      "confidence_multiplier": 1.062
+    },
+    "RETAIL_FOMO_INJECTION": {
+      "sample_count": 1,
+      "avg_pnl_pct": 0.14,
+      "confidence_multiplier": 1.007
+    },
+    "LONG_LIQUIDATION_BOTTOM": {
+      "sample_count": 14,
+      "avg_pnl_pct": 4.66,
+      "confidence_multiplier": 1.233
+    },
+    "RETAIL_TRAP_LONG": {
+      "sample_count": 8,
+      "avg_pnl_pct": 3.6,
+      "confidence_multiplier": 1.18
+    },
+    "INSTITUTIONAL_ACCUMULATION": {
+      "sample_count": 12,
+      "avg_pnl_pct": 6.29,
+      "confidence_multiplier": 1.314
+    },
+    "NORMAL": {
+      "sample_count": 11,
+      "avg_pnl_pct": 0.0,
+      "confidence_multiplier": 1.0
+    }
+  },
+  "min_score_threshold_buy": 82.0,
+  "min_score_threshold_sell": 82.0
+}

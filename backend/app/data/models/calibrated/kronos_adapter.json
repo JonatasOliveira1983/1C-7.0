@@ -1,0 +1,15 @@
+{
+  "version": "1Crypten-Kronos-Adapter-V1.0",
+  "trained_at": 1790959832.0897412,
+  "base_model": "NeoQuasar/Kronos-mini",
+  "sequences_count": 60,
+  "parameters": {
+    "horizon_bars": 12,
+    "input_bars": 24,
+    "dispersion_threshold": 0.025,
+    "leverage_cap_on_high_dispersion": 20.0,
+    "average_target_move_pct": 1.34,
+    "momentum_blend_factor": 0.35,
+    "volatility_decay": 0.92
+  }
+}

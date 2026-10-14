@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     OKX_API_SECRET: Optional[str] = None
     OKX_INST_TYPE: str = "SWAP" # OKX API: SPOT / MARGIN / SWAP / FUTURES
     OKX_EXECUTION_MODE: str = os.getenv("OKX_EXECUTION_MODE", "PAPER") # "PAPER" = Simulated Execution
-    OKX_SIMULATED_BALANCE: float = 100.0 # Padrão
+    OKX_SIMULATED_BALANCE: float = 10000.0 # Padrão
     FACTORY_RESET_V110: bool = False # [V110.29.0] Reset atômico do sistema
 
     @field_validator('OKX_SIMULATED_BALANCE', mode='before')
@@ -28,12 +28,12 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             v_clean = v.strip().lower()
             if v_clean in ('false', 'none', 'null', ''):
-                return 100.0
+                return 10000.0
             try:
                 return float(v_clean)
             except ValueError:
-                return 100.0
-        return float(v or 100.0)
+                return 10000.0
+        return float(v or 10000.0)
 
     # [V28.3] Strip whitespace from critical env vars to prevent 'PAPER ' != 'PAPER' bugs
     @field_validator('OKX_EXECUTION_MODE', mode='before')
@@ -130,9 +130,9 @@ class Settings(BaseSettings):
     MARGIN_PER_TRADE_LATERAL: float = 0.50   # [V111.0] $0.50 por par para banca de $20.00
     MARGIN_PER_TRADE_TRENDING: float = 0.50  # [V111.0] $0.50 por par para banca de $20.00
     RISK_CAP_PERCENT: float = 0.40  # 40% da banca alocada no total (invariante)
-    LEVERAGE: int = 50
-    LEVERAGE_RANGING: int = 50    # [V111.0] 50x em todos os cenários (margem pequena)
-    LEVERAGE_TRENDING: int = 50   # [V111.0] 50x em todos os cenários
+    LEVERAGE: int = 15
+    LEVERAGE_RANGING: int = 15
+    LEVERAGE_TRENDING: int = 15
     INITIAL_SLOTS: int = 1
     BREAKEVEN_TRIGGER_PERCENT: float = 5.0 # Increased to 5% ROI to avoid premature exits
     WIN_ROI_THRESHOLD: float = 80.0 # V11.0: ROI mínimo para contar como WIN no ciclo 1/10
@@ -154,7 +154,93 @@ class Settings(BaseSettings):
     DECOR_HUNTER_MIN_CONFIDENCE: float = 70.0
     # Intervalo entre varreduras da watchlist (em segundos)
     DECOR_HUNTER_SCAN_INTERVAL: int = 30
-    
+
+    # =========================================================================
+    # [SWING-LAB] Swing Lab — Motor Primário (V125)
+    # =========================================================================
+    # Controla se ordens virtuais do Swing Lab são espelhadas na OKX real
+    # OFF = Sandbox roda autônomo (recomendado para validação)
+    # ON  = Toda ordem swing aberta no Lab é espelhada na conta real
+    SWING_MIRROR_MODE: str = os.getenv("SWING_MIRROR_MODE", "OFF")
+    # [V139] Controle de abertura de novos trades de Swing (Desativado para priorizar 100% Scalping/Laya com Never Give Back)
+    SWING_SCAN_ENABLED: bool = os.getenv("SWING_SCAN_ENABLED", "False").lower() in ("true", "1", "t", "yes")
+    # [V136-SWING] Alavancagem restaurada para 50x para Swing Lab 2H.
+    #   Stop -20% ROI com 50x = 0.4% de preço (adequado para 2H).
+    #   Trailing suave 50% + breakeven +12% dão espaço para trades de 1-7 dias.
+    SWING_LEVERAGE: int = int(os.getenv("SWING_LEVERAGE", 15))
+
+    # Margem em USD por trade swing na conta virtual
+    # [V126] $200/trade | 10 slots | 40% de $10.000 = $4.000 total
+    SWING_MARGIN_PER_TRADE: float = float(os.getenv("SWING_MARGIN_PER_TRADE", 200.0))
+
+    # Banca virtual do Swing Lab em USD
+    # [V126] Banca simulada de $10.000
+    SWING_VIRTUAL_BALANCE: float = float(os.getenv("SWING_VIRTUAL_BALANCE", 10000.0))
+
+    # Intervalo entre scans do Swing Lab em segundos (padrão 45s para agilidade operacional)
+    SWING_SCAN_INTERVAL: int = int(os.getenv("SWING_SCAN_INTERVAL", 45))
+
+    # ROI-alvo do stop inicial do Swing (em %)
+    # 25.0 → stop a 0.5% do preço com 50x (V128: aumento de 15% para 25% para dar mais espaço a M30)
+    SWING_STOP_ROI: float = float(os.getenv("SWING_STOP_ROI", 5.0))
+
+    # =========================================================================
+    # [V136-SWING] Swing Lab — Take Profit Baseado em S/R
+    # =========================================================================
+    # Habilita/desabilita cálculo de TP por resistência/suporte
+    SWING_TP_ENABLED: bool = True
+    # Distância mínima (em %) da entrada para usar TP fixo (evita TP muito perto)
+    SWING_TP_MIN_DISTANCE: float = float(os.getenv("SWING_TP_MIN_DISTANCE", 5.0))
+    # Distância máxima (em %) — além disso usa trailing puro (TP muito distante não faz sentido)
+    SWING_TP_MAX_DISTANCE: float = float(os.getenv("SWING_TP_MAX_DISTANCE", 100.0))
+
+    # =========================================================================
+    # [LOCK-IN-PROTOCOL] Protocolo de Defesa de Lucros (Sandbox e Swing Lab)
+    # =========================================================================
+    # Gatilho de ativação do protocolo (crescimento da banca em %)
+    SANDBOX_LOCK_IN_TRIGGER_PERCENT: float = float(os.getenv("SANDBOX_LOCK_IN_TRIGGER_PERCENT", 10.0))
+    # Recuo de margem aceito por trade antes de fechar no stop de defesa (em %)
+    # 5% da margem ($10.00 de oscilação em trade de $200)
+    SANDBOX_LOCK_IN_STOP_PERCENT: float = float(os.getenv("SANDBOX_LOCK_IN_STOP_PERCENT", 5.0))
+
+    # =========================================================================
+    # =========================================================================
+    # [KRONOS] Kronos Conviction Scorer — Previsão de séries temporais
+    # =========================================================================
+    # Habilita/desabilita o scorer (pode ser desligado via env var)
+    KRONOS_ENABLED: bool = True
+    # Modelo Kronos a ser usado (mini | small | base)
+    KRONOS_MODEL_NAME: str = os.getenv("KRONOS_MODEL_NAME", "NeoQuasar/Kronos-mini")
+    # Peso do score Kronos no unified_confidence do Captain (0.0 a 1.0)
+    KRONOS_SCORE_WEIGHT: float = float(os.getenv("KRONOS_SCORE_WEIGHT", 0.18))
+    # Timeframe das velas para análise ("5" = 5m, "15" = 15m, "60" = 1h)
+    KRONOS_INTERVAL: str = os.getenv("KRONOS_INTERVAL", "5")
+    # Cache TTL em segundos
+    KRONOS_CACHE_TTL: int = int(os.getenv("KRONOS_CACHE_TTL", 60))
+    # Timeout da predição em segundos
+    KRONOS_TIMEOUT: float = float(os.getenv("KRONOS_TIMEOUT", 5.0))
+    # Score fallback se Kronos falhar
+    KRONOS_FALLBACK_SCORE: int = int(os.getenv("KRONOS_FALLBACK_SCORE", 50))
+
+    # =========================================================================
+    # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
+    # =========================================================================
+    # Percentual de lucro protegido do pico (80% = preserva 80% do lucro máximo)
+    EQUITY_DEFENSE_LOCK_RATIO: float = float(os.getenv("EQUITY_DEFENSE_LOCK_RATIO", 0.80))
+    # Níveis de defesa: stop = pico - stop_pct (quanto menor, mais apertado)
+    EQUITY_DEFENSE_STOP_L1: float = float(os.getenv("EQUITY_DEFENSE_STOP_L1", 7.0))  # LEVE: pico - 7%
+    EQUITY_DEFENSE_STOP_L2: float = float(os.getenv("EQUITY_DEFENSE_STOP_L2", 5.0))  # MODERADO: pico - 5%
+    EQUITY_DEFENSE_STOP_L3: float = float(os.getenv("EQUITY_DEFENSE_STOP_L3", 3.0))  # FORTE: pico - 3%
+    # ROI mínimo do trade para a defesa aplicar (evita fechar trades com ROI baixo)
+    EQUITY_DEFENSE_MIN_ROI: float = float(os.getenv("EQUITY_DEFENSE_MIN_ROI", 5.0))
+
+    @field_validator('SWING_MIRROR_MODE', mode='before')
+    @classmethod
+    def strip_swing_mirror_mode(cls, v):
+        if isinstance(v, str):
+            return v.strip().upper()
+        return v
+
     # Redis
     REDIS_HOST: str = os.getenv("REDISHOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDISPORT", 6379))
@@ -174,21 +260,33 @@ class Settings(BaseSettings):
         "ICPUSDT", "STXUSDT", "THETAUSDT", "VETUSDT", "SANDUSDT"
     ]
     
-    # [V111.4] RADAR WATCHLIST REDUZIDA (36 pares)
+    # [V111.4] RADAR WATCHLIST REDUZIDA (31 pares)
     # Removidos por performance Sandbox negativa: ICPUSDT (-1475%), APTUSDT (-1078%),
     # PYTHUSDT (-977%), LDOUSDT (-734%), RENDERUSDT (-550%). Mantidos apenas pares com ROI > -600% ou WR > 48%.
+    # [V126 - Refinamento Scalping VWAP Sniper - dados de 168 trades reais]
+    # Removidos: SANDUSDT (0% WR, AvgPnL -14.9%), BCHUSDT (0% WR, AvgPnL -8.1%),
+    #            SOLUSDT (29% WR, AvgPnL -1.8%), STXUSDT (44% WR, AvgPnL -5.4%),
+    #            EGLDUSDT (44% WR, AvgPnL -6.5%)
     RADAR_WATCHLIST: list = [
         "AVAXUSDT", "OPUSDT",
         "ARBUSDT", "NEARUSDT", "INJUSDT",
         "LINKUSDT", "DOTUSDT", "ADAUSDT", "POLUSDT", "ATOMUSDT",
-        "LTCUSDT", "BCHUSDT", "XLMUSDT", "XRPUSDT",
+        "LTCUSDT", "XLMUSDT", "XRPUSDT",
         "SEIUSDT", "FILUSDT", "FTMUSDT", "ALGOUSDT",
-        "IMXUSDT", "GALAUSDT", "GRTUSDT", "EGLDUSDT",
+        "IMXUSDT", "GALAUSDT", "GRTUSDT",
         "ONDOUSDT", "FETUSDT", "JUPUSDT", "DYDXUSDT",
-        "STXUSDT", "THETAUSDT", "VETUSDT", "SANDUSDT",
-        "SOLUSDT"
+        "THETAUSDT", "VETUSDT",
     ]
-    
+
+    # [V128] Watchlist separada para Scalping (independente da blocklist do Swing)
+    SCALPING_WATCHLIST: list = [
+        "INJUSDT", "DOTUSDT", "XLMUSDT", "XRPUSDT", "ATOMUSDT",
+        "SEIUSDT", "FTMUSDT", "IMXUSDT", "GRTUSDT",
+        "FETUSDT", "THETAUSDT", "VETUSDT",
+        "AVAXUSDT", "LINKUSDT", "NEARUSDT", "OPUSDT", "ARBUSDT",
+        "ADAUSDT", "SOLUSDT", "POLUSDT",
+    ]
+
     # [V111.4] SHORT BIAS — SHORT signals outperform LONG in Sandbox
     # SHORT WR 49.12% vs LONG 47.18%, SHORT PnL -969% vs LONG -2797%
     SHORT_BIAS_ACTIVE: bool = True
@@ -265,9 +363,21 @@ class Settings(BaseSettings):
         # [V120] NEARUSDT: 70% WR mas -25.38% PnL — losses muito grandes (-14.99% avg) destroem os wins
         'NEARUSDT',
         # [V122] Sandbox 137 trades: performance negativa consistente
-        # GMXUSDT: 50% WR, -17.7% ROI — choppy, sem tendência clara
+        # GMXUSDT: 50% WR, -17.7% ROI — choppy, sem tendencia clara
         # PYTHUSDT: 33% WR, -17.6% ROI — falsos breakouts, baixa liquidez
-        'GMXUSDT', 'PYTHUSDT'
+        'GMXUSDT', 'PYTHUSDT',
+        # [V126 - Refinamento Scalping VWAP Sniper - dados de 168 trades reais do banco]
+        # SANDUSDT: 0% WR (5 trades), AvgPnL -14.9% — blacklist definitiva
+        # BCHUSDT: 0% WR (3 trades), AvgPnL -8.1% — blacklist definitiva
+        # SOLUSDT: 29% WR (7 trades), AvgPnL -1.8% — performance inconsistente
+        # STXUSDT: 44% WR (9 trades), AvgPnL -5.4% — losses destroem wins
+        # EGLDUSDT: 44% WR (9 trades), AvgPnL -6.5% — losses destroem wins
+        'SANDUSDT', 'BCHUSDT', 'SOLUSDT', 'STXUSDT', 'EGLDUSDT',
+        # [V133] Swing Lab: Pares com múltiplos losses -35% em Swing 2H
+        # INJUSDT: 50% WR (8 trades), losses -35% — stop inicial agressivo demais
+        # XLMUSDT: 28.6% WR (7 trades), losses -25% a -50% — performance terrível
+        # GRTUSDT: múltiplos losses -35% em Swing LONG
+        'INJUSDT', 'XLMUSDT', 'GRTUSDT',
     }
 
     # Fast API context

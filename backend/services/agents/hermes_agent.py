@@ -13,6 +13,8 @@ import asyncio
 import time
 import json
 import os
+import re
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from config import settings
 from services.agents.aios_adapter import AIOSAgent
@@ -74,12 +76,25 @@ class HermesAgent(AIOSAgent):
         
         # Referências carregadas lazy
         self._deepseek = None
+        self._nvidia = None
         self._jarvis_brain = None
         self._wiki_context_cache = ""
         self._last_wiki_load = 0
+        self._arch_cache = ""
+        self._last_arch_load = 0
 
     async def _lazy_load_deps(self):
         """Load dependencies lazily to avoid circular imports."""
+        # NVIDIA (primary)
+        try:
+            from services.nvidia_service import nvidia_service
+            self._nvidia = nvidia_service
+            if not self._nvidia._initialized:
+                self._nvidia.initialize()
+        except Exception:
+            self._nvidia = None
+
+        # DeepSeek (secondary)
         try:
             from services.deepseek_service import deepseek_service
             self._deepseek = deepseek_service
@@ -125,6 +140,116 @@ class HermesAgent(AIOSAgent):
         
         self._wiki_context_cache = "Intel Wiki disponível em /intel/wiki"
         return self._wiki_context_cache
+
+    async def _load_architecture_context(self) -> str:
+        """Load MASTER_ARCHITECTURE.md for accurate system context (cached 10 min)."""
+        now = time.time()
+        if self._arch_cache and (now - self._last_arch_load) < 600:
+            return self._arch_cache
+
+        try:
+            arch_paths = [
+                os.path.join(os.path.dirname(__file__), "..", "..", "..", "MASTER_ARCHITECTURE.md"),
+                os.path.join(os.path.dirname(__file__), "..", "..", "MASTER_ARCHITECTURE.md"),
+                "MASTER_ARCHITECTURE.md",
+            ]
+            for path in arch_paths:
+                abs_path = os.path.abspath(path)
+                if os.path.exists(abs_path):
+                    with open(abs_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    self._arch_cache = content[:8000]
+                    self._last_arch_load = now
+                    logger.info("📖 Hermes: MASTER_ARCHITECTURE.md loaded")
+                    return self._arch_cache
+        except Exception as e:
+            logger.warning(f"⚠️ Hermes: Failed to load MASTER_ARCHITECTURE.md: {e}")
+
+        self._arch_cache = ""
+        return ""
+
+    async def _load_galaxy_memories(self, query: str) -> str:
+        """Busca notas, diários e regras no cofre Memory Galaxy e Arquitetura via RAG semântico."""
+        try:
+            from services.rag_service import rag_service
+            context = rag_service.format_context_for_prompt(query, top_k=4, max_chars=3500)
+            if context:
+                return context
+        except Exception as e:
+            logger.warning(f"⚠️ [RAG] Erro no rag_service: {e}")
+
+        # Fallback para varredura de arquivos
+        try:
+            vault_dir = Path("vault_galaxy")
+            if not vault_dir.exists():
+                return ""
+            
+            matched_notes = []
+            words = [w.lower() for w in re.findall(r'\w+', query) if len(w) > 3]
+            
+            for sub in ["journal", "trades", "strategies"]:
+                sub_path = vault_dir / sub
+                if not sub_path.exists():
+                    continue
+                
+                files = sorted(list(sub_path.glob("*.md")), key=os.path.getmtime, reverse=True)
+                for file_path in files[:6]:
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        
+                        if not words or any(word in content.lower() for word in words):
+                            snippet = content[:800]
+                            matched_notes.append(f"📌 [Arquivo: {sub}/{file_path.name}]\n{snippet}\n---")
+                    except Exception:
+                        pass
+            
+            if matched_notes:
+                return "\n\n🧠 [MEMÓRIA GALAXY COMPARTILHADA]\n" + "\n".join(matched_notes[:3])
+        except Exception as e:
+            logger.warning(f"⚠️ Falha ao carregar memórias do Galaxy: {e}")
+        return ""
+
+    def _save_chat_to_galaxy(self, user_message: str, agent_response: str, via: str = "text"):
+        try:
+            import datetime
+            vault_dir = Path("vault_galaxy")
+            journal_dir = vault_dir / "journal"
+            journal_dir.mkdir(parents=True, exist_ok=True)
+            
+            today_str = datetime.date.today().isoformat()
+            file_name = f"Chat_Hermes_{today_str}.md"
+            file_path = journal_dir / file_name
+            
+            now_time = datetime.datetime.now().strftime("%H:%M:%S")
+            is_voice = via == "voice"
+            via_tag = "🎙️ via voz" if is_voice else ""
+            dialogue_entry = f"\n\n## [{now_time}] {via_tag}\n**User:** {user_message}\n**Hermes:** {agent_response}"
+            
+            if not file_path.exists():
+                tags = "  - chat\n  - hermes\n"
+                if is_voice:
+                    tags += "  - voz\n"
+                header = (
+                    "---\n"
+                    "category: journal\n"
+                    f"title: Chat com Hermes - {today_str}\n"
+                    f"created_at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    "tags:\n"
+                    f"{tags}"
+                    "---\n"
+                    f"# Chat com Hermes - {today_str}\n"
+                    f"Registro de interações neurais de chat com o assistente Hermes.\n\n"
+                    f"Diário do dia: [[journal/{today_str}|{today_str}]]"
+                )
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(header + dialogue_entry)
+            else:
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(dialogue_entry)
+            logger.info(f"✅ Conversa gravada no Obsidian Vault: {file_name}")
+        except Exception as e:
+            logger.error(f"❌ Falha ao salvar conversa no Obsidian Vault: {e}")
 
     async def start(self):
         """Start the Hermes Agent monitoring loops."""
@@ -390,7 +515,8 @@ class HermesAgent(AIOSAgent):
     async def handle_chat_query(
         self,
         user_message: str,
-        context: Optional[Dict] = None
+        context: Optional[Dict] = None,
+        via: str = "text"
     ) -> Dict[str, Any]:
         """
         Orquestra uma resposta de chat completa:
@@ -425,62 +551,161 @@ class HermesAgent(AIOSAgent):
                 "context": {"type": "system_status", "active_dimensions": active_dims}
             }
             
-        # [N8N HYBRID] Comandos para o Servidor MCP n8n
-        if "n8n listar" in user_message.lower() or "fluxos n8n" in user_message.lower() or "ferramentas n8n" in user_message.lower():
-            from services.n8n_client import n8n_client
-            try:
-                tools = await n8n_client.list_tools()
-                return {
-                    "response": f"🤖 **Fluxos (Tools) do n8n Encontrados:**\n```json\n{json.dumps(tools, indent=2)}\n```\n*Diga 'n8n rodar [nome_do_fluxo]' para executar.*",
-                    "context": {"type": "n8n_tools", "active_dimensions": active_dims}
-                }
-            except Exception as e:
-                return {"response": f"❌ Falha ao contactar o n8n: {e}", "context": {"active_dimensions": active_dims}}
 
-        if "n8n rodar" in user_message.lower() or "n8n executar" in user_message.lower():
-            from services.n8n_client import n8n_client
-            # Extrai o nome do fluxo após a palavra-chave
-            trigger_word = "rodar" if "rodar" in user_message.lower() else "executar"
-            parts = user_message.lower().split(trigger_word, 1)
-            workflow_name = parts[1].strip() if len(parts) > 1 else ""
-            
-            if not workflow_name:
-                return {"response": "⚠️ Você precisa informar o nome do fluxo. Ex: `n8n rodar meu_fluxo`", "context": {}}
-                
-            try:
-                res = await n8n_client.call_tool(workflow_name)
-                return {
-                    "response": f"✅ **Fluxo disparado no n8n:**\n```json\n{json.dumps(res, indent=2)}\n```",
-                    "context": {"type": "n8n_execution", "active_dimensions": active_dims}
-                }
-            except Exception as e:
-                return {"response": f"❌ Falha ao executar o fluxo no n8n: {e}", "context": {"active_dimensions": active_dims}}
         
-        # 4. Load wiki context
+        # 4. Load wiki context, Architecture & Galaxy Memories
         wiki_context = await self._load_wiki_context()
-        
-        # 5. Generate response via DeepSeek
-        if not self._deepseek:
+        arch_context = await self._load_architecture_context()
+        galaxy_memories = await self._load_galaxy_memories(user_message)
+        if galaxy_memories:
+            wiki_context += "\n" + galaxy_memories
+        if arch_context:
+            wiki_context = "## ARQUITETURA ATUAL DO SISTEMA (MASTER ARCHITECTURE)\n" + arch_context + "\n\n" + wiki_context
+
+        # 4b. [V126] Inject LIVE SNAPSHOT — ordens abertas em tempo real
+        try:
+            from services.sovereign_service import sovereign_service
+            live_slots = await sovereign_service.get_active_slots()
+            active_slots = [s for s in (live_slots or []) if s.get("symbol")]
+            snapshot_lines = [f"\n\n## [LIVE SNAPSHOT] Ordens Abertas em Tempo Real"]
+            snapshot_lines.append(f"Total de slots com posição aberta: **{len(active_slots)}**")
+            if active_slots:
+                for i, s in enumerate(active_slots, 1):
+                    sym = s.get("symbol", "???")
+                    side = s.get("side", "LONG")
+                    roi = float(s.get("pnl_percent") or s.get("roi") or 0)
+                    entry = float(s.get("entry_price") or 0)
+                    stop = float(s.get("current_stop") or s.get("stop_price") or 0)
+                    strategy = s.get("strategy_class") or s.get("strategy") or s.get("slot_type") or "N/A"
+                    roi_icon = "🟢" if roi >= 0 else "🔴"
+                    snapshot_lines.append(
+                        f"  Slot {i}: {roi_icon} {sym} ({side}) | ROI: {roi:.2f}% | Entry: ${entry:.4f} | SL: ${stop:.4f} | Estratégia: {strategy}"
+                    )
+            else:
+                snapshot_lines.append("  Nenhuma posição aberta no momento.")
+            wiki_context += "\n".join(snapshot_lines)
+        except Exception as e_snap:
+            logger.debug(f"Hermes: snapshot live indisponível: {e_snap}")
+            wiki_context += "\n\n## [LIVE SNAPSHOT] Ordens Abertas\nDados em tempo real temporariamente indisponíveis."
+
+        # 4c. [V126] Inject SANDBOX & SWING LAB STATUS
+        try:
+            from services.database_service import database_service
+            
+            # Puxar métricas de banca consolidada em memória
+            virtual_balance = getattr(database_service, "current_consolidated_balance", 10000.0)
+            lock_in_active = getattr(database_service, "lock_in_active", False)
+            floor_balance = getattr(database_service, "lock_in_floor_balance", 10500.0)
+            trigger_balance = getattr(database_service, "lock_in_trigger_balance", 11000.0)
+            
+            # Buscar trades ativos do simulador
+            active_scalps = await database_service.get_sandbox_trades(active_only=True)
+            active_swings = await database_service.get_swing_trades(active_only=True)
+            
+            sandbox_lines = [f"\n\n## [STATUS DO SIMULADOR — SANDBOX & SWING LAB]"]
+            sandbox_lines.append(f"  Banca Consolidada Simulador: **${virtual_balance:.2f} USD**")
+            sandbox_lines.append(f"  Protocolo Lock-In de Defesa: **{'ATIVADO' if lock_in_active else 'INATIVO'}**")
+            sandbox_lines.append(f"    - Saldo de Gatilho: ${trigger_balance:.2f} | Piso de Defesa Garantido: ${floor_balance:.2f}")
+            sandbox_lines.append(f"  Posições de Scalping Ativas: **{len(active_scalps)}**")
+            if active_scalps:
+                for i, t in enumerate(active_scalps, 1):
+                    roi = float(t.current_roi or 0)
+                    roi_icon = "🟢" if roi >= 0 else "🔴"
+                    sandbox_lines.append(
+                        f"    Scalp {i}: {roi_icon} {t.symbol} ({t.direction}) | ROI: {roi:.2f}% | Entry: ${t.entry_price:.4f} | SL: ${t.stop_loss:.4f} | Estratégia: {t.strategy or 'N/A'}"
+                    )
+            sandbox_lines.append(f"  Posições de Swing Ativas: **{len(active_swings)}**")
+            if active_swings:
+                for i, t in enumerate(active_swings, 1):
+                    roi = float(t.current_roi or 0)
+                    roi_icon = "🟢" if roi >= 0 else "🔴"
+                    sandbox_lines.append(
+                        f"    Swing {i}: {roi_icon} {t.symbol} ({t.direction}) | ROI: {roi:.2f}% | Entry: ${t.entry_price:.4f} | SL: ${t.stop_loss:.4f} | Estratégia: {t.strategy or 'N/A'}"
+                    )
+            
+            wiki_context += "\n".join(sandbox_lines)
+        except Exception as e_sand:
+            logger.debug(f"Hermes: status do sandbox indisponível: {e_sand}")
+
+        # 5. Generate response — CASCADE: NVIDIA → DeepSeek → AIService
+        response = None
+
+        # 5a. Try NVIDIA first (primary)
+        if self._nvidia and self._nvidia._initialized:
+            try:
+                response = await self._nvidia.generate_response(
+                    messages=[{"role": "user", "content": user_message}],
+                    system_instruction=self._build_system_prompt(active_dims, wiki_context, compliance_context),
+                    temperature=0.7,
+                    max_tokens=2048
+                )
+                if response:
+                    logger.info("✅ Hermes: NVIDIA Success (Primary)")
+            except Exception as e:
+                logger.warning(f"⚠️ Hermes: NVIDIA failed: {e}")
+
+        # 5b. Try DeepSeek (secondary)
+        if not response and self._deepseek:
+            try:
+                response = await self._deepseek.generate_chat_response(
+                    user_message=user_message,
+                    active_dimensions=active_dims,
+                    wiki_context=wiki_context,
+                    compliance_context=compliance_context
+                )
+                if response:
+                    logger.info("✅ Hermes: DeepSeek Success (Secondary)")
+            except Exception as e:
+                logger.warning(f"⚠️ Hermes: DeepSeek failed: {e}")
+
+        # 5c. Fallback to AIService (Gemini, OpenRouter, etc)
+        if not response:
+            try:
+                from services.agents.ai_service import ai_service
+                system_prompt = self._build_system_prompt(active_dims, wiki_context, compliance_context)
+                response = await ai_service.generate_content(prompt=user_message, system_instruction=system_prompt)
+                if response:
+                    logger.info("✅ Hermes: AIService Fallback Success")
+            except Exception as e:
+                logger.warning(f"⚠️ Hermes: AIService fallback failed: {e}")
+
+        if not response:
             return {
-                "response": "🛡️ HERMES está em modo degradado. Serviço DeepSeek indisponível. Use o comando `hermes:true` no chat padrão.",
+                "response": "🛡️ HERMES está em modo degradado. Todos os provedores de IA indisponíveis.",
                 "context": {"type": "degraded", "active_dimensions": active_dims}
             }
+
+        # Track which model was used
+        model_used = "nvidia" if self._nvidia and self._nvidia._initialized else "deepseek"
         
-        response = await self._deepseek.generate_chat_response(
-            user_message=user_message,
-            active_dimensions=active_dims,
-            wiki_context=wiki_context,
-            compliance_context=compliance_context
-        )
+        # Centralize chat inside the memory galaxy vault
+        self._save_chat_to_galaxy(user_message, response, via=via)
         
         return {
             "response": response,
             "context": {
                 "active_dimensions": active_dims,
                 "has_compliance_alerts": bool(self.divergencias),
-                "compliance_count": len(self.divergencias)
+                "compliance_count": len(self.divergencias),
+                "model_used": model_used
             }
         }
+
+    def _build_system_prompt(self, active_dims, wiki_context, compliance_context):
+        """Build the full system prompt for AIService fallback."""
+        from routes.chat import HERMES_SYSTEM_PROMPT
+        system = HERMES_SYSTEM_PROMPT
+        if active_dims:
+            dim_names = []
+            for d in active_dims:
+                dim_info = self._jarvis_brain.DIMENSIONS.get(d, {}) if self._jarvis_brain else {}
+                dim_names.append(dim_info.get("name", d))
+            system += f"\n\nDimensões pessoais detectadas: {', '.join(dim_names)}\n"
+        if wiki_context:
+            system += f"\n\n{wiki_context}"
+        if compliance_context:
+            system += f"\n\n⚠️ Divergências de compliance ativas:\n{compliance_context}\n"
+        return system
 
     def _format_compliance_report(self, report: Dict) -> str:
         """Format compliance report for chat display."""
@@ -520,8 +745,8 @@ class HermesAgent(AIOSAgent):
             slots = await sovereign_service.get_active_slots()
             active = [s for s in slots if s.get("symbol")]
             
-            parts = ["📊 **Status do Sistema 10D**\n"]
-            parts.append(f"⚡ Slots: {len(active)}/4 ativos")
+            parts = ["📊 **Status do Sistema 1Crypten**\n"]
+            parts.append(f"⚡ Slots com posição aberta: **{len(active)}")
             
             for s in active:
                 symbol = s.get("symbol", "???")

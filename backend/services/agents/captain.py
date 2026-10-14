@@ -26,6 +26,7 @@ from services.agents.librarian import librarian_agent # [V2.0] Librarian DNA Pro
 from services.agents.quartermaster import quartermaster_agent # [V110.135]
 from services.redis_service import redis_service
 from services.signal_generator import signal_generator
+from services.kronos_scorer import kronos_scorer  # [KRONOS] Conviction Scorer
 try:
     from duckduckgo_search import DDGS
 except ImportError:
@@ -397,17 +398,59 @@ class CaptainAgent(AIOSAgent):
             on_chain_score = sentiment.get("data", {}).get("onchain_score", 50) if sentiment else 50
             on_chain_summary = sentiment.get("data", {}).get("onchain_summary", "Scan Global: Sem anomalias") if sentiment else "N/A"
             
+            # [KRONOS] Forecast Score — previsão de direção via séries temporais
+            kronos_score = settings.KRONOS_FALLBACK_SCORE
+            kronos_data = {}
+            kronos_weight = settings.KRONOS_SCORE_WEIGHT
+            if settings.KRONOS_ENABLED:
+                try:
+                    kronos_result = await asyncio.wait_for(
+                        kronos_scorer.score_signal(symbol, side, interval=settings.KRONOS_INTERVAL),
+                        timeout=settings.KRONOS_TIMEOUT + 1.0
+                    )
+                    kronos_score = kronos_result.get("conviction", settings.KRONOS_FALLBACK_SCORE)
+                    kronos_data = kronos_result
+                    logger.info(f"🔮 [KRONOS] {symbol} {side.upper()}: conviction={kronos_score} | dir={kronos_data.get('prediction_direction','?')} | src={kronos_data.get('source','?')}")
+                except asyncio.TimeoutError:
+                    logger.debug(f"⏱️ [KRONOS-TIMEOUT] {symbol} — ignorando, usando fallback.")
+                except Exception as e:
+                    logger.debug(f"[KRONOS-ERROR] {symbol}: {e} — ignorando, usando fallback.")
+            
             # [V110.28.1] DYNAMIC WEIGHTS BASED ON ADX
             # Se ADX > 40 (Tendência Forte), aumentamos o peso das Baleias (Micro) para 40%.
+            # Kronos recebe peso fixo configurável (padrão 18%).
             ad_val = regime_data.get("adx", 0)
+            remaining_weight = 1.0 - kronos_weight  # Peso restante para os 4 scores tradicionais
             if ad_val >= 40:
-                # Micro (40%) + SMC (15%) + On-Chain (30%) + Macro (15%)
-                unified_score = (macro_score * 0.15) + (micro_score * 0.40) + (smc_score * 0.15) + (on_chain_score * 0.30)
+                # Micro (40%) + SMC (15%) + On-Chain (30%) + Macro (15%) = 100% ajustado ao remaining_weight
+                base_score = (macro_score * 0.15) + (micro_score * 0.40) + (smc_score * 0.15) + (on_chain_score * 0.30)
+                unified_score = base_score * remaining_weight + kronos_score * kronos_weight
                 logger.info(f"🐋 [WHALE-DOMINANCE] {symbol} ADX={ad_val:.1f} detectado. Peso institucional elevado para 40%.")
             else:
-                # Padrão: Macro (15%) + Micro (25%) + SMC (30%) + On-Chain (30%)
-                unified_score = (macro_score * 0.15) + (micro_score * 0.25) + (smc_score * 0.30) + (on_chain_score * 0.30)
-            
+                # Padrão: Macro (15%) + Micro (25%) + SMC (30%) + On-Chain (30%) = 100% ajustado ao remaining_weight
+                base_score = (macro_score * 0.15) + (micro_score * 0.25) + (smc_score * 0.30) + (on_chain_score * 0.30)
+                unified_score = base_score * remaining_weight + kronos_score * kronos_weight
+
+            # [LAYA + KRONOS CONFLUENCE BOOST & VETO]
+            laya_confluence = {}
+            try:
+                from app.services.laya_flow_service import laya_flow_service
+                from app.services.laya_kronos_confluence_service import laya_kronos_confluence_service
+                laya_flow = await laya_flow_service.get_flow_radar(symbol)
+                laya_confluence = laya_kronos_confluence_service.evaluate_confluence(laya_flow, kronos_data, side=side)
+
+                if laya_confluence.get("is_vetoed"):
+                    logger.info(f"🚫 [LAYA-KRONOS-VETO] {symbol} {side.upper()} vetado: {laya_confluence.get('veto_reason')}")
+                    unified_score -= 50  # Força corte pelo quality gate
+                    reasons.append(f"Veto Laya-Kronos: {laya_confluence.get('confluence_type')}")
+                else:
+                    boost = laya_confluence.get("score_boost", 0)
+                    unified_score += boost
+                    if boost > 0:
+                        logger.info(f"⚡ [LAYA-KRONOS-BOOST] {symbol} {side.upper()}: +{boost} pts ({laya_confluence.get('confluence_type')})")
+            except Exception as _e_laya_k:
+                logger.debug(f"[LAYA-KRONOS-ERROR] {symbol}: {_e_laya_k}")
+
             # [V89.0] WHALE-FOLLOW BONUS: Se as baleias estão junto, impulsiona o score!
             if micro_score >= 80:
                 unified_score += 30
@@ -453,7 +496,6 @@ class CaptainAgent(AIOSAgent):
 
             if "TRAP" in nectar_seal:
                 # [V110.999] Permite bypass do Trap Shield em modo PAPER ou para Sinais de Elite (SMC Score >= 95)
-                from config import settings
                 is_paper = settings.OKX_EXECUTION_MODE == "PAPER"
                 if is_paper or smc_score >= 95:
                     logger.info(f"⚡ [LIBRARIAN-TRAP-BYPASS] {symbol} (SMC={smc_score}) ignorou Trap Shield (Paper={is_paper} | Elite={smc_score>=95}).")
@@ -533,6 +575,8 @@ class CaptainAgent(AIOSAgent):
                             "micro_score": micro_score,
                             "smc_score": smc_score,
                             "onchain_score": on_chain_score,
+                            "kronos_score": kronos_score,
+                            "kronos_data": kronos_data,
                             "macro": macro_score,
                             "micro": micro_score,
                             "smc": smc_score,
@@ -563,6 +607,10 @@ class CaptainAgent(AIOSAgent):
                     "micro_score": micro_score,
                     "smc_score": smc_score,
                     "onchain_score": on_chain_score,
+                    # [KRONOS] Forecast Score
+                    "kronos_score": kronos_score,
+                    "kronos_data": kronos_data,
+                    "laya_confluence": laya_confluence,
                     # Shorthand for frontend compatibility [V56.0]
                     "macro": macro_score,
                     "micro": micro_score,
@@ -629,14 +677,14 @@ class CaptainAgent(AIOSAgent):
         """
         [V36.4] CONCURRENT SNIPER MONITOR:
         Picks the best signals and manages concurrent trades.
-        [V110.136 BLITZ] Inclui loop assíncrono do BlitzSniperAgent para alimentar o Slot 1.
+        [V124.7 M30-SWING] Loop M30 com as 3 estrategias (VELOCITY, ALPHA, DECOR).
         """
         self.is_running = True
         await firebase_service.log_event("SNIPER", "Sniper System V36.4 CONCURRENT ONLINE. Tocaias assíncronas ativadas.", "SUCCESS")
 
-        # [V110.136] Lança o loop do BlitzSniperAgent em paralelo
-        asyncio.create_task(self._blitz_scan_loop())
-        logger.info("⚡ [V110.136 BLITZ] BlitzSniper M30 loop iniciado em paralelo.")
+        # [V125 SWING-LAB] Loop M30 SWING movido para SandboxSwingService (motor primário).
+        # O CaptainAgent não gerencia mais o scan de swing — apenas ordens REAIS e DECOR HUNTER.
+        logger.info("[V125 SWING-LAB] Scan M30 SWING delegado ao SandboxSwingService (motor primário).")
         
         # [DECOR_HUNTER 3.0] Lança o loop paralelo de pares desgrudados do BTC
         asyncio.create_task(self._decor_hunter_loop())
@@ -770,7 +818,7 @@ class CaptainAgent(AIOSAgent):
                 
                 logger.info(f"🎯 [PRIORITY-GET] Processing score {best_signal.get('score')} for {symbol} (Priority: {-_priority})")
                 logger.info(f"🎯 [V36.4] START TOCAIA: {symbol} | Score: {best_signal.get('score')}")
-                asyncio.create_task(self._process_single_signal(best_signal))
+                asyncio.create_task(self._safe_process_single_signal(best_signal))
                 
                 await asyncio.sleep(0.1)
                 
@@ -780,139 +828,8 @@ class CaptainAgent(AIOSAgent):
                 traceback.print_exc()
                 await asyncio.sleep(5)
 
-    async def _blitz_scan_loop(self):
-        """
-        [V110.136 BLITZ] Loop assíncrono dedicado ao BlitzSniperAgent.
-        - Roda em paralelo ao monitor_signals principal.
-        - Varre a watchlist a cada 5 minutos buscando setups M30.
-        - Injeta sinais encontrados diretamente na signal_queue com prioridade máxima.
-        - Só escaneia se o Slot 1 estiver disponível (trava "uma ordem por vez").
-        """
-        from services.agents.blitz_sniper import blitz_sniper_agent
-        from services.okx_rest import okx_rest_service
-        from config import settings
-
-        BLITZ_SCAN_INTERVAL = 300  # 5 minutos entre ciclos de scan
-
-        logger.info("⚡ [BLITZ-LOOP] BlitzSniper M30 monitor iniciado.")
-
-        while self.is_running:
-            try:
-                # [V110.136] Executa o scan imediatamente e depois aguarda o intervalo
-                # Check available slots
-                slots = await firebase_service.get_active_slots()
-                occupied_count = sum(1 for s in slots if s.get("symbol"))
-
-                # [V111.3 TREND_FOCUS] Em LATERAL pausa tudo. Em TENDENCIA, max 20 slots.
-                is_ranging_mode = True
-                try:
-                    from services.okx_ws_public import okx_ws_public_service
-                    adx = getattr(okx_ws_public_service, 'btc_adx', 0)
-                    is_ranging_mode = (adx < 25)
-                except Exception:
-                    pass
-
-                # [V111.3] Se mercado LATERAL, bloqueia scan
-                if is_ranging_mode:
-                    logger.debug("[BLITZ-LOOP] Mercado LATERAL. Scan pausado.")
-                    await asyncio.sleep(BLITZ_SCAN_INTERVAL)
-                    continue
-
-                balance = await bankroll_manager.get_live_operating_equity()
-                if balance < 10.0 and okx_rest_service.execution_mode != "PAPER":
-                    max_total_slots = 2
-                else:
-                    max_total_slots = 20  # [V111.3] Hard limit de 20 slots em tendencia
-
-                if occupied_count < max_total_slots:
-                    logger.info("⚡ [BLITZ-SCAN] Iniciando varredura estratégica M30...")
-                    await blitz_sniper_agent.scan_and_inject(signal_generator.signal_queue)
-                else:
-                    logger.debug("⚡ [BLITZ-SCAN] Todos os slots ocupados. Pulando ciclo de varredura.")
-
-                await asyncio.sleep(BLITZ_SCAN_INTERVAL)
-
-                if not self.is_running:
-                    break
-
-                if occupied_count >= max_total_slots:
-                    logger.debug("[BLITZ-LOOP] Slots ocupados. Aguardando liberação para novo scan M30.")
-                    continue
-
-                # 2. Obtém direção do BTC para filtro de tendência
-                deep_macro = await self.get_deep_macro_status()
-                btc_direction = deep_macro.get("direction", "LATERAL")
-                btc_adx = deep_macro.get("adx", 0.0)
-
-                # 3. Obtém a watchlist (pares ativos do radar)
-                watchlist = getattr(settings, "RADAR_WATCHLIST", [])
-                if not watchlist:
-                    # Fallback: usa os símbolos mais líquidos
-                    watchlist = [
-                        "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
-                        "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ADAUSDT", "MATICUSDT",
-                        "DOTUSDT", "LTCUSDT", "UNIUSDT", "ATOMUSDT", "NEARUSDT"
-                    ]
-
-                logger.info(f"⚡ [BLITZ-LOOP] Iniciando scan M30 de {len(watchlist)} ativos | BTC: {btc_direction} (ADX={btc_adx:.1f})")
-
-                # 4. Executa o scan do BlitzSniper
-                blitz_signals = await blitz_sniper_agent.scan_watchlist(
-                    symbols=watchlist,
-                    btc_direction=btc_direction,
-                    btc_adx=btc_adx,
-                )
-
-                if not blitz_signals:
-                    logger.debug("⚡ [BLITZ-LOOP] Nenhum setup M30 qualificado neste ciclo.")
-                    continue
-
-                # 5. Injeta o melhor sinal na fila de sinais com prioridade alta
-                best_blitz = blitz_signals[0]
-                symbol = best_blitz["symbol"]
-
-                # Checa cooldown e tocaia ativa antes de enfileirar
-                in_cooldown, _ = await self.is_symbol_in_cooldown(symbol)
-                if in_cooldown:
-                    logger.debug(f"⚡ [BLITZ-LOOP] {symbol} em cooldown. Descartando sinal Blitz.")
-                    continue
-
-                # [V110.137 COLLISION-GUARD] Bloqueia se ativo ja esta em qualquer slot ativo
-                active_symbols_set = {
-                    (s.get("symbol") or "").replace(".P", "").upper()
-                    for s in slots if s.get("symbol") and s.get("status") != "EMANCIPATED"
-                }
-                if symbol.replace(".P", "").upper() in active_symbols_set:
-                    logger.warning(f"[V110.137 COLLISION] {symbol} ja ativo em slot. Descartando sinal Blitz.")
-                    continue
-
-                if symbol in self.active_tocaias:
-                    logger.debug(f"[BLITZ-LOOP] {symbol} ja esta em Tocaia. Descartando.")
-                    continue
-
-                # Enriquece o sinal com ID único para rastreamento
-                best_blitz["id"] = f"BLITZ_{symbol}_{int(time.time())}"
-                best_blitz["reasoning"] = " | ".join(best_blitz.get("reasons", ["BlitzSniper M30"]))
-                best_blitz["is_blitz_elite"] = True
-
-                # Coloca na fila com prioridade máxima (-best_blitz["score"] como negativo = maior prioridade)
-                self._signal_counter = getattr(self, "_signal_counter", 0) + 1
-                await signal_generator.signal_queue.put(
-                    (-best_blitz["score"], self._signal_counter, best_blitz)
-                )
-
-                msg = (
-                    f"⚡ [BLITZ-INJECT] 🎯 {symbol} {best_blitz['side']} injetado na fila | "
-                    f"Score: {best_blitz['score']}/100 | Motivo: {best_blitz['reasoning']}"
-                )
-                logger.info(msg)
-                await firebase_service.log_event("BLITZ", msg, "SUCCESS")
-
-            except Exception as e:
-                logger.error(f"❌ [BLITZ-LOOP] Erro no scan M30: {e}")
-                import traceback
-                traceback.print_exc()
-                await asyncio.sleep(30)
+    # [V125] _blitz_scan_loop REMOVIDO — scan M30 SWING movido para SandboxSwingService.
+    # O SandboxSwingService é o motor primário do Swing Lab e gerencia o scan autônomo.
 
     # =========================================================================
     # ████  DECOR_HUNTER 3.0 — Loop Paralelo de Pares Descolados do BTC  ████
@@ -933,8 +850,6 @@ class CaptainAgent(AIOSAgent):
           4. Gera sinal com radar_mode="DECOR_HUNTER" e timestamp para TTL
           5. Injeta na fila com prioridade (-score)
         """
-        from config import settings
-        from services.agents.blitz_sniper import blitz_sniper_agent
         from services.agents.oracle_agent import oracle_agent as oracle_ref
         from services.okx_rest import okx_rest_service
 
@@ -981,7 +896,7 @@ class CaptainAgent(AIOSAgent):
                             continue
 
                         result = await self._analyze_decor_pair(
-                            symbol, btc_closes, btc_dir, btc_adx, blitz_sniper_agent
+                            symbol, btc_closes, btc_dir, btc_adx, signal_generator
                         )
                         if result:
                             decor_signals.append(result)
@@ -1029,20 +944,19 @@ class CaptainAgent(AIOSAgent):
         btc_closes: List[float],
         btc_dir: str,
         btc_adx: float,
-        blitz_agent,
+        swing_scanner,
     ) -> Optional[Dict[str, Any]]:
         """
         [DECOR_HUNTER 3.0] Analisa um par para verificar:
-          1. Variação própria >= 1.5% nos últimos 15m
-          2. Correlação de Pearson com BTC < 0.5 (descolado)
-          3. Setup técnico válido (BLITZ M30 score >= 65, ou var >= 2.0%)
+          1. Variação própria >= 0.8% nos últimos 15m
+          2. Correlação de Pearson com BTC < 0.65 (descolado)
+          3. Setup técnico válido (M30 Swing score >= 60, ou var >= 1.0%)
 
-        Retorna o sinal pronto para injeção, ou None se não qualificado.
+        Usa SignalGenerator.analyze_m30_swing() (3 estrategias) em vez do BlitzSniperAgent.
         """
         try:
             from services.okx_rest import okx_rest_service
 
-            # ── 1. Candles 1m do par (15 candles = 15 minutos)
             pair_klines_raw = await asyncio.wait_for(
                 okx_rest_service.get_klines(symbol=symbol, interval="1", limit=17),
                 timeout=3.0
@@ -1052,41 +966,36 @@ class CaptainAgent(AIOSAgent):
 
             pair_closes = [float(c[4]) for c in list(reversed(pair_klines_raw))[:15]]
 
-            # ── 2. Variação própria nos últimos 15 candles
             own_variation = ((pair_closes[-1] - pair_closes[0]) / pair_closes[0]) * 100 if pair_closes[0] > 0 else 0.0
 
             if abs(own_variation) < 0.8:
-                return None  # Par sem gás próprio suficiente (relaxado de 1.5% para 0.8%)
+                return None
 
-            # ── 3. Correlação de Pearson com BTC
             correlation = self._pearson_correlation(btc_closes, pair_closes)
 
             if abs(correlation) >= 0.65:
-                return None  # Par ainda correlacionado com BTC (relaxado de 0.5 para 0.65)
+                return None
 
-            # ── 4. Determinar lado com base na variação
             direction_from_var = "Buy" if own_variation > 0 else "Sell"
 
-            # ── 5. Confirmar com análise técnica (BLITZ M30)
             try:
-                blitz_signal = await asyncio.wait_for(
-                    blitz_agent.scan_for_blitz_signal(symbol, btc_dir, btc_adx),
+                swing_signal = await asyncio.wait_for(
+                    swing_scanner.analyze_m30_swing(symbol, btc_dir, btc_adx),
                     timeout=5.0
                 )
             except asyncio.TimeoutError:
-                blitz_signal = None
+                swing_signal = None
 
-            if blitz_signal and blitz_signal.get("score", 0) >= 65:
-                side = blitz_signal["side"]
-                tech_score = blitz_signal["score"]
-                tech_reasons = blitz_signal.get("reasons", [])
+            if swing_signal and swing_signal.get("score", 0) >= 60:
+                side = swing_signal["side"]
+                tech_score = swing_signal["score"]
+                tech_reasons = swing_signal.get("reasons", [])
             elif abs(own_variation) >= 1.0:
-                # Fallback: variação forte compensa ausência de setup técnico
                 side = direction_from_var
                 tech_score = min(75, int(abs(own_variation) * 30))
                 tech_reasons = [f"Variação própria forte: {own_variation:.2f}%"]
             else:
-                return None  # Variação menor que 1.0% sem setup técnico confirmado
+                return None
 
             return {
                 "id":              f"decor_{symbol.replace('.P','')}_{int(time.time())}",
@@ -1100,7 +1009,7 @@ class CaptainAgent(AIOSAgent):
                 "timeframe":       "30",
                 "btc_correlation": round(correlation, 3),
                 "own_variation":   round(own_variation, 2),
-                "timestamp":       time.time(),  # TTL gate usa este campo
+                "timestamp":       time.time(),
                 "reasons":         [
                     f"Descolado BTC (corr={correlation:.2f})",
                     f"Var própria: {own_variation:.2f}%",
@@ -1284,6 +1193,18 @@ class CaptainAgent(AIOSAgent):
             logger.error(f"Error finding stagnant slot: {e}")
             return None
 
+    async def _safe_process_single_signal(self, best_signal: dict):
+        """Wrapper seguro que captura qualquer exceção silenciosa do asyncio.create_task."""
+        try:
+            await self._process_single_signal(best_signal)
+        except Exception as e:
+            symbol = best_signal.get("symbol", "?")
+            logger.error(f"❌ [CAPTAIN-TASK-CRASH] {symbol} _process_single_signal falhou: {e}", exc_info=True)
+        finally:
+            symbol = best_signal.get("symbol", "")
+            if symbol:
+                self.active_tocaias.discard(symbol)
+
     async def _process_single_signal(self, best_signal: dict):
         """
         [V120] Orquestrador Multitenant:
@@ -1295,6 +1216,7 @@ class CaptainAgent(AIOSAgent):
         
         # [REGIME GATING & MACRO FILTER] Garantia Absoluta no Nível do Capitão
         is_ranging_mode = True
+        adx = 0.0
         try:
             from services.okx_ws_public import okx_ws_public_service
             adx = getattr(okx_ws_public_service, 'btc_adx', 0)
@@ -1318,12 +1240,23 @@ class CaptainAgent(AIOSAgent):
             "macro": macro_trend
         }
 
+        is_decor_hunter = (
+            "DECOR" in str(best_signal.get("radar_mode", "")).upper()
+            or "DECOR" in str(best_signal.get("strategy", "")).upper()
+            or "DECOR" in str(best_signal.get("slot_type", "")).upper()
+        )
+
         # 1. Filtro por regime de volatilidade (LATERAL vs TRENDING)
         # [V112.12] DECOR_SHADOW agora permitido em TRENDING se descolado do BTC
-        if current_regime == "LATERAL":
-            if strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD"):
+        # [V124.6] BLITZ liberado em LATERAL — swing 30M precisa entrar antes do ADX subir
+        # DECOR_HUNTER é imune ao filtro de regime (opera em qualquer mercado)
+        is_blitz = best_signal.get("is_blitz", False)
+        if current_regime == "LATERAL" and not is_decor_hunter:
+            if strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD") and not is_blitz:
                 logger.warning(f"🚫 [CAPTAIN-REGIME-BLOCK] {symbol} {strategy_class} rejeitado em mercado LATERAL.")
                 return
+            if is_blitz:
+                logger.info(f"🔓 [V124.6 CAPTAIN-BLITZ-LATERAL] {symbol} BLITZ liberado em LATERAL (ADX={adx:.1f} | regime={current_regime}).")
         else:
             if strategy_class == "DECOR SHADOW":
                 try:
@@ -1387,7 +1320,6 @@ class CaptainAgent(AIOSAgent):
             logger.info(f"🔓 [CAPTAIN-MACRO-PASS] {symbol} {strategy_class} {side} liberado (D.S={is_decor_shadow}, Regime={current_regime}).")
         
         # [MASTER BYPASS] - Roteia o sinal para execucao (REAL ou PAPER).
-        from config import settings
         should_bypass = (
             settings.OKX_API_KEY_MASTER
             or settings.OKX_EXECUTION_MODE == "PAPER"
@@ -1474,7 +1406,6 @@ class CaptainAgent(AIOSAgent):
 
     async def _run_user_execution_logic(self, username: str, credentials: dict, best_signal: dict):
         """Lógica de filtragem e execução original do Captain adaptada para o usuário."""
-        from config import settings
         symbol = str(best_signal.get("symbol", ""))
         score = float(best_signal.get("score", 0) or 0) if best_signal.get("score") is not None else 0
         side = best_signal.get("side", "Buy")
@@ -1545,7 +1476,9 @@ class CaptainAgent(AIOSAgent):
                 if is_ranging_mode:
                     # [V120] Em mercado LATERAL, DECOR SHADOW e ALPHA SHIELD são permitidas
                     # ALPHA SHIELD (DVAP/MOLA/FAS) opera em qualquer regime — stops menores (-8%) mitigam risco
-                    if strategy not in ("DECOR SHADOW", "DECOR_HUNTER", "ALPHA SHIELD"):
+                    # [V124.6] BLITZ liberado em LATERAL — swing 30M precisa entrar antes do ADX subir
+                    blitz_bypass = best_signal.get("is_blitz", False) or best_signal.get("slot_type") == "BLITZ_30M"
+                    if strategy not in ("DECOR SHADOW", "DECOR_HUNTER", "ALPHA SHIELD") and not blitz_bypass:
                         msg = f"[TREND_FOCUS] {symbol} ({strategy}) bloqueado em mercado LATERAL (ADX < 25)."
                         logger.info(msg)
                         await firebase_service.update_signal_outcome(best_signal.get("id"), "TREND_FOCUS_LATERAL_BLOCK")
@@ -1820,15 +1753,14 @@ class CaptainAgent(AIOSAgent):
                 consensus["approved"] = True # Override approval for the pivot trade
             
             # [SANDBOX] Whitelist Global & Filtro de Regime Lateral
-            from config import settings as temp_settings
             clean_sym = symbol.replace(".P", "").upper()
             
             # Se for estratégia de descolamento, a whitelist correta é a DECOR_WATCHLIST (94 pares)
             is_decor_strategy = strategy in ("DECOR_HUNTER", "DECOR SHADOW")
             if is_decor_strategy:
-                whitelist = getattr(temp_settings, 'DECOR_WATCHLIST', [])
+                whitelist = getattr(settings, 'DECOR_WATCHLIST', [])
             else:
-                whitelist = getattr(temp_settings, 'RADAR_WATCHLIST', [])
+                whitelist = getattr(settings, 'RADAR_WATCHLIST', [])
                 
             if not whitelist:
                 whitelist = [
@@ -1843,11 +1775,15 @@ class CaptainAgent(AIOSAgent):
                 consensus["reason"] = "WATCHLIST_RESTRICTED"
                 logger.info(f"🚫 [FLEET-GUARD] {symbol} rejeitado. Ativo nao homologado na Watchlist correspondente.")
             elif is_market_ranging:
-                if strategy not in ("DECOR SHADOW", "DECOR_HUNTER"):
+                # [V124.7-FIX] BLITZ bypassa regime LATERAL
+                is_blitz_signal = best_signal.get("is_blitz", False) or best_signal.get("slot_type") == "BLITZ_30M"
+                if strategy not in ("DECOR SHADOW", "DECOR_HUNTER") and not is_blitz_signal:
                     consensus["approved"] = False
                     consensus["reason"] = "MERCADO_LATERAL_PAUSADO"
                     logger.info(f"[TREND_FOCUS] {symbol} ({strategy}) rejeitado. Mercado LATERAL ativo apenas para DECOR SHADOW.")
                 else:
+                    if is_blitz_signal:
+                        logger.info(f"🔓 [V124.7 BLITZ-WL-BYPASS] {symbol} ({strategy}) liberado em LATERAL.")
                     consensus["approved"] = True
             else:
                 if strategy in ("DECOR SHADOW", "DECOR_HUNTER"):
@@ -2577,6 +2513,8 @@ class CaptainAgent(AIOSAgent):
             if side_norm == "buy" and pct_change >= anchorage_threshold:
                 # [V110.132] ENHANCED Adaptive SL for Anchorage: Increased buffer for better breathing
                 sl_buffer_pct = max(0.008, min(0.020, vol_ratio * 0.6)) if atr > 0 else 0.012
+                if (signal_data and signal_data.get("leverage", 0) >= 50) or atr == 0: # [V126]
+                    sl_buffer_pct = min(sl_buffer_pct, 0.005)
                 anchor_sl = current_price * (1 - sl_buffer_pct)
                 
                 logger.info(f"⚓ [ANCORAGEM] {symbol} (LONG) estourou direto a {current_price:.6f} (+{pct_change*100:.2f}%). SL Adaptativo: {anchor_sl:.6f} (-{sl_buffer_pct*100:.1f}%)")
@@ -2590,6 +2528,8 @@ class CaptainAgent(AIOSAgent):
             elif side_norm == "sell" and pct_change <= -anchorage_threshold:
                 # [V110.132] ENHANCED Adaptive SL for Anchorage
                 sl_buffer_pct = max(0.008, min(0.020, vol_ratio * 0.6)) if atr > 0 else 0.012
+                if (signal_data and signal_data.get("leverage", 0) >= 50) or atr == 0:
+                    sl_buffer_pct = min(sl_buffer_pct, 0.005)
                 anchor_sl = current_price * (1 + sl_buffer_pct)
                 
                 logger.info(f"⚓ [ANCORAGEM] {symbol} (SHORT) derreteu direto a {current_price:.6f} ({pct_change*100:.2f}%). SL Adaptativo: {anchor_sl:.6f} (+{sl_buffer_pct*100:.1f}%)")
@@ -2623,6 +2563,8 @@ class CaptainAgent(AIOSAgent):
                         # [V110.132] Volatility-Aware SL Anchor (Increased resilience):
                         # Use a buffer that scales with ATR (min 0.8%, max 1.5%)
                         sl_buffer_pct = max(0.008, min(0.015, vol_ratio * 0.3)) if atr > 0 else 0.010
+                        if (signal_data and signal_data.get("leverage", 0) >= 50):
+                            sl_buffer_pct = min(sl_buffer_pct, 0.005)
                         sl_price = pivot_price * (1 - sl_buffer_pct) 
                         
                         logger.info(f"🎯 [BOTE TOCAIA] {symbol} LONG! Pivô em {pivot_price:.6f}. Recovery: {recovery*100:.3f}%. SL: {sl_price:.6f} (-{sl_buffer_pct*100:.2f}% do pivô).")
@@ -2642,6 +2584,8 @@ class CaptainAgent(AIOSAgent):
                         current_cvd = await redis_service.get_cvd(symbol)
                         # [V110.132] Volatility-Aware SL Anchor (Increased resilience):
                         sl_buffer_pct = max(0.008, min(0.015, vol_ratio * 0.3)) if atr > 0 else 0.010
+                        if (signal_data and signal_data.get("leverage", 0) >= 50):
+                            sl_buffer_pct = min(sl_buffer_pct, 0.005)
                         sl_price = pivot_price * (1 + sl_buffer_pct)
                         
                         logger.info(f"🎯 [BOTE TOCAIA] {symbol} SHORT! Pivô em {pivot_price:.6f}. Recovery: {recovery*100:.3f}%. SL: {sl_price:.6f} (+{sl_buffer_pct*100:.2f}% do pivô).")

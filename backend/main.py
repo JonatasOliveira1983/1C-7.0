@@ -1,4 +1,4 @@
-# 1CRYPTEN_SPACE_V4.0 - V110.704 (CACHE BUSTER FOR DEPLOY)
+# 1CRYPTEN_SPACE_V4.0 - V130 (CACHE BUSTER FOR DEPLOY - DB POOL FIX)
 import sys
 import codecs
 if sys.platform == "win32":
@@ -18,6 +18,7 @@ import datetime
 import asyncio
 import logging
 import time
+logger = logging.getLogger("1CRYPTEN-MAIN")
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,15 +59,17 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
                 content={"status": "error", "message": "Internal Server Shield: Route Failed", "path": request.url.path}
             )
 
-# V5.2.4.6: Increase Thread Pool size for concurrent network calls
 executor = ThreadPoolExecutor(max_workers=32)
-asyncio.get_event_loop().set_default_executor(executor)
+try:
+    asyncio.get_event_loop().set_default_executor(executor)
+except RuntimeError:
+    pass
 
 # V5.2.4.8 Cloud Run Startup Optimization - Infrastructure Protocol
 # V90.3: PROTOCOLO COCKPIT - FIM DO CACHE
 # V110.40.0: PROTOCOLO COMMAND CENTER PRO - ALMIRANTE ELITE
-VERSION = "V120.1"
-DEPLOYMENT_ID = "V120.1_PHASE_DETECTOR"
+VERSION = "V146-PROFITABILITY-PIVOT"
+DEPLOYMENT_ID = "V146_POSITIVE_EXPECTANCY_PIVOT"
 
 # Global Directory Configurations - Hardened for Docker/Cloud Run
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -150,6 +153,13 @@ async def lifespan(app: FastAPI):
                 from database.database_service_secure import init_db as init_auth_db
                 init_auth_db()
                 logger.info("✅ Auth DB tables initialized.")
+                
+                # [V136-AUTH] Create admin user if not exists
+                try:
+                    from database.migrations.create_auth_tables import create_admin_user
+                    create_admin_user()
+                except Exception as admin_err:
+                    logger.warning(f"⚠️ Admin user creation skipped: {admin_err}")
             except Exception as e:
                 logger.error(f"⚠️ Failed to init Auth DB: {e}")
 
@@ -208,7 +218,7 @@ async def lifespan(app: FastAPI):
             logger.info("🛡️ [V110.519] Startup Order Persistence active. Skipping DB Sanitation.")
 
             
-            logger.info("Step 2: Syncing Bybit Instruments...")
+            logger.info("Step 2: Syncing OKX Instruments...")
             # [V110.400] ALIGNED BOOTSTRAP: Start with Elite 20 + Master Context
             symbols = [f"{s}.P" for s in (settings.ELITE_40_MATRIX + settings.MASTER_CONTEXT_ASSETS)]
             try:
@@ -247,7 +257,7 @@ async def lifespan(app: FastAPI):
                 from services.agents.onchain_whale_watcher import on_chain_whale_watcher
                 from services.agents.sentiment_specialist import sentiment_specialist
                 from services.agents.librarian import librarian_agent
-                from services.agents.blitz_sniper import blitz_sniper_agent # [V110.137] Blitz Active
+                # [V124.7] BlitzSniperAgent removido — substituido por SignalGenerator.analyze_m30_swing()
 
                 # 🆕 [V4.0 DECENTRALIZATION] Slot Operator Agents (The New Core)
                 # [V111.0] Os primeiros 4 agentes de slot ficam em memória ativa para monitoramento rápido
@@ -508,6 +518,21 @@ async def lifespan(app: FastAPI):
                         await asyncio.sleep(60)
                 asyncio.create_task(bankroll_loop())
 
+                # [LAYA SOVEREIGN] Loop Autonomo de Varredura e Execucao da Matrix Elite (a cada 30s)
+                async def laya_autonomous_loop():
+                    logger.info("[LAYA-SOVEREIGN] Loop autonomo continuo ONLINE (intervalo: 30s)")
+                    await asyncio.sleep(6)  # Espera inicial para bootstrap dos servicos
+                    while True:
+                        try:
+                            from app.services.laya_router_service import laya_router_service
+                            res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=True)
+                            if res.get("order_opened"):
+                                logger.info(f"[LAYA-SOVEREIGN] Ordem autonoma aberta com sucesso: {res.get('best_setup', {}).get('symbol')}")
+                        except Exception as e:
+                            logger.error(f"[LAYA-SOVEREIGN] Erro na varredura continua: {e}")
+                        await asyncio.sleep(30)
+                asyncio.create_task(laya_autonomous_loop())
+
                 # [V110.999] LIVE SLOTS BROADCAST LOOP — Garante que Cockpit veja ordens do Postgres
                 async def slots_broadcast_loop():
                     """Publica slots ativos via WS a cada 5s para garantir sincronismo do Cockpit."""
@@ -561,7 +586,20 @@ async def lifespan(app: FastAPI):
                                     "rescue_activated": s.get("rescue_activated"),
                                     "rescue_resolved": s.get("rescue_resolved")
                                 })
-                            
+
+                            # [V127] PAPER: espelha ordens do Sandbox (Scalping + Swing) no broadcast de slots
+                            if settings.OKX_EXECUTION_MODE == "PAPER":
+                                try:
+                                    from routes.trading import _map_sandbox_trade_to_slot
+                                    scalp = await _ds.get_sandbox_trades(active_only=True)
+                                    swing = await _ds.get_swing_trades(active_only=True)
+                                    for t in scalp:
+                                        slots.append(_map_sandbox_trade_to_slot(t, "SCALPING"))
+                                    for t in swing:
+                                        slots.append(_map_sandbox_trade_to_slot(t, "SWING"))
+                                except Exception as e:
+                                    logger.warning(f"[SLOTS-MOONS-BROADCAST] Erro Sandbox PAPER: {e}")
+
                             # V110.999: Também recupera e publica as moonbags para a UI
                             db_moons = await _ds.get_moonbags()
                             moons = []
@@ -592,22 +630,13 @@ async def lifespan(app: FastAPI):
                 asyncio.create_task(slots_broadcast_loop())
                 logger.info("📡 [V110.999] Live Slots Broadcast Loop ATIVO.")
 
-                # 5. [V110.510] MCP Bridge for AIOS / n8n Integration
+                # 5. [V110.510] MCP Bridge pre-initialization check
                 try:
-                    from services.mcp_bridge import mcp
-                    # Tenta extrair a aplicação ASGI do FastMCP para montar nativamente
-                    asgi_app = None
-                    if hasattr(mcp, "get_asgi_app"):
-                        asgi_app = mcp.get_asgi_app()
-                    elif hasattr(mcp, "_app"):
-                        asgi_app = mcp._app
-                    else:
-                        asgi_app = mcp  # Assume que é chamável (ASGI)
-                    
-                    app.mount("/mcp", asgi_app)
-                    logger.info("Step 5: MCP Bridge Integrado nativamente no FastAPI em /mcp ✅")
+                    from services.mcp_bridge import get_asgi_app
+                    _ = get_asgi_app()
+                    logger.info("Step 5: MCP Bridge inicializado para Starlette mount ✅")
                 except Exception as e:
-                    logger.warning(f"Step 5: MCP Bridge Mount Error: {e}")
+                    logger.warning(f"Step 5: MCP Bridge Init Warning: {e}")
 
             except Exception as e:
                 logger.error(f"Step 3: Agent sync error: {e}")
@@ -638,9 +667,17 @@ async def lifespan(app: FastAPI):
             try:
                 from services.sandbox_service import sandbox_service
                 sandbox_service.start()
-                logger.info("🧪 [SaaS] Sandbox Service ONLINE e monitorando de forma resiliente!")
+                logger.info("[SaaS] Sandbox Service (Scalping Lab) ONLINE!")
             except Exception as sandbox_err:
-                logger.error(f"❌ [SaaS] Falha ao iniciar Sandbox Service: {sandbox_err}")
+                logger.error(f"Falha ao iniciar Sandbox Service: {sandbox_err}")
+
+            # 🧪 [V138-PROFITABILITY] Sandbox Swing Service ativado para operar os 15 slots de Swing (Timeframe 2H/15m)
+            try:
+                from services.sandbox_swing_service import sandbox_swing_service
+                await sandbox_swing_service.start()
+                logger.info("[SaaS] Sandbox Swing Service (Swing Lab) ONLINE!")
+            except Exception as swing_err:
+                logger.error(f"Falha ao iniciar Sandbox Swing Service: {swing_err}")
 
             logger.info("✅ All background services started successfully!")
         except Exception as e:
@@ -648,7 +685,20 @@ async def lifespan(app: FastAPI):
             
     # Start worker
     asyncio.create_task(start_services())
-    
+
+    # [V126.1] Pre-aquecer Whisper em background (não bloqueia o startup).
+    # Usado pelo endpoint /api/memory/upload-audio quando o device não tem Web Speech (ex.: iOS).
+    async def _warm_whisper():
+        try:
+            from services.whisper_service import whisper_service
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, whisper_service.initialize)
+            logger.info("✅ [WHISPER] Modelo pré-carregado e pronto para STT server-side.")
+        except Exception as e:
+            logger.warning(f"⚠️ [WHISPER] Falha ao pré-carregar modelo (lazy ainda funciona): {e}")
+
+    asyncio.create_task(_warm_whisper())
+
     yield
     
     # 🛑 [V110.176] CLEAN SHUTDOWN PROTOCOL
@@ -676,10 +726,24 @@ async def lifespan(app: FastAPI):
 
         try:
             from services.sandbox_service import sandbox_service
-            logger.info("🛑 [SaaS] Desligando Sandbox Service...")
+            logger.info("[SaaS] Desligando Sandbox Service...")
             sandbox_service.stop()
         except Exception as sb_stop_err:
             logger.debug(f"Erro ao parar Sandbox Service: {sb_stop_err}")
+
+        try:
+            from services.sandbox_swing_service import sandbox_swing_service
+            logger.info("[SWING-LAB] Desligando SandboxSwingService...")
+            await sandbox_swing_service.stop()
+        except Exception as sw_stop_err:
+            logger.debug(f"Erro ao parar SandboxSwingService: {sw_stop_err}")
+
+        try:
+            from services.sandbox_scalping_engine import sandbox_scalping_engine
+            logger.info("[VWAP-SNIPER] Desligando Scalping Engine...")
+            await sandbox_scalping_engine.stop()
+        except Exception as sniper_stop_err:
+            logger.debug(f"Erro ao parar VWAP SNIPER Engine: {sniper_stop_err}")
     except Exception as shutdown_err:
         logger.error(f"Error during shutdown: {shutdown_err}")
     
@@ -736,6 +800,21 @@ else:
 # [V110.506] Robust Static Mounting
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR, html=False), name="assets")
 
+# [V136] Lamborghini Design System Static Mounting
+APP_STATIC_DIR = os.path.join(BASE_DIR, "app", "static")
+if os.path.exists(APP_STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=APP_STATIC_DIR, html=False), name="static")
+
+# [V144] Model Context Protocol (MCP 2.x) Native Starlette Mount
+try:
+    from services.mcp_bridge import get_asgi_app
+    mcp_app = get_asgi_app()
+    if mcp_app is not None:
+        app.mount("/mcp", mcp_app)
+        logger.info("🔌 [MCP] Bridge montado nativamente em /mcp")
+except Exception as mcp_err:
+    logger.warning(f"⚠️ [MCP] Erro ao montar MCP Bridge: {mcp_err}")
+
 if settings.SERVE_STATIC_FRONTEND:
     # [V5.0] Intel Map (Graphify)
     GRAPHIFY_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "graphify-out"))
@@ -785,6 +864,7 @@ if settings.SERVE_STATIC_FRONTEND:
 # ROUTES & MODULARIZATION (V110.25.0)
 # =================================================================
 from routes import trading, system, dashboard, market, aios, chat, vault, backtest_routes, auth, sentinel, tokens, sandbox, admin
+from routes.memory_routes import router as memory_router
 
 # Include Modulated Routers
 app.include_router(auth.router, prefix="/api/auth")
@@ -800,6 +880,76 @@ app.include_router(backtest_routes.router)
 app.include_router(sentinel.router)
 app.include_router(tokens.router)  # [V2.0] OKX Credentials per User
 app.include_router(sandbox.router)
+app.include_router(memory_router)
+
+# [V136] Base Tecnológica Modular API Router
+try:
+    from app.api.v1.router import api_router
+    app.include_router(api_router, prefix="/api/v1")
+except Exception as _e_api:
+    logger.error(f"Erro ao registrar api_router da Base Tecnológica: {_e_api}")
+
+# [V144] RAG Routes
+try:
+    from routes.rag_routes import router as rag_router
+    app.include_router(rag_router)
+    logger.info("🧠 [RAG] Rotas /api/v1/hermes/rag registradas com sucesso.")
+except Exception as _e_rag:
+    pass
+
+# [V151] Plutus Routes (Viver de Renda / Método ARCA)
+try:
+    from routes.plutus_routes import router as plutus_router
+    app.include_router(plutus_router)
+    logger.info("🏛️ [PLUTUS] Rotas /api/v1/plutus registradas com sucesso.")
+except Exception as _e_plutus:
+    logger.error(f"Erro ao registrar rotas do Plutus: {_e_plutus}")
+
+
+# [V148] High-Performance OKX Candles Proxy (Same-origin CORS bypass for Cockpit Charts)
+_candles_cache = {}
+
+@app.get("/api/candles")
+async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int = 250):
+    cache_key = f"{symbol}_{bar}_{limit}"
+    now = time.time()
+    if cache_key in _candles_cache:
+        cached_time, cached_data = _candles_cache[cache_key]
+        if now - cached_time < 3.0:  # 3s cache
+            return cached_data
+
+    try:
+        import httpx
+        clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
+        inst_id = f"{clean.replace('USDT', '')}-USDT-SWAP"
+        url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=3.5) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("code") == "0" and data.get("data"):
+                    _candles_cache[cache_key] = (now, data)
+                    return data
+            # Fallback para Spot se Swap não retornar dados
+            spot_id = inst_id.replace("-SWAP", "")
+            url_spot = f"https://www.okx.com/api/v5/market/candles?instId={spot_id}&bar={bar}&limit={limit}"
+            resp_spot = await client.get(url_spot, headers=headers)
+            if resp_spot.status_code == 200:
+                data_spot = resp_spot.json()
+                if data_spot.get("code") == "0" and data_spot.get("data"):
+                    _candles_cache[cache_key] = (now, data_spot)
+                    return data_spot
+    except Exception as e:
+        logger.debug(f"[CANDLES-PROXY] Erro ao buscar candles para {symbol}: {e}")
+    
+    # Return last known cached data if available
+    if cache_key in _candles_cache:
+        return _candles_cache[cache_key][1]
+    return {"code": "1", "data": []}
 
 # =================================================================
 # WEBSOCKET ENDPOINT (V110.175)
@@ -893,21 +1043,32 @@ if settings.SERVE_STATIC_FRONTEND:
 
     @app.get("/hermes")
     @app.get("/hermes/")
-    async def serve_hermes_redirect():
-        return RedirectResponse(url="/cockpit")
-
-    # Hermes API proxy removido em V121 — dashboard descontinuado
-
-    @app.get("/")
-    async def serve_index():
-        path = os.path.join(FRONTEND_DIR, "index.html")
+    async def serve_hermes_chat():
+        path = os.path.join(APP_STATIC_DIR, "hermes.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "hermes-chat.html")
         with open(path, "r", encoding="utf-8") as f:
             html_content = f.read()
             return HTMLResponse(
                 content=html_content,
                 headers={
                     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-index-{time.time()}"
+                    "ETag": f"1c-hermes-{time.time()}"
+                }
+            )
+
+    @app.get("/")
+    async def serve_index():
+        path = os.path.join(APP_STATIC_DIR, "cockpit.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "index.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-cockpit-{time.time()}"
                 }
             )
 
@@ -924,10 +1085,28 @@ if settings.SERVE_STATIC_FRONTEND:
                 }
             )
 
+    @app.get("/mobile")
+    @app.get("/mobile.html")
+    async def serve_mobile_page():
+        path = os.path.join(APP_STATIC_DIR, "mobile_app.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "mobile_app.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-mobile-{time.time()}"
+                }
+            )
+
     @app.get("/cockpit")
     @app.get("/cockpit.html")
     async def serve_cockpit_page():
-        path = os.path.join(FRONTEND_DIR, "cockpit.html")
+        path = os.path.join(APP_STATIC_DIR, "cockpit.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "cockpit.html")
         with open(path, "r", encoding="utf-8") as f:
             html_content = f.read()
             return HTMLResponse(
@@ -938,24 +1117,55 @@ if settings.SERVE_STATIC_FRONTEND:
                 }
             )
 
-    @app.get("/sandbox")
-    @app.get("/sandbox.html")
-    async def serve_sandbox_page():
-        path = os.path.join(FRONTEND_DIR, "sandbox.html")
+    @app.get("/plutus")
+    @app.get("/plutus.html")
+    async def serve_plutus_page():
+        path = os.path.join(APP_STATIC_DIR, "plutus.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "plutus.html")
         with open(path, "r", encoding="utf-8") as f:
             html_content = f.read()
             return HTMLResponse(
                 content=html_content,
                 headers={
                     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-sandbox-{time.time()}"
+                    "ETag": f"1c-plutus-{time.time()}"
                 }
             )
 
-    @app.get("/n8n")
-    @app.get("/n8n/")
-    async def n8n_redirect():
-        return RedirectResponse(url="https://n8n-production-8e2d4.up.railway.app")
+    @app.get("/sandbox")
+    @app.get("/sandbox.html")
+    async def serve_sandbox_page():
+        return RedirectResponse(url="/cockpit")
+
+    @app.get("/mercado")
+    @app.get("/mercado.html")
+    @app.get("/radar")
+    async def serve_market_page():
+        path = os.path.join(APP_STATIC_DIR, "market.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-market-{time.time()}"
+                }
+            )
+
+    @app.get("/memory")
+    @app.get("/memory.html")
+    async def serve_memory_page():
+        path = os.path.join(FRONTEND_DIR, "memory_galaxy.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-memory-{time.time()}"
+                }
+            )
 
     @app.get("/observatory.html")
     async def serve_observatory_legacy():

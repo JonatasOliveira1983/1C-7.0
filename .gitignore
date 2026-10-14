@@ -1,10 +1,15 @@
 # Backend
-backend/.env
+.env*
+*.env
+backend/.env*
 backend/venv/
 backend/__pycache__/
 backend/data/images/
 backend/data/browser_profile/
 backend/reports/
+/*.png
+screenshots/
+trade_history_backup.json
 
 # Root Reports
 reports/
@@ -21,7 +26,8 @@ scratch/*.db
 # Frontend
 frontend/node_modules/
 frontend/.next/
-*.log
+*.log*
+**/*.log*
 
 # System
 .DS_Store
@@ -79,7 +85,8 @@ verify_v3.py
 # Large resources & database files
 Smart_Money_Decoded.pdf
 *.db
-*.log
+*.log*
+**/*.log*
 *.pdf
 tmp/
 

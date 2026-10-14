@@ -36,6 +36,58 @@ ORDER_STOP_LADDER_RANGING: List[StopLevel] = [
     StopLevel("TRAILING", "ALVO_MAXIMO_LATERAL", 50.0, 48.0, "PROFIT_LOCK"),
 ]
 
+ORDER_STOP_LADDER_SCALPING: List[StopLevel] = [
+    # [V146-SCALPING] Scalping calibrado para 15x com folga real e lucro substantivo
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 10.0, 2.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 18.0, 8.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 30.0, 18.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "TRAILING_SCALP", 45.0, 32.0, "PROFIT_LOCK"),
+]
+
+ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
+    # [V149-PROFITABILITY] Escadinha calibrada para R:R positivo (Payoff > 2.0:1)
+    # Nível 1 dispara em +10.0% ROI para evitar asfixia por spread e travar +2.0%
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 10.0, 2.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_SUBSTANTIVO_LAYA", 18.0, 8.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 30.0, 18.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 45.0, 32.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_MAXIMO_REVERSION", 60.0, 48.0, "PROFIT_LOCK"),
+]
+
+# [V130-FIX] Escadinha Oficial para Swing (Doutrina das Extrações)
+# Usada de forma unificada no FlashAgent para simular stops de Swing
+#
+# [V130-FIX] Diagnóstico do R:R = 0.46:
+#   Stop inicial: -5% ROI (= 0.1% de preço com 50x).
+#   Breakeven: +10% ROI (= 0.2% de preço com 50x).
+#   Gap: 15% de ROI entre stop e breakeven — trades que andam +4% e revertem
+#        tomam loss de -5%. Isso explica R:R < 1 mesmo com WR de 78%.
+#
+# Solução V130:
+#   Breakeven antecipado de +10% → +5% (R:R 1:1 na entrada).
+#   Proteção parcial 1: de +20% → +12% (trava lucro mais cedo).
+#   Escalonamento progressivo mantido para capturar outliers.
+# [V132-SWING-2H] Escadinha Oficial para Swing 2H com alavancagem de 50x
+# Desenvolvida para dar runway a operações de longo prazo com gatilho de break-even e travas parciais
+# [V146-SWING] Re-calibrado para travar lucros substanciais e impedir que trades de +30% devolvam tudo
+ORDER_STOP_LADDER_SWING: List[StopLevel] = [
+    StopLevel("ESCADINHA", "BREAKEVEN_2H",         15.0,    2.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "PROTECAO_PARCIAL",    25.0,   12.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO_2H",      40.0,   25.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_ALTO_2H",       65.0,   45.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "EMANCIPADO_2H",      100.0,   75.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUPER_TENDENCIA",    200.0,  150.0,  "PROFIT_LOCK"),
+    StopLevel("TRAILING",  "ALVO_ESTENDIDO_2H",  350.0,  280.0,  "PROFIT_LOCK"),
+]
+
+ORDER_STOP_LADDER_SWING_LATERAL: List[StopLevel] = [
+    StopLevel("ESCADINHA", "BREAKEVEN_LATERAL",   5.0,    1.5,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "PRE_UNIT1_LATERAL",   15.0,   5.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "UNIT1_GARANTIDO",     30.0,   15.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "EMANCIPADO_LATERAL",  60.0,   30.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING",  "TRAILING_LATERAL",    100.0,  80.0, "PROFIT_LOCK"),
+]
+
 ORDER_STOP_LADDER_TRENDING: List[StopLevel] = [
     # [V119] Escadinha TRENDING Progressiva e Calibrada
     # O trade corre livre até +12% ROI antes de mover para break-even, evitando violinadas curtas
@@ -94,12 +146,17 @@ class OrderProjectionService:
     def round_to_tick(self, price: float, tick_size: float) -> float:
         if price <= 0 or tick_size <= 0:
             return price
+        if tick_size >= price:
+            return price
         tick = Decimal(str(tick_size))
         rounded = (Decimal(str(price)) / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
-        return float(rounded.normalize())
+        res = float(rounded.normalize())
+        return res if res > 0 else price
 
     def round_stop_to_tick(self, price: float, tick_size: float, side: Any, stop_roi: float) -> float:
         if price <= 0 or tick_size <= 0:
+            return price
+        if tick_size >= price:
             return price
         from decimal import ROUND_CEILING, ROUND_FLOOR
 
@@ -112,7 +169,8 @@ class OrderProjectionService:
         else:
             rounding = ROUND_HALF_UP
         rounded = (Decimal(str(price)) / tick).quantize(Decimal("1"), rounding=rounding) * tick
-        return float(rounded.normalize())
+        res = float(rounded.normalize())
+        return res if res > 0 else price
 
     async def price_from_roi(self, symbol: str, entry_price: float, roi_percent: float, side: Any, leverage: float) -> float:
         raw_price = self.raw_price_from_roi(entry_price, roi_percent, side, leverage)
@@ -126,13 +184,38 @@ class OrderProjectionService:
         except Exception:
             return raw_price
 
-    def get_stop_ladder(self, roi_percent: float = 0.0, is_ranging: bool = False) -> List[StopLevel]:
-        ladder = list(ORDER_STOP_LADDER_RANGING if is_ranging else ORDER_STOP_LADDER_TRENDING)
+    def get_stop_ladder(self, roi_percent: float = 0.0, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> List[StopLevel]:
+        # [V125] Roteamento de escadinha para Swing Lab e Laya Reversion
+        is_laya_reversion = strategy_class in (
+            "LAYA_MEAN_REVERSION",
+            "LAYA_DVWAP_REVERSION",
+            "LAYA_MOMENTO_MOLA",
+            "ARMADILHA SARDINHA (TOPO)",
+            "ABSORÇÃO BALEIA (FUNDO)",
+            "REVERSÃO DE CANAL"
+        )
+        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW", "LAYA_SMART_MONEY_H1")
+        is_scalping = strategy_class == "VWAP SNIPER" or slot_type == "SCALPING"
+        
+        if is_laya_reversion:
+            ladder = list(ORDER_STOP_LADDER_LAYA_REVERSION)
+        elif is_swing and is_ranging:
+            ladder = list(ORDER_STOP_LADDER_SWING_LATERAL)
+        elif is_swing:
+            ladder = list(ORDER_STOP_LADDER_SWING)
+        elif is_scalping:
+            ladder = list(ORDER_STOP_LADDER_SCALPING)
+        elif is_ranging:
+            ladder = list(ORDER_STOP_LADDER_RANGING)
+        else:
+            ladder = list(ORDER_STOP_LADDER_TRENDING)
         highest_trigger = max(level.trigger_roi for level in ladder)
         target_ceiling = max(highest_trigger, roi_percent + 400.0)
         
         if is_ranging:
             # Em Ranging, acima de 20% ROI, a escada sobe dinamicamente de 1 em 1%
+            # [V124.6] Swing (BLITZ_30M) usa trailing gap maior (10%) para evitar saída prematura
+            trailing_gap = 10.0 if slot_type in ("BLITZ_30M",) else 5.0
             trigger_roi = highest_trigger + 1.0
             while trigger_roi <= target_ceiling + 1e-9:
                 ladder.append(
@@ -140,7 +223,7 @@ class OrderProjectionService:
                         "TRAILING",
                         f"TRAIL_{int(trigger_roi)}",
                         trigger_roi,
-                        trigger_roi - 5.0,
+                        trigger_roi - trailing_gap,
                         "TRAIL_LOCK",
                     )
                 )
@@ -161,35 +244,45 @@ class OrderProjectionService:
 
         return ladder
 
-    def get_active_level(self, roi_percent: float, ladder: Optional[List[StopLevel]] = None, is_ranging: bool = False) -> Optional[StopLevel]:
+    def get_active_level(self, roi_percent: float, ladder: Optional[List[StopLevel]] = None, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> Optional[StopLevel]:
         active = None
         epsilon = 1e-9
-        for level in ladder or self.get_stop_ladder(roi_percent, is_ranging):
+        for level in ladder or self.get_stop_ladder(roi_percent, is_ranging, slot_type, strategy_class):
             if roi_percent + epsilon >= level.trigger_roi:
                 active = level
             else:
                 break
         
-        # Se estiver em Ranging e em trailing stop ativo (ROI >= 50%)
+        # [V124.6] Se estiver em Ranging e em trailing stop ativo
+        # Para Swing, o trailing nativo da escada já é adequado
+        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW")
         if is_ranging and active and active.phase == "TRAILING" and roi_percent >= 50.0:
-            active = StopLevel(
-                phase=active.phase,
-                name=active.name,
-                trigger_roi=active.trigger_roi,
-                stop_roi=round(roi_percent - 2.0, 2), # Trailing stop apertado de 2% para fechar no pico
-                status_risco=active.status_risco
-            )
+            if not is_swing:
+                active = StopLevel(
+                    phase=active.phase,
+                    name=active.name,
+                    trigger_roi=active.trigger_roi,
+                    stop_roi=round(roi_percent - 2.0, 2), # Trailing stop apertado de 2% para fechar no pico
+                    status_risco=active.status_risco
+                )
         return active
 
-    def get_next_level(self, roi_percent: float, ladder: Optional[List[StopLevel]] = None, is_ranging: bool = False) -> Optional[StopLevel]:
+    def get_next_level(self, roi_percent: float, ladder: Optional[List[StopLevel]] = None, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> Optional[StopLevel]:
         epsilon = 1e-9
-        for level in ladder or self.get_stop_ladder(roi_percent, is_ranging):
+        for level in ladder or self.get_stop_ladder(roi_percent, is_ranging, slot_type, strategy_class):
             if roi_percent + epsilon < level.trigger_roi:
                 return level
         return None
 
-    def get_phase(self, roi_percent: float, phase_hint: Optional[str] = None, is_ranging: bool = False) -> str:
-        if is_ranging:
+    def get_phase(self, roi_percent: float, phase_hint: Optional[str] = None, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> str:
+        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW")
+        if is_swing:
+            if roi_percent >= 300.0:
+                return "TRAILING"
+            if roi_percent >= 30.0:
+                return "ESCADINHA"
+            return "ORDER"
+        elif is_ranging:
             if roi_percent >= 50.0:
                 return "TRAILING"
             if roi_percent >= 5.0:
@@ -236,7 +329,8 @@ class OrderProjectionService:
         side = self.normalize_side(order.get("side"))
         entry_price = float(order.get("entry_price") or 0)
         current_price = float(current_price if current_price is not None else order.get("current_price") or 0)
-        leverage = float(order.get("leverage") or 50.0)
+        meta = order.get("contract_meta") if isinstance(order.get("contract_meta"), dict) else {}
+        leverage = float(order.get("leverage") or meta.get("leverage") or meta.get("maxLeverage") or 15.0)
         qty = float(order.get("qty") or order.get("size") or 0)
         current_stop = float(order.get("current_stop") or 0)
 
@@ -255,10 +349,12 @@ class OrderProjectionService:
                     pass
 
         roi = self.calculate_roi(entry_price, current_price, side, leverage)
-        phase = self.get_phase(roi, phase_hint, is_ranging)
-        stop_ladder = self.get_stop_ladder(roi, is_ranging)
-        active_level = self.get_active_level(roi, stop_ladder, is_ranging)
-        next_level = self.get_next_level(roi, stop_ladder, is_ranging)
+        slot_type = order.get("slot_type", "")
+        strat = order.get("strategy_class") or order.get("strategy") or ""
+        phase = self.get_phase(roi, phase_hint, is_ranging, slot_type, strat)
+        stop_ladder = self.get_stop_ladder(roi, is_ranging, slot_type, strat)
+        active_level = self.get_active_level(roi, stop_ladder, is_ranging, slot_type, strat)
+        next_level = self.get_next_level(roi, stop_ladder, is_ranging, slot_type, strat)
         existing_contract = order.get("contract") or order.get("contract_meta") or {}
         if existing_contract:
             contract = {

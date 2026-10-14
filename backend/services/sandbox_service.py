@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import time
 
 from datetime import datetime, timezone
@@ -19,6 +20,10 @@ class SandboxService:
         self._loop_task = None
         self._process_lock = asyncio.Lock()
         self._processed_signals = set()
+
+        # [V126-LOCK-IN] Variáveis para controle local e cache de saldo consolidado
+        self.base_balance_cache = 10000.0
+        self.last_balance_recalc = 0.0
 
         # Cache de preco (fallback quando WS falha) — espelha FlashAgent
         self._last_price_cache: Dict[str, float] = {}
@@ -40,6 +45,13 @@ class SandboxService:
 
         # [V119] Registro do último timestamp em que o ADX esteve em tendência para o cooldown de transição fria
         self._last_trending_ts: float = 0.0
+
+        # [V124.1] Mirror Circuit Breaker — previne spam de ordens se OKX retornar erro repetido
+        self._mirror_consecutive_failures: int = 0
+        self._mirror_circuit_open_until: float = 0.0  # timestamp quando o circuit breaker fecha
+        self._mirror_mode_logged: bool = False
+        self.MIRROR_CIRCUIT_BREAKER_THRESHOLD: int = 3  # falhas consecutivas antes de abrir o circuito
+        self.MIRROR_CIRCUIT_BREAKER_COOLDOWN: float = 300.0  # 5 minutos de pausa
 
     def start(self):
         if self.is_running:
@@ -69,10 +81,14 @@ class SandboxService:
                     not in active_keys
                 ]
                 if novos:
-                    logger.info(f"🧪 [SANDBOX] Processando {len(novos)} sinais novos do radar (já existem {len(active_trades)} ativos).")
-                    await self._process_radar_signals(novos)
+                    logger.info(f"🔒 [SANDBOX] Ignorando {len(novos)} sinais brutos do radar. Ordens agora passam exclusivamente pela validação de fluxo da LAYA.")
         except Exception as e:
             logger.error(f"Erro ao carregar sinais existentes no Sandbox: {e}")
+
+    def reset_balance_cache(self):
+        self.base_balance_cache = 10000.0
+        self.last_balance_recalc = 0.0
+        logger.info("🧪 Sandbox Service: balance cache resetado para $10,000.")
 
     def stop(self):
         self.is_running = False
@@ -90,6 +106,9 @@ class SandboxService:
             if isinstance(ticker, list) and ticker:
                 return float(ticker[0].get("lastPrice") or 0)
             if isinstance(ticker, dict):
+                t_list = ticker.get("result", {}).get("list", [])
+                if t_list and isinstance(t_list, list):
+                    return float(t_list[0].get("lastPrice") or 0)
                 return float(ticker.get("lastPrice") or ticker.get("last") or 0)
         except Exception as e:
             logger.debug(f"[SANDBOX] REST price fallback falhou para {symbol}: {e}")
@@ -100,6 +119,7 @@ class SandboxService:
         Resolução de preço em cascata: WS → REST → cache local.
         Espelha FlashAgent._get_current_price para garantir que o stop
         nunca seja perdido por falha temporária do WebSocket.
+        [V136.2] WS price freshness check (30s max age) to prevent stale spikes.
         """
         # 1. Tenta WebSocket
         try:
@@ -118,10 +138,10 @@ class SandboxService:
             self._last_price_cache_ts[symbol] = time.time()
             return rest_price
 
-        # 3. Cache local (ate 60s de idade)
+        # 3. Cache local (ate 30s de idade — [V136.2] reduzido de 60s)
         last_price = self._last_price_cache.get(symbol, 0.0)
         last_ts = self._last_price_cache_ts.get(symbol, 0.0)
-        if last_price > 0 and (time.time() - last_ts) < 60.0:
+        if last_price > 0 and (time.time() - last_ts) < 30.0:
             return last_price
 
         return 0.0
@@ -136,42 +156,30 @@ class SandboxService:
         if stop_price <= 0:
             return False
 
-        norm_sym = symbol.replace(".P", "").upper()
         check_price = 0.0
 
         try:
-            # 1. Tenta usar a função padrão de preço conservativo (janela de 120s no WS)
-            check_price = okx_ws_public_service.get_conservative_price(norm_sym, side)
-            
-            # Se for live com low_prices/high_prices populados, sobrescrevemos com a janela de 120s
-            now = time.time()
-            if side.lower() == "buy":
-                low_data = okx_ws_public_service.low_prices.get(norm_sym)
-                if low_data and (now - low_data["ts"]) <= 120:
-                    current_price = okx_ws_public_service.get_current_price(norm_sym) or check_price
-                    check_price = min(current_price, low_data["low"])
-            else:
-                high_data = okx_ws_public_service.high_prices.get(norm_sym)
-                if high_data and (now - high_data["ts"]) <= 120:
-                    current_price = okx_ws_public_service.get_current_price(norm_sym) or check_price
-                    check_price = max(current_price, high_data["high"])
+            # 1. Tenta usar a função de preço conservativo com o symbol
+            check_price = okx_ws_public_service.get_conservative_price(symbol, side)
         except Exception:
             pass
 
-        # 2. Fallbacks sequenciais se o WebSocket retornar 0 (crucial para testes unitários com mock)
+        # 2. Fallbacks sequenciais se o WebSocket retornar 0
         if check_price <= 0:
             try:
-                # Fallback 1: Preço atual direto do WebSocket
                 check_price = okx_ws_public_service.get_current_price(symbol)
                 if check_price <= 0:
-                    # Fallback 2: Busca em cascata (REST -> Cache)
                     check_price = await self._get_current_price(symbol)
             except Exception:
                 pass
 
         if check_price > 0:
-            return (side.lower() == "buy" and check_price <= stop_price) or \
-                   (side.lower() == "sell" and check_price >= stop_price)
+            is_long = str(side).lower() in ("buy", "long", "b")
+            is_short = str(side).lower() in ("sell", "short", "s")
+            if is_long and check_price <= stop_price:
+                return True
+            if is_short and check_price >= stop_price:
+                return True
 
         return False
 
@@ -182,6 +190,8 @@ class SandboxService:
         """Arredonda stop price para o tick_size do contrato OKX."""
         if price <= 0 or tick_size <= 0:
             return price
+        if tick_size >= price:
+            return price
         tick = Decimal(str(tick_size))
         if stop_roi >= 0 and side.lower() == "buy":
             rounding = ROUND_CEILING
@@ -190,7 +200,8 @@ class SandboxService:
         else:
             rounding = ROUND_FLOOR if side.lower() == "buy" else ROUND_CEILING
         rounded = (Decimal(str(price)) / tick).quantize(Decimal("1"), rounding=rounding) * tick
-        return float(rounded.normalize())
+        res = float(rounded.normalize())
+        return res if res > 0 else price
 
     # ==================== ADAPTIVE STOP (V119 — 30M Structural) ====================
 
@@ -323,11 +334,11 @@ class SandboxService:
         Retorna dict:
           { "stop_price": float, "stop_roi": float, "source": str }
         """
-        leverage = 50.0
-        # [V123] Stops otimizados com distância mínima de 0.5% no preço
-        # 0.5% no preço com 50x = -25% ROI — dá espaço para o preço respirar
-        # Antes: LATERAL -8% (0.16% preço), TRENDING -10% (0.20% preço) — muito apertado
-        fallback_roi = -25.0
+        leverage = 15.0
+        if isinstance(contract_meta, dict):
+            leverage = float(contract_meta.get("leverage") or contract_meta.get("maxLeverage") or 15.0)
+        # [V148-PAYOFF] Stop inicial capado estritamente em -3.5% ROI para garantir R:R favorável (> 2.5:1)
+        fallback_roi = -3.5
         tick_size = 0.0
         if isinstance(contract_meta, dict):
             tick_size = float(contract_meta.get("tickSize", 0) or 0)
@@ -339,31 +350,31 @@ class SandboxService:
             # Verificar se o ROI resultante é razoável
             stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
             
-            # [V123] Capping estrito de segurança de risco (Founder Vision):
-            # Limita a no máximo -30% de ROI para proteger o capital e evitar perdas volumosas
-            # 30% ROI com 50x = 0.6% no preço — mínimo 0.5% para dar espaço
-            limit_roi = -30.0
+            # [V148-PAYOFF] Capping estrito de segurança de risco:
+            # Limita a no máximo -3.5% de ROI para proteger o capital e garantir Payoff > 2.5:1
+            limit_roi = -3.5
             if stop_roi < limit_roi:
                 logger.info(
-                    f"🧪 [SANDBOX-V119] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o limite máximo. "
+                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o teto. "
                     f"Ajustando para o teto rígido de {limit_roi:.1f}% ROI"
                 )
                 stop_roi = limit_roi
                 stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                 
-            if -40.0 <= stop_roi <= -25.0:
+            # [V148-PAYOFF] Aceita stops estruturais entre -3.5% e -1.8%
+            if -3.5 <= stop_roi <= -1.8:
                 source = "structural_30m"
                 if tick_size > 0:
                     stop_price = self._round_stop_to_tick(stop_price, tick_size, side, stop_roi)
                 logger.info(
-                    f"🧪 [SANDBOX-V123] {symbol} stop estrutural 30M aprovado: "
+                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural 30M aprovado: "
                     f"{stop_price:.4f} (ROI={stop_roi:.1f}%, source={source})"
                 )
                 return {"stop_price": stop_price, "stop_roi": stop_roi, "source": source}
             else:
                 logger.info(
-                    f"🧪 [SANDBOX-V123] {symbol} stop estrutural 30M rejeitado: "
-                    f"ROI={stop_roi:.1f}% fora do range [-40%, -25%] — usando fallback"
+                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural 30M rejeitado: "
+                    f"ROI={stop_roi:.1f}% fora do range [-3.5%, -1.8%] — usando fallback"
                 )
 
         # 2. [V119] Tentar fallback dinâmico por volatilidade ATR de 30M em mercado lateral
@@ -386,29 +397,21 @@ class SandboxService:
                     # Calcular ATR de 14 períodos
                     atr = sum(tr_list[-14:]) / 14.0 if tr_list else 0.0
                     if atr > 0:
-                        # Afasta o stop a uma distância de 1.5 * ATR em relação ao entry_price
+                        # Afasta o stop a uma distância moderada em relação ao entry_price
                         if side.lower() in ("buy", "long", "b"):
-                            stop_price = entry_price - (atr * 1.5)
+                            stop_price = entry_price - (atr * 1.0)
                         else:
-                            stop_price = entry_price + (atr * 1.5)
+                            stop_price = entry_price + (atr * 1.0)
                             
                         stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
                         
-                        # [V123] Trava o ROI de stop para manter consistência: mínimo -25% (0.5% no preço com 50x)
-                        if is_ranging:
-                            if stop_roi > -25.0:
-                                stop_roi = -25.0
-                                stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
-                            elif stop_roi < -40.0:
-                                stop_roi = -40.0
-                                stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
-                        else:
-                            if stop_roi > -25.0:
-                                stop_roi = -25.0
-                                stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
-                            elif stop_roi < -40.0:
-                                stop_roi = -40.0
-                                stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
+                        # [V148-PAYOFF] Trava o ROI de stop: teto -3.5%
+                        if stop_roi < -3.5:
+                            stop_roi = -3.5
+                            stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
+                        elif stop_roi > -2.0:
+                            stop_roi = -2.0
+                            stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                             
                         source = "volatility_atr"
                         if tick_size > 0:
@@ -483,12 +486,16 @@ class SandboxService:
         """Hook chamado sempre que novos sinais do radar são gerados."""
         if not signals:
             return
+        logger.info(f"🧪 [SANDBOX-PULSE] Recebidos {len(signals)} sinais (lock={self._process_lock.locked()})")
         async with self._process_lock:
             await self._process_radar_signals(signals)
 
     async def _process_radar_signals(self, signals: List[Dict[str, Any]]):
         """Processa sinais do radar com lock para evitar duplicatas por race condition."""
         logger.info(f"🧪 [SANDBOX-DEBUG] _process_radar_signals chamado com {len(signals)} sinais")
+        s1_count = sum(1 for s in signals if s.get("type") == "S1_LATERAL")
+        if s1_count > 0:
+            logger.info(f"🧪 [SANDBOX-S1-DEBUG] {s1_count} sinais S1_LATERAL detectados entre {len(signals)} totais")
         for sig in signals:
             raw_symbol = sig.get("symbol")
             if not raw_symbol:
@@ -499,6 +506,7 @@ class SandboxService:
             if signal_id in self._processed_signals:
                 continue
             self._processed_signals.add(signal_id)
+            logger.info(f"🧪 [SANDBOX-SIG-PASS] {signal_id} {sig.get('symbol')} passou dedup")
             if len(self._processed_signals) > 500:
                 self._processed_signals.clear()
 
@@ -507,7 +515,7 @@ class SandboxService:
             raw_strat = sig.get("strategy") or sig.get("strategy_class") or sig.get("strategy_type") or "RADAR"
 
             raw_strat_upper = str(raw_strat).upper()
-            if raw_strat_upper in ("ALPHA SHIELD", "VELOCITY FLOW", "DECOR SHADOW"):
+            if raw_strat_upper in ("ALPHA SHIELD", "VELOCITY FLOW", "DECOR SHADOW", "VWAP SNIPER"):
                 strategy = raw_strat_upper
             elif raw_strat_upper in ("DVAP", "MOLA", "FAS"):
                 strategy = "ALPHA SHIELD"
@@ -594,53 +602,26 @@ class SandboxService:
             except Exception as e:
                 logger.error(f"Error checking BTC macro trend for Sandbox: {e}")
 
-            # [V122] LONG trades: restrição em tendência de BTC
-            # Se BTC em QUEDA (bear), exige pearson < 0.30 (decorrelação forte) para LONG
-            # Se BTC em ALTA ou lateral, mantém filtro relaxado (pearson < 0.50 OU conf >= 60)
-            if direction == "LONG":
-                decor_data = sig.get("decorrelation") or {}
-                # Fallback para ambas as nomenclaturas (signal_generator usa is_decorrelated, radar usa is_active)
-                is_decorrelated = decor_data.get("is_decorrelated", decor_data.get("is_active", False))
-                pearson = decor_data.get("pearson", decor_data.get("correlation", 1.0))
-                decor_confidence = decor_data.get("confidence", decor_data.get("score", 0.0))
-
-                # Se dados de decorrelação ausentes (pearson perto de 1.0 ou sem signals), tenta computar ao vivo
-                if pearson >= 0.99 or not decor_data.get("signals"):
-                    try:
-                        from services.signal_generator import signal_generator
-                        d_res = await signal_generator.detect_btc_decorrelation(symbol)
-                        is_decorrelated = d_res.get("is_decorrelated", d_res.get("is_active", False))
-                        pearson = d_res.get("pearson", d_res.get("correlation", 1.0))
-                        decor_confidence = d_res.get("confidence", d_res.get("score", 0.0))
-                    except Exception:
-                        pass
-
-                # [V122] Lógica adaptativa: BTC bearish → filtro mais restritivo
-                btc_trend = btc_macro.get("trend", "sideways").upper() if isinstance(btc_macro, dict) else "SIDEWAYS"
-                if btc_trend in ("BEAR", "BEARISH"):
-                    # Queda: só LONG com decorrelação forte (pearson < 0.30)
-                    passes_pearson = pearson < 0.30
-                    passes_confidence = decor_confidence >= 70
-                    if not (passes_pearson or passes_confidence):
-                        logger.info(
-                            f"🧪 [SANDBOX-V122-LONG-BEAR] {symbol} {strategy} LONG descartado — "
-                            f"BTC BEAR + pearson={pearson:.2f} (< 0.30={passes_pearson}) "
-                            f"conf={decor_confidence:.0f} (>= 70={passes_confidence})"
-                        )
-                        continue
-                else:
-                    # Alta/lateral: filtro relaxado (OR)
-                    passes_pearson = pearson < 0.50
-                    passes_confidence = decor_confidence >= 60
-                    if not (passes_pearson or passes_confidence):
-                        logger.info(
-                            f"🧪 [SANDBOX-V122-LONG] {symbol} {strategy} LONG descartado — "
-                            f"pearson={pearson:.2f} (< 0.50={passes_pearson}) "
-                            f"conf={decor_confidence:.0f} (>= 60={passes_confidence})"
-                        )
-                        continue
-                # Se passou no filtro V120, também passa no MACRO-BLOCK
-                decor_bypass = True
+            # [V130-FIX] Sandbox: filtro LONG seletivo por estratégia.
+            # DECOR SHADOW é estratégia de reversão em mercado lateral — entradas LONG
+            # em TRENDING sem decorrelação vão direto para stop-loss (dados confirmaram WR 46%).
+            # Por isso, DECOR SHADOW/HUNTER LONG mantém o gate de decorrelação ativo.
+            # Demais estratégias (VELOCITY FLOW, ALPHA SHIELD) podem entrar LONG sem restrição
+            # no sandbox para gerar dados representativos.
+            # [V130-FIX-DECOR-SHADOW] 2026-07-17: Bloqueio de LONG sem decorrelação para DECOR SHADOW
+            if strategy in ("DECOR SHADOW", "DECOR_HUNTER"):
+                # DECOR SHADOW mantém o gate — só entra LONG se passar no decorrelation check
+                if not decor_bypass:
+                    logger.info(
+                        f"🧪 [V130-FIX-DECOR-SHADOW] {symbol} {direction} DECOR SHADOW bloqueado — "
+                        f"correlação BTC ativa exige direção oposta para reversal"
+                    )
+                    continue
+            else:
+                # Demais estratégias: LONG liberado sem restrição (sandbox mode)
+                if direction == "LONG":
+                    logger.debug(f"🧪 [SANDBOX-V122-SKIP] {symbol} {strategy} LONG permitido (sandbox sem risco)")
+                    decor_bypass = True
 
             # [V117] Filtro de horário e ADX noturno
             # UTC 22h-08h = noite asiática/madrugada europeia — chop mesmo com ADX=TRENDING
@@ -703,15 +684,34 @@ class SandboxService:
             # SHORTs não têm proteção equivalente mas o sandbox é simulação — sem risco real.
             # O MACRO-BLOCK original (V115) ainda roda no sistema real (FlashAgent/Captain).
 
-            entry_price = float(sig.get("price") or sig.get("currentPrice") or 0.0)
-
-            if entry_price <= 0.0:
-                entry_price = okx_ws_public_service.get_current_price(symbol)
-                if entry_price <= 0.0:
-                    logger.debug(f"🧪 [SANDBOX-NO-PRICE] {symbol} {strategy} {direction} sem preço — descartado (sig.price={sig.get('price')}, sig.currentPrice={sig.get('currentPrice')})")
-                    continue
+            from services.agents.execution_auditor import execution_auditor_agent
+            sanitized = await execution_auditor_agent.sanitize_signal(sig)
+            if not sanitized.get("valid"):
+                logger.debug(f"🧪 [SANDBOX-NO-PRICE] {symbol} sem preço válido após auditoria — descartado")
+                continue
+            entry_price = sanitized["entry_price"]
 
             active_trades = await database_service.get_sandbox_trades(active_only=True)
+            # [V131-FIX] Limite corrigido: de 10 para 5 (consistente com _MAX_SLOTS do VWAP SNIPER)
+            if len(active_trades) >= 5:
+                logger.debug(f"🧪 [SANDBOX-SLOTS-FULL] Já existem {len(active_trades)} trades de Scalping ativos. Ignorando novos sinais.")
+                continue
+
+
+            # [Swing Lab] Cross-Block: bloqueia ativo se ja esta ativo no Swing Lab
+            # Simula conta real futura onde as duas estrategias compartilham capital
+            try:
+                swing_active = await database_service.get_swing_trades(active_only=True)
+                swing_symbols = {t.symbol.replace(".P", "").upper() for t in swing_active}
+                if symbol in swing_symbols:
+                    logger.debug(
+                        f"🧪 [SCALP-CROSS-BLOCK] {symbol} esta ativo no Swing Lab — "
+                        f"Scalping Lab bloqueado para evitar conflito de posicao."
+                    )
+                    continue
+            except Exception as cb_err:
+                logger.warning(f"[SCALP-CROSS-BLOCK] Falha ao verificar Swing Lab: {cb_err}")
+
             # [V122] Máximo 3 trades simultâneos por símbolo (qualquer direção/estratégia)
             # INJUSDT apareceu ~20 vezes no sandbox — over-trading destrói lucro
             symbol_active_count = sum(
@@ -735,11 +735,28 @@ class SandboxService:
                 logger.debug(f"🧪 [SANDBOX-ALREADY-ACTIVE] {symbol} {strategy} {direction} já está ativo — ignorando sinal duplicado")
                 continue
 
-            # [V117] Cooldown pós stop-out POR DIREÇÃO (symbol+direction)
-            # Aumentado para 3600s (1 hora) para evitar perdas sequenciais no mesmo ativo durante ressaca
+            # [V131-FIX] Bloquear abertura de direção oposta no mesmo par (anti-hedge acidental)
+            # Detectado no diagnóstico: XRPUSDT LONG + XRPUSDT SHORT abertos simultaneamente
+            opposite_dir = "SHORT" if direction == "LONG" else "LONG"
+            has_opposite = any(
+                t.symbol.replace(".P", "").upper() == symbol
+                and t.direction == opposite_dir
+                for t in active_trades
+            )
+            if has_opposite:
+                logger.info(
+                    f"🧪 [SANDBOX-ANTI-HEDGE] {symbol} já tem {opposite_dir} ativo — "
+                    f"bloqueando {direction} para evitar hedge acidental."
+                )
+                continue
+
+            # [V123.1] Cooldown pós stop-out POR DIREÇÃO (symbol+direction)
+            # Calibrado: 1800s (30min) no 1º stop, 3600s (1h) em stops consecutivos (>= 2)
+            # Motivo: 3600s era excessivo — bloqueava o ativo por 1h inteira no 1º erro,
+            # impedindo o sistema de reentrar mesmo após mudança de regime de mercado.
             cooldown_key = (symbol, direction)
             consecutive = self._consecutive_stops.get(cooldown_key, 0)
-            COOLDOWN_SECS = 3600.0 if consecutive >= 1 else 300.0  # 1 hora se tiver stopout, senão 5min
+            COOLDOWN_SECS = 3600.0 if consecutive >= 2 else 1800.0  # 30min no 1º stop, 1h em stops seguidos
             last_sl_ts = self._stop_cooldown.get(cooldown_key, 0.0)
             elapsed = time.time() - last_sl_ts
             if elapsed < COOLDOWN_SECS:
@@ -769,45 +786,49 @@ class SandboxService:
             score = float(sig.get("score", 0) or 0)
             boosted_score = score + tf_result.get("score_boost", 0.0)
 
-            # [V123] Explosion Score obrigatório >= 50 — score=0 (dado ausente) também bloqueia.
-            # Antes: score >= 30 (muito permissivo). ATOMUSDT entrou com score=59 mas VOL_DRY.
-            # Agora: score >= 50 (exige evidência forte de Fase 1+2).
-            explosion_score = float(sig.get("explosion_score", 0) or 0)
-            EXPLOSION_SCORE_MIN = 50
-            if explosion_score < EXPLOSION_SCORE_MIN:
+            # [V124.5] Explosion Score — em mercado lateral (ADX < 25) o sandbox opera com
+            # entradas por 1m/5m sem depender de explosão de volatilidade. Apenas em TRENDING
+            # o explosion score é relevante para filtrar entradas contra-tendência.
+            explosion_score = float(sig.get("explosion_score", 0) or sig.get("score", 0) or 0)
+            if not is_ranging and explosion_score < 35:
                 logger.info(
                     f"🧪 [SANDBOX-EXPLOSION-BLOCK] {symbol} {strategy} {direction} bloqueado — "
-                    f"explosion_score={explosion_score:.0f} < {EXPLOSION_SCORE_MIN} "
-                    f"(sem evidência de Fase 1+2; score=0 = dado ausente também bloqueia)"
+                    f"explosion_score={explosion_score:.0f} < 35 (TRENDING exige explosão)"
                 )
                 continue
 
-            # [V122] DECOR SHADOW exige evidência de Fase 2 (compressão).
-            # DECOR SHADOW é estratégia de reversão de exaustão — por definição precisa de compressão.
-            # Sem BB comprimido + range compression = sem setup. Preço pode continuar caindo livremente.
-            # P2: prefixo nos explosion_signals indica sinais de Fase 2 do PhaseDetector.
+            # [V124.5] DECOR SHADOW — Fase 2 exigida APENAS se PhaseDetector tem dados (explosion_score >= 20).
+            # Pós-deploy o PhaseDetector pode levar horas pra acumular histórico.
+            # Sem dados de BB/Range, P2 nunca dispara e o sandbox nunca abre trades.
             if strategy == "DECOR SHADOW":
                 explosion_signals_list = sig.get("explosion_signals") or []
                 phase2_signals = [s for s in explosion_signals_list if str(s).startswith("P2:")]
-                if len(phase2_signals) < 1:
+                has_vol_dry = any("VOL_DRY" in str(s) for s in explosion_signals_list)
+
+                # [V125] Refinamento DECOR SHADOW: Exigir mais rigor para evitar falsos rompimentos e violinadas.
+                # Exigir no mínimo Fase 2 ou VOL_DRY sempre, exceto se score for altíssimo.
+                if len(phase2_signals) < 1 and not has_vol_dry and explosion_score < 50:
                     logger.info(
-                        f"🧪 [SANDBOX-DECOR-PHASE2-BLOCK] {symbol} DECOR SHADOW bloqueado — "
-                        f"sem evidência de Fase 2 (compressão BB/Range). "
+                        f"🧪 [SANDBOX-DECOR-BLOCK] {symbol} DECOR SHADOW bloqueado — "
+                        f"sem evidência de Fase 2 (compressão) nem VOL_DRY. "
                         f"signals={explosion_signals_list[:5]}"
                     )
                     continue
 
-                # [V123] DECOR SHADOW bloqueado com VOL_DRY — volume seco = sem força institucional
-                # Sem volume, o preço pode continuar caindo livremente sem suporte.
-                # ATOMUSDT entrou com P2:VOL_DRY ratio=0.00 e foi direto para stop-loss.
-                has_vol_dry = any("VOL_DRY" in str(s) for s in explosion_signals_list)
-                if has_vol_dry:
+                # Aumentar a exigência do explosion_score base (antes passava qualquer coisa < 20)
+                if explosion_score < 30:
                     logger.info(
-                        f"🧪 [SANDBOX-DECOR-VOLDRY-BLOCK] {symbol} DECOR SHADOW bloqueado — "
-                        f"volume seco (VOL_DRY detectado). Sem força institucional para reversão. "
-                        f"signals={explosion_signals_list[:5]}"
+                        f"🧪 [SANDBOX-DECOR-BLOCK] {symbol} DECOR SHADOW bloqueado — "
+                        f"explosion_score={explosion_score:.0f} muito baixo (mínimo 30)."
                     )
                     continue
+
+                if has_vol_dry and explosion_score >= 45:
+                    logger.info(
+                        f"🧪 [SANDBOX-DECOR-VOLDRY-ALLOW] {symbol} DECOR SHADOW permitido com VOL_DRY forte — "
+                        f"explosion_score={explosion_score:.0f} >= 45. "
+                        f"signals={explosion_signals_list[:5]}"
+                    )
 
 
 
@@ -818,18 +839,51 @@ class SandboxService:
             contract_meta = sig.get("contract_info") or {}
             if not contract_meta or not contract_meta.get("ctVal"):
                 try:
-                    from services.okx_rest import okx_rest_service
-                    inst_info = await okx_rest_service.get_instrument_info(symbol)
-                    if inst_info:
-                        contract_meta = {
-                            "ctVal": float(inst_info.get("lotSizeFilter", {}).get("ctVal") or 1.0),
-                            "lotSize": float(inst_info.get("lotSizeFilter", {}).get("qtyStep") or 1.0),
-                            "minQty": float(inst_info.get("lotSizeFilter", {}).get("minOrderQty") or 1.0),
-                            "tickSize": float(inst_info.get("priceFilter", {}).get("tickSize") or 0.01),
-                            "maxLeverage": 50.0
-                        }
+                    from services.okx_service import okx_service
+                    details = await okx_service.get_instrument_details(symbol)
+                    contract_meta = {
+                        "ctVal": float(details.get("ctVal", "1.0")),
+                        "lotSize": float(details.get("lotSize", "1.0")),
+                        "minQty": float(details.get("minSz", "1.0")),
+                        "tickSize": float(details.get("tickSize", "0.001")),
+                        "maxLeverage": 15.0,
+                        "leverage": 15.0
+                    }
                 except Exception as meta_err:
                     logger.debug(f"[SANDBOX] Erro ao resolver metadados extras de contrato para {symbol}: {meta_err}")
+
+            # [V130-FIX] Position sizing dinâmico por score do sinal.
+            # Diagnóstico: 60% do PnL veio de 5 trades outliers. Sinais fracos
+            # (score baixo) têm menor probabilidade de acerto — devem usar margem reduzida.
+            # Sistema:
+            #   score >= 85: 100% da margem (trades de alta convicção)
+            #   score 70-84:  60% da margem (convicção média)
+            #   score 55-69:  30% da margem (convicção baixa — exploratória)
+            #   score < 55:   bloqueado (não deve passar dos gates anteriores)
+            # O score usado é o maior entre: explosion_score, boosted_score, score do sinal
+            signal_score = max(
+                explosion_score or 0,
+                boosted_score or 0,
+                score or 0,
+                float(sig.get("score", 0))
+            )
+            current_total_balance = await database_service.get_sandbox_unified_balance()
+            base_margin = round(current_total_balance * 0.02, 2)  # 2% da banca total
+            if signal_score >= 85:
+                score_mult = 1.0
+            elif signal_score >= 70:
+                score_mult = 0.60
+            elif signal_score >= 55:
+                score_mult = 0.30
+            else:
+                score_mult = 0.0  # não deve acontecer, mas segurança
+            dynamic_margin = round(base_margin * score_mult, 2)
+            contract_meta["margin"] = dynamic_margin
+            logger.info(
+                f"🧪 [V130-POSITION-SIZING] {symbol} {strategy} score={signal_score:.0f} "
+                f"mult={score_mult:.2f} margem=${dynamic_margin:.2f} "
+                f"(base=${base_margin:.2f})"
+            )
             stop_result = await self._calculate_adaptive_stop(symbol, entry_price, side, contract_meta, is_ranging)
             stop_price = stop_result["stop_price"]
             initial_stop_roi = stop_result["stop_roi"]
@@ -880,56 +934,148 @@ class SandboxService:
                 },
                 "contract_meta": contract_meta,
                 # [V121] Phase Detector — salva score e sinais junto com o trade
-                "explosion_score": explosion_score,
-                "explosion_signals": sig.get("explosion_signals", []),
+                "explosion_score": explosion_score if explosion_score > 0 else (boosted_score or score or 0.0),
+                "explosion_signals": sig.get("explosion_signals") or sig.get("reasons") or [],
             }
 
             await database_service.save_sandbox_trade(trade_data)
             asyncio.create_task(okx_ws_public_service.sync_topics([symbol]))
 
-            # [V123] ESPELHAMENTO DE CONTAS REAL DESATIVADO — Sandbox ainda em validação
-            # Motivo: 2 DECOR SHADOW LONGs em TRENDING → direto para stop-loss
-            # Reativar apenas após sandbox atingir WR > 55% em 50+ trades
-            # Para reativar: definir SANDBOX_MIRROR_ENABLED = True
-            SANDBOX_MIRROR_ENABLED = False
+            # [V124] ESPELHAMENTO DE CONTAS REAL ATIVADO — Todas as ordens reais com 50x
+            # 40% da banca, margem $0.50-$1.00 por trade, contract info real da OKX
             from config import settings
-            if SANDBOX_MIRROR_ENABLED and settings.OKX_API_KEY_MASTER and settings.OKX_EXECUTION_MODE != "PAPER":
+            if settings.OKX_API_KEY_MASTER and settings.OKX_EXECUTION_MODE != "PAPER":
+                # [V124.1] Log claro indicando que o mirror real está ATIVO
+                if not self._mirror_mode_logged:
+                    self._mirror_mode_logged = True
+                    logger.info(
+                        f"🔌 [V124-MIRROR] ═══ MIRROR REAL ATIVADO ═══ | "
+                        f"OKX_EXECUTION_MODE={settings.OKX_EXECUTION_MODE} | "
+                        f"Circuit Breaker: {self.MIRROR_CIRCUIT_BREAKER_THRESHOLD} falhas → pausa de {self.MIRROR_CIRCUIT_BREAKER_COOLDOWN:.0f}s"
+                    )
+
                 async def execute_real_mirror_order():
                     try:
-                        from services.okx_rest import okx_rest_service
-                        # Puxar saldo real da conta OKX
-                        bal_data = await okx_rest_service.get_balance()
-                        balance = 100.0
-                        if bal_data and bal_data.get("retCode") == 0:
-                            balance = float(bal_data["result"].get("available", 100.0))
-                            
-                        # [V120] Margem adaptativa baseada no win rate histórico do par
-                        margin = await self._get_adaptive_margin(symbol, balance)
-                        ct_val = float(contract_meta.get("ctVal") or 1.0)
-                        qty_step = float(contract_meta.get("lotSize") or 1.0)
+                        from services.okx_service import okx_service
                         
-                        # Qty = (margem * alavancagem) / (preço * ctVal)
-                        raw_qty = (margin * 50.0) / (entry_price * ct_val)
-                        import math
-                        qty = float(math.floor(raw_qty / qty_step) * qty_step)
-                        
+                        # [V124.1] CIRCUIT BREAKER — verificar se está em pausa por falhas repetidas
+                        now = time.time()
+                        if now < self._mirror_circuit_open_until:
+                            remaining = int(self._mirror_circuit_open_until - now)
+                            logger.warning(
+                                f"🔌 [SANDBOX-MIRROR-BLOCKED] Circuit breaker ATIVO — "
+                                f"{self._mirror_consecutive_failures} falhas consecutivas. "
+                                f"Retomando em {remaining}s"
+                            )
+                            return
+
+                        # 1. Buscar saldo real da conta OKX
+                        balance = await okx_service.get_wallet_balance()
+                        if balance <= 0:
+                            logger.warning(
+                                f"⚠️ [SANDBOX-MIRROR] Saldo real indisponível ou zero para {symbol} — pulando ordem"
+                            )
+                            return
+
+                        # 2. Validar e calibrar ordem usando o Sentinela (ExecutionAuditorAgent)
+                        from services.agents.execution_auditor import execution_auditor_agent
+                        audit_res = await execution_auditor_agent.validate_order(
+                            symbol=symbol,
+                            direction=direction,
+                            entry_price=entry_price,
+                            stop_price=stop_price,
+                            balance=balance,
+                            leverage=15.0
+                        )
+
+                        if not audit_res.get("valid"):
+                            logger.warning(f"⚠️ [SANDBOX-MIRROR-INVALID] Ordem bloqueada pelo auditor: {audit_res.get('reason')}")
+                            return
+
+                        qty = audit_res["qty"]
+                        margin = audit_res["margin"]
+                        stop_price = audit_res["sl_price"]
+                        notional = audit_res["notional"]
+                        details = audit_res["details"]
+
+                        # [V124.1] LOG DETALHADO para debug em produção
+                        logger.info(
+                            f"🔌 [SANDBOX-MIRROR-OPEN] {symbol} {direction} | "
+                            f"Saldo=${balance:.2f} | Margem=${margin:.2f} | "
+                            f"Qty={qty} contr | ctVal={details['ctVal']} | lotSize={details['lotSize']} | minSz={details['minSz']} | "
+                            f"Notional=${notional:.2f} | Preço=${entry_price:.4f} | "
+                            f"SL={stop_price:.4f} | Leverage=15x | "
+                            f"CircuitFails={self._mirror_consecutive_failures}"
+                        )
+
+
                         if qty > 0:
-                            # Executar place_atomic_order com os stops correspondentes à simulação
-                            logger.info(f"🔌 [SANDBOX-MIRROR-OPEN] Replicando ordem simulada de {symbol} ({direction}) na conta real OKX... Margem: ${margin:.2f}, Qty: {qty} contr, SL: {stop_price:.4f}")
                             okx_side = "Buy" if direction == "LONG" else "Sell"
-                            res = await okx_rest_service.place_atomic_order(
+                            
+                            # [V124.4] FORÇAR ALAVANCAGEM antes da ordem, caso a conta OKX esteja no padrão (ex: 10x)
+                            leverage_result = await okx_service.set_leverage(symbol, 15.0, "cross")
+                            if leverage_result and leverage_result.get("code") != "0":
+                                logger.warning(f"⚠️ [SANDBOX-MIRROR] Falha ao configurar 15x para {symbol}: {leverage_result.get('msg')} — a ordem será tentada com a alavancagem atual.")
+                                
+                            res = await okx_service.place_atomic_order(
                                 symbol=symbol,
                                 side=okx_side,
                                 qty=qty,
                                 sl_price=stop_price,
-                                leverage=50.0,
-                                margin_mode="cross" # margem cruzada
+                                leverage=15.0
                             )
-                            logger.info(f"🔌 [SANDBOX-MIRROR-OPEN-RESPONSE] Resposta da ordem real espelhada: {res}")
+
+                            # [V124.1] LOG DE RESULTADO detalhado + circuit breaker
+                            if res and res.get("code") == "0":
+                                ord_data = res.get("data", [{}])[0] if res.get("data") else {}
+                                ord_id = ord_data.get("ordId", "N/A")
+                                s_code = ord_data.get("sCode", "N/A")
+                                s_msg = ord_data.get("sMsg", "N/A")
+                                logger.info(
+                                    f"✅ [SANDBOX-MIRROR-OPEN] SUCESSO {symbol} {direction} | "
+                                    f"ordId={ord_id} | sCode={s_code} | sMsg={s_msg} | "
+                                    f"Qty={qty} @ ${entry_price:.4f} | Notional=${notional:.2f}"
+                                )
+                                # [V124.1] Sucesso: resetar circuit breaker
+                                self._mirror_consecutive_failures = 0
+                            else:
+                                err_code = res.get("code", "?") if res else "NULL"
+                                err_msg = res.get("msg", "ERRO_DESCONHECIDO") if res else "SEM_RESPOSTA"
+                                err_detail = ""
+                                if res and res.get("data"):
+                                    ord_err = res["data"][0]
+                                    err_detail = f" | sCode={ord_err.get('sCode')} | sMsg={ord_err.get('sMsg')}"
+                                logger.error(
+                                    f"❌ [SANDBOX-MIRROR-OPEN] FALHA {symbol} {direction} | "
+                                    f"code={err_code} | msg={err_msg}{err_detail} | "
+                                    f"Saldo=${balance:.2f} | Qty={qty} | Margem=${margin:.2f}"
+                                )
+                                # [V124.1] Falha: incrementar circuit breaker
+                                self._mirror_consecutive_failures += 1
+                                if self._mirror_consecutive_failures >= self.MIRROR_CIRCUIT_BREAKER_THRESHOLD:
+                                    self._mirror_circuit_open_until = time.time() + self.MIRROR_CIRCUIT_BREAKER_COOLDOWN
+                                    logger.warning(
+                                        f"🔌 [SANDBOX-MIRROR-CIRCUIT-BREAKER] {self._mirror_consecutive_failures} falhas consecutivas — "
+                                        f"Circuit breaker ABERTO por {self.MIRROR_CIRCUIT_BREAKER_COOLDOWN:.0f}s"
+                                    )
                         else:
-                            logger.warning(f"🔌 [SANDBOX-MIRROR-OPEN-SKIP] Qty calculada foi zero para {symbol} (Margem: ${margin:.2f})")
+                            logger.warning(
+                                f"⚠️ [SANDBOX-MIRROR-OPEN-SKIP] Qty zero para {symbol} | "
+                                f"balance=${balance:.2f} | margin=${margin:.2f} | ctVal={ct_val}"
+                            )
                     except Exception as mirror_err:
-                        logger.error(f"❌ [SANDBOX-MIRROR-OPEN-ERROR] Falha ao replicar ordem real de {symbol}: {mirror_err}")
+                        self._mirror_consecutive_failures += 1
+                        if self._mirror_consecutive_failures >= self.MIRROR_CIRCUIT_BREAKER_THRESHOLD:
+                            self._mirror_circuit_open_until = time.time() + self.MIRROR_CIRCUIT_BREAKER_COOLDOWN
+                            logger.warning(
+                                f"🔌 [SANDBOX-MIRROR-CIRCUIT-BREAKER] {self._mirror_consecutive_failures} falhas consecutivas — "
+                                f"Circuit breaker ABERTO por {self.MIRROR_CIRCUIT_BREAKER_COOLDOWN:.0f}s"
+                            )
+                        logger.error(
+                            f"❌ [SANDBOX-MIRROR-OPEN-ERROR] {symbol} | "
+                            f"Fails={self._mirror_consecutive_failures} | Error={mirror_err}",
+                            exc_info=True
+                        )
                 
                 asyncio.create_task(execute_real_mirror_order())
 
@@ -938,7 +1084,6 @@ class SandboxService:
                 f"Entry={entry_price:.4f} | SL={stop_price:.4f} ({initial_stop_roi:.1f}%, src={stop_result['source']}) | "
                 f"MktPrice={mkt_price:.4f} | TickSize={contract_meta.get('tickSize', 'N/A')}"
             )
-
     # ==================== [V114] 1M CONFIRMATION FILTER ====================
 
     async def _check_1m_confirmation(self, symbol: str, side: str) -> bool:
@@ -1143,8 +1288,9 @@ class SandboxService:
             for sym, stats in pair_stats.items():
                 if stats["total"] >= 3:  # [V118] Reduzido de 5 para 3 trades
                     wr = (stats["wins"] / stats["total"]) * 100.0
-                    # [V118] Critério mais agressivo: PnL < -15% (era -20%) e WR < 35% (era 30%)
-                    if stats["pnl"] < -15.0 and wr < 35.0:
+                    # [V125.2] Critério mais estrito para Scalping: 
+                    # Bloqueia se Win Rate for <= 40% OU se o PnL for desastroso (< -20%) independente do WR
+                    if (stats["pnl"] < -10.0 and wr <= 40.0) or stats["pnl"] < -20.0:
                         if sym not in self._auto_blocklist:
                             self._auto_blocklist.add(sym)
                             newly_blocked.append(sym)
@@ -1183,7 +1329,114 @@ class SandboxService:
         last_blocklist_check = 0.0
         while self.is_running:
             try:
-                active_trades = await database_service.get_sandbox_trades(active_only=True)
+                # [V126-LOCK-IN] Recalcular saldo consolidado e controlar o Protocolo Lock-In
+                now_ts = time.time()
+                from config import settings
+                
+                # A cada 10 segundos, atualiza o saldo fechado (base) do Sandbox
+                if now_ts - self.last_balance_recalc >= 10.0 or self.last_balance_recalc == 0.0:
+                    try:
+                        all_scalps = await database_service.get_sandbox_trades(active_only=False)
+                        all_swings = await database_service.get_swing_trades(active_only=False)
+                        
+                        closed_pnl_usd = 0.0
+                        for t in all_scalps:
+                            if t.status != "ACTIVE":
+                                _m = float((t.contract_meta or {}).get("margin", 200.0))
+                                closed_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * _m
+                        for t in all_swings:
+                            if t.status != "ACTIVE":
+                                _m = float((t.contract_meta or {}).get("margin", 200.0))
+                                closed_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * _m
+                                
+                        self.base_balance_cache = 10000.0 + closed_pnl_usd
+                        self.last_balance_recalc = now_ts
+                    except Exception as e:
+                        logger.error(f"[LOCK-IN] Erro ao recalcular saldo fechado base: {e}")
+                
+                # A cada segundo, adiciona o PnL aberto de todos os trades ativos (scalp + swing)
+                active_trades_for_pnl = await database_service.get_sandbox_trades(active_only=True)
+                active_pnl_usd = 0.0
+                for t in active_trades_for_pnl:
+                    _m = float((t.contract_meta or {}).get("margin", 200.0))
+                    active_pnl_usd += (float(t.current_roi or 0.0) / 100.0) * _m
+                
+                try:
+                    active_swings = await database_service.get_swing_trades(active_only=True)
+                    for t in active_swings:
+                        _m = float((t.contract_meta or {}).get("margin", 200.0))
+                        active_pnl_usd += (float(t.current_roi or 0.0) / 100.0) * _m
+                except Exception:
+                    pass
+                
+                # Saldo consolidado
+                consolidated = self.base_balance_cache + active_pnl_usd
+                database_service.current_consolidated_balance = consolidated
+                
+                # Configurar limites com base no config.py
+                trigger_pct = getattr(settings, "SANDBOX_LOCK_IN_TRIGGER_PERCENT", 10.0)
+                database_service.lock_in_trigger_balance = 10000.0 * (1 + trigger_pct / 100.0)
+                database_service.lock_in_floor_balance = 10000.0 * (1 + (trigger_pct / 2.0) / 100.0)
+                
+                # Gatilho de Ativação do Protocolo
+                if consolidated >= database_service.lock_in_trigger_balance:
+                    if not database_service.lock_in_active:
+                        database_service.lock_in_active = True
+                        logger.warning(f"🔒 [LOCK-IN-ACTIVATED] Banca consolidada atingiu ${consolidated:.2f}! Protocolo de Defesa Ativo.")
+                elif consolidated <= 10000.0:
+                    if database_service.lock_in_active:
+                        database_service.lock_in_active = False
+                        logger.info("🛡️ [LOCK-IN-DEACTIVATED] Banca recuou abaixo do valor inicial. Protocolo inativado.")
+
+                # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
+                base = 10000.0
+                emergency_floor = base * 0.85  # Piso de emergência de -15% caso não haja lucro travado
+
+                if consolidated > database_service.equity_peak:
+                    database_service.equity_peak = consolidated
+
+                peak_profit = max(0.0, database_service.equity_peak - base)
+                profit_pct = (consolidated - base) / base * 100.0 if base > 0 else 0.0
+
+                min_defense_profit = base * 0.03  # Exige ao menos 3% de lucro real ($300) para começar a travar lucro
+                if peak_profit >= min_defense_profit:
+                    lock_ratio = getattr(settings, "EQUITY_DEFENSE_LOCK_RATIO", 0.80)
+                    database_service.equity_floor = base + (peak_profit * lock_ratio)
+                else:
+                    database_service.equity_floor = emergency_floor
+
+                stop_l1 = getattr(settings, "EQUITY_DEFENSE_STOP_L1", 7.0)
+                stop_l2 = getattr(settings, "EQUITY_DEFENSE_STOP_L2", 5.0)
+                stop_l3 = getattr(settings, "EQUITY_DEFENSE_STOP_L3", 3.0)
+
+                old_level = database_service.equity_defense_level
+
+                if consolidated < database_service.equity_floor:
+                    database_service.equity_defense_level = 4
+                    database_service.equity_defense_stop_pct = 0.0
+                elif profit_pct >= 10.0:
+                    database_service.equity_defense_level = 3
+                    database_service.equity_defense_stop_pct = stop_l3
+                elif profit_pct >= 5.0:
+                    database_service.equity_defense_level = 2
+                    database_service.equity_defense_stop_pct = stop_l2
+                elif profit_pct >= 3.0:
+                    database_service.equity_defense_level = 1
+                    database_service.equity_defense_stop_pct = stop_l1
+                else:
+                    database_service.equity_defense_level = 0
+                    database_service.equity_defense_stop_pct = 0.0
+
+                if database_service.equity_defense_level != old_level:
+                    labels = {0: "OFF", 1: "L1_LEVE", 2: "L2_MODERADO", 3: "L3_FORTE", 4: "CRITICO"}
+                    label = labels.get(database_service.equity_defense_level, "?")
+                    logger.warning(
+                        f"🛡️ [EQUITY-DEFENSE] Nível mudou para {label} "
+                        f"(banca=${consolidated:.2f} pico=${database_service.equity_peak:.2f} "
+                        f"piso=${database_service.equity_floor:.2f})"
+                    )
+
+                active_trades = active_trades_for_pnl
                 if not active_trades:
                     await asyncio.sleep(1.0)
                     continue
@@ -1226,22 +1479,35 @@ class SandboxService:
             )
             return
 
+        # [V136.2] Price sanity check — reject if price is >15% from entry (stale/spike data)
+        price_drift_pct = abs(current_price - entry_price) / entry_price * 100.0
+        if price_drift_pct > 15.0:
+            logger.warning(
+                f"[SANDBOX-PRICE-SPIKE] {symbol} | Entry={entry_price:.4f} Current={current_price:.4f} | "
+                f"Drift={price_drift_pct:.1f}% > 15% — provavel preco stale/spike, ignorando tick"
+            )
+            return
+
         # 2. Leverage e side
-        leverage = 50.0
+        leverage = 15.0
         if isinstance(trade.contract_meta, dict):
             try:
-                leverage = float(trade.contract_meta.get("maxLeverage", 50.0) or 50.0)
+                leverage = float(trade.contract_meta.get("leverage") or trade.contract_meta.get("maxLeverage") or 15.0)
             except (ValueError, TypeError):
-                leverage = 50.0
+                leverage = 15.0
 
         # 3. Calcular ROI
         current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
+        # [V136.2] Sanity cap: com 50x, 300% ROI = 6% de variação. Acima disso é spike/stale data.
+        current_roi = min(current_roi, 300.0)
 
         # 4. Peak ROI (cache + persistido)
         trade_key = trade.id
         cached_peak = float(self._peak_roi_cache.get(trade_key, 0.0) or 0.0)
         stored_peak = float(trade.max_roi or 0.0)
         effective_roi = max(current_roi, cached_peak, stored_peak)
+        # [FIX] Sanity cap: com 50x, 300% ROI = 6% de variação. Acima disso é spike/stale data.
+        effective_roi = min(effective_roi, 300.0)
         self._peak_roi_cache[trade_key] = effective_roi
         max_roi = effective_roi
 
@@ -1264,65 +1530,134 @@ class SandboxService:
             pass
         is_ranging = (adx_val < 25)
 
-        # 7. Partial TP — saída parcial para proteger lucro
-        # [V120] expandido: LATERAL +15% ROI (original) + TRENDING +25% ROI (novo)
-        # Motivo: apenas 1/131 trades chegou ao TRAILING. Saída parcial antecipada protege lucro.
-        if not has_taken_partial:
-            partial_threshold = 15.0 if is_ranging else 25.0
-            if max_roi >= partial_threshold:
-                has_taken_partial = True
-                partial_roi = max(partial_threshold, current_roi)
-                flash_state["has_taken_partial"] = True
-                flash_state["partial_roi"] = partial_roi
-                history.append(f"Saida Parcial de 50% executada a {partial_roi:.1f}% ROI (regime={'LATERAL' if is_ranging else 'TRENDING'})")
-                logger.info(f"🧪 [SANDBOX-PARTIAL] {symbol} parcial de 50% a {partial_roi:.1f}% ROI (regime={'LATERAL' if is_ranging else 'TRENDING'})")
-
-        # 8. PnL
-        if has_taken_partial:
-            pnl_pct = (partial_roi * 0.5) + (current_roi * 0.5)
-        else:
-            pnl_pct = current_roi
-
-        # 9. Escadinha
-        # [V122.5-FOLGA] GARANTIA_5 com folga: ao atingir +5% ROI, o stop vai para -1.5% ROI (em vez de 0%).
-        # Isso dá uma margem extra de 1.5% para o preço respirar em pullbacks rápidos e continuar subindo,
-        # mas reduz o risco inicial (que era de -10% ROI) em 85% para proteger o capital.
+        # [V130-FIX] Partial TP — saída parcial para proteger lucro e elevar mediana.
+        # Diagnóstico: 60% do PnL veio de 5 trades outliers. Mediana de $1.61/trade.
+        #   O sistema all-or-nothing transforma 81/162 trades em wins marginais,
+        #   enquanto 5 outliers carregam o resultado. Sem take-profit parcial,
+        #   trades que andam +15% e revertem viram loss ou zero.
+        # Solução V130: Partial TP de 30% em +20% ROI (qualquer regime).
+        #   - Trava $60 de lucro por trade ($200 * 20% * 30% = $12 → $200 * 20%ROI * 100% = $40 margem)
+        #   - Deixa 70% trailando para capturar outliers
+        #   - Eleva mediana sem matar os home runs
+        # Regime: aplica em LATERAL e TRENDING indiscriminadamente
+        # Ativado V130: threshold único de +20% ROI, 30% da margem realizada
+        # 9. Inicializa referências de escadinha
         updated_stop_roi = current_stop_roi
         updated_level_name = active_level_name
         updated_phase = flash_state.get("phase", "ESCADINHA")
 
-        if max_roi >= 5.0 and current_stop_roi < -1.5:
-            updated_stop_roi = -1.5
-            updated_level_name = "GARANTIA_5_FOLGA"
+        # [V148-PROFIT-LOCK] TP1 Inteligente: Saída parcial de 50% em +8.0% ROI.
+        # Trava metade do lucro e protege os 50% restantes para buscar expansão (+20%, +30%).
+        PARTIAL_TP_THRESHOLD = 8.0
+        PARTIAL_TP_PERCENT = 0.50  # 50% da margem realizada
+        if not has_taken_partial and max_roi >= PARTIAL_TP_THRESHOLD:
+            has_taken_partial = True
+            partial_roi = PARTIAL_TP_THRESHOLD
+            flash_state["has_taken_partial"] = True
+            flash_state["partial_roi"] = partial_roi
+            flash_state["partial_taken_at"] = time.time()
+            _trade_margin = 150.0
+            if isinstance(trade.contract_meta, dict):
+                try:
+                    _trade_margin = float(trade.contract_meta.get("margin", 150.0) or 150.0)
+                except (ValueError, TypeError):
+                    _trade_margin = 150.0
+            history.append(
+                f"[V148-TP1] Saída parcial de {PARTIAL_TP_PERCENT*100:.0f}% executada a {PARTIAL_TP_THRESHOLD:.0f}% ROI "
+                f"(lucro travado: ${(PARTIAL_TP_THRESHOLD/100.0)*PARTIAL_TP_PERCENT*_trade_margin:.2f})"
+            )
+            logger.info(
+                f"🧪 [V148-TP1] {symbol} parcial de {PARTIAL_TP_PERCENT*100:.0f}% a {PARTIAL_TP_THRESHOLD:.0f}% ROI — lucro travado"
+            )
+            # Eleva o stop da metade restante para +2.5% ROI (lucro garantido em ambos os lados)
+            if updated_stop_roi < 2.5:
+                updated_stop_roi = 2.5
+                updated_level_name = "TP1_PROTECAO_LUCRO"
+                updated_phase = "ESCADINHA"
+                history.append(f"[TP1-DEFESA] Stop da metade restante elevado para +2.5% ROI")
+
+        # [V130-FIX] PnL com partial TP: 50% do lucro travado no threshold + 50% corrente.
+        if has_taken_partial and partial_roi > 0:
+            pnl_pct = (partial_roi * PARTIAL_TP_PERCENT) + (current_roi * (1.0 - PARTIAL_TP_PERCENT))
+        else:
+            pnl_pct = current_roi
+
+        strat_class = getattr(trade, 'strategy', '') or ''
+        is_scalping = (strat_class == "VWAP SNIPER")
+        is_laya_reversion = strat_class in ("LAYA_MEAN_REVERSION", "ARMADILHA SARDINHA (TOPO)", "ABSORÇÃO BALEIA (FUNDO)", "REVERSÃO DE CANAL")
+        is_smart_money = (strat_class == "LAYA_SMART_MONEY_H1")
+        # [V136-SWING] Detecta se é trade Swing (slot_type ou strategy class)
+        slot_type = getattr(trade, 'slot_type', '') or ''
+        is_swing = (slot_type == 'SWING' or strat_class in ('VELOCITY FLOW', 'ALPHA SHIELD', 'DECOR SHADOW', 'LAYA_SMART_MONEY_H1'))
+
+        # [V138-PROFITABILITY] Breakeven calibrado:
+        # Smart Money H1: +5.0% ROI -> stop +0.5% ROI (blindagem contra falso rompimento na saída H1)
+        # Reversão à Média (Laya): +6% ROI (protege reversões rápidas antes de devolverem)
+        # Swing: +18% ROI (espaço técnico para trade de 15m/2h se desenvolver)
+        # Scalping: +14% ROI (folga no preço para evitar estopar no ruído de spread)
+        if is_smart_money:
+            breakeven_trigger = 5.0
+            breakeven_target_stop = 0.5
+        elif is_laya_reversion:
+            breakeven_trigger = 6.0
+            breakeven_target_stop = 1.5
+        elif is_swing:
+            breakeven_trigger = 18.0
+            breakeven_target_stop = 0.0
+        else:
+            breakeven_trigger = 14.0
+            breakeven_target_stop = 0.0
+
+        # [V147-WINRATE] Early Shield: se o trade andou +4.0% ROI a favor, puxa stop de -7.5% para -2.0%
+        # Corta 73% do risco inicial antes mesmo de atingir o break-even (+6.0%).
+        if is_smart_money and max_roi >= 3.5 and current_stop_roi < 0.0:
+            updated_stop_roi = 0.0
+            updated_level_name = "EARLY_SHIELD_SMART_MONEY"
             updated_phase = "ESCADINHA"
-            history.append(f"GARANTIA_5 com folga ativada: max_roi={max_roi:.1f}% -> stop subiu para -1.5% ROI")
-            logger.info(f"🧪 [SANDBOX-FLASH] {symbol} GARANTIA_5 com folga: stop movido para -1.5% ROI")
+            history.append(f"Smart Money Shield ativado: max_roi={max_roi:.1f}% -> stop subiu para 0.0% ROI (Risco Zero)")
+            logger.info(f"🛡️ [SANDBOX-SMART-MONEY] {symbol} Shield: stop movido para 0.0% ROI")
+        elif is_laya_reversion and max_roi >= 4.0 and current_stop_roi < -2.0:
+            updated_stop_roi = -2.0
+            updated_level_name = "EARLY_SHIELD_LAYA"
+            updated_phase = "ESCADINHA"
+            history.append(f"Early Shield ativado: max_roi={max_roi:.1f}% -> stop subiu para -2.0% ROI")
+            logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Early Shield: stop movido para -2.0% ROI")
 
-        ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging)
-        active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging)
+        if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
+            updated_stop_roi = breakeven_target_stop
+            updated_level_name = "GARANTIA_TAXAS_LAYA" if is_laya_reversion else "RISCO_ZERO"
+            updated_phase = "ESCADINHA"
+            history.append(f"Garantia {breakeven_trigger:.0f} ({updated_level_name}) ativada: max_roi={max_roi:.1f}% -> stop subiu para {breakeven_target_stop:.1f}% ROI")
+            logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Garantia {breakeven_trigger:.0f}: stop movido para {breakeven_target_stop:.1f}% ROI")
 
-        # [V122] GARANTIA_TRAIL — trailing dinâmico baseado no pico de ROI.
-        # Antes: stop fixo em +1.5% quando max_roi >= 8% → fechava em +2% mesmo com pico de +21%.
-        # Agora: stop = 60% do pico → trade com pico +21% tem stop em +12.6% (não +1.5%).
-        # Formula: stop = max(1.5, max_roi * 0.60)
-        #   pico  +8%  → stop  +4.8%
-        #   pico +10%  → stop  +6.0%
-        #   pico +15%  → stop  +9.0%
-        #   pico +21%  → stop +12.6%   (SEIUSDT: capturia +12.6% ao invés de +2.1%)
-        #   pico +29%  → stop +17.4%   (BCHUSDT: mantém runway até subir mais)
-        # Só aplica se ainda não passou do break-even (current_stop_roi < 0)
-        if max_roi >= 8.0 and current_stop_roi < 0.0:
-            trail_stop_roi = max(1.5, round(max_roi * 0.60, 1))  # mínimo +1.5% (cobre taxas)
-            if trail_stop_roi > current_stop_roi:
+        ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
+        active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
+
+        # [V138-PROFITABILITY] GARANTIA_TRAIL institucional — calibração por regime
+        if max_roi >= breakeven_trigger:
+            if is_laya_reversion:
+                # Reversão: trailing firme para capturar topos/fundos — 50% do pico, mínimo +3%
+                trail_stop_roi = max(3.0, round(max_roi * 0.50, 1))
+                trail_pct_label = "50%"
+            elif is_swing:
+                # Swing: trailing suave — 50% do pico, mínimo +5%
+                trail_stop_roi = max(5.0, round(max_roi * 0.50, 1))
+                trail_pct_label = "50%"
+            else:
+                # Scalping: trailing inteligente — 60% do pico, mínimo +4%
+                trail_stop_roi = max(4.0, round(max_roi * 0.60, 1))
+                trail_pct_label = "60%"
+
+            if trail_stop_roi > updated_stop_roi:
                 updated_stop_roi = trail_stop_roi
                 updated_level_name = "GARANTIA_TRAIL"
                 updated_phase = "ESCADINHA"
                 history.append(
-                    f"[V122] GARANTIA_TRAIL: trailing ativado a {max_roi:.1f}% pico "
-                    f"— stop → {trail_stop_roi:.1f}% ROI (60% do pico)"
+                    f"GARANTIA_TRAIL [{trail_pct_label}]: trailing ativado a {max_roi:.1f}% pico "
+                    f"— stop → {trail_stop_roi:.1f}% ROI ({trail_pct_label} do pico)"
                 )
                 logger.info(
-                    f"🧪 [SANDBOX-FLASH] {symbol} GARANTIA_TRAIL ativado "
+                    f"🧪 [SANDBOX-FLASH] {symbol} GARANTIA_TRAIL [{trail_pct_label}] ativado "
                     f"(max_roi={max_roi:.1f}%) — stop agora em {trail_stop_roi:.1f}% ROI"
                 )
 
@@ -1335,6 +1670,49 @@ class SandboxService:
                 history.append(f"Subiu degrau para {active_level.name} (Stop: {new_stop_roi}% ROI) no preço {current_price}")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} subiu para {active_level.name} (SL {new_stop_roi}% ROI)")
 
+        # [V126-LOCK-IN] Protocolo Lock-In de Defesa
+        if getattr(database_service, "lock_in_active", False):
+            from config import settings
+            stop_pct = getattr(settings, "SANDBOX_LOCK_IN_STOP_PERCENT", 5.0)
+            lock_in_stop_roi = max_roi - stop_pct
+            if lock_in_stop_roi > updated_stop_roi:
+                updated_stop_roi = lock_in_stop_roi
+                updated_level_name = "LOCK_IN_5%"
+                updated_phase = "DEFESA"
+                if not any("LOCK_IN" in str(h) for h in history[-2:]):
+                    history.append(f"[LOCK-IN] Stop de Defesa ativado: stop em {lock_in_stop_roi:.1f}% ROI (-5.0% do pico de {max_roi:.1f}%)")
+                    logger.warning(f"🔒 [SANDBOX-LOCK-IN] {symbol} stop de defesa recalculado para {lock_in_stop_roi:.1f}% ROI")
+
+        # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
+        defense_level = getattr(database_service, "equity_defense_level", 0)
+        defense_stop_pct = getattr(database_service, "equity_defense_stop_pct", 0.0)
+
+        if defense_level == 4:
+            logger.warning(f"🛡️ [EQUITY-CRITICO] {symbol} Fechando trade — piso de patrimônio violado")
+            history.append(f"[EQUITY-CRITICO] Piso violado. Fechando trade.")
+            is_closed = True
+            should_run_blocklist = True
+            exit_price = current_price
+            closed_at = time.time()
+            status = "CLOSED_EQUITY_DEFENSE"
+
+        elif defense_level >= 1:
+            try:
+                from config import settings as _cfg
+            except ImportError:
+                from backend.config import settings as _cfg
+            _min_roi = getattr(_cfg, "EQUITY_DEFENSE_MIN_ROI", 5.0)
+            if max_roi >= _min_roi:
+                defense_stop_roi = max_roi - defense_stop_pct
+                if defense_stop_roi > updated_stop_roi:
+                    updated_stop_roi = defense_stop_roi
+                    level_labels = {1: "EQUITY_L1", 2: "EQUITY_L2", 3: "EQUITY_L3"}
+                    updated_level_name = level_labels.get(defense_level, "EQUITY_DEF")
+                    updated_phase = "DEFESA"
+                    if not any("EQUITY_L" in str(h) for h in history[-2:]):
+                        history.append(f"[EQUITY-DEFENSE L{defense_level}] Stop recalculado: {defense_stop_roi:.1f}% ROI (-{defense_stop_pct:.0f}% do pico {max_roi:.1f}%)")
+                        logger.warning(f"🛡️ [SANDBOX-EQUITY-DEF] {symbol} stop defesa L{defense_level}: {defense_stop_roi:.1f}% ROI")
+
         # 10. Stop price com tick_size rounding
         stop_price = proj_service.raw_price_from_roi(entry_price, updated_stop_roi, side, leverage)
         tick_size = 0.0
@@ -1346,24 +1724,42 @@ class SandboxService:
         if tick_size > 0:
             stop_price = self._round_stop_to_tick(stop_price, tick_size, side, updated_stop_roi)
 
-        # 11. Verificar stop hit com conservative price (HIGH/LOW 120s)
+        # 11. Verificar target hit ou stop hit com conservative price (HIGH/LOW 120s)
         is_closed = False
         should_run_blocklist = False
         status = "ACTIVE"
         closed_at = None
         exit_price = 0.0
 
-        if stop_price > 0:
+        target_price = float(trade.target or 0.0)
+        target_hit = False
+        if target_price > 0 and entry_price > 0:
+            if side in ("Buy", "long", "LONG") and target_price > entry_price and current_price >= target_price:
+                target_hit = True
+            elif side in ("Sell", "short", "SHORT") and target_price < entry_price and current_price <= target_price:
+                target_hit = True
+
+        if target_hit:
+            current_price = target_price
+            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
+            is_closed = True
+            should_run_blocklist = False
+            exit_price = target_price
+            closed_at = time.time()
+            status = "CLOSED_TARGET"
+            history.append(f"[TARGET-HIT] Alvo atingido a ${target_price:.4f}! ROI: +{current_roi:.1f}%")
+            logger.info(f"🎯 [SANDBOX-TARGET] {symbol} atingiu alvo ${target_price:.4f} (ROI: +{current_roi:.1f}%)")
+        elif stop_price > 0:
             stop_hit = await self._check_stop_hit(side, stop_price, symbol)
             if stop_hit:
                 # [V119] Sem confirmações REST lentas para o Sandbox. Fecha instantaneamente!
                 current_price = stop_price
                 current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
-
                 is_closed = True
                 should_run_blocklist = True
                 exit_price = stop_price
                 closed_at = time.time()
+                status = "CLOSED_STOP"
 
         # 12. Atualizar flash state
         flash_state.update({
@@ -1388,18 +1784,19 @@ class SandboxService:
         existing_meta = trade.contract_meta or {}
         if not existing_meta or not existing_meta.get("ctVal"):
             try:
-                from services.okx_rest import okx_rest_service
-                inst_info = await okx_rest_service.get_instrument_info(symbol)
-                if inst_info:
-                    resolved_meta = {
-                        "ctVal": float(inst_info.get("lotSizeFilter", {}).get("ctVal") or 1.0),
-                        "lotSize": float(inst_info.get("lotSizeFilter", {}).get("qtyStep") or 1.0),
-                        "minQty": float(inst_info.get("lotSizeFilter", {}).get("minOrderQty") or 1.0),
-                        "tickSize": float(inst_info.get("priceFilter", {}).get("tickSize") or 0.01),
-                        "maxLeverage": 50.0
-                    }
-                    update_payload["contract_meta"] = resolved_meta
-                    trade.contract_meta = resolved_meta  # atualiza em memória para a execução local do tick
+                from services.okx_service import okx_service
+                details = await okx_service.get_instrument_details(symbol)
+                resolved_meta = dict(existing_meta)
+                resolved_meta.update({
+                    "ctVal": float(details.get("ctVal", "1.0")),
+                    "lotSize": float(details.get("lotSize", "1.0")),
+                    "minQty": float(details.get("minSz", "1.0")),
+                    "minSz": float(details.get("minSz", "1.0")),
+                    "tickSize": float(details.get("tickSize", "0.001")),
+                    "maxLeverage": float(existing_meta.get("leverage") or 15.0)
+                })
+                update_payload["contract_meta"] = resolved_meta
+                trade.contract_meta = resolved_meta  # atualiza em memoria para a execucao local do tick
             except Exception as dyn_meta_err:
                 logger.debug(f"[SANDBOX] Erro ao resolver metadados dinâmicos de contrato no tick de {symbol}: {dyn_meta_err}")
 
@@ -1410,35 +1807,100 @@ class SandboxService:
             update_payload["current_roi"] = actual_exit_roi
 
             if has_taken_partial:
-                final_pnl = (partial_roi * 0.5) + (actual_exit_roi * 0.5)
+                gross_pnl = (partial_roi * 0.5) + (actual_exit_roi * 0.5)
             else:
-                final_pnl = actual_exit_roi
+                gross_pnl = actual_exit_roi
+
+            # [V138-REAL-PARITY] Dedução rigorosa de taxas OKX e slippage:
+            # - Taxa OKX Taker: 0.05% na abertura + 0.05% no fechamento = 0.10% sobre o volume nocional
+            # - Slippage estimada em fechamento a mercado: 0.03% sobre o nocional
+            # Com alavancagem 15X: 0.13% * 15 = 1.95% de impacto no ROI da margem
+            operational_cost_roi = (0.0010 + 0.0003) * float(leverage) * 100.0
+            final_pnl = round(gross_pnl - operational_cost_roi, 4)
             update_payload["pnl_pct"] = final_pnl
 
-            # [V123] ESPELHAMENTO DE CONTAS REAL DESATIVADO — Sandbox ainda em validação
-            # Para reativar: definir SANDBOX_MIRROR_ENABLED = True
-            SANDBOX_MIRROR_ENABLED = False
+            # Enriquecer contract_meta com detalhamento de custos e valores USD para auditoria
+            trade_meta = dict(update_payload.get("contract_meta") or trade.contract_meta or {})
+            trade_margin = float(trade_meta.get("margin", 200.0))
+            trade_notional = round(trade_margin * float(leverage), 2)
+            fee_open_u = round(trade_notional * 0.0005, 2)
+            fee_close_u = round(trade_notional * 0.0005, 2)
+            slip_u = round(trade_notional * 0.0003, 2)
+            total_fees_u = round(fee_open_u + fee_close_u + slip_u, 2)
+            net_u = round((final_pnl / 100.0) * trade_margin, 2)
+            gross_u = round((gross_pnl / 100.0) * trade_margin, 2)
+
+            trade_meta.update({
+                "margin": trade_margin,
+                "leverage": float(leverage),
+                "notional_usd": trade_notional,
+                "gross_roi": round(gross_pnl, 2),
+                "net_roi": round(final_pnl, 2),
+                "gross_pnl_usd": gross_u,
+                "net_pnl_usd": net_u,
+                "fee_open_usd": fee_open_u,
+                "fee_close_usd": fee_close_u,
+                "slippage_usd": slip_u,
+                "total_fees_usd": total_fees_u
+            })
+            update_payload["contract_meta"] = trade_meta
+
+            # [V124] ESPELHAMENTO DE CONTAS REAL ATIVADO — Fechamento em conta real
             from config import settings
-            if SANDBOX_MIRROR_ENABLED and settings.OKX_API_KEY_MASTER and settings.OKX_EXECUTION_MODE != "PAPER":
+            if settings.OKX_API_KEY_MASTER and settings.OKX_EXECUTION_MODE != "PAPER":
                 async def execute_real_mirror_close():
                     try:
-                        from services.okx_rest import okx_rest_service
-                        # side da ordem de fechamento é o oposto da ordem original
-                        # (Original LONG -> fecha vendendo; Original SHORT -> fecha comprando)
+                        # [V124.1] CIRCUIT BREAKER — verificar se está em pausa
+                        now_close = time.time()
+                        if now_close < self._mirror_circuit_open_until:
+                            remaining = int(self._mirror_circuit_open_until - now_close)
+                            logger.warning(
+                                f"🔌 [SANDBOX-MIRROR-CLOSE-BLOCKED] Circuit breaker ATIVO — "
+                                f"{self._mirror_consecutive_failures} falhas. Retomando em {remaining}s"
+                            )
+                            return
+
+                        from services.okx_service import okx_service
                         close_side = "Sell" if trade.direction == "LONG" else "Buy"
-                        
-                        # Buscar posições reais abertas no book da OKX para fechar a quantidade exata
-                        # que está aberta
-                        logger.info(f"🔌 [SANDBOX-MIRROR-CLOSE] Solicitando fechamento real de posição para {symbol} na OKX...")
-                        success = await okx_rest_service.close_position(
+
+                        logger.info(
+                            f"🔌 [SANDBOX-MIRROR-CLOSE] {symbol} {trade.direction} | "
+                            f"Side={close_side} | Entry=${entry_price:.4f} | Exit=${exit_price:.4f} | "
+                            f"ROI={final_pnl:.1f}% | Reason={updated_level_name}"
+                        )
+                        success = await okx_service.close_position(
                             symbol=symbol,
                             side=close_side,
-                            qty=0, # 0 indica fechar posição inteira a mercado na OKX
+                            qty=0,
                             reason=f"SANDBOX_MIRROR_{updated_level_name}"
                         )
-                        logger.info(f"🔌 [SANDBOX-MIRROR-CLOSE-RESULT] Fechamento real espelhado de {symbol} executado: {success}")
+                        if success:
+                            logger.info(
+                                f"✅ [SANDBOX-MIRROR-CLOSE] SUCESSO {symbol} {trade.direction} | "
+                                f"ROI={final_pnl:.1f}% | Reason={updated_level_name}"
+                            )
+                            self._mirror_consecutive_failures = 0
+                        else:
+                            self._mirror_consecutive_failures += 1
+                            if self._mirror_consecutive_failures >= self.MIRROR_CIRCUIT_BREAKER_THRESHOLD:
+                                self._mirror_circuit_open_until = time.time() + self.MIRROR_CIRCUIT_BREAKER_COOLDOWN
+                                logger.warning(
+                                    f"🔌 [SANDBOX-MIRROR-CIRCUIT-BREAKER] Close: {self._mirror_consecutive_failures} falhas — pausa {self.MIRROR_CIRCUIT_BREAKER_COOLDOWN:.0f}s"
+                                )
+                            logger.error(
+                                f"❌ [SANDBOX-MIRROR-CLOSE-FALHA] {symbol} | Fails={self._mirror_consecutive_failures}"
+                            )
                     except Exception as close_mirror_err:
-                        logger.error(f"❌ [SANDBOX-MIRROR-CLOSE-ERROR] Falha ao liquidar espelho real de {symbol}: {close_mirror_err}")
+                        self._mirror_consecutive_failures += 1
+                        if self._mirror_consecutive_failures >= self.MIRROR_CIRCUIT_BREAKER_THRESHOLD:
+                            self._mirror_circuit_open_until = time.time() + self.MIRROR_CIRCUIT_BREAKER_COOLDOWN
+                            logger.warning(
+                                f"🔌 [SANDBOX-MIRROR-CIRCUIT-BREAKER] Close: {self._mirror_consecutive_failures} falhas — pausa {self.MIRROR_CIRCUIT_BREAKER_COOLDOWN:.0f}s"
+                            )
+                        logger.error(
+                            f"❌ [SANDBOX-MIRROR-CLOSE-ERROR] {symbol} | Fails={self._mirror_consecutive_failures} | Error={close_mirror_err}",
+                            exc_info=True
+                        )
                 
                 asyncio.create_task(execute_real_mirror_close())
 
@@ -1461,11 +1923,17 @@ class SandboxService:
                 self._consecutive_stops[(clean_sym, opposite_dir)] = 0
                 self._stop_cooldown[cooldown_key] = time.time()
                 new_consec = self._consecutive_stops[cooldown_key]
-                cooldown_applied = 3600 if new_consec >= 1 else 300
+                # [V123.1-FIX] Cooldown: 1800s no 1º stop, 3600s em stops consecutivos (>=2)
+                cooldown_applied = 3600 if new_consec >= 2 else 1800
                 logger.info(
                     f"🧪 [SANDBOX-COOLDOWN-SET] {clean_sym} {trade_dir} cooldown de {cooldown_applied}s "
                     f"(stops consecutivos nesta direção: {new_consec})"
                 )
+                try:
+                    from app.services.laya_router_service import laya_router_service
+                    laya_router_service.record_stop_loss(clean_sym, direction=trade_dir, cooldown_seconds=cooldown_applied)
+                except Exception:
+                    pass
                 logger.warning(
                     f"📊 [SANDBOX-LOSS] {symbol} | Strategy={trade.strategy} | "
                     f"Dir={trade.direction} | Entry={entry_price:.4f} | "

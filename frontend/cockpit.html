@@ -6,7 +6,7 @@
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         name="viewport" />
 
-    <title>Sniper V110.510 — ELITE COMMAND</title>
+    <title>Sniper V125.100 — ELITE COMMAND</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="logo10DTrasp.png?v=4">
     <link rel="shortcut icon" type="image/png" href="logo10DTrasp.png?v=4">
@@ -37,6 +37,13 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+
+    <!-- PWA Service Worker — early registration for fast cached loads -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js?v=133').catch(() => {});
+        }
+    </script>
 
     <script>
         // [V110.380] SILENCE PROTOCOL 2.0: Suppress redundant production warnings early
@@ -78,6 +85,8 @@
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js?v=110.15.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/framer-motion@11.2.6/dist/framer-motion.js?v=110.15.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Thinking Orbs (9 States Engine) -->
+    <script src="components/thinking_orbs.js?v=1.0"></script>
 
     <!-- Firebase Libraries Removed in V110.175 (Migrated to Railway WebSockets) -->
 
@@ -111,15 +120,20 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: "#f3f4f6", // Light Gray for Main Text
-                        secondary: "#a3a3a3", // Medium Gray
-                        accent: "#22d3ee", // Gemini Cyan Accent
-                        "obsidian": "#060608", // Deep Dark
-                        "gray-950": "#040407",
-                        danger: "#EF4444",
-                        success: "#10b981", 
-                        card: "rgba(13, 13, 20, 0.45)", 
-                        gold: "#ffffff"
+                        primary: "#eaecef", // Binance Main Text (body)
+                        secondary: "#707a8a", // Binance Muted
+                        accent: "#fcd535", // Binance Iconic Yellow
+                        "binance-yellow": "#fcd535",
+                        "binance-yellow-hover": "#f0b90b",
+                        "binance-dark": "#0b0e11",
+                        "binance-card": "#1e2329",
+                        "binance-border": "#2b3139",
+                        "obsidian": "#0b0e11", // Binance Deep Canvas
+                        "gray-950": "#0b0e11",
+                        danger: "#f6465d", // Binance Trading Down (Red)
+                        success: "#0ecb81", // Binance Trading Up (Green)
+                        card: "rgba(30, 35, 41, 0.75)", 
+                        gold: "#fcd535"
                     },
                     fontFamily: {
                         display: ["Outfit", "sans-serif"],
@@ -130,13 +144,86 @@
             },
         };
     </script>
-    <link rel="stylesheet" href="css/cockpit.css?v=6.0">
+    <link rel="stylesheet" href="css/cockpit.css?v=6.1">
+    <style>
+        /* NAVBAR UNIFICADA — inline garantido (fallback) */
+        .app-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            z-index: 10000 !important;
+            background: rgba(6,6,8,0.95) !important;
+            backdrop-filter: blur(24px) !important;
+            -webkit-backdrop-filter: blur(24px) !important;
+            border-top: 1px solid rgba(255,255,255,0.1) !important;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.3) !important;
+            padding: 8px 16px !important;
+            padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+        }
+        .app-nav-inner {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-around !important;
+            width: 100% !important;
+            height: 100% !important;
+            gap: 4px !important;
+            flex: 1 !important;
+        }
+        .app-nav-btn {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 4px !important;
+            padding: 8px 12px !important;
+            border-radius: 12px !important;
+            transition: all 0.3s !important;
+            flex: 1 !important;
+            max-width: 100px !important;
+            color: #9ca3af !important;
+            text-decoration: none !important;
+            border: 1px solid transparent !important;
+            cursor: pointer !important;
+            background: none !important;
+        }
+        .app-nav-btn:hover { color: #fff !important; background: rgba(255,255,255,0.05) !important; }
+        .app-nav-btn.active { color: #fff !important; background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; box-shadow: 0 0 12px rgba(255,255,255,0.1) !important; }
+        .app-nav-btn.is-special { color: #22c55e !important; }
+        .app-nav-btn.is-special:hover { color: #22c55e !important; background: rgba(34,197,94,0.1) !important; border-color: rgba(34,197,94,0.2) !important; }
+        .app-nav-btn.is-special.active { color: #22c55e !important; background: rgba(34,197,94,0.2) !important; border-color: rgba(34,197,94,0.5) !important; box-shadow: 0 0 15px rgba(34,197,94,0.3) !important; transform: scale(1.05) !important; }
+        .app-nav-btn .material-icons-round { font-size: 24px !important; }
+        .app-nav-btn.is-special .material-icons-round { font-size: 25px !important; }
+        .app-nav-label { font-size: 9px !important; font-weight: 700 !important; letter-spacing: 0.1em !important; text-transform: uppercase !important; }
+        .app-nav-logo, .app-nav-logout { display: none !important; }
+        .app-nav-adm-wrapper { position: relative !important; flex: 1 !important; max-width: 100px !important; display: flex !important; justify-content: center !important; }
+        .adm-submenu { position: absolute !important; left: 50% !important; transform: translateX(-50%) !important; bottom: calc(100% + 8px) !important; top: auto !important; z-index: 10001 !important; display: flex !important; flex-direction: column !important; gap: 4px !important; padding: 8px !important; min-width: 200px !important; border-radius: 16px !important; border: 1px solid rgba(255,255,255,0.1) !important; background: rgba(8,8,12,0.97) !important; backdrop-filter: blur(24px) !important; box-shadow: 0 -4px 24px rgba(0,0,0,0.5) !important; }
+        .adm-submenu-title { font-size: 8px !important; font-weight: 900 !important; color: rgba(34,197,94,0.6) !important; text-transform: uppercase !important; letter-spacing: 0.2em !important; padding: 0 8px 6px !important; border-bottom: 1px solid rgba(255,255,255,0.05) !important; margin-bottom: 4px !important; }
+        .adm-item { display: flex !important; align-items: center !important; gap: 8px !important; padding: 8px 12px !important; border-radius: 10px !important; text-decoration: none !important; color: #d1d5db !important; font-size: 12px !important; font-weight: 600 !important; transition: all 0.2s !important; border: 1px solid transparent !important; white-space: nowrap !important; }
+        .adm-item:hover { color: #fff !important; background: rgba(255,255,255,0.08) !important; }
+        .adm-item .material-icons-round { font-size: 18px !important; }
+        .adm-item-active { color: #fff !important; background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.15) !important; }
+        @media (min-width: 1024px) {
+            .app-nav { top: 0 !important; left: 0 !important; bottom: 0 !important; right: auto !important; width: 80px !important; height: 100vh !important; border-top: none !important; border-right: 1px solid rgba(255,255,255,0.1) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important; padding: 24px 0 !important; flex-direction: column !important; }
+            .app-nav-inner { flex-direction: column !important; gap: 12px !important; padding: 0 !important; }
+            .app-nav-btn { flex: none !important; width: 56px !important; max-width: none !important; padding: 12px 8px !important; }
+            .app-nav-logo { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 8px !important; margin-bottom: 24px !important; }
+            .app-nav-logout { display: flex !important; margin-top: auto !important; }
+            .app-nav-adm-wrapper { flex: none !important; width: 100% !important; max-width: none !important; }
+            .app-nav-adm-wrapper .app-nav-btn { width: 100% !important; }
+            .adm-submenu { left: calc(100% + 8px) !important; transform: translateY(-50%) !important; top: 50% !important; bottom: auto !important; min-width: 180px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important; }
+        }
+    </style>
 </head>
 
 <body>
     <div class="aura aura-cyan"></div>
     <div class="aura aura-violet"></div>
-    <!-- V110.100: ULTIMATE CACHE BREAKER BANNER -->
 
     <div id="boot-shield">
         <div class="boot-logo-container">
@@ -155,7 +242,6 @@
             <div id="boot-progress" class="boot-progress-bar"></div>
         </div>
 
-        <!-- V110.201: MANUAL BYPASS (Appears after 10s if stuck) -->
         <button id="boot-bypass" onclick="document.getElementById('boot-shield').remove()" 
                 style="display:none; margin-top: 40px; padding: 8px 24px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #64748b; font-size: 10px; cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 2px;">
             Force Reset Link
@@ -172,7 +258,7 @@
             id="boot-status">Initializing System Core...</div>
             
         <div style="position: absolute; bottom: 40px; color: rgba(255,255,255,0.2); font-size:8px; letter-spacing: 4px; text-transform: uppercase;">
-            Protocol V110.171 • Secure Connection Active
+            Protocol V133 • Secure Connection Active
         </div>
     </div>
 
@@ -920,34 +1006,70 @@
                 guardianMode === 'CAUTELOSO' ? 'text-amber-300' : 'text-success';
             return (
                 <section className="premium-card p-6 space-y-6">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Patrimônio Líquido</h2>
+                    {/* Linha Superior: Título, Valor Principal e Rank */}
+                    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                        <div>
+                            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Patrimônio Líquido</h2>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-white font-mono">${liveEquity.toFixed(2)}</span>
                                 <span className={`text-xs font-bold ${liveTotalProfit >= 0 ? 'text-success' : 'text-orange-400'}`}>
                                     {liveTotalProfit >= 0 ? '+' : ''}{liveTotalProfit.toFixed(2)}
                                 </span>
                             </div>
+                            {banca && Number(banca.saldo_real_okx) > 0 && (
+                                <div className="text-[10px] text-cyan-300 font-semibold flex items-center gap-1.5 mt-1 font-mono uppercase tracking-wider">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                    Saldo Real OKX: ${Number(banca.saldo_real_okx).toFixed(2)}
+                                </div>
+                            )}
                         </div>
-                        <div className="text-right">
-                             <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-white/5 border border-white/10 ${rankColor}`}>
+                        <div className="text-right flex items-center gap-2">
+                            <button
+                                onClick={async (e) => {
+                                    e.preventDefault();
+                                    if (!confirm("Deseja realmente resetar a banca para $10,000.00 e limpar o histórico de trades?")) return;
+                                    try {
+                                        let res = await fetch(`${API_BASE}/api/banca/reset`, { 
+                                            method: 'POST',
+                                            headers: { 'Accept': 'application/json' }
+                                        });
+                                        if (!res.ok) {
+                                            res = await fetch(`${API_BASE}/api/banca/reset`);
+                                        }
+                                        if (res.ok) {
+                                            localStorage.removeItem('banca_cache');
+                                            localStorage.removeItem('cockpit_cache');
+                                            alert("✅ Banca resetada com sucesso para $10,000.00!");
+                                            window.location.reload();
+                                        } else {
+                                            alert("Falha ao resetar banca. Resposta HTTP: " + res.status);
+                                        }
+                                    } catch(err) { 
+                                        alert("Erro de conexão ao resetar banca: " + err.message); 
+                                    }
+                                }}
+                                className="p-1 rounded bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-white/10 transition-colors cursor-pointer"
+                                title="Resetar Banca ($10,000.00)"
+                            >
+                                <span className="material-icons-round text-xs">restart_alt</span>
+                            </button>
+                            <div className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-white/5 border border-white/10 ${rankColor}`}>
                                 {fleetRank}
                             </div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Resultado Global</span>
-                            <p className={`text-lg font-black font-mono ${liveTotalProfit >= 0 ? 'text-white' : 'text-orange-400'}`}>
+                        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
+                            <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Resultado Global</span>
+                            <span className={`text-base font-black font-mono ${liveTotalProfit >= 0 ? 'text-success' : 'text-orange-400'}`}>
                                 ${liveTotalProfit >= 0 ? '+' : ''}{liveTotalProfit.toFixed(2)}
-                            </p>
+                            </span>
                         </div>
-                        <div className="space-y-1 text-right">
-                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Integridade</span>
+                        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-right">
+                            <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Integridade</span>
                             <div className="flex items-center justify-end gap-2">
-                                <span className="text-lg font-black font-mono text-white">{hullIntegrityPct.toFixed(1)}%</span>
+                                <span className="text-base font-black font-mono text-white">{hullIntegrityPct.toFixed(1)}%</span>
                                 <div className={`w-2 h-2 rounded-full ${isDrawdown ? 'bg-orange-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></div>
                             </div>
                         </div>
@@ -956,16 +1078,16 @@
                     <div className="space-y-2">
                         <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-gray-500">
                             <span>Alocação por Slot ({liveEquity <= 40.0 ? "Piso/Teto" : "1% - 2%"})</span>
-                            <span className="text-white">
+                            <span className="text-white font-mono">
                                 {liveEquity <= 40.0 
                                     ? `$0.55 - $1.00 (Calc: $${Math.max(0.55, Math.min(1.00, liveEquity * 0.03)).toFixed(2)})`
                                     : `$${(liveEquity * 0.01).toFixed(2)} - $${(liveEquity * 0.02).toFixed(2)}`
                                 }
                             </span>
                         </div>
-                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden p-[1px]">
+                        <div className="w-full bg-gray-950 border border-white/5 h-2 rounded-full overflow-hidden p-[1px]">
                             <div 
-                                className={`h-full transition-all duration-1000 ${isDrawdown ? 'bg-orange-500' : 'bg-green-500'}`} 
+                                className={`h-full transition-all duration-1000 ${isDrawdown ? 'bg-gradient-to-r from-orange-600 to-orange-400' : 'bg-gradient-to-r from-green-600 to-green-400'}`} 
                                 style={{ width: `${hullIntegrityPct}%` }}
                             ></div>
                         </div>
@@ -980,29 +1102,29 @@
                             <span className={`text-[10px] font-black uppercase ${guardianColor}`}>{guardianStatus}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2">
-                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest">Saúde</span>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5">
+                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Saúde</span>
                                 <span className={`text-sm font-black font-mono ${guardianColor}`}>{guardianHealth.toFixed(0)}/100</span>
                             </div>
-                            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2 text-right">
-                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest">Modo</span>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5 text-right">
+                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Modo</span>
                                 <span className={`text-[10px] font-black uppercase ${guardianColor}`}>{guardianMode}</span>
                             </div>
-                            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2">
-                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest">Lucro Protegido</span>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5">
+                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Lucro Protegido</span>
                                 <span className="text-sm font-black font-mono text-white">${lockedProfit.toFixed(2)}</span>
                             </div>
-                            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2 text-right">
-                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest">Devolução</span>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-2.5 text-right">
+                                <span className="block text-[8px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Devolução</span>
                                 <span className="text-sm font-black font-mono text-white">${allowedGiveback.toFixed(2)}</span>
                             </div>
                         </div>
-                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-gray-500">
-                            <span>Score mín. {guardianMinScore.toFixed(0)}</span>
-                            <span>Slots liberados {guardianMaxSlots}</span>
+                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-gray-500 pt-1">
+                            <span>Score Mínimo: <span className="text-white font-mono">{guardianMinScore.toFixed(0)}</span></span>
+                            <span>Slots Permitidos: <span className="text-white font-mono">{guardianMaxSlots}</span></span>
                         </div>
                         {suspendedSymbols.length > 0 && (
-                            <div className="text-[9px] font-black uppercase tracking-widest text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl px-2 py-1">
+                            <div className="text-[9px] font-black uppercase tracking-widest text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl px-2.5 py-1.5 mt-2">
                                 Pares suspensos: {suspendedSymbols.map(s => s.symbol).join(', ')}
                             </div>
                         )}
@@ -1330,7 +1452,14 @@
                 const handlePacket = (e) => {
                     const message = e.detail;
                     if (message.type === 'banca_status' && message.data) {
-                        setBanca(message.data);
+                        setBanca(prev => {
+                            const newData = { ...message.data };
+                            const prevVal = prev ? Number(prev.saldo_real_okx) : 0;
+                            if ((!newData.saldo_real_okx || Number(newData.saldo_real_okx) <= 0) && prevVal > 0) {
+                                newData.saldo_real_okx = prevVal;
+                            }
+                            return newData;
+                        });
                         localStorage.setItem('banca_cache', JSON.stringify(message.data));
                     }
                 };
@@ -1341,7 +1470,13 @@
                         if (res.ok) {
                             const val = await res.json();
                             if (val && val.saldo_total !== undefined) {
-                                setBanca(val);
+                                setBanca(prev => {
+                                    const prevVal = prev ? Number(prev.saldo_real_okx) : 0;
+                                    if ((!val.saldo_real_okx || Number(val.saldo_real_okx) <= 0) && prevVal > 0) {
+                                        val.saldo_real_okx = prevVal;
+                                    }
+                                    return val;
+                                });
                                 localStorage.setItem('banca_cache', JSON.stringify(val));
                             }
                         }
@@ -2357,7 +2492,21 @@
                             low: parseFloat(k[3]),
                             close: parseFloat(k[4]),
                             volume: parseFloat(k[5])
-                        })).sort((a, b) => a.time - b.time);
+                        })).filter(k => 
+                            k && 
+                            !isNaN(k.time) && 
+                            !isNaN(k.open) && 
+                            !isNaN(k.high) && 
+                            !isNaN(k.low) && 
+                            !isNaN(k.close) &&
+                            k.time !== null &&
+                            k.open !== null &&
+                            k.high !== null &&
+                            k.low !== null &&
+                            k.close !== null &&
+                            k.volume !== null &&
+                            !isNaN(k.volume)
+                        ).sort((a, b) => a.time - b.time);
 
                         // Safety check: Ensure chart is still active before updating
                         if (!isMounted.current || !chartRef.current || !seriesRef.current) return;
@@ -3121,7 +3270,7 @@
             });
             const [inputValue, setInputValue] = useState('');
             const [isSending, setIsSending] = useState(false);
-            const [isMenuOpen, setIsMenuOpen] = useState(false);
+
 
             const isAdmin = useMemo(() => {
                 try {
@@ -3257,45 +3406,10 @@
                     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-                    {/* Sidebar Menu - V4.9.4.2 */}
-                    {isMenuOpen && (
-                        <div className="fixed inset-0 z-[100] flex">
-                            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsMenuOpen(false)}></div>
-                            <div className="relative w-64 h-full v5-bg-deep border-r v5-border-subtle shadow-2xl flex flex-col p-6 animate-in slide-in-from-left duration-300 glass-jarvis">
-                                <div className="flex items-center gap-3 mb-12">
-                                    <div className="neural-pulse-ring scale-75"></div>
-                                    <h2 className="text-xl font-display font-bold text-white tracking-tighter">JARVIS MENU</h2>
-                                </div>
-                                <div className="flex flex-col gap-4">
-                                    {[
-                                        { to: '/', icon: 'space_dashboard', label: 'Banca' },
-                                        { to: '/neural-chat', icon: 'psychology', label: 'Neural Chat' },
-                                        { to: '/sandbox', icon: 'science', label: 'Sandbox Lab', external: true },
-                                        { to: '/config', icon: 'settings', label: 'Configurações' },
-                                        ...(isAdmin ? [{ to: '/adm', icon: 'admin_panel_settings', label: 'Controle de Usuários' }] : []),
-                                        { to: '/kanban', icon: 'view_kanban', label: 'Hermes Kanban' },
-                                        { to: 'https://n8n-production-8e2d4.up.railway.app', icon: 'account_tree', label: 'N8N (Macro-Orquestrador)', external: true }
-                                    ].map(item => (
-                                        <button key={item.to} onClick={() => { if (item.external) { window.location.href = item.to; } else { navigate(item.to); } setIsMenuOpen(false); }}
-                                            className="flex items-center gap-4 p-4 rounded-xl hover:bg-primary/10 text-gray-300 hover:text-white transition-all group border border-transparent hover:border-primary/20">
-                                            <span className="material-icons-round text-2xl group-hover:scale-110 transition-transform">{item.icon}</span>
-                                            <span className="font-medium tracking-tight">{item.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="mt-auto pt-8 border-t v5-border-subtle">
-                                    <p className="text-[10px] text-gray-600 uppercase tracking-[0.3em] text-center font-bold">Protocol JARVIS V110.510</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Premium Header - Jarvis Style */}
                     <header className="flex-shrink-0 px-4 py-5 v5-bg-deep/40 backdrop-blur-3xl border-b v5-border-subtle sticky top-0 z-50">
                         <div className="max-w-4xl mx-auto flex items-center justify-between">
-                            <button onClick={() => setIsMenuOpen(true)} className="w-11 h-11 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-primary/10 border border-white/5 hover:v5-border-primary transition-all jarvis-border-glow">
-                                <span className="material-icons-round text-white">grid_view</span>
-                            </button>
+                            <div className="w-11 h-11"></div>
 
                             <div className="flex flex-col items-center">
                                 <div className="flex items-center gap-2">
@@ -3397,7 +3511,7 @@
                                     </div>
                                     <span className="text-[9px] text-white font-black uppercase tracking-[0.4em]">Sincronização Ativa</span>
                                 </div>
-                                <p className="text-[9px] text-gray-500 font-mono uppercase tracking-[0.3em] font-bold">Neural Link v110.510</p>
+                                <p className="text-[9px] text-gray-500 font-mono uppercase tracking-[0.3em] font-bold">Neural Link v125.100</p>
                             </div>
                         </div>
                     </footer>
@@ -3939,6 +4053,19 @@
                                                     {stopDistPct.toFixed(1)}% dist
                                                 </span>
                                             )}
+                                            {s.projection?.active_level?.name === 'INICIAL' && s.flash_state?.stop_method && (
+                                                <span style={{
+                                                    fontSize: '6px', fontWeight: 700,
+                                                    color: s.flash_state.stop_method === 'CONFIG' ? '#22d3ee' : 'rgba(255,255,255,0.25)',
+                                                    fontFamily: 'JetBrains Mono, monospace',
+                                                    padding: '1px 3px', borderRadius: '3px',
+                                                    background: s.flash_state.stop_method === 'CONFIG' ? 'rgba(34,211,238,0.1)' : 'transparent',
+                                                    border: s.flash_state.stop_method === 'CONFIG' ? '1px solid rgba(34,211,238,0.2)' : 'none',
+                                                    width: 'fit-content', marginTop: '1px'
+                                                }}>
+                                                    {s.flash_state.stop_method === 'CONFIG' ? `ROI ${s.flash_state.stop_roi_target || 30}%` : 'LEGADO'}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Col 7: Preço de Liquidação */}
@@ -4007,20 +4134,41 @@
 
                                         {/* Col 10: Estratégia / Tempo */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            <span style={{ 
-                                                fontSize: '8px', 
-                                                fontWeight: 900, 
-                                                color: stratLabel === 'ALPHA SHIELD' ? '#10b981' : (stratLabel === 'VELOCITY FLOW' ? '#8b5cf6' : (stratLabel === 'DECOR SHADOW' ? '#22d3ee' : 'rgba(255,255,255,0.45)')), 
-                                                letterSpacing: '0.5px', 
-                                                textTransform: 'uppercase',
-                                                background: stratLabel === 'ALPHA SHIELD' ? 'rgba(16,185,129,0.15)' : (stratLabel === 'VELOCITY FLOW' ? 'rgba(139,92,246,0.15)' : (stratLabel === 'DECOR SHADOW' ? 'rgba(34,211,238,0.15)' : 'transparent')),
-                                                border: stratLabel === 'ALPHA SHIELD' ? '1px solid rgba(16,185,129,0.3)' : (stratLabel === 'VELOCITY FLOW' ? '1px solid rgba(139,92,246,0.3)' : (stratLabel === 'DECOR SHADOW' ? '1px solid rgba(34,211,238,0.3)' : 'none')),
-                                                padding: (stratLabel === 'ALPHA SHIELD' || stratLabel === 'VELOCITY FLOW' || stratLabel === 'DECOR SHADOW') ? '1px 5px' : '0px',
-                                                borderRadius: '4px',
-                                                width: 'fit-content'
-                                            }}>
-                                                {stratLabel}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                                {(() => {
+                                                    const lab = (s.lab || s.slot_type || '').toUpperCase();
+                                                    const isScalp = lab.includes('SCALP') || lab.includes('SNIPER');
+                                                    const label = isScalp ? 'SCALPING' : 'SWING';
+                                                    return (
+                                                        <span style={{
+                                                            fontSize: '7px',
+                                                            fontWeight: 900,
+                                                            color: isScalp ? '#22d3ee' : '#a78bfa',
+                                                            background: isScalp ? 'rgba(34,211,238,0.12)' : 'rgba(167,139,250,0.12)',
+                                                            border: `1px solid ${isScalp ? 'rgba(34,211,238,0.25)' : 'rgba(167,139,250,0.25)'}`,
+                                                            padding: '1px 4px',
+                                                            borderRadius: '3px',
+                                                            letterSpacing: '0.5px'
+                                                        }}>
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                                <span style={{ 
+                                                    fontSize: '8px', 
+                                                    fontWeight: 900, 
+                                                    color: stratLabel === 'ALPHA SHIELD' ? '#10b981' : (stratLabel === 'VELOCITY FLOW' ? '#8b5cf6' : (stratLabel === 'DECOR SHADOW' ? '#22d3ee' : 'rgba(255,255,255,0.45)')), 
+                                                    letterSpacing: '0.5px', 
+                                                    textTransform: 'uppercase',
+                                                    background: stratLabel === 'ALPHA SHIELD' ? 'rgba(16,185,129,0.15)' : (stratLabel === 'VELOCITY FLOW' ? 'rgba(139,92,246,0.15)' : (stratLabel === 'DECOR SHADOW' ? 'rgba(34,211,238,0.15)' : 'transparent')),
+                                                    border: stratLabel === 'ALPHA SHIELD' ? '1px solid rgba(16,185,129,0.3)' : (stratLabel === 'VELOCITY FLOW' ? '1px solid rgba(139,92,246,0.3)' : (stratLabel === 'DECOR SHADOW' ? '1px solid rgba(34,211,238,0.3)' : 'none')),
+                                                    padding: (stratLabel === 'ALPHA SHIELD' || stratLabel === 'VELOCITY FLOW' || stratLabel === 'DECOR SHADOW') ? '1px 5px' : '0px',
+                                                    borderRadius: '4px',
+                                                    width: 'fit-content'
+                                                }}>
+                                                    {stratLabel}
+                                                </span>
+                                            </div>
                                             <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.3)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>
                                                 ⏱️ {ageStr}
                                             </span>
@@ -5173,7 +5321,7 @@
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[14px] font-black text-white uppercase tracking-tight">{localSymbol}</span>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-lime-500 animate-pulse shadow-[0_0_8px_rgba(132,204,22,0.6)]"></div>
+                                    <ThinkingOrb state="weaving" size={18} tint="#fcd535" />
                                 </div>
                                 <span className="text-[8px] font-bold text-gray-500 uppercase tracking-[0.2em]">
                                     {localTimeframe === "60" ? "1H" : localTimeframe === "120" ? "2H" : localTimeframe === "240" ? "4H" : `${localTimeframe}M`} INTERVAL
@@ -5333,7 +5481,7 @@
                                     {historicalData.candles[historicalData.candles.length-1].close > historicalData.candles[historicalData.candles.length-1].open ? 'Market Sentiment: Bullish' : 'Market Sentiment: Bearish'}
                                 </span>
                             </div>
-                            <span className="text-[7px] font-bold text-white/20 uppercase tracking-[0.4em] ml-1">Eagle Vision Protocol v110.510</span>
+                            <span className="text-[7px] font-bold text-white/20 uppercase tracking-[0.4em] ml-1">Eagle Vision Protocol v125.100</span>
                         </div>
                     )}
 
@@ -5731,13 +5879,14 @@
                         <div className="flex flex-col justify-center px-5">
                             <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Oracle Status</span>
                             <div className="flex items-center gap-2">
-                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                                    isTsunami ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' :
-                                    isStabilizing ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
-                                }`}></span>
+                                <ThinkingOrb 
+                                    state={isTsunami ? 'shaping' : isStabilizing ? 'searching' : 'solving'} 
+                                    size={20} 
+                                    tint={isTsunami ? '#f6465d' : isStabilizing ? '#fcd535' : '#0ecb81'} 
+                                />
                                 <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${
-                                    isTsunami ? 'text-red-400' :
-                                    isStabilizing ? 'text-amber-400 animate-pulse' : 'text-green-400'
+                                    isTsunami ? 'text-danger' :
+                                    isStabilizing ? 'text-accent animate-pulse' : 'text-success'
                                 }`}>
                                     {isTsunami ? 'Tsunami alert' : (oracleStatus || 'SECURE')}
                                 </span>
@@ -5753,9 +5902,16 @@
                         <div className="flex items-center justify-between px-5 bg-white/[0.01]">
                             <div className="flex flex-col">
                                 <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">System Pulse</span>
-                                <span className={`text-[10px] font-black uppercase tracking-tighter leading-none ${pulseStatus === 'ONLINE' ? 'text-success' : 'text-danger'}`}>
-                                    {pulseStatus} • {(latency/1000).toFixed(1)}s
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <ThinkingOrb 
+                                        state={pulseStatus === 'ONLINE' ? 'listening' : 'connecting'} 
+                                        size={20} 
+                                        tint={pulseStatus === 'ONLINE' ? '#fcd535' : '#f6465d'} 
+                                    />
+                                    <span className={`text-[10px] font-black uppercase tracking-tighter leading-none ${pulseStatus === 'ONLINE' ? 'text-success' : 'text-danger'}`}>
+                                        {pulseStatus} • {(latency/1000).toFixed(1)}s
+                                    </span>
+                                </div>
                             </div>
                             <div className="flex flex-col items-center">
                                 <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Slots</span>
@@ -5786,32 +5942,23 @@
             useEffect(() => {
                 const active = slots.filter(s => s && s.symbol);
                 setGridSymbols(prev => {
-                    const next = ["BTCUSDT", "BTCUSDT", "BTCUSDT", "BTCUSDT"];
+                    const uniqueSymbols = [];
                     if (focusedAsset && focusedAsset.symbol) {
-                        // Se clicou na lista, a posição [0] vira a moeda selecionada
-                        next[0] = (focusedAsset.symbol || '').replace('.P', '').replace('.p', '');
-                    } else {
-                        if (active[0] && active[0].symbol) next[0] = (active[0].symbol || '').replace('.P', '').replace('.p', '');
+                        const fSym = (focusedAsset.symbol || '').replace(/\.p/gi, '').replace(/-USDT-SWAP$/i, 'USDT');
+                        if (fSym) uniqueSymbols.push(fSym);
                     }
-                    
-                    // Preenche o restante dos gráficos
-                    let activeIdx = focusedAsset ? 0 : 1; 
-                    for (let i = 1; i < parseInt(gridMode); i++) {
-                        if (active[activeIdx] && active[activeIdx].symbol) {
-                            const sym = (active[activeIdx].symbol || '').replace('.P', '').replace('.p', '');
-                            // Evita duplicar no grid se já estiver no [0] por causa do clique
-                            if (sym !== next[0]) {
-                                next[i] = sym;
-                            } else {
-                                if(active[activeIdx+1] && active[activeIdx+1].symbol) {
-                                    next[i] = (active[activeIdx+1].symbol || '').replace('.P', '').replace('.p', '');
-                                }
-                                activeIdx++; // pula o duplicado
-                            }
-                            activeIdx++;
+                    for (const s of active) {
+                        const sym = (s.symbol || '').replace(/\.p/gi, '').replace(/-USDT-SWAP$/i, 'USDT');
+                        if (sym && !uniqueSymbols.includes(sym)) {
+                            uniqueSymbols.push(sym);
                         }
                     }
-                    return next;
+                    // Defaults para preencher caso haja menos de 4 ordens ativas
+                    const defaults = ["SOLUSDT", "BTCUSDT", "ETHUSDT", "LINKUSDT", "ADAUSDT", "INJUSDT"];
+                    for (const d of defaults) {
+                        if (!uniqueSymbols.includes(d)) uniqueSymbols.push(d);
+                    }
+                    return uniqueSymbols.slice(0, 4);
                 });
             }, [slots, focusedAsset, gridMode]);
 
@@ -5883,7 +6030,7 @@
                                         <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Flash Engine</span>
                                         <span className="text-[10px] font-black text-white uppercase tracking-tighter">Backend live</span>
                                     </div>
-                                    <div className="w-2 h-2 rounded-full bg-lime-500 animate-pulse shadow-[0_0_10px_rgba(132,204,22,0.5)]"></div>
+                                    <ThinkingOrb state="working" size={20} tint="#0ecb81" />
                                 </div>
                             </div>
 
@@ -5912,18 +6059,18 @@
                         </div>
 
                         {/* 2. BOTTOM HALF: PAINEL DE CUSTÓDIA HORIZONTAL (~40% de altura) */}
-                        <div className="h-[40%] p-6 flex flex-col gap-3 overflow-hidden relative bg-black/10">
+                        <div className="h-[40%] p-6 flex flex-col gap-3 overflow-hidden relative bg-[#0b0e11]/80">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white flex items-center gap-2">
-                                    <span className="material-icons-round text-sm">account_balance_wallet</span>
+                                    <ThinkingOrb state="working" size={20} tint="#fcd535" />
                                     Painel de Custódia
                                 </h3>
-                                <span className="text-[9px] font-black text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/10 uppercase tracking-widest">
+                                <span className="text-[9px] font-black text-gray-400 bg-[#1e2329] px-2 py-0.5 rounded border border-[#2b3139] uppercase tracking-widest">
                                     {slots.filter(s => s && s.symbol && Number(s.entry_price || 0) > 0).length} POSIÇÕES ATIVAS
                                 </span>
                             </div>
                             
-                            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-4">
+                            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-4">
                                 <PositionsTable
                                     slots={slots}
                                     tickers={tickers}
@@ -5953,48 +6100,79 @@
                     </main>
 
                     {/* --- COLUNA DIREITA: PAINEL OPERACIONAL & HISTÓRICO --- */}
-                    <aside className="w-[420px] border-l border-white/5 flex flex-col bg-black/20 backdrop-blur-md z-20 overflow-y-auto no-scrollbar">
+                    <aside className="w-[420px] border-l border-white/5 flex flex-col bg-black/20 backdrop-blur-md z-20 overflow-y-auto custom-scrollbar">
                         <div className="p-6 space-y-8">
                             {/* 1. NET WORTH / BANCA */}
                             <section className="space-y-4">
                                 <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-white flex items-center gap-2">
-                                    <span className="material-icons-round text-sm">account_balance_wallet</span>
+                                    <ThinkingOrb state="breathing" size={20} tint="#fcd535" />
                                     Net Worth
                                 </h3>
-                                <div className={`p-6 glass-premium border ${isDrawdown ? 'border-amber-500/30' : 'border-white/10'} relative overflow-hidden group`}>
+                                <div className={`p-6 glass-premium border ${isDrawdown ? 'border-danger/30' : 'border-[#2b3139]'} relative overflow-hidden group bg-[#1e2329]/90`}>
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-3xl rounded-full"></div>
                                     <div className="flex justify-between items-center mb-4 relative z-10">
-                                        <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Equity Value</span>
-                                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${rankColor} bg-white/5 border border-white/10`}>{fleetRank}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Equity Value</span>
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.preventDefault();
+                                                    if (!confirm("Deseja realmente resetar a banca para $10,000.00 e limpar o histórico de trades?")) return;
+                                                    try {
+                                                        let res = await fetch(`${API_BASE}/api/banca/reset`, { 
+                                                            method: 'POST',
+                                                            headers: { 'Accept': 'application/json' }
+                                                        });
+                                                        if (!res.ok) {
+                                                            res = await fetch(`${API_BASE}/api/banca/reset`);
+                                                        }
+                                                        if (res.ok) {
+                                                            localStorage.removeItem('banca_cache');
+                                                            localStorage.removeItem('cockpit_cache');
+                                                            alert("✅ Banca resetada com sucesso para $10,000.00!");
+                                                            window.location.reload();
+                                                        } else {
+                                                            alert("Falha ao resetar banca. Resposta HTTP: " + res.status);
+                                                        }
+                                                    } catch(err) { 
+                                                        alert("Erro de conexão ao resetar banca: " + err.message); 
+                                                    }
+                                                }}
+                                                className="p-1 rounded bg-[#14171a] hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-[#2b3139] transition-colors cursor-pointer"
+                                                title="Resetar Banca ($10,000.00)"
+                                            >
+                                                <span className="material-icons-round text-[11px]">restart_alt</span>
+                                            </button>
+                                        </div>
+                                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${rankColor} bg-[#14171a] border border-[#2b3139]`}>{fleetRank}</span>
                                     </div>
                                     <div className="relative z-10 space-y-1">
-                                        <span className={`text-4xl font-black font-display tracking-tighter ${liveTotalProfit >= 0 ? 'text-success' : 'text-danger'}`} style={{ textShadow: liveTotalProfit >= 0 ? '0 0 15px rgba(34, 197, 94, 0.3)' : '0 0 15px rgba(239,68,68,0.2)' }}>
+                                        <span className={`text-4xl font-black font-display tracking-tighter ${liveTotalProfit >= 0 ? 'text-success' : 'text-danger'}`} style={{ textShadow: liveTotalProfit >= 0 ? '0 0 15px rgba(14, 203, 129, 0.3)' : '0 0 15px rgba(246, 70, 93, 0.2)' }}>
                                             ${liveEquity.toFixed(2)}
                                         </span>
                                         <div className="flex items-center gap-2">
                                             <span className={`text-xs font-bold ${liveTotalProfit >= 0 ? 'text-success' : 'text-danger'}`}>
                                                 {liveTotalProfit >= 0 ? '+' : '-'}${Math.abs(liveTotalProfit).toFixed(2)}
                                             </span>
-                                            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tighter">Current Session</span>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Current Session</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 mt-2 text-[9px] font-black bg-white/5 border border-white/10 rounded px-2.5 py-1 w-fit">
-                                            <span className="text-gray-500 uppercase tracking-wider">Regime:</span>
+                                        <div className="flex items-center gap-1.5 mt-2 text-[9px] font-black bg-[#14171a] border border-[#2b3139] rounded px-2.5 py-1 w-fit">
+                                            <span className="text-gray-400 uppercase tracking-wider">Regime:</span>
                                             <span className={isRangingMode ? "text-amber-400" : "text-violet-400"}>
                                                 {isRangingMode ? "LATERAL (V.F PAUSADO | D.S ATIVO)" : "TENDÊNCIA (V.F ATIVO | D.S PAUSADO)"}
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="mt-6 w-full bg-black/50 h-2 rounded-full overflow-hidden border border-white/5">
-                                        <div className={`h-full bg-gradient-to-r from-accent to-white shadow-[0_0_10px_rgba(34,197,94,0.3)] transition-all duration-1000`} style={{ width: `${hullIntegrityPct}%` }}></div>
+                                    <div className="mt-6 w-full bg-black/50 h-2 rounded-full overflow-hidden border border-[#2b3139]">
+                                        <div className={`h-full bg-gradient-to-r from-accent to-white shadow-[0_0_10px_rgba(252,213,53,0.3)] transition-all duration-1000`} style={{ width: `${hullIntegrityPct}%` }}></div>
                                     </div>
-                                    <div className="mt-4 pt-4 border-t border-white/5 relative z-10 space-y-3">
+                                    <div className="mt-4 pt-4 border-t border-[#2b3139] relative z-10 space-y-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <span className="material-icons-round text-sm text-cyan-300">shield</span>
-                                                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-500">Guardião</span>
+                                                <ThinkingOrb state="solving" size={18} tint="#fcd535" />
+                                                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-400">Guardião</span>
                                             </div>
                                             <span className={`text-[10px] font-black uppercase ${
-                                                guardianReport?.mode === 'PRESERVACAO_TOTAL' ? 'text-red-400' :
+                                                guardianReport?.mode === 'PRESERVACAO_TOTAL' ? 'text-danger' :
                                                 guardianReport?.mode === 'DEFESA' ? 'text-orange-400' :
                                                 guardianReport?.mode === 'CAUTELOSO' ? 'text-amber-300' : 'text-success'
                                             }`}>
@@ -6285,7 +6463,7 @@
             const realAdx = btcAdx; 
             const dominance = btcCtx?.btc_dominance !== undefined ? btcCtx.btc_dominance : 45.0;
             const realDecorrelation = btcCtx?.decorrelation_avg !== undefined ? btcCtx.decorrelation_avg : null;
-            const protocolLabel = btcCommandStatus?.protocol || (systemState && systemState.protocol) || "Sniper V110.510";
+            const protocolLabel = btcCommandStatus?.protocol || (systemState && systemState.protocol) || "Sniper V125.100";
 
             // V110.34: Regime agora espelha EXATAMENTE a lógica do Capitão
             // Backend calcula: ADX >= 30 + convergência 15m/1h = UP/DOWN, senão LATERAL
@@ -6449,11 +6627,10 @@
             const liveTotalProfit = Number.isFinite(guardianSessionProfit)
                 ? guardianSessionProfit
                 : (banca.lucro_total_acumulado || 0) + liveTotalPnL;
-            // [V110.705] Ajuste para modo REAL: evita dupla contagem do PnL flutuante já consolidado na OKX
-            const isRealMode = banca.saldo_real_okx !== undefined && banca.saldo_real_okx > 0;
             const baseEquity = (banca.saldo_total != null && banca.saldo_total > 0) ? banca.saldo_total : ((banca.configured_balance > 0) ? banca.configured_balance : (banca.saldo_real_okx || 100));
-            const liveEquity = isRealMode
-                ? (banca.saldo_real_okx || banca.saldo_total)
+            const hasRealOkx = banca.saldo_real_okx !== undefined && Number(banca.saldo_real_okx) > 0;
+            const liveEquity = hasRealOkx
+                ? Number(banca.saldo_real_okx)
                 : (hasGuardianEquity ? guardianEquity : (baseEquity + liveTotalPnL));
 
             // Map Best Signals
@@ -6671,6 +6848,27 @@
                                         Histórico da Vault
                                     </h3>
                                     <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={async () => {
+                                                if (confirm("Deseja realmente limpar TODO o histórico da Vault? Esta ação não pode ser desfeita.")) {
+                                                    try {
+                                                        const res = await fetch(`${API_BASE}/api/history/clear/all`, { method: 'DELETE' });
+                                                        if (res.ok) {
+                                                            setHistoryLogs([]);
+                                                            alert("Histórico limpo com sucesso!");
+                                                        } else {
+                                                            alert("Erro ao limpar histórico.");
+                                                        }
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    }
+                                                }
+                                            }}
+                                            className="text-gray-500 hover:text-red-400 p-1 hover:bg-red-500/10 rounded-lg flex items-center justify-center mr-2 transition-colors"
+                                            title="Limpar Todo o Histórico"
+                                        >
+                                            <span className="material-icons-round text-xs">delete_sweep</span>
+                                        </button>
                                         <button onClick={() => setHistoryPage(p => Math.max(1, p-1))} className="text-gray-500 hover:text-white" disabled={historyPage === 1}>
                                             <span className="material-icons-round text-sm">chevron_left</span>
                                         </button>
@@ -6842,13 +7040,13 @@
         // [SILENCED] console.timeEnd('Babel-App-Load');
     </script>
     <!-- Componentes Modularizados -->
-    <script type="text/babel" src="components/TriumphModal.js?v=110.805"></script>
-    <script type="text/babel" src="components/SettingsPage.js?v=110.913"></script>
-    <script type="text/babel" src="components/AdminUsersPage.js?v=110.913"></script>
-    <script type="text/babel" src="components/TakeoffModal.js?v=110.913"></script>
-    <script type="text/babel" src="components/DeepAnalysisModal.js?v=110.913"></script>
+    <script type="text/babel" src="components/TriumphModal.js?v=125.500"></script>
+    <script type="text/babel" src="components/SettingsPage.js?v=125.500"></script>
+    <script type="text/babel" src="components/AdminUsersPage.js?v=125.500"></script>
+    <script type="text/babel" src="components/TakeoffModal.js?v=125.500"></script>
+    <script type="text/babel" src="components/DeepAnalysisModal.js?v=125.500"></script>
     
     <!-- Núcleo do Aplicativo -->
-    <script type="text/babel" src="app.js?v=110.913"></script>
+    <script type="text/babel" src="app.js?v=125.800"></script>
 </body>
 </html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>1Crypten 7.0 — Radar Tático & Mercados</title>
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
+  <script src="/static/js/lightweight-charts.js"></script>
+  <script src="/static/js/thinking_orbs.js"></script>
+  <style>
+    .market-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .market-chart-card {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 170px);
+      min-height: 520px;
+    }
+    .market-radar-card {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 170px);
+      min-height: 520px;
+    }
+
+    @media (max-width: 820px) {
+      .market-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+      }
+      .market-chart-card {
+        height: calc(100vh - 220px) !important;
+        min-height: 380px !important;
+        padding: 10px !important;
+      }
+      .market-radar-card {
+        height: calc(100vh - 220px) !important;
+        min-height: 380px !important;
+        padding: 10px !important;
+      }
+      #col-market-radar {
+        display: none !important;
+      }
+      #col-market-chart {
+        display: flex !important;
+        width: 100% !important;
+      }
+    }
+    @media (min-width: 821px) {
+      #col-market-radar {
+        display: flex !important;
+      }
+      #col-market-chart {
+        display: flex !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="grid-mobile-stack" style="max-width: 1720px; margin: 0 auto; padding: 16px 20px;">
+
+    <!-- Top Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h1 class="font-display" style="font-size: 17px; color: #fff; margin-bottom: 2px; letter-spacing: 0.06em;">
+          RADAR TÁTICO & MATRIZ DE PARES ELITE • LAYA SOBERANA
+        </h1>
+        <p style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+          Varredura OKX SWAP ao vivo administrada pela Laya com confluência de Regime (ADX), Tendência BTC e Fluxo Institucional.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+        <span id="laya-radar-badge" class="badge-cyan">LAYA: ONLINE [MODO: LATERAL]</span>
+        <span id="radar-count" class="badge-gold">RADAR: 20 PARES</span>
+        <button onclick="loadRadarPulse()" class="btn-ghost" style="padding: 4px 10px; font-size: 10px;">ATUALIZAR</button>
+      </div>
+    </div>
+
+    <!-- Mobile Switcher -->
+    <div class="mobile-only" style="width: 100%; display: flex; gap: 8px; margin-bottom: 10px;">
+      <button id="btn-mkt-chart" class="btn-gold" style="flex: 1; padding: 7px 10px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="switchMarketTab('chart')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>GRÁFICO TÁTICO</span>
+      </button>
+      <button id="btn-mkt-radar" class="btn-ghost" style="flex: 1; padding: 7px 10px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="switchMarketTab('radar')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+        <span id="btn-mkt-radar-label">SINAIS & PARES (20)</span>
+      </button>
+    </div>
+
+    <!-- Layout: Chart Left + Radar Right -->
+    <div class="market-layout">
+      
+      <!-- Chart Area -->
+      <div id="col-market-chart" class="card-lamborghini market-chart-card">
+        <div class="card-lamborghini-header" style="flex-wrap: wrap; gap: 8px; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span class="card-title">
+              <span style="color: var(--accent-gold);">❖</span> CANDLESTICKS OKX
+            </span>
+            <span id="chart-symbol-badge" class="badge-gold">BTC-USDT-SWAP</span>
+            <span id="chart-price-display" style="font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: #FFFFFF;">--</span>
+          </div>
+
+          <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+            <!-- Quick assets -->
+            <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px;" onclick="changeChart('BTCUSDT')">BTC</button>
+            <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px;" onclick="changeChart('ETHUSDT')">ETH</button>
+            <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px;" onclick="changeChart('SOLUSDT')">SOL</button>
+            <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px;" onclick="changeChart('NEARUSDT')">NEAR</button>
+            <span style="color: #333; margin: 0 4px;">|</span>
+            <!-- Timeframes -->
+            <button class="btn-ghost btn-tf" data-tf="1" style="padding: 2px 6px; font-size: 10px;" onclick="changeTimeframe('1')">1M</button>
+            <button class="btn-ghost btn-tf" data-tf="5" style="padding: 2px 6px; font-size: 10px;" onclick="changeTimeframe('5')">5M</button>
+            <button class="btn-gold btn-tf" data-tf="15" style="padding: 2px 6px; font-size: 10px;" onclick="changeTimeframe('15')">15M</button>
+            <button class="btn-ghost btn-tf" data-tf="60" style="padding: 2px 6px; font-size: 10px;" onclick="changeTimeframe('60')">1H</button>
+            <button class="btn-ghost btn-tf" data-tf="240" style="padding: 2px 6px; font-size: 10px;" onclick="changeTimeframe('240')">4H</button>
+          </div>
+        </div>
+
+        <!-- Native High-Performance Lightweight Chart Container -->
+        <div id="chart-container-wrap" style="position: relative; flex: 1; width: 100%; height: 100%; min-height: 380px; background: #05070a; overflow: hidden;">
+          <div id="lw-market-chart" style="width: 100%; height: 100%; min-height: 380px;"></div>
+          <!-- Hidden fallback frame for token parity -->
+          <div id="tv-frame" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Radar Pairs List -->
+      <div id="col-market-radar" class="card-lamborghini market-radar-card">
+        <div class="card-lamborghini-header">
+          <span class="card-title">
+            <canvas class="thinking-orb-canvas" data-state="searching" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> SINAIS & SCORE QUANTITATIVO
+          </span>
+          <span id="radar-count-signals" class="badge-gold">0 SINAIS</span>
+        </div>
+
+        <div id="radar-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); width: 100%;">
+          <div style="color: var(--text-muted); text-align: center; padding: 24px;">Carregando varredura do radar...</div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="/static/shell.js"></script>
+  <script>
+    mountLamborghiniShell('market');
+
+    let currentSymbol = "BTC-USDT-SWAP";
+    let currentTf = "15";
+    let marketChart = null;
+    let candleSeries = null;
+
+    function initMarketChart() {
+      const container = document.getElementById("lw-market-chart");
+      if (!container || !window.LightweightCharts) return;
+
+      const width = container.clientWidth || 600;
+      const height = container.clientHeight || 450;
+
+      marketChart = LightweightCharts.createChart(container, {
+        width: width,
+        height: height,
+        layout: {
+          background: { type: 'solid', color: '#05070a' },
+          textColor: '#8899a6'
+        },
+        grid: {
+          vertLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 },
+          horzLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 192, 0, 0.3)',
+          scaleMargins: { top: 0.15, bottom: 0.15 },
+          autoScale: true
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          timeVisible: true,
+          secondsVisible: false
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal
+        },
+        localization: {
+          priceFormatter: (p) => {
+            if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (p >= 1) return p.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+            return p.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+          }
+        }
+      });
+
+      candleSeries = marketChart.addCandlestickSeries({
+        upColor: '#00E676',
+        downColor: '#FF1744',
+        borderVisible: false,
+        wickUpColor: '#00E676',
+        wickDownColor: '#FF1744'
+      });
+
+      const ro = new ResizeObserver(() => {
+        if (marketChart && container) {
+          marketChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        }
+      });
+      ro.observe(container);
+
+      loadCandles(currentSymbol, currentTf);
+    }
+
+    async function loadCandles(symbol, tf) {
+      let cleanSym = symbol.replace("-SWAP", "").replace("-", "").toUpperCase();
+      let okxInstId = symbol.toUpperCase();
+      if (!okxInstId.includes("-")) {
+        let base = okxInstId.replace("USDT", "").replace(".P", "");
+        okxInstId = `${base}-USDT-SWAP`;
+      }
+
+      let okxBar = "15m";
+      if (tf === "1") okxBar = "1m";
+      else if (tf === "5") okxBar = "5m";
+      else if (tf === "15") okxBar = "15m";
+      else if (tf === "60") okxBar = "1H";
+      else if (tf === "240") okxBar = "4H";
+
+      try {
+        let res = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${okxInstId}&bar=${okxBar}&limit=250`);
+        let okxData = res.ok ? await res.json() : null;
+
+        if ((!okxData || okxData.code !== "0" || !okxData.data || okxData.data.length === 0) && okxInstId.endsWith("-SWAP")) {
+          let spotId = okxInstId.replace("-SWAP", "");
+          let spotRes = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${spotId}&bar=${okxBar}&limit=250`);
+          if (spotRes.ok) okxData = await spotRes.json();
+        }
+
+        if (okxData && okxData.code === "0" && okxData.data && okxData.data.length > 0) {
+          const klines = okxData.data.map(k => ({
+            time: Math.floor(parseInt(k[0]) / 1000),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4])
+          })).sort((a,b) => a.time - b.time);
+
+          if (candleSeries && klines.length > 0) {
+            const lastClose = klines[klines.length - 1].close;
+            const priceDisp = document.getElementById("chart-price-display");
+            if (priceDisp) {
+              priceDisp.textContent = "$" + (lastClose >= 1 ? lastClose.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : lastClose.toFixed(4));
+            }
+
+            const prec = lastClose < 0.01 ? 6 : (lastClose < 1.0 ? 4 : (lastClose < 50 ? 3 : 2));
+            candleSeries.applyOptions({
+              priceFormat: {
+                type: 'price',
+                precision: prec,
+                minMove: Math.pow(10, -prec)
+              }
+            });
+
+            candleSeries.setData(klines);
+            if (marketChart) {
+              marketChart.timeScale().fitContent();
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Falha ao buscar candles OKX:", err);
+      }
+    }
+
+    function changeChart(sym) {
+      let clean = sym.replace("-SWAP", "").replace("-", "").toUpperCase();
+      let base = clean.replace("USDT", "").replace(".P", "");
+      currentSymbol = `${base}-USDT-SWAP`;
+      
+      const badge = document.getElementById("chart-symbol-badge");
+      if (badge) badge.textContent = currentSymbol;
+
+      loadCandles(currentSymbol, currentTf);
+
+      if (window.innerWidth <= 820) {
+        switchMarketTab('chart');
+      }
+    }
+
+    function changeTimeframe(tf) {
+      currentTf = tf;
+      document.querySelectorAll(".btn-tf").forEach(b => {
+        if (b.getAttribute("data-tf") === tf) {
+          b.className = "btn-gold btn-tf";
+        } else {
+          b.className = "btn-ghost btn-tf";
+        }
+      });
+      loadCandles(currentSymbol, currentTf);
+    }
+
+    function switchMarketTab(tab) {
+      const chartCol = document.getElementById("col-market-chart");
+      const radarCol = document.getElementById("col-market-radar");
+      const btnChart = document.getElementById("btn-mkt-chart");
+      const btnRadar = document.getElementById("btn-mkt-radar");
+
+      if (tab === 'chart') {
+        if (chartCol) chartCol.style.setProperty("display", "flex", "important");
+        if (radarCol) radarCol.style.setProperty("display", "none", "important");
+        if (btnChart) btnChart.className = "btn-gold";
+        if (btnRadar) btnRadar.className = "btn-ghost";
+      } else {
+        if (chartCol) chartCol.style.setProperty("display", "none", "important");
+        if (radarCol) radarCol.style.setProperty("display", "flex", "important");
+        if (btnChart) btnChart.className = "btn-ghost";
+        if (btnRadar) btnRadar.className = "btn-gold";
+      }
+    }
+
+    async function loadRadarPulse() {
+      try {
+        const res = await fetch("/api/radar/pulse");
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.signals || data.pairs || []);
+        
+        const countEl1 = document.getElementById("radar-count");
+        if (countEl1) countEl1.textContent = `RADAR: ${list.length} PARES`;
+        const countEl2 = document.getElementById("radar-count-signals");
+        if (countEl2) countEl2.textContent = `${list.length} SINAIS`;
+        const mLabel = document.getElementById("btn-mkt-radar-label");
+        if (mLabel) mLabel.textContent = `SINAIS & PARES (${list.length})`;
+        
+        const container = document.getElementById("radar-list");
+
+        if (data.market_context) {
+          const ctx = data.market_context;
+          const badge = document.getElementById("laya-radar-badge");
+          if (badge) {
+            const btcPrice = Number(ctx.btc_price || 0);
+            badge.textContent = `LAYA: ONLINE [${ctx.radar_mode || 'DUAL'}] • BTC $${btcPrice.toLocaleString()}`;
+          }
+        }
+
+        if (list.length === 0) {
+          container.innerHTML = `<div style="color: #777; text-align: center; padding: 24px;">Aguardando novo pulso da Laya Soberana...</div>`;
+          return;
+        }
+
+        container.innerHTML = list.slice(0, 50).map(item => {
+          const sym = item.symbol || item.pair || 'SYM';
+          const cleanSym = (item.pair || sym).replace('-USDT-SWAP', '').replace('USDT', '');
+          const numScore = Number(item.score != null ? item.score : (item.confidence != null ? item.confidence : 50));
+          const score = isNaN(numScore) ? 50 : numScore;
+          const side = String(item.side || item.direction || 'NEUTRAL').toUpperCase();
+          const isLong = side === 'BUY' || side === 'LONG';
+          const numPrice = Number(item.price);
+          const price = (!isNaN(numPrice) && numPrice > 0) ? (numPrice < 1 ? numPrice.toFixed(4) : numPrice.toFixed(2)) : '--';
+          const numLsr = Number(item.lsr);
+          const lsr = (!isNaN(numLsr) && item.lsr != null) ? `LSR ${numLsr.toFixed(2)}` : '';
+          const numOi = Number(item.oi_delta);
+          const oi = (!isNaN(numOi) && item.oi_delta != null) ? `OI ${(numOi > 0 ? '+' : '')}${numOi.toFixed(1)}%` : '';
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #0c0f14; border: 1px solid #1a2430; border-left: 3px solid ${isLong ? 'var(--cyan-pulse)' : '#FF1744'}; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#131922'" onmouseout="this.style.background='#0c0f14'" onclick="changeChart('${cleanSym}USDT')">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <b style="color: #fff; font-size: 13px;">${cleanSym}/USDT</b>
+                  <span style="font-size: 11px; color: #aaa; font-weight: 600;">$${price}</span>
+                </div>
+                <div style="display: flex; gap: 6px; font-size: 9px; color: #8899aa; margin-top: 3px;">
+                  <span>${item.strategy || 'FLUXO INSTITUCIONAL'}</span>
+                  ${lsr ? `<span style="color: #FFB300;">• ${lsr}</span>` : ''}
+                  ${oi ? `<span style="color: #29ABE2;">• ${oi}</span>` : ''}
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span class="${isLong ? 'badge-up' : 'badge-down'}" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${side}</span>
+                <span style="display: block; font-size: 11px; color: var(--accent-gold); font-weight: 800; margin-top: 2px;">${score.toFixed(1)} PTS</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch (e) {
+        console.error("Erro no radar:", e);
+      }
+    }
+
+    // Inicialização
+    initMarketChart();
+    loadRadarPulse();
+    setInterval(loadRadarPulse, 6000);
+  </script>
+</body>
+</html>

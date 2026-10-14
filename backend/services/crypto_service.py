@@ -1,44 +1,43 @@
 # -*- coding: utf-8 -*-
 import base64
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
-from Crypto.Protocol.KDF import PBKDF2
 import hashlib
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
 
 class CryptoService:
     @staticmethod
     def decrypt(encrypted_data: str, password: str) -> str:
         """
         Descriptografa dados gerados pelo CryptoJS.AES.encrypt no Frontend.
-        CryptoJS usa por padrão o formato 'Salted__' (formato OpenSSL).
+        CryptoJS usa por padrao o formato 'Salted__' (formato OpenSSL).
         """
         try:
             data = base64.b64decode(encrypted_data)
             if data[:8] != b'Salted__':
-                # Caso não tenha salt, assume descriptografia simples (raro no CryptoJS padrão)
+                # Caso nao tenha salt, assume descriptografia simples
                 return ""
 
             salt = data[8:16]
             ciphertext = data[16:]
 
-            # Derivação de Key e IV usando o método OpenSSL (EVP_BytesToKey)
-            # CryptoJS usa MD5 por padrão na derivação legada ou PBKDF2.
-            # Para manter simples e robusto, o CryptoJS moderno permite especificar KDF.
-            # Se usarmos o padrão do CryptoJS sem params extras, ele faz o seguinte:
-            
-            def derive_key_and_iv(password, salt, key_len, iv_len):
+            # Derivacao de Key e IV usando o metodo OpenSSL (EVP_BytesToKey)
+            def derive_key_and_iv(pass_str, salt_bytes, key_len, iv_len):
                 d = d_i = b''
                 while len(d) < key_len + iv_len:
-                    d_i = hashlib.md5(d_i + password.encode('utf-8') + salt).digest()
+                    d_i = hashlib.md5(d_i + pass_str.encode('utf-8') + salt_bytes).digest()
                     d += d_i
                 return d[:key_len], d[key_len:key_len + iv_len]
 
             key, iv = derive_key_and_iv(password, salt, 32, 16)
-            cipher = AES.new(key, AES.MODE_CBC, iv)
-            decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+            decryptor = cipher.decryptor()
+            padded_plain = decryptor.update(ciphertext) + decryptor.finalize()
+            unpadder = padding.PKCS7(128).unpadder()
+            decrypted = unpadder.update(padded_plain) + unpadder.finalize()
             return decrypted.decode('utf-8')
         except Exception as e:
             print(f"Erro na descriptografia: {e}")
             return ""
 
 crypto_service = CryptoService()
+

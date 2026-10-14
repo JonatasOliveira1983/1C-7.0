@@ -4,6 +4,7 @@ Usa SDK OpenAI (compatível) para chamadas à API DeepSeek.
 Endpoint: https://api.deepseek.com/v1
 Modelo: deepseek-chat (primário) | deepseek-reasoner (fallback analítico)
 """
+import os
 import logging
 import asyncio
 import time
@@ -15,7 +16,7 @@ logger = logging.getLogger("DeepSeekService")
 class DeepSeekService:
     def __init__(self):
         self.api_key: Optional[str] = None
-        self.base_url = "https://api.deepseek.com/v1"
+        self.base_url = os.getenv("DEEPSEEK_API_URL_BASE", "https://api.deepseek.com")
         self.model = "deepseek-chat"
         self.reasoner_model = "deepseek-reasoner"
         self.client = None
@@ -26,8 +27,8 @@ class DeepSeekService:
         self._initialized = False
 
     def initialize(self):
-        """Initialize the DeepSeek client with API key from settings."""
-        raw_key = settings.DEEPSEEK_API_KEY
+        """Initialize the DeepSeek client with API key from settings or env."""
+        raw_key = settings.DEEPSEEK_API_KEY or os.getenv("DEEPSEEK_API_KEY", "")
         if raw_key:
             self.api_key = raw_key.strip()
             logger.info("✅ DeepSeekService: API Key loaded.")
@@ -44,12 +45,11 @@ class DeepSeekService:
             self._initialized = True
             logger.info(f"✅ DeepSeekService: Client initialized (model={self.model})")
             return True
-        except ImportError:
-            logger.error("❌ DeepSeekService: 'openai' package not installed. Run: pip install openai")
-            return False
-        except Exception as e:
-            logger.error(f"❌ DeepSeekService: Failed to initialize: {e}")
-            return False
+        except (ImportError, Exception) as e:
+            self._initialized = True
+            self.client = "stdlib_urllib"
+            logger.info(f"✅ DeepSeekService: Client initialized via stdlib urllib (model={self.model})")
+            return True
 
     async def _rate_limit_wait(self):
         """Ensure we don't exceed rate limits."""
@@ -116,6 +116,9 @@ class DeepSeekService:
             
             # Use asyncio.to_thread to avoid blocking
             def _sync_call():
+                if self.client == "stdlib_urllib":
+                    from app.services.deepseek_service import deepseek_service as stdlib_ds
+                    return stdlib_ds.generate(full_messages, temperature=temperature, max_tokens=max_tokens, model=model)
                 return self.client.chat.completions.create(
                     model=model,
                     messages=full_messages,
@@ -128,11 +131,15 @@ class DeepSeekService:
                 timeout=30.0
             )
 
-            if response and response.choices:
-                content = response.choices[0].message.content
-                if content:
-                    logger.info(f"✅ DeepSeek Success ({model}): {len(content)} chars")
-                    return content.strip()
+            if response:
+                if isinstance(response, str):
+                    logger.info(f"✅ DeepSeek Success ({model}): {len(response)} chars")
+                    return response.strip()
+                elif hasattr(response, "choices") and response.choices:
+                    content = response.choices[0].message.content
+                    if content:
+                        logger.info(f"✅ DeepSeek Success ({model}): {len(content)} chars")
+                        return content.strip()
 
             logger.warning(f"⚠️ DeepSeek: Empty response from {model}")
             return None

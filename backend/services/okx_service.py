@@ -17,7 +17,7 @@ logger = logging.getLogger("OKXService")
 class OKXService:
     @staticmethod
     def to_okx_inst_id(symbol: str) -> str:
-        """Converte símbolo legacy Bybit (ex: AVAXUSDT ou AVAXUSDT.P) para formato OKX nativo (ex: AVAX-USDT-SWAP)."""
+        """Converte símbolo interno (ex: AVAXUSDT) para formato OKX (ex: AVAX-USDT-SWAP)."""
         if not symbol:
             return ""
         norm = symbol.strip().upper()
@@ -35,7 +35,7 @@ class OKXService:
 
     @staticmethod
     def from_okx_inst_id(symbol: str) -> str:
-        """Converte símbolo OKX nativo (ex: AVAX-USDT-SWAP) para formato legacy com sufixo .P (ex: AVAXUSDT.P) usado em chaves de cache interno."""
+        """Converte símbolo OKX (ex: AVAX-USDT-SWAP) para formato interno (ex: AVAXUSDT) usado em chaves de cache."""
         if not symbol:
             return ""
         norm = symbol.strip().upper()
@@ -144,6 +144,36 @@ class OKXService:
 
         return headers
 
+    async def get_wallet_balance(self) -> float:
+        """
+        Busca o saldo total (totalEq) da conta OKX.
+        Retorna 0.0 se falhar ou se estiver em modo mock.
+        """
+        if self.is_mock:
+            return 0.0
+
+        request_path = "/api/v5/account/balance"
+        url = self.base_url + request_path
+        headers = self._get_headers("GET", request_path)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        total_eq = float(data["data"][0].get("totalEq", 0.0))
+                        logger.info(f"💰 [OKX-BALANCE] Saldo total da conta: ${total_eq:.2f}")
+                        return total_eq
+                    else:
+                        logger.error(f"❌ [OKX-BALANCE] Erro na API: {data.get('msg')}")
+                else:
+                    logger.error(f"❌ [OKX-BALANCE] Erro HTTP {response.status_code}: {response.text}")
+        except Exception as e:
+            logger.error(f"❌ [OKX-BALANCE] Falha ao obter saldo: {e}", exc_info=True)
+
+        return 0.0
+
     async def get_positions(self) -> List[Dict[str, Any]]:
         """
         Busca as posições ativas na conta.
@@ -240,56 +270,73 @@ class OKXService:
             logger.error(f"❌ [OKX REST] Falha crítica no Knife-Drop batch close: {e}", exc_info=True)
             return {"code": "-1", "msg": str(e)}
 
+    OFFICIAL_OKX_SWAP_SPECS = {
+        "BTC-USDT-SWAP": {"ctVal": "0.01", "lotSize": "0.01", "minSz": "0.01", "tickSize": "0.1", "ctValCcy": "BTC"},
+        "ETH-USDT-SWAP": {"ctVal": "0.1", "lotSize": "0.01", "minSz": "0.01", "tickSize": "0.01", "ctValCcy": "ETH"},
+        "SOL-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.01", "minSz": "0.01", "tickSize": "0.01", "ctValCcy": "SOL"},
+        "NEAR-USDT-SWAP": {"ctVal": "10.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.001", "ctValCcy": "NEAR"},
+        "AVAX-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.001", "ctValCcy": "AVAX"},
+        "LINK-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.001", "ctValCcy": "LINK"},
+        "DOGE-USDT-SWAP": {"ctVal": "100.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.00001", "ctValCcy": "DOGE"},
+        "PEPE-USDT-SWAP": {"ctVal": "10000000.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.00000001", "ctValCcy": "PEPE"},
+        "SHIB-USDT-SWAP": {"ctVal": "1000000.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.00000001", "ctValCcy": "SHIB"},
+        "JTO-USDT-SWAP": {"ctVal": "1.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.0001", "ctValCcy": "JTO"},
+        "DOT-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.001", "ctValCcy": "DOT"},
+        "SUI-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.0001", "ctValCcy": "SUI"},
+        "APT-USDT-SWAP": {"ctVal": "1.0", "lotSize": "0.1", "minSz": "0.1", "tickSize": "0.001", "ctValCcy": "APT"},
+        "ADA-USDT-SWAP": {"ctVal": "100.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.0001", "ctValCcy": "ADA"},
+        "XRP-USDT-SWAP": {"ctVal": "10.0", "lotSize": "1.0", "minSz": "1.0", "tickSize": "0.0001", "ctValCcy": "XRP"},
+    }
+
     async def get_instrument_details(self, symbol: str) -> Dict[str, Any]:
         """
-        Puxa e coloca em cache os limites de precisão (lotSize e stepSize) para evitar
-        erros de precisão de ordens no book da OKX.
+        Puxa e coloca em cache os limites de precisão reais (ctVal, lotSize, tickSize e minSz) da OKX.
+        Nunca usa valores fictícios em mock: consulta a API pública oficial ou o catálogo rigoroso de especificações.
         """
         inst_id = self.to_okx_inst_id(symbol)
         
         if inst_id in self._instrument_cache:
             return self._instrument_cache[inst_id]
 
-        if self.is_mock:
-            mock_detail = {
-                "instId": inst_id,
-                "lotSize": "0.1" if "BTC" in inst_id else "1.0",
-                "tickSize": "0.1",
-                "minSz": "0.1" if "BTC" in inst_id else "1.0",
-                "ctVal": "1.0"
-            }
-            self._instrument_cache[inst_id] = mock_detail
-            return mock_detail
-
+        # Tentar buscar dados oficiais em tempo real via endpoint público (não requer autenticação)
         request_path = f"/api/v5/public/instruments?instType=SWAP&instId={inst_id}"
         url = self.base_url + request_path
-        headers = self._get_headers("GET", request_path)
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, headers=headers)
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("code") == "0" and data.get("data"):
                         inst_info = data["data"][0]
                         detail = {
                             "instId": inst_info.get("instId"),
-                            "lotSize": inst_info.get("lotSz", "1.0"),
-                            "tickSize": inst_info.get("tickSz", "0.01"),
-                            "minSz": inst_info.get("minSz", "1.0"),
-                            "ctVal": inst_info.get("ctVal", "1.0") # Valor do contrato
+                            "lotSize": str(inst_info.get("lotSz", "1.0")),
+                            "tickSize": str(inst_info.get("tickSz", "0.001")),
+                            "minSz": str(inst_info.get("minSz", "1.0")),
+                            "ctVal": str(inst_info.get("ctVal", "1.0")),
+                            "ctValCcy": str(inst_info.get("ctValCcy", ""))
                         }
                         self._instrument_cache[inst_id] = detail
                         return detail
-                    else:
-                        logger.error(f"❌ [OKX REST] Instrumento {inst_id} não encontrado na OKX.")
-                else:
-                    logger.error(f"❌ [OKX REST] Erro HTTP ao buscar instrumento {response.status_code}")
         except Exception as e:
-            logger.error(f"❌ [OKX REST] Falha ao obter detalhes do instrumento {inst_id}: {e}")
+            logger.debug(f"[OKX REST] Fallback para especificações oficiais locais de {inst_id}: {e}")
 
-        # Fallback seguro
-        fallback = {"instId": inst_id, "lotSize": "1.0", "tickSize": "0.01", "minSz": "1.0", "ctVal": "1.0"}
+        # Fallback para especificações oficiais verificadas da OKX
+        fallback_spec = self.OFFICIAL_OKX_SWAP_SPECS.get(inst_id)
+        if fallback_spec:
+            detail = {
+                "instId": inst_id,
+                "lotSize": fallback_spec["lotSize"],
+                "tickSize": fallback_spec["tickSize"],
+                "minSz": fallback_spec["minSz"],
+                "ctVal": fallback_spec["ctVal"],
+                "ctValCcy": fallback_spec.get("ctValCcy", "")
+            }
+            self._instrument_cache[inst_id] = detail
+            return detail
+
+        fallback = {"instId": inst_id, "lotSize": "1.0", "tickSize": "0.001", "minSz": "1.0", "ctVal": "1.0"}
         return fallback
 
     async def place_atomic_order(
@@ -311,7 +358,7 @@ class OKXService:
         inst_id = self.to_okx_inst_id(symbol)
         
         # Converte o lado (side)
-        # Bybit: Buy/Sell ➔ OKX: buy/sell
+        # Normaliza side: OKX usa lowercase
         side_okx = side.strip().lower()
         
         # Determina a direção da posição (posSide) para modo Hedge:
@@ -385,12 +432,16 @@ class OKXService:
             # Remove qualquer posição duplicada se existir
             self._mock_positions = [p for p in self._mock_positions if p["instId"] != inst_id]
             self._mock_positions.append(mock_pos)
-            
             return {
                 "code": "0",
                 "msg": "success",
                 "data": [{"clOrdId": cl_ord_id, "ordId": f"okx_ord_{int(time.time())}", "sCode": "0", "sMsg": "success"}]
             }
+
+        # [V124] Configurar alavancagem ANTES de enviar a ordem (corrige bug 3x → 50x)
+        leverage_result = await self.set_leverage(symbol, leverage, mgn_mode="cross")
+        if leverage_result and leverage_result.get("code") != "0":
+            logger.warning(f"⚠️ [OKX] Falha ao configurar {leverage}x para {symbol}: {leverage_result.get('msg')}")
 
         request_path = "/api/v5/trade/order"
         url = self.base_url + request_path
@@ -515,7 +566,7 @@ class OKXService:
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20) -> List[List[Any]]:
         """
         Busca velas históricas (Klines) públicas na OKX.
-        Retorna uma lista de velas no formato da Bybit: [start_time, open, high, low, close]
+        Retorna uma lista de velas: [start_time, open, high, low, close]
         """
         # Se for OKX Testnet, apenas BTC e ETH têm cobertura garantida. Altcoins dão Instrument ID doesn't exist
         clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
@@ -525,7 +576,7 @@ class OKXService:
 
         inst_id = self.to_okx_inst_id(symbol)
         
-        # Mapeamento de intervalos Bybit -> OKX
+        # Mapeamento de intervalos para OKX
         interval_map = {
             "1": "1m",
             "3": "3m",
@@ -570,7 +621,7 @@ class OKXService:
                     if data.get("code") == "0" and data.get("data"):
                         okx_candles = data.get("data", [])
                         # OKX retorna: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
-                        # Bybit espera: [start_time, open, high, low, close]
+                        # Formato esperado: [start_time, open, high, low, close]
                         formatted = []
                         for c in okx_candles:
                             if len(c) >= 5:
@@ -718,7 +769,7 @@ class OKXService:
     async def get_klines(self, symbol: str, interval: str = "60", limit: int = 20) -> List[List[Any]]:
         """
         Busca velas históricas (Klines) públicas na OKX.
-        Retorna uma lista de velas no formato da Bybit: [start_time, open, high, low, close]
+        Retorna uma lista de velas: [start_time, open, high, low, close]
         """
         # Se for OKX Testnet, apenas BTC e ETH têm cobertura garantida. Altcoins dão Instrument ID doesn't exist
         clean_sym = symbol.replace(".P", "").replace(".p", "").upper()
@@ -728,7 +779,7 @@ class OKXService:
 
         inst_id = self.to_okx_inst_id(symbol)
         
-        # Mapeamento de intervalos Bybit -> OKX
+        # Mapeamento de intervalos para OKX
         interval_map = {
             "1": "1m",
             "3": "3m",
@@ -773,7 +824,7 @@ class OKXService:
                     if data.get("code") == "0" and data.get("data"):
                         okx_candles = data.get("data", [])
                         # OKX retorna: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
-                        # Bybit espera: [start_time, open, high, low, close]
+                        # Formato esperado: [start_time, open, high, low, close]
                         formatted = []
                         for c in okx_candles:
                             if len(c) >= 5:

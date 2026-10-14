@@ -174,8 +174,20 @@ class FirebaseService:
                 )
                 if user_doc.exists:
                     data = user_doc.to_dict()
+                    
+                    real_okx = 0.0
+                    try:
+                        from services.database_service import database_service
+                        db_status = await database_service.get_banca_status()
+                        if db_status:
+                            real_okx = float(db_status.get("saldo_real_okx") or 0.0)
+                    except Exception:
+                        pass
+                        
                     return {
                         "saldo_total": float(data.get("bankroll_balance", 100.0)),
+                        "configured_balance": float(data.get("bankroll_balance", 100.0)),
+                        "saldo_real_okx": real_okx,
                         "risco_real_percent": 0.0,
                         "slots_disponiveis": 4,
                         "status": "USER_MODE"
@@ -555,6 +567,38 @@ class FirebaseService:
         except Exception as e:
             logger.error(f"Erro ao excluir documento do Firestore: {e}")
             return False
+
+    async def clear_all_trade_history(self):
+        """Limpa todo o histórico do Postgres, Firestore e Realtime Database."""
+        try:
+            from services.database_service import database_service
+            from sqlalchemy import delete
+            from services.database_service import TradeHistory
+            async with database_service.AsyncSessionLocal() as session:
+                await session.execute(delete(TradeHistory))
+                await session.commit()
+            logger.info("Histórico de trades limpo no Postgres.")
+        except Exception as e:
+            logger.error(f"Erro ao limpar Postgres: {e}")
+
+        try:
+            if self.is_active:
+                await asyncio.to_thread(self.rtdb.child("vault_history").delete)
+                logger.info("Histórico de vault_history limpo no RTDB.")
+        except Exception as e:
+            logger.error(f"Erro ao limpar RTDB: {e}")
+
+        try:
+            if self.is_active:
+                docs = await asyncio.to_thread(self.db.collection("trade_history").limit(500).get)
+                batch = self.db.batch()
+                for doc in docs:
+                    batch.delete(doc.reference)
+                await asyncio.to_thread(batch.commit)
+                logger.info("Documentos de trade_history limpos no Firestore.")
+        except Exception as e:
+            logger.error(f"Erro ao limpar Firestore: {e}")
+        return True
 
     async def get_trade_history_stats(self, symbol: str = None, start_date: str = None, end_date: str = None):
         """

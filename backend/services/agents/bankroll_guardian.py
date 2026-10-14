@@ -153,10 +153,13 @@ class BankrollGuardian:
         pnl = _safe_float(trade.get("pnl"), 0.0)
         roi = _safe_float(trade.get("pnl_percent") or trade.get("roi"), 0.0)
         reason = str(trade.get("close_reason") or "").upper()
+        leverage = _safe_float(trade.get("leverage"), 50.0) # Assumimos 50x se não vier preenchido (padrão)
 
         if consecutive_losses >= 2:
-            return 15 * 60  # Reduzido de 24h para 15 minutos para re-entradas rápidas
-        if "STOP" in reason or roi <= -100.0 or pnl <= -3.0:
+            if leverage >= 50.0:
+                return 4 * 60 * 60  # [V126] Quarentena de 4 horas para Tilt Algorítmico em alta alavancagem
+            return 30 * 60  # 30 minutos em outras alavancagens
+        if "STOP" in reason or roi <= -10000.0 or pnl <= -3.0:
             return 15 * 60  # Reduzido de 6h para 15 minutos
         if roi <= -50.0 or pnl <= -1.0:
             return 10 * 60  # Reduzido de 2h para 10 minutos
@@ -287,7 +290,7 @@ class BankrollGuardian:
             if entry > 0 and qty > 0 and leverage > 0:
                 margin = (entry * qty * ct_val) / leverage
 
-        return (roi / 100.0) * margin if margin > 0 else 0.0
+        return (roi / 10000.0) * margin if margin > 0 else 0.0
 
     def _position_stop_roi(self, position: Dict[str, Any]) -> Optional[float]:
         entry = _safe_float(position.get("entry_price") or position.get("entry"), 0.0)
@@ -331,7 +334,7 @@ class BankrollGuardian:
             if entry > 0 and qty > 0 and leverage > 0:
                 margin = (entry * qty * ct_val) / leverage
 
-        return max(0.0, (stop_roi / 100.0) * margin) if margin > 0 else 0.0
+        return max(0.0, (stop_roi / 10000.0) * margin) if margin > 0 else 0.0
 
     def _realized_pnl_usd(self, history: List[Dict[str, Any]]) -> float:
         return sum(_safe_float(trade.get("pnl"), 0.0) for trade in history)
@@ -345,9 +348,19 @@ class BankrollGuardian:
         history: List[Dict[str, Any]],
     ) -> Dict[str, float]:
         stored_equity = _safe_float(banca.get("saldo_total"), 0.0)
-        realized_pnl = self._realized_pnl_usd(history)
+        
+        # [V127.1] Em PAPER, o base_balance JÁ contém o PnL realizado do Sandbox
+        # (via get_sandbox_unified_balance). NÃO somar realized_pnl novamente.
+        # Em REAL, o realized_pnl vem do Firebase e deve ser somado.
+        from config import settings
+        is_paper = getattr(settings, "OKX_EXECUTION_MODE", "PAPER") == "PAPER"
+        
+        realized_pnl = self._realized_pnl_usd(history) if not is_paper else 0.0
         open_slots_pnl = sum(self._position_pnl_usd(slot) for slot in active_slots)
         open_moonbags_pnl = sum(self._position_pnl_usd(moonbag) for moonbag in active_moonbags)
+        
+        # [V127.1] Em PAPER: base_balance (realizado) + open_pnl
+        # Em REAL: base_balance + realized_pnl (Firebase) + open_pnl
         calculated_equity = base_balance + realized_pnl + open_slots_pnl + open_moonbags_pnl
 
         has_live_or_realized_pnl = any(abs(value) > 0.000001 for value in (realized_pnl, open_slots_pnl, open_moonbags_pnl))
@@ -381,7 +394,7 @@ class BankrollGuardian:
     ) -> Dict[str, Any]:
         max_regime_slots = 20 if is_ranging_mode else 40
         if base_balance <= 0:
-            base_balance = _safe_float(getattr(settings, "OKX_SIMULATED_BALANCE", 100.0), 100.0)
+            base_balance = _safe_float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0), 10000.0)
 
         if self.peak_equity <= 0:
             self.peak_equity = max(equity, base_balance)
@@ -588,12 +601,57 @@ class BankrollGuardian:
 
     async def evaluate_bank_health(self) -> Dict[str, Any]:
         banca = await self._get_banca_status()
-        slots = await self._get_slots()
-        moonbags = await self._get_moonbags()
-        history = await self._get_history()
+        
+        # [V127] Se estiver em modo PAPER, a 'banca' do Cockpit é o saldo consolidado do Sandbox
+        if settings.OKX_EXECUTION_MODE == "PAPER":
+            try:
+                from services.database_service import database_service
+                sim_balance = await database_service.get_sandbox_unified_balance()
+            except Exception:
+                sim_balance = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+            configured = sim_balance
+            if isinstance(banca, dict):
+                banca["saldo_total"] = sim_balance
+                banca["configured_balance"] = sim_balance
+                banca["saldo_real_okx"] = sim_balance
+                
+            # [V129] Em PAPER mode, mapear posições ativas do Sandbox como slots para cálculo de PnL no Guardian
+            try:
+                from services.database_service import database_service
+                sandbox_trades = await database_service.get_sandbox_trades(active_only=True)
+                swing_trades = await database_service.get_swing_trades(active_only=True)
+                
+                slots = []
+                for t in [*sandbox_trades, *swing_trades]:
+                    margin = float(t.contract_meta.get("margin", 200.0)) if t.contract_meta else 200.0
+                    roi = float(t.current_roi or 0.0)
+                    slots.append({
+                        "id": t.id,
+                        "symbol": t.symbol,
+                        "side": t.side,
+                        "entry_price": float(t.entry_price or 0.0),
+                        "current_price": float(t.current_price or 0.0),
+                        "qty": float(t.qty or 0.0),
+                        "leverage": float(t.leverage or 50.0),
+                        "entry_margin": margin,
+                        "pnl_usd": (roi / 100.0) * margin,
+                        "roi_percent": roi,
+                        "pnl_percent": roi,
+                        "opened_at": t.entry_time,
+                        "status": t.status
+                    })
+                moonbags = []
+            except Exception as e:
+                logger.error(f"[BANKROLL-GUARDIAN] Erro ao mapear slots virtuais do Sandbox: {e}")
+                slots = await self._get_slots()
+                moonbags = await self._get_moonbags()
+        else:
+            configured = _safe_float(banca.get("configured_balance"), 0.0)
+            slots = await self._get_slots()
+            moonbags = await self._get_moonbags()
 
-        configured = _safe_float(banca.get("configured_balance"), 0.0)
-        base_balance = configured or _safe_float(getattr(settings, "OKX_SIMULATED_BALANCE", 100.0), 100.0)
+        history = await self._get_history()
+        base_balance = configured or _safe_float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0), 10000.0)
 
         active_slots = [
             s for s in slots

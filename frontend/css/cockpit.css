@@ -31,24 +31,41 @@
     box-sizing: border-box !important;
 }
 :root {
-    --v5-bg-deep: #060608; 
-    --v5-bg-card: rgba(13, 13, 20, 0.45); 
-    --v5-bg-input: #09090e;
-    --v5-border: rgba(255, 255, 255, 0.04);
-    --v5-border-primary: rgba(255, 255, 255, 0.04); 
-    --v5-text-main: #ffffff; 
-    --v5-text-dim: #9ca3af; 
-    --v5-accent: #22d3ee;   
+    /* Binance Design Tokens (getdesign.md/binance/design-md) */
+    --binance-canvas: #0b0e11;
+    --binance-card: #1e2329;
+    --binance-elevated: #2b3139;
+    --binance-hairline: #2b3139;
+    --binance-yellow: #fcd535;
+    --binance-yellow-active: #f0b90b;
+    --binance-yellow-muted: #3a3a1f;
+    --binance-text-primary: #eaecef;
+    --binance-text-on-dark: #ffffff;
+    --binance-text-muted: #707a8a;
+    --binance-text-muted-strong: #929aa5;
+    --binance-green: #0ecb81;
+    --binance-red: #f6465d;
+    --binance-turquoise: #2dbdb6;
+    
+    /* V5 Mapped to Binance Palette */
+    --v5-bg-deep: #0b0e11; 
+    --v5-bg-card: rgba(30, 35, 41, 0.75); 
+    --v5-bg-input: #14171a;
+    --v5-border: #2b3139;
+    --v5-border-primary: #2b3139; 
+    --v5-text-main: #eaecef; 
+    --v5-text-dim: #707a8a; 
+    --v5-accent: #fcd535;   
 }
 
-/* Background Animated Auras (Gemini Style) */
+/* Background Animated Auras (Binance Gold Glow) */
 .aura {
     position: absolute;
     border-radius: 50%;
     pointer-events: none;
     z-index: 0;
     filter: blur(140px);
-    opacity: 0.08;
+    opacity: 0.04;
     transition: all 1s ease-in-out;
 }
 
@@ -57,7 +74,7 @@
     left: 10%;
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, #22d3ee, transparent 70%);
+    background: radial-gradient(circle, #fcd535, transparent 70%);
     animation: float-slow 20s infinite alternate;
 }
 
@@ -66,7 +83,7 @@
     right: 10%;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, #a855f7, transparent 70%);
+    background: radial-gradient(circle, #f0b90b, transparent 70%);
     animation: float-slow-reverse 25s infinite alternate;
 }
 
@@ -239,7 +256,7 @@ body {
     font-family: 'Inter', sans-serif;
     height: 100dvh;
     width: 100vw;
-    overflow-x: hidden;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     position: relative;
 }
@@ -256,12 +273,6 @@ body {
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
-
-/* Scrollbar Excellence */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
 
 /* V110.100 ALPHA REVOLUTION: Minimalist Status Indicators */
 .status-dot-active {
@@ -464,26 +475,11 @@ body {
     transition: width 0.4s ease;
 }
 
-/* Premium Global Scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.01);
-    border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
-}
+/* Custom scrollbar (igual ao Sandbox) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(5, 5, 6, 0.5); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* [V1.0] Intelligence Flow Timeline */
 .intel-line {
@@ -546,10 +542,10 @@ body {
     box-shadow: 0 10px 20px rgba(0,0,0,0.4);
 }
 
-/* Firefox */
+/* Firefox — dark scrollbar matching webkit rules */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #B8860B rgba(0, 0, 0, 0.2);
+    scrollbar-color: rgba(255, 255, 255, 0.1) rgba(5, 5, 6, 0.5);
 }
 
 /* Premium Chart Border - Metallic Gold Pulse */
@@ -741,11 +737,17 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(5, 5, 6, 0.5);
+}
+
+/* Firefox — explicit for .custom-scrollbar */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) rgba(5, 5, 6, 0.5);
 }
 
 /* [V110.182.4] Eagle Vision PRO Animations */
@@ -782,15 +784,29 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border-radius: 3px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.2);
 }
        /* V4.3.3: LEGIBILIDADE ADAPTATIVA (MOBILE-FIRST) */
 @media (max-width: 1024px) {
     html {
         font-size: 14px !important;
+        height: auto !important;
+        overflow-y: auto !important;
+    }
+    body {
+        height: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+    }
+    #root {
+        height: auto !important;
+    }
+    main {
+        height: auto !important;
     }
 
     /* Fontes ajustadas para escala Micro em Mobile */
@@ -1546,6 +1562,13 @@ nav .flex {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* [V128] Scrollbar customizada para sidebar da Banca */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+
 /* V114.0: ASSET DNA & NECTAR VISUALS */
 .nectar-glow {
     animation: nectar-pulse 2s infinite ease-in-out;
@@ -1566,4 +1589,217 @@ nav .flex {
 }
 .scanning-bar {
     animation: scanningLine 3s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* NAVBAR UNIFICADA — MESMO DESIGN EM TODAS AS TELAS (mobile e desktop) */
+/* ═══════════════════════════════════════════════════════════════ */
+.app-nav {
+    position: fixed !important;
+
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 10000 !important;
+    background: rgba(6,6,8,0.95) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-top: 1px solid rgba(255,255,255,0.1) !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.3) !important;
+    padding: 8px 16px !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+}
+.app-nav-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    width: 100% !important;
+    height: 100% !important;
+    gap: 4px !important;
+    flex: 1 !important;
+}
+.app-nav-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+    transition: all 0.3s !important;
+    flex: 1 !important;
+    max-width: 100px !important;
+    color: #9ca3af !important;
+    text-decoration: none !important;
+    border: 1px solid transparent !important;
+    cursor: pointer !important;
+    background: none !important;
+}
+.app-nav-btn:hover {
+    color: #fff !important;
+    background: rgba(255,255,255,0.05) !important;
+}
+.app-nav-btn.active {
+    color: #fff !important;
+    background: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.2) !important;
+    box-shadow: 0 0 12px rgba(255,255,255,0.1) !important;
+}
+.app-nav-btn.is-special {
+    color: #22c55e !important;
+}
+.app-nav-btn.is-special:hover {
+    color: #22c55e !important;
+    background: rgba(34,197,94,0.1) !important;
+    border-color: rgba(34,197,94,0.2) !important;
+}
+.app-nav-btn.is-special.active {
+    color: #22c55e !important;
+    background: rgba(34,197,94,0.2) !important;
+    border-color: rgba(34,197,94,0.5) !important;
+    box-shadow: 0 0 15px rgba(34,197,94,0.3) !important;
+    transform: scale(1.05) !important;
+}
+.app-nav-btn .material-icons-round {
+    font-size: 24px !important;
+}
+.app-nav-btn.is-special .material-icons-round {
+    font-size: 25px !important;
+}
+.app-nav-label {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+}
+.app-nav-logo,
+.app-nav-logout {
+    display: none !important;
+}
+.app-nav-adm-wrapper {
+    position: relative !important;
+    flex: 1 !important;
+    max-width: 100px !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+.app-nav-adm-btn.adm-open,
+.app-nav-adm-btn:hover {
+    color: #fff !important;
+    background: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.2) !important;
+    box-shadow: 0 0 12px rgba(255,255,255,0.1) !important;
+}
+.adm-submenu {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: calc(100% + 8px) !important;
+    top: auto !important;
+    z-index: 10001 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    padding: 8px !important;
+    min-width: 200px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: rgba(8,8,12,0.97) !important;
+    backdrop-filter: blur(24px) !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5) !important;
+}
+.adm-submenu-title {
+    font-size: 8px !important;
+    font-weight: 900 !important;
+    color: rgba(34,197,94,0.6) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.2em !important;
+    padding: 0 8px 6px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+    margin-bottom: 4px !important;
+}
+.adm-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    text-decoration: none !important;
+    color: #d1d5db !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+    border: 1px solid transparent !important;
+    white-space: nowrap !important;
+}
+.adm-item:hover {
+    color: #fff !important;
+    background: rgba(255,255,255,0.08) !important;
+}
+.adm-item .material-icons-round {
+    font-size: 18px !important;
+}
+.adm-item-active {
+    color: #fff !important;
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+}
+
+@media (min-width: 1024px) {
+    .app-nav {
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        right: auto !important;
+        width: 80px !important;
+        height: 100vh !important;
+        border-top: none !important;
+        border-right: 1px solid rgba(255,255,255,0.1) !important;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+        padding: 24px 0 !important;
+        flex-direction: column !important;
+    }
+    .app-nav-inner {
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 0 !important;
+    }
+    .app-nav-btn {
+        flex: none !important;
+        width: 56px !important;
+        max-width: none !important;
+        padding: 12px 8px !important;
+    }
+    .app-nav-logo {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-bottom: 24px !important;
+    }
+    .app-nav-logout {
+        display: flex !important;
+        margin-top: auto !important;
+    }
+    .app-nav-adm-wrapper {
+        flex: none !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+    .app-nav-adm-wrapper .app-nav-btn {
+        width: 100% !important;
+    }
+    .adm-submenu {
+        left: calc(100% + 8px) !important;
+        transform: translateY(-50%) !important;
+        top: 50% !important;
+        bottom: auto !important;
+        min-width: 180px !important;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+    }
 }

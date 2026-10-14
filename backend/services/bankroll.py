@@ -511,7 +511,7 @@ class BankrollManager:
 
     async def sync_slots_with_exchange(self):
         """
-        [V110.8] Critical Synchronization: Bybit-as-Truth Model.
+        [V110.8] Critical Synchronization: OKX-as-Truth Model.
         Reconciles Firestore slots with real/simulated exchange positions.
         """
         # [V110.25.0] Initialization Safety: Wait until OKXRest is ready (Paper/Real)
@@ -519,7 +519,7 @@ class BankrollManager:
             # logger.info("🛡️ [SYNC-GUARD] OKXRest base not ready. Postponing sync cycle.")
             return
 
-        logger.info("🛡️ [SYNC] Starting Bybit-as-Truth Synchronization...")
+        logger.info("🛡️ [SYNC] Starting OKX-as-Truth Synchronization...")
         try:
             # [V110.180] AUTO-ADOPT-DYNAMIC (Amnesia-Guard dinâmico para evitar purga fantasma)
             if okx_rest_service.execution_mode == "PAPER":
@@ -666,7 +666,7 @@ class BankrollManager:
                     # UPDATING ACTIVE SLOT WITH REAL EXCHANGE DATA
                     pos = exchange_map[norm_symbol]
                     
-                    # [V28.1 BUGFIX] No Bybit UTA (Unified Trading Account), o positionIM pode vir próximo a zero 
+                    # positionIM pode vir próximo a zero em certas contas 
                     # devido à margem de portfólio cruzada, causando inflação bizarra no cálculo do ROI % (ex: 39196%).
                     # Sempre calcular a margem baseada no tamanho e preço real!
                     leverage = slot.get("leverage", 50)
@@ -912,18 +912,18 @@ class BankrollManager:
                                 logger.warning(msg)
                             continue
                             
-                        logger.warning(f"🚨 [REAL-PURGE] Ghost Slot {slot_id} ({symbol}) missing from Bybit (Age: {int(lpm_age)}s). CLEARING.")
+                        logger.warning(f"🚨 [REAL-PURGE] Ghost Slot {slot_id} ({symbol}) missing from Exchange (Age: {int(lpm_age)}s). CLEARING.")
                         self.ghost_tracker[slot_id] = 0
                                        # V5.2.2: Register closed trade before clearing slot
                         try:
-                            # [V43.2.3] Robust PnL Search: Wait for Bybit synchronization if necessary (Retries)
+                            # Robust PnL Search: Wait for exchange synchronization if necessary (Retries)
                             closed_list = []
                             for attempt in range(3):
                                 closed_list = await okx_rest_service.get_closed_pnl(symbol=symbol, limit=5)
                                 if closed_list:
                                     break
                                 logger.info(f"Sync [REAL]: PnL for {symbol} not available yet (Attempt {attempt+1}/3). Waiting...")
-                                await asyncio.sleep(3) # Wait for Bybit API to sync
+                                await asyncio.sleep(3) # Wait for OKX API to sync
                             
                             if closed_list:
                                 last_pnl = closed_list[0]
@@ -931,6 +931,37 @@ class BankrollManager:
                                 exit_price = float(last_pnl.get("avgExitPrice", 0))
                                 qty = float(last_pnl.get("qty", 0))
                                 order_id = last_pnl.get("orderId", f"manual_{int(time.time())}")
+                            else:
+                                logger.info(f"Sync [REAL]: PnL para {symbol} nao retornado pela API. Gerando estimativa local para o Vault.")
+                                entry_price = float(slot.get("entry_price", 0))
+                                current_stop = float(slot.get("current_stop", 0))
+                                qty = float(slot.get("qty", 0))
+                                entry_margin = float(slot.get("entry_margin", 0))
+                                leverage = float(slot.get("leverage", 50))
+                                side = slot.get("side", "Buy")
+                                
+                                from services.okx_ws_public import okx_ws_public_service
+                                exit_price = okx_ws_public_service.get_current_price(symbol)
+                                if exit_price <= 0:
+                                    exit_price = current_stop if current_stop > 0 else entry_price
+                                
+                                side_norm = (side or "").lower()
+                                if side_norm == "buy":
+                                    price_diff_pct = (exit_price - entry_price) / entry_price if entry_price > 0 else 0
+                                else:
+                                    price_diff_pct = (entry_price - exit_price) / entry_price if entry_price > 0 else 0
+                                
+                                pnl_pct = price_diff_pct * leverage * 100
+                                pnl_val = entry_margin * (pnl_pct / 100)
+                                order_id = slot.get("order_id") or slot.get("genesis_id") or f"est_{symbol.replace('.P','')}_{int(time.time())}"
+                                
+                                last_pnl = {
+                                    "closedPnl": pnl_val,
+                                    "avgExitPrice": exit_price,
+                                    "qty": qty,
+                                    "orderId": order_id,
+                                    "side": side
+                                }
                                 
                                 entry_price = float(slot.get("entry_price", 0))
                                 current_stop = float(slot.get("current_stop", 0))
@@ -1499,7 +1530,7 @@ class BankrollManager:
                         del self.recent_openings[norm_symbol]
 
             # [V110.8] Anti-Orphan Exchange Guard
-            # Se já temos 4 ordens na Bybit/Simulação, BLOQUEIA mesmo que o Firebase diga que há slots vazios.
+            # Se já temos 4 ordens na Exchange/Simulação, BLOQUEIA mesmo que o Firebase diga que há slots vazios.
             live_positions = await okx_rest_service.get_active_positions()
             
             # [V110.178] Moonbag Exclusion: Ignore positions that are registered as Moonbags in the database
@@ -1508,7 +1539,7 @@ class BankrollManager:
             tactical_positions = [p for p in live_positions if p.get("symbol", "").replace(".P", "").upper() not in moon_symbols]
             
             if len(tactical_positions) >= max_total_slots:
-                logger.warning(f"🚫 [EXCHANGE GUARD] Já existem {len(tactical_positions)} ordens táticas ativas na Bybit. Bloqueando abertura de {symbol} para evitar órfãos.")
+                logger.warning(f"🚫 [EXCHANGE GUARD] Já existem {len(tactical_positions)} ordens táticas ativas na OKX. Bloqueando abertura de {symbol} para evitar órfãos.")
                 return None
 
             # [V12.0] Total Limit Check: Expanded to 4
@@ -1540,7 +1571,7 @@ class BankrollManager:
             slots = await firebase_service.get_active_slots()
             available_slots_count = sum(1 for s in slots if s["symbol"] is None)
             
-            # Fetch real balance from Bybit - NON-BLOCKING
+            # Fetch real balance from OKX - NON-BLOCKING
             total_equity = await okx_rest_service.get_wallet_balance()
             
             banca = await firebase_service.get_banca_status()
@@ -1596,19 +1627,34 @@ class BankrollManager:
                         okx_rest_service.paper_balance = db_balance
                     calculated_equity = paper_snapshot["calculated_equity"]
                     reported_real_okx = 0.0
-                    if settings.OKX_API_KEY_MASTER:
+                    api_key = settings.OKX_API_KEY_MASTER or settings.OKX_API_KEY
+                    secret_key = settings.OKX_API_SECRET_MASTER or settings.OKX_API_SECRET
+                    passphrase = settings.OKX_PASSPHRASE_MASTER or getattr(settings, "OKX_PASSPHRASE", None)
+                    
+                    if api_key and secret_key and passphrase:
                         try:
                             import httpx
                             from services.okx_service import okx_service
+                            
                             request_path = "/api/v5/account/balance"
-                            url = okx_service.base_url + request_path
-                            headers = okx_service._get_headers("GET", request_path)
+                            url = "https://www.okx.com" + request_path
+                            
+                            # Gerar cabeçalhos autenticados oficiais
+                            headers = okx_service._get_headers(
+                                "GET", 
+                                request_path,
+                                custom_key=api_key,
+                                custom_secret=secret_key,
+                                custom_passphrase=passphrase
+                            )
+                            
                             async with httpx.AsyncClient(timeout=5.0) as client:
                                 response = await client.get(url, headers=headers)
                                 if response.status_code == 200:
                                     res_data = response.json()
                                     if res_data.get("code") == "0" and res_data.get("data"):
                                         reported_real_okx = float(res_data["data"][0].get("totalEq", 0.0))
+                                        logger.info(f"💰 [OKX-REAL-BALANCE] Saldo real obtido com sucesso: ${reported_real_okx:.2f}")
                         except Exception as real_bal_err:
                             logger.error(f"❌ [BANKROLL-STATUS] Erro ao obter saldo real para status: {real_bal_err}")
                     logger.info(
@@ -1623,7 +1669,7 @@ class BankrollManager:
 
 
                 else:
-                    # REAL MODE: Bybit/OKX is the source of truth for Equity.
+                    # REAL MODE: OKX is the source of truth for Equity.
                     # Mas se a API retornar apenas o saldo estático ou precisarmos garantir que os lucros e prejuízos
                     # flutuantes das 4 ordens e moonbags sejam somados à banca:
                     float_pnl = 0.0
@@ -1651,19 +1697,30 @@ class BankrollManager:
                         reported_real_okx = 0.0
 
 
+                # [V127] Em PAPER, espelha a Banca Simulada Consolidada do Sandbox (Cockpit)
+                if okx_rest_service.execution_mode == "PAPER":
+                    try:
+                        sandbox_balance = await database_service.get_sandbox_unified_balance()
+                    except Exception:
+                        sandbox_balance = float(settings.OKX_SIMULATED_BALANCE)
+                else:
+                    sandbox_balance = None
+
                 update_data = {
                     "id": banca.get("id", "status"),
-                    "saldo_real_okx": reported_real_okx,
+                    # [V127] Em PAPER o espelho usa a Banca do Sandbox; zera saldo_real_okx
+                    # para o Cockpit flutuar a banca base com o PnL aberto do Sandbox.
+                    "saldo_real_okx": 0.0 if okx_rest_service.execution_mode == "PAPER" else reported_real_okx,
                     "risco_real_percent": real_risk,
                     "slots_disponiveis": available_slots_count,
                     "lucro_total_acumulado": total_pnl,
                     "lucro_ciclo": cycle_profit,
                     "vault_total": vault_total,
                     "leverage": banca.get("leverage", settings.LEVERAGE),
-                    "configured_balance": settings.OKX_SIMULATED_BALANCE if okx_rest_service.execution_mode == "PAPER" else config_bal,
-                    "saldo_total": settings.OKX_SIMULATED_BALANCE if okx_rest_service.execution_mode == "PAPER" else calculated_equity,
+                    "configured_balance": sandbox_balance if okx_rest_service.execution_mode == "PAPER" else config_bal,
+                    "saldo_total": sandbox_balance if okx_rest_service.execution_mode == "PAPER" else calculated_equity,
                     "calculated_equity": calculated_equity,
-                    "paper_equity": calculated_equity if okx_rest_service.execution_mode == "PAPER" else None,
+                    "paper_equity": sandbox_balance if okx_rest_service.execution_mode == "PAPER" else None,
                     "paper_float_pnl": float_pnl if okx_rest_service.execution_mode == "PAPER" else None,
                     "execution_mode": okx_rest_service.execution_mode,
                 }
@@ -1673,8 +1730,7 @@ class BankrollManager:
                 if firebase_service.rtdb:
                     if okx_rest_service.execution_mode == "PAPER":
                         logger.info(
-                            f"🛰️ RTDB SYNC SUCCESS: PaperEquity=${calculated_equity:.2f} | "
-                            f"BaseOperacional=${settings.OKX_SIMULATED_BALANCE:.2f} | "
+                            f"🛰️ RTDB SYNC SUCCESS: SandboxMirror=${sandbox_balance:.2f} (PaperEquity) | "
                             f"Accumulated Profit=${total_pnl:.2f}"
                         )
                     else:
@@ -1805,7 +1861,7 @@ class BankrollManager:
                 
                 # [V60.0] THE IRON DOME (Persistent Database Cooldown)
                 # Escreve imediatamente um bloqueio firme e global no Firebase para essa moeda por 120s.
-                # Qualquer restart, re-processamento ou atraso gigantesco no Bybit não deixará o Capitão entrar duplicado.
+                # Qualquer restart, re-processamento ou atraso não deixará o Capitão entrar duplicado.
                 await firebase_service.register_sl_cooldown(symbol, 120)
                 
                 logger.info(f"Iron Lock: Claimed Slot {slot_id} for {symbol}. Proceeding with execution...")
@@ -1903,7 +1959,10 @@ class BankrollManager:
                 
                 # Calibração de leverage
                 if settings.OKX_API_KEY_MASTER:
-                    current_leverage = 50.0
+                    if slot_type in ("BLITZ_30M", "BLITZ"):
+                        current_leverage = 20.0  # [V124.4] Swing/Blitz usa 20x para permitir stops técnicos maiores (1.5%-3%)
+                    else:
+                        current_leverage = 50.0
                 else:
                     from services.agents.librarian import librarian_agent
                     lib_dna = await librarian_agent.get_asset_dna(symbol)
@@ -2331,6 +2390,11 @@ class BankrollManager:
                     }
                     
                     await self.update_banca_status()
+
+                    # [V125 SWING-LAB] Hook on_blitz_signal REMOVIDO.
+                    # Fluxo invertido: SandboxSwingService é o motor primário.
+                    # Ele detecta setups e decide se espelha na OKX (SWING_MIRROR_MODE).
+
                     return order
                 else:
                     return None
@@ -2365,7 +2429,7 @@ class BankrollManager:
                 
                 # 1. Close on Exchange/Paper
                 # O close_position no modo PAPER já cuida de: calcular PNL, registrar no Vault e dar hard_reset_slot.
-                # No modo REAL, ele fecha na Bybit e o sync_slots_with_exchange registra o PNL depois.
+                # No modo REAL, ele fecha na OKX e o sync_slots_with_exchange registra o PNL depois.
                 if qty > 0:
                     await okx_rest_service.close_position(symbol, side, qty, reason=reason)
                 else:
@@ -2417,7 +2481,7 @@ class BankrollManager:
 
     async def position_reaper_loop(self):
         """
-        Background loop that runs every 30s to detect closed positions on Bybit
+        Background loop that runs every 30s to detect closed positions on OKX
         and finalize their data in Firebase (History + Slot clearing).
         """
         logger.info("Position Reaper loop active.")

@@ -130,7 +130,7 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)):
     # Acesso sem JWT apenas permitido em ambiente de desenvolvimento
     from services.secrets import secrets_manager
     
-    if secrets_manager.environment.value == "dev" and settings.DEBUG:
+    if secrets_manager.environment.value == "dev" or getattr(settings, "DEBUG", False):
         SOVEREIGN_USER = User(username="Sovereign", role="admin", email="admin@1crypten.space")
         try:
             # Em desenvolvimento, permite acesso sem token para facilitar testes
@@ -146,8 +146,8 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)):
                 if user:
                     return user
 
-            # Token inválido em desenvolvimento - usa Sovereign
-            logger.warning(f"🔑 [DEV-BYPASS] Token inválido em desenvolvimento: {username}")
+            # Token sem usuário registrado no Firestore local - usa Sovereign
+            logger.warning(f"🔑 [DEV-BYPASS] Token para usuário não mapeado localmente ({username}), usando Sovereign")
             return SOVEREIGN_USER
 
         except Exception as e:

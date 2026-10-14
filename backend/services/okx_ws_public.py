@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import math
+from typing import List, Dict, Optional, Any
 from collections import deque
 from websockets.exceptions import ConnectionClosed
 from config import settings
@@ -22,6 +23,7 @@ class OKXWSPublic:
         # CVD storage: {symbol: {timestamp: delta}}
         self.cvd_data = {} 
         self.prices = {} # {symbol: last_price}
+        self.prices_ts = {} # {symbol: timestamp_of_last_price} — [V136.2] TTL tracking
 
         # Rolling 120s extreme prices (for FlashAgent conservative stop checks)
         # V110.xxx: Aumentado de 30s para 120s para evitar que spikes rápidos
@@ -104,6 +106,7 @@ class OKXWSPublic:
                 if price == 0: price = self.prices.get(norm_sym, 0)
                 else:
                     self.prices[norm_sym] = price # Update last known price from trade event
+                    self.prices_ts[norm_sym] = time.time()  # [V136.2] Track freshness
                     self._update_extreme_price(norm_sym, price)  # Track low/high for FlashAgent
 
                 delta = (size * price) if side == "Buy" else -(size * price)
@@ -180,9 +183,12 @@ class OKXWSPublic:
             if data and isinstance(data, list):
                 # OKX tickers retorna array com snapshot único
                 okx_ticker = data[0]
+                price = float(okx_ticker.get("last", 0.0))
                 norm_sym = symbol.replace(".P", "").upper()
-                price = float(okx_ticker.get("last", 0))
-                self.prices[norm_sym] = price
+                now_ts = time.time()
+                for v in self._resolve_symbol_variants(norm_sym) + ([inst_id] if inst_id else []):
+                    self.prices[v] = price
+                    self.prices_ts[v] = now_ts
                 self._update_extreme_price(norm_sym, price)  # Track low/high for FlashAgent
                 vol_ccy_24h = okx_ticker.get("volCcy24h")
                 if vol_ccy_24h is not None:
@@ -240,10 +246,34 @@ class OKXWSPublic:
         except Exception as e:
             logger.error(f"Error processing instrument message: {e}")
 
-    def get_current_price(self, symbol: str) -> float:
-        """[V5.2.5] Returns the last known price for a symbol."""
-        norm_sym = symbol.replace(".P", "").upper()
-        return self.prices.get(norm_sym, 0.0)
+    @staticmethod
+    def _resolve_symbol_variants(symbol: str) -> List[str]:
+        if not symbol:
+            return []
+        s = str(symbol).strip().upper()
+        clean = s.replace(".P", "").replace("-SWAP", "").replace("-", "")
+        variants = [s, clean, f"{clean}.P"]
+        if not s.endswith("-SWAP") and "USDT" in clean:
+            variants.append(clean.replace("USDT", "-USDT-SWAP"))
+        res = []
+        seen = set()
+        for v in variants:
+            if v and v not in seen:
+                seen.add(v)
+                res.append(v)
+        return res
+
+    def get_current_price(self, symbol: str, max_age_seconds: float = 30.0) -> float:
+        """[V136.2] Returns the last known price for a symbol. Returns 0.0 if price is stale (>max_age_seconds)."""
+        now = time.time()
+        for var in self._resolve_symbol_variants(symbol):
+            price = self.prices.get(var, 0.0)
+            if price > 0:
+                ts = self.prices_ts.get(var, 0.0)
+                if ts > 0 and (now - ts) > max_age_seconds:
+                    continue
+                return price
+        return 0.0
 
     def get_cvd_score(self, symbol: str) -> float:
         """Returns the current cumulative delta for the stored history."""
@@ -277,33 +307,35 @@ class OKXWSPublic:
         Called on every trade and ticker event to track intra-cycle extremes.
         """
         now = time.time()
+        for sym_key in self._resolve_symbol_variants(symbol):
+            # Low
+            current_low = self.low_prices.get(sym_key, {})
+            if not current_low or price < current_low["low"]:
+                self.low_prices[sym_key] = {"low": price, "ts": now}
 
-        # Low
-        current_low = self.low_prices.get(symbol, {})
-        if not current_low or price < current_low["low"]:
-            self.low_prices[symbol] = {"low": price, "ts": now}
-
-        # High
-        current_high = self.high_prices.get(symbol, {})
-        if not current_high or price > current_high["high"]:
-            self.high_prices[symbol] = {"high": price, "ts": now}
+            # High
+            current_high = self.high_prices.get(sym_key, {})
+            if not current_high or price > current_high["high"]:
+                self.high_prices[sym_key] = {"high": price, "ts": now}
 
     def get_low_price(self, symbol: str, window_seconds: int = 120) -> float:
         """Returns the lowest price seen in the last N seconds. 0 if not available.
         Janela de 120s para capturar dips que o FlashAgent pode perder entre ciclos de 1s."""
-        norm_sym = symbol.replace(".P", "").upper()
-        low_data = self.low_prices.get(norm_sym)
-        if low_data and (time.time() - low_data["ts"]) <= window_seconds:
-            return low_data["low"]
+        now = time.time()
+        for var in self._resolve_symbol_variants(symbol):
+            low_data = self.low_prices.get(var)
+            if low_data and (now - low_data["ts"]) <= window_seconds:
+                return low_data["low"]
         return 0.0
 
     def get_high_price(self, symbol: str, window_seconds: int = 120) -> float:
         """Returns the highest price seen in the last N seconds. 0 if not available.
         Janela de 120s para capturar pumps que o FlashAgent pode perder entre ciclos de 1s."""
-        norm_sym = symbol.replace(".P", "").upper()
-        high_data = self.high_prices.get(norm_sym)
-        if high_data and (time.time() - high_data["ts"]) <= window_seconds:
-            return high_data["high"]
+        now = time.time()
+        for var in self._resolve_symbol_variants(symbol):
+            high_data = self.high_prices.get(var)
+            if high_data and (now - high_data["ts"]) <= window_seconds:
+                return high_data["high"]
         return 0.0
 
     def get_conservative_price(self, symbol: str, side: str) -> float:
@@ -312,26 +344,66 @@ class OKXWSPublic:
         For LONG (buy): returns the LOW of the last 120s (catches dips that current price might miss)
         For SHORT (sell): returns the HIGH of the last 120s (catches pumps)
         Falls back to current price if no extreme data available in window.
+        """
+        now = time.time()
+        for var in self._resolve_symbol_variants(symbol):
+            current = self.prices.get(var, 0.0)
+            price_ts = self.prices_ts.get(var, 0.0)
+            if price_ts > 0 and (now - price_ts) > 30.0:
+                current = 0.0  # Stale
 
-        [V110.xxx] Aumentado de 30s para 120s para cobrir gaps entre ciclos de
-        polling do FlashAgent (1s) + cache de moonbags (3s). Um spike rápido pode
-        acontecer e o preço voltar antes da próxima verificação; a janela de 120s
-        garante que o stop hit não seja perdido.
+            if side.lower() in ("buy", "long"):
+                low_data = self.low_prices.get(var)
+                if low_data and (now - low_data["ts"]) <= 120:
+                    low_val = low_data["low"]
+                    if current > 0:
+                        return min(current, low_val)
+                    return low_val
+            else:
+                high_data = self.high_prices.get(var)
+                if high_data and (now - high_data["ts"]) <= 120:
+                    high_val = high_data["high"]
+                    if current > 0:
+                        return max(current, high_val)
+                    return high_val
+
+            if current > 0:
+                return current
+
+        return 0.0
+
+    def get_conservative_price_swing(self, symbol: str, side: str) -> float:
+        """
+        [V136-SWING] Janela de 30 minutos para trades Swing (2H).
+        Trades Swing não devem ser fechados por wicks de 2 minutos —
+        wicks de 0.5-1% são normais em velas de 2H e recuperam em minutos.
+        Usa janela de 1800s (30min) para filtrar ruído intraday.
+        [V136.2] Rejects stale prices (>30s old) to prevent phantom spikes.
         """
         norm_sym = symbol.replace(".P", "").upper()
         current = self.prices.get(norm_sym, 0.0)
         now = time.time()
+        window = 1800  # 30 minutos
 
-        # Janela de 120 segundos (vs 30s original) para capturar spikes
-        # que acontecem entre ciclos de polling do FlashAgent
+        # [V136.2] Freshness gate — reject stale price
+        price_ts = self.prices_ts.get(norm_sym, 0.0)
+        if price_ts > 0 and (now - price_ts) > 30.0:
+            current = 0.0  # Stale — force fallback to extremes or 0
+
         if side.lower() == "buy":
             low_data = self.low_prices.get(norm_sym)
-            if low_data and (now - low_data["ts"]) <= 120:
-                return min(current, low_data["low"])
+            if low_data and (now - low_data["ts"]) <= window:
+                low_val = low_data["low"]
+                if current > 0:
+                    return min(current, low_val)
+                return low_val
         else:
             high_data = self.high_prices.get(norm_sym)
-            if high_data and (now - high_data["ts"]) <= 120:
-                return max(current, high_data["high"])
+            if high_data and (now - high_data["ts"]) <= window:
+                high_val = high_data["high"]
+                if current > 0:
+                    return max(current, high_val)
+                return high_val
 
         return current
 
@@ -657,9 +729,16 @@ class OKXWSPublic:
                 self._okx_ws = None
                 await asyncio.sleep(5)
 
+    def _is_ws_open(self, ws) -> bool:
+        if not ws:
+            return False
+        if hasattr(ws, "closed"):
+            return not ws.closed
+        return getattr(ws, "open", False)
+
     async def _okx_ws_ping_loop(self, ws):
         """Loop para envio de ping a cada 20s para manter viva a conexão pública da OKX."""
-        while ws and ws.open:
+        while self._is_ws_open(ws):
             try:
                 await asyncio.sleep(20)
                 await ws.send("ping")
@@ -676,7 +755,7 @@ class OKXWSPublic:
         Ensures we stay within the 200 topic limit while rotating candidates.
         """
         # Sempre faz o rebalanceamento no WebSocket público da OKX (mesmo sem Master key / Paper Mode)
-        if not self._okx_ws or not self._okx_ws.open:
+        if not self._is_ws_open(self._okx_ws):
             self.active_symbols = new_symbols
             return
 
@@ -705,6 +784,12 @@ class OKXWSPublic:
                     {"channel": "tickers", "instId": inst_id},
                     {"channel": "books5", "instId": inst_id}
                 ])
+                # [V136.2] Clean up stale price data for unsubscribed symbols
+                norm_s = s.replace(".P", "").upper()
+                self.prices.pop(norm_s, None)
+                self.prices_ts.pop(norm_s, None)
+                self.low_prices.pop(norm_s, None)
+                self.high_prices.pop(norm_s, None)
             try:
                 await self._okx_ws.send(json.dumps({"op": "unsubscribe", "args": args_unsub}))
             except Exception as e:

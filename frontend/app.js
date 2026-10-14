@@ -3,170 +3,83 @@
     const { Link, Route, useLocation, useNavigate } = window.ReactRouterDOM;
 
     // =========================================================================
-    // NavBar — 3 botões principais: BANCA / CHAT / ADM (com submenu expansível)
+    // NavBar — 3 Botões: BANCA / HERMES / ADM (submenu: GALAXY, SANDBOX, CONFIG)
+    // Classe CSS PURO (app-nav / app-nav-btn / etc definidas em cockpit.css) — ZERO Tailwind
     // =========================================================================
     const NavBar = ({ onLogout }) => {
         const location = useLocation();
-        const [admOpen, setAdmOpen] = useState(false);
+        const [admOpen, setAdmOpen] = React.useState(false);
 
-        const isAdmin = useMemo(() => {
-            try {
-                const u = JSON.parse(localStorage.getItem('user') || '{}');
-                return u.role === 'admin';
-            } catch (e) { return false; }
-        }, []);
+        const isActive = (path) => location.pathname === path || (path === '/' && (location.pathname === '/10d'));
+        const isAdmActive = location.pathname === '/memory' || location.pathname === '/sandbox' || location.pathname === '/config' || location.pathname === '/adm';
 
-        // Fecha o submenu ADM ao navegar
-        useEffect(() => { setAdmOpen(false); }, [location.pathname]);
-
-        const isAdmActive = ['/config', '/adm', '/kanban', '/hermes'].includes(location.pathname)
-            || location.pathname.startsWith('/adm');
-
-        // [HERMES DASHBOARD v2] Sub-itens do menu ADM — Kanban substituído por Hermes
-        const admItems = [
-            { to: '/', icon: 'space_dashboard', label: 'Banca' },
-            { to: '/hermes', icon: 'auto_awesome', label: 'Hermes' },
-            { href: '/sandbox', icon: 'science', label: 'Sandbox', targetSelf: true },
-            { to: '/config', icon: 'settings', label: 'Config' },
-            ...(isAdmin ? [{ to: '/adm', icon: 'admin_panel_settings', label: 'Controle' }] : []),
-            { to: '/neural-chat', icon: 'psychology', label: 'Chat (legado)' },
-            { href: 'https://n8n-production-8e2d4.up.railway.app', icon: 'account_tree', label: 'N8N', external: true },
-        ];
-
-        const NavBtn = ({ to, href, icon, label, isActive, external, targetSelf, onClick }) => {
-            const base = `flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all w-full ${
-                isActive ? 'text-white bg-white/10 border border-white/20 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
-                         : 'text-gray-400 hover:text-white hover:bg-white/5'}`;
-            const content = (<>
-                <span className="material-icons-round" style={{ fontSize: '24px' }}>{icon}</span>
-                <span className="text-[9px] font-bold tracking-widest uppercase mt-1 hidden lg:block">{label}</span>
-                <span className="text-[8px] font-bold tracking-widest uppercase mt-0.5 lg:hidden">{label}</span>
-            </>);
-            if (href) return <a href={href} target={targetSelf ? "_self" : "_blank"} className={base} title={label} onClick={onClick}>{content}</a>;
-            return <Link to={to} className={base} onClick={onClick}>{content}</Link>;
+        const btnClass = (path, isSpecial) => {
+            const active = isActive(path);
+            let cls = 'app-nav-btn';
+            if (isSpecial) cls += ' is-special';
+            if (active) cls += ' active';
+            return cls;
         };
 
-        // ── Submenu ADM flutuante ───────────────────────────────────────────
-        const AdmSubmenu = () => (
-            <div
-                className="absolute z-[10001] flex flex-col gap-1 p-2 rounded-2xl border border-white/10 backdrop-blur-2xl"
-                style={{ background: 'rgba(8,8,12,0.97)',
-                    /* desktop: aparece à direita da sidebar */
-                    left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)',
-                }}
-            >
-                <span className="text-[8px] font-black text-green-500/60 uppercase tracking-[0.2em] px-2 pb-1 border-b border-white/5 mb-1">ADM · Módulos</span>
-                {admItems.map(item => (
-                    <NavBtn key={item.to || item.href} {...item}
-                        isActive={item.to ? location.pathname === item.to : false}
-                        onClick={() => setAdmOpen(false)}
-                    />
-                ))}
-                <div className="border-t border-white/5 mt-1 pt-1">
-                    <button onClick={() => { setAdmOpen(false); onLogout(); }}
-                        className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl w-full text-red-400 hover:bg-red-500/10 transition-all">
-                        <span className="material-icons-round" style={{ fontSize: '22px' }}>power_settings_new</span>
-                        <span className="text-[8px] font-bold uppercase tracking-widest">Sair</span>
-                    </button>
-                </div>
-            </div>
+        const mkContent = (icon, label, isSpecial) => (
+            React.createElement(React.Fragment, null,
+                React.createElement('span', { className: 'material-icons-round', style: { fontSize: isSpecial ? '25px' : '24px' } }, icon),
+                React.createElement('span', { className: 'app-nav-label' }, label)
+            )
         );
 
-        // ── Submenu mobile (acima da bottom nav) ───────────────────────────
-        const AdmSubmenuMobile = () => (
-            <div
-                className="fixed bottom-[70px] left-0 right-0 z-[10001] flex justify-center px-4"
-            >
-                <div className="flex items-end gap-2 p-3 rounded-2xl border border-white/10 backdrop-blur-2xl w-full max-w-sm"
-                     style={{ background: 'rgba(8,8,12,0.97)' }}>
-                    <span className="text-[8px] font-black text-green-500/60 uppercase tracking-[0.2em] self-center mr-1 shrink-0">ADM</span>
-                    <div className="flex gap-1 flex-wrap justify-center flex-1">
-                        {admItems.map(item => (
-                            <NavBtn key={item.to || item.href} {...item}
-                                isActive={item.to ? location.pathname === item.to : false}
-                                onClick={() => setAdmOpen(false)}
-                            />
-                        ))}
-                    </div>
-                    <button onClick={() => { setAdmOpen(false); onLogout(); }}
-                        className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-all shrink-0">
-                        <span className="material-icons-round" style={{ fontSize: '22px' }}>power_settings_new</span>
-                        <span className="text-[8px] font-bold uppercase tracking-widest">Sair</span>
-                    </button>
-                </div>
-            </div>
-        );
-
-        return (
-            <>
-                {/* Overlay para fechar ao clicar fora */}
-                {admOpen && (
-                    <div className="fixed inset-0 z-[9999]" onClick={() => setAdmOpen(false)} />
-                )}
-
-                {/* Submenu mobile: fica acima da bottom nav */}
-                {admOpen && <div className="lg:hidden"><AdmSubmenuMobile /></div>}
-
-                <nav className="fixed bottom-0 lg:bottom-auto lg:top-0 lg:left-0 lg:w-[80px] w-full lg:h-screen v5-bg-deep/95 backdrop-blur-xl z-[10000] pb-safe pt-2 lg:py-6 flex flex-col" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
-                    <div className="mx-auto flex lg:flex-col items-center px-4 lg:px-2 w-full h-full gap-0 lg:gap-6">
-
-                        {/* Logo — desktop apenas */}
-                        <div className="hidden lg:flex flex-col items-center gap-2 mb-6">
-                            <img src="/logo10DTrasp.png?v=4" alt="Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_10px_rgba(255,215,0,0.3)]" />
-                            <div className="h-[1px] w-8 bg-white/10"></div>
-                        </div>
-
-                        {/* ── 3 botões principais ───────────────────────── */}
-                        <div className="flex flex-row lg:flex-col items-center justify-around lg:justify-start gap-0 lg:gap-3 w-full flex-1">
-
-                            {/* BANCA */}
-                            <NavBtn
-                                to="/"
-                                icon="space_dashboard"
-                                label="Banca"
-                                isActive={location.pathname === '/' || location.pathname === '/10d'}
-                            />
-
-                            {/* [HERMES DASHBOARD v2] HERMES — substitui o Chat antigo */}
-                            <NavBtn
-                                to="/hermes"
-                                icon="auto_awesome"
-                                label="Hermes"
-                                isActive={location.pathname === '/hermes'}
-                            />
-
-                            {/* ADM — expande submenu */}
-                            <div className="relative w-full lg:w-full">
-                                <button
-                                    onClick={() => setAdmOpen(v => !v)}
-                                    className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all w-full ${
-                                        admOpen || isAdmActive
-                                            ? 'text-white bg-white/10 border border-white/20 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
-                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                    }`}
-                                >
-                                    <span className="material-icons-round" style={{ fontSize: '24px' }}>
-                                        {admOpen ? 'close' : 'admin_panel_settings'}
-                                    </span>
-                                    <span className="text-[9px] font-bold tracking-widest uppercase mt-1 hidden lg:block">ADM</span>
-                                    <span className="text-[8px] font-bold tracking-widest uppercase mt-0.5 lg:hidden">ADM</span>
-                                </button>
-                                {/* Submenu desktop: aparece à direita */}
-                                {admOpen && <div className="hidden lg:block"><AdmSubmenu /></div>}
-                            </div>
-                        </div>
-
-                        {/* Sair — desktop apenas, parte inferior */}
-                        <div className="hidden lg:flex flex-col items-center gap-3 mt-auto">
-                            <button onClick={onLogout} title="Sair"
-                                className="flex items-center justify-center p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all border border-transparent hover:border-red-500/30">
-                                <span className="material-icons-round" style={{ fontSize: '20px' }}>power_settings_new</span>
-                            </button>
-                        </div>
-
-                    </div>
-                </nav>
-            </>
+        return React.createElement('nav', { className: 'app-nav' },
+            React.createElement('div', { className: 'app-nav-logo' },
+                React.createElement('img', { src: '/logo10DTrasp.png?v=4', alt: 'Logo', style: { width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.3))' } }),
+                React.createElement('div', { style: { width: '32px', height: '1px', background: 'rgba(255,255,255,0.1)' } })
+            ),
+            React.createElement('div', { className: 'app-nav-inner' },
+                React.createElement(Link, { to: '/', className: btnClass('/', false), title: 'Banca' }, mkContent('space_dashboard', 'Banca', false)),
+                React.createElement(Link, { to: '/hermes', className: btnClass('/hermes', true), title: 'Hermes' }, mkContent('auto_awesome', 'Hermes', true)),
+                React.createElement('div', { className: 'app-nav-adm-wrapper' },
+                    React.createElement('button', {
+                        onClick: () => setAdmOpen(!admOpen),
+                        className: 'app-nav-btn app-nav-adm-btn' + (admOpen || isAdmActive ? ' adm-open' : ''),
+                        title: 'ADM'
+                    }, mkContent('admin_panel_settings', 'ADM', false)),
+                    admOpen && React.createElement(React.Fragment, null,
+                        React.createElement('div', { className: 'adm-overlay', style: { position: 'fixed', inset: 0, zIndex: 9999 }, onClick: () => setAdmOpen(false) }),
+                        React.createElement('div', { className: 'adm-submenu' },
+                            React.createElement('span', { className: 'adm-submenu-title' }, 'ADM \u00b7 M\u00f3dulos'),
+                            React.createElement(Link, { to: '/memory', onClick: () => setAdmOpen(false), className: 'adm-item' + (location.pathname === '/memory' ? ' adm-item-active' : '') },
+                                React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px' } }, 'auto_awesome'),
+                                React.createElement('span', null, 'Galaxy')
+                            ),
+                            React.createElement(Link, { to: '/sandbox', onClick: () => setAdmOpen(false), className: 'adm-item' + (location.pathname === '/sandbox' ? ' adm-item-active' : '') },
+                                React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px' } }, 'science'),
+                                React.createElement('span', null, 'Sandbox')
+                            ),
+                            React.createElement(Link, { to: '/config', onClick: () => setAdmOpen(false), className: 'adm-item' + (location.pathname === '/config' || location.pathname === '/adm' ? ' adm-item-active' : '') },
+                                React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px' } }, 'settings'),
+                                React.createElement('span', null, 'Config')
+                            ),
+                            React.createElement('div', { style: { borderTop: '1px solid rgba(255,255,255,0.08)', margin: '6px 0' } }),
+                            React.createElement('button', {
+                                onClick: () => { setAdmOpen(false); onLogout(); },
+                                className: 'adm-item',
+                                style: { color: '#f87171', width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '600', background: 'none', fontFamily: 'inherit' }
+                            },
+                                React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px' } }, 'power_settings_new'),
+                                React.createElement('span', null, 'Sair')
+                            )
+                        )
+                    )
+                )
+            ),
+            React.createElement('div', { className: 'app-nav-logout' },
+                React.createElement('button', {
+                    onClick: onLogout,
+                    title: 'Sair do Sistema',
+                    style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', borderRadius: '12px', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid transparent', cursor: 'pointer' }
+                },
+                    React.createElement('span', { className: 'material-icons-round', style: { fontSize: '20px' } }, 'power_settings_new')
+                )
+            )
         );
     };
 
@@ -229,25 +142,36 @@
             }
         }, []);
 
-        // [V110.150] PWA Registration & Update Protocol
+        // [FIX-V134] PWA Update Protocol — sem double registration
         const [showUpdate, setShowUpdate] = useState(false);
         const [waitingWorker, setWaitingWorker] = useState(null);
 
         useEffect(() => {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js?v=110.900').then(reg => {
-                    // Detect updates
-                    reg.addEventListener('updatefound', () => {
-                        const newWorker = reg.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                setWaitingWorker(newWorker);
-                                setShowUpdate(true);
-                            }
-                        });
+            if (!('serviceWorker' in navigator)) return;
+
+            // Não registra de novo — o index.html já registrou.
+            // Apenas escuta atualizações no registro existente.
+            navigator.serviceWorker.ready.then(reg => {
+                // Detecta novas versões sendo instaladas
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (!newWorker) return;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            setWaitingWorker(newWorker);
+                            setShowUpdate(true);
+                        }
                     });
                 });
-            }
+            });
+
+            // Auto-reload quando um novo SW assume o controle
+            let reloading = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (reloading) return;
+                reloading = true;
+                window.location.reload();
+            });
         }, []);
 
         const updateApp = () => {
@@ -255,6 +179,7 @@
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
             }
             setShowUpdate(false);
+            // A página será recarregada automaticamente pelo evento controllerchange
         };
 
         const handleLogout = () => {
@@ -278,17 +203,21 @@
 
         return (
             <ReactRouterDOM.HashRouter>
-                <div className={`h-full ${theme === 'gemini' ? 'theme-gemini' : 'theme-classic'}`}>
-                    <ReactRouterDOM.Routes>
-                        <Route path="/" element={<Page10DComponent />} />
-                        <Route path="/10d" element={<Page10DComponent />} />
-                        {/* [HERMES DASHBOARD v2] Hermes Dashboard - substitui Kanban e Neural Chat */}
-                        <Route path="/hermes" element={<div className="w-full h-full lg:pl-[80px] pb-[70px] lg:pb-0 overflow-hidden"><iframe src="/hermes" className="w-full h-full border-none" title="Hermes Dashboard" /></div>} />
-                        <Route path="/neural-chat" element={<div className="w-full h-full lg:pl-[80px] pb-[70px] lg:pb-0 overflow-hidden"><iframe src="/neural-chat.html" className="w-full h-full border-none" title="Neural Chat Interface (legado)" /></div>} />
-                        <Route path="/kanban" element={<ReactRouterDOM.Navigate to="/hermes" replace />} />
-                        <Route path="/config" element={<SettingsPageComponent onLogout={handleLogout} theme={theme} setTheme={setTheme} />} />
-                        <Route path="/adm" element={<AdminUsersPageComponent />} />
-                    </ReactRouterDOM.Routes>
+                <div className={`flex flex-col w-full h-[100dvh] overflow-hidden ${theme === 'gemini' ? 'theme-gemini' : 'theme-classic'}`}>
+                    <div className="flex-1 w-full relative overflow-y-auto">
+                        <ReactRouterDOM.Routes>
+                            <Route path="/" element={<Page10DComponent />} />
+                            <Route path="/10d" element={<Page10DComponent />} />
+                            {/* [HERMES DASHBOARD v2] Hermes Dashboard - substitui Kanban e Neural Chat */}
+                            <Route path="/hermes" element={<div className="absolute inset-0 lg:pl-[80px] pb-[90px] lg:pb-0"><iframe src="/hermes-chat-v2.html?v=125.606" className="w-full h-full border-none" title="Hermes Dashboard" /></div>} />
+                            <Route path="/neural-chat" element={<div className="absolute inset-0 lg:pl-[80px] pb-[90px] lg:pb-0"><iframe src="/neural-chat.html?v=125.606" className="w-full h-full border-none" title="Neural Chat Interface (legado)" /></div>} />
+                            <Route path="/kanban" element={<ReactRouterDOM.Navigate to="/hermes" replace />} />
+                            <Route path="/sandbox" element={<div className="absolute inset-0 lg:pl-[80px] pb-[90px] lg:pb-0"><iframe src="/sandbox?v=125.800" className="w-full h-full border-none" title="Sandbox Lab" /></div>} />
+                            <Route path="/memory" element={<div className="absolute inset-0 lg:pl-[80px] pb-[90px] lg:pb-0"><iframe src="/memory?v=125.800" className="w-full h-full border-none" title="Memory Galaxy" /></div>} />
+                            <Route path="/config" element={<SettingsPageComponent onLogout={handleLogout} theme={theme} setTheme={setTheme} />} />
+                            <Route path="/adm" element={<AdminUsersPageComponent />} />
+                        </ReactRouterDOM.Routes>
+                    </div>
                     <NavBar onLogout={handleLogout} />
                 </div>
                 

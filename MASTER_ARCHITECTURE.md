@@ -1,667 +1,808 @@
 # MASTER_ARCHITECTURE.md — 1Crypten 7.0
 
-Fonte unica de verdade arquitetural. Baseado no codigo-fonte, nao em historico de versoes.
+Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
+Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Ultima atualizacao: 2026-07-04 (V123 — Sandbox: regime gating restaurado, stop distance 0.5%, VOL_DRY block, mirror desativado, explosion_score 50, conservative window 120s, fail-safe)*
+*Verificado contra o codigo em 2026-10-05. VERSION no codigo: `backend/main.py` VERSION="V146-PROFITABILITY-PIVOT" / DEPLOYMENT_ID="V146_POSITIVE_EXPECTANCY_PIVOT". Otimizacoes V146 aplicadas sobre o V145/V144 — ver Secao 14, item 30.*
 
 ---
 
 ## 1. Visao Geral
 
-1Crypten e um sistema de trading automatizado para criptomoedas na OKX. Opera em modo PAPER (simulacao) e REAL (producao) simultaneamente, com gestao de risco por IA e stops progressivos (escadinha).
+1Crypten e um sistema de trading automatizado para criptomoedas na OKX. Roda um app FastAPI unico (`backend.main:app`) que executa em paralelo o motor real e dois laboratorios de forward-testing (Scalping Lab e Swing Lab).
 
+- **Entry point (unico)**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` (Procfile / railway.json / Dockerfile). **Nao existe `main.py` na raiz.**
+- **Backend**: FastAPI (Python 3.12-slim)
+- **Frontend & Design System**: HTML/JS standalone no padrão **Binance Design System** (`#0B0E11` Deep Canvas, `#1E2329` Cards, `#2B3139` Borders, `#FCD535` Iconic Yellow, `#0ECB81` Green, `#F6465D` Red) integrado com o motor matemático de **Thinking Orbs** em 15 pontos estratégicos da UI (`backend/app/static/cockpit.html`, `frontend/cockpit.html`, `hermes.html`, `market.html`, `mobile_app.html`).
+- **Exchange**: OKX (SWAP / Portfolio Margin). Modo `PAPER` (simulado) ou `REAL`, via `OKX_EXECUTION_MODE`.
+- **[V127/V145] Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas do Scalping Lab + Swing Lab). Em **REAL**, a OKX recebe as ordens scalping/swing do Sandbox (via `SWING_MIRROR_MODE`/espelhamento) e o Cockpit representa a banca real da OKX. Ver Secao 8.6.
 - **Plataforma**: Railway + Docker
-- **Backend**: FastAPI (Python 3.12)
-- **Frontend**: HTML/JS standalone (cockpit.html, ~430KB)
-- **Banco principal**: PostgreSQL (Railway)
-- **Cache**: Firebase RTDB (sincronizacao UI)
-- **Exchange**: OKX (Portfolio Margin)
+- **Persistencia & Memória Unificada**: PostgreSQL (SSOT) + Firebase (Firestore/RTDB) + SQLite WAL (`local_sniper.db`) + Obsidian Vault (`vault_galaxy/` para voz, chat e diários).
+- **Protocolos de IA & RAG**: RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
 
----
+### 1.1 Diagrama de Arquitetura do Sistema
 
-## 2. Stack de Agentes (AIOS)
+```mermaid
+flowchart TD
+    subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
+        UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs)"]
+        UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
+        UI_LayaHUD["Laya Sovereign Mind Stream & Solving Orbs"]
+    end
 
-O sistema usa 18 agentes especializados, cada um com responsabilidade unica:
+    subgraph API_Routers["FastAPI Routers (backend.main:app:8085)"]
+        R_Slots["/api/slots (Active Trades Mirror)"]
+        R_State["/api/sandbox/unified-state (Equity & Net Worth)"]
+        R_Pulse["/api/radar/pulse & /api/v1/hermes/laya/pulse"]
+        R_Kronos["/api/v1/hermes/laya/kronos-projection"]
+        R_RAG["/api/v1/hermes/rag/search & /status"]
+        R_ML["/api/v1/ml/status & /dataset-stats"]
+    end
 
-### 2.1 Agentes de Decisao
+    subgraph Protocol_Bridges["Protocol & AI Bridges"]
+        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools)"]
+        RAG_Engine["RAGService (BM25 / TF-IDF Second Brain)"]
+    end
 
-| Agente | Arquivo | Funcao |
-|--------|---------|--------|
-| **CaptainAgent** | `agents/captain.py` | Despachante de sinais. Quality gate, regime gating, consensus de frota (Macro 15%, Whale 25%, SMC 30%, OnChain 30%). V20.5 |
-| **OracleAgent** | `agents/oracle_agent.py` | Determinacao de regime de mercado. Grade ADX: RANGING (<25), TRENDING (>=25). Estabilizacao de 150s |
-| **FlashAgent** | `agents/flash_agent.py` | Motor da escadinha. Escritor unico de stops. Ciclo de 1s. Progressao ORDER -> ESCADINHA -> TRAILING |
-| **BankrollGuardian** | `agents/bankroll_guardian.py` | Autorizacao de trades. Gating por regime, limites de slots, memoria por par |
-| **SlotOperator** | `agents/slot_operator.py` | Observador/failsafe. Loop de 3s. Virtual stop loss monitoring |
+    subgraph Decision_Engines["Tactical & Decision Engines"]
+        LayaRouter["LayaRouterService (Sovereign Whale/Retail Hunter + Calibrated Weights)"]
+        Kronos["KronosScorer (AAAI 2026 Temporal Trajectory)"]
+        LayaFlow["LayaFlowService (OKX Rubik LSR & OI Delta)"]
+        StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
+        SanityGate["Price Sanity & Asymmetric R:R Gate (4:1)"]
+    end
 
-### 2.2 Agentes de Sinal
+    subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
+        ScalpLab["SandboxService (Scalping Lab - 100% Active Primary Focus)"]
+        SwingLab["SandboxSwingService (Swing Lab - Paused / SWING_SCAN_ENABLED=False)"]
+    end
 
-| Agente | Arquivo | Funcao |
-|--------|---------|--------|
-| **BlitzSniper** | `agents/blitz_sniper.py` | Extracao M30. Cooldown 300s, score >= 80,双s Slots |
-| **AmbushAgent** | `agents/ambush.py` | Entrada Fibonacci. Timeout 30min, deteccao Wyckoff, sweep tolerance 0.998x/1.002x |
-| **WhaleTracker** | `agents/whale_tracker.py` | Fluxo institucional. CVD/OI, deteccao de armadilha, whale pulse >= 150k CVD |
-| **OnChainWhaleWatcher** | `agents/onchain_whale_watcher.py` | Monitoramento blockchain. Bybit hot wallet, threshold $500k USDT / 200 ETH |
+    subgraph Ingestion_Layer["Market Ingestion Layer"]
+        OKX_WS["OKXWSPublic (Live WS Tickers, Extreme Low/High 120s)"]
+        OKX_REST["OKXRest (Batch SWAP Tickers & Contingency)"]
+    end
 
-### 2.3 Agentes de Analise
+    subgraph Data_Layer["Data & Persistence Layer"]
+        DB_SQLite["SQLite WAL (local_sniper.db)"]
+        DB_Postgres["PostgreSQL (Production SSOT)"]
+        DB_Firebase["Firebase RTDB / Firestore (Mirroring)"]
+        DB_Galaxy["Obsidian Vault (vault_galaxy)"]
+    end
 
-| Agente | Arquivo | Funcao |
-|--------|---------|--------|
-| **MacroAnalyst** | `agents/macro_analyst.py` | Risco macro BTC. Correlacao Pearson (panic se >0.8 + BTC >2%), dominancia |
-| **Librarian** | `agents/librarian.py` | DNA do ativo, rankings, setores. Ciclo 2h, quarantena 4h, blacklist memecoin |
-| **LibrarianAuditor** | `agents/librarian_auditor.py` | Ajuste de bias. Ciclo 4h, range 0.5-1.2 |
-| **TradeAnalyst** | `agents/trade_analyst.py` | Autopsia pos-trade. Analise 30min, sessoes Asia/London/NY |
-| **SentimentSpecialist** | `agents/sentiment_specialist.py` | Sentimento retail. LS-Ratio + Funding Rate (sem LLM) |
+    UI_Cockpit --> R_Slots
+    UI_Cockpit --> R_State
+    UI_Cockpit --> R_Pulse
+    UI_Charts --> R_Kronos
 
-### 2.4 Agentes de Infraestrutura
+    MCP_Bridge --> ScalpLab
+    MCP_Bridge --> DB_SQLite
+    R_RAG --> RAG_Engine
+    RAG_Engine --> DB_Galaxy
 
-| Agente | Arquivo | Funcao |
-|--------|---------|--------|
-| **FleetAudit** | `agents/fleet_audit.py` | Paridade de estado. Reconciliacao 20s, Early ROI Panic (-80% em <300s), limpeza de fantasmas |
-| **Quartermaster** | `agents/quartermaster.py` | Classificacao de leverage por wick: SMOOTH (<0.45, 50x), JUMPY (0.45-0.70, 20x), EXTREME (>0.70, 10x) |
-| **HermesAgent** | `agents/hermes_agent.py` | Compliance/telemetria/chat. DeepSeek integration, ESCADINHA_DOCS_SSOT |
-| **JarvisBrain** | `agents/jarvis_brain.py` | Chat multi-dimensao (10 dimensoes: Trading, Filosofia, Familia, etc.) |
-| **AIService** | `agents/ai_service.py` | Cascade de IA: DeepSeek -> Gemini -> OpenRouter |
-| **SandboxService** | `services/sandbox_service.py` | Forward Testing Lab. Espelha o sistema real com escadinha, stops adaptativos e fallback de preco. Ciclo 1s. |
+    R_Slots --> ScalpLab
+    R_State --> DB_SQLite
+    R_Pulse --> LayaRouter
 
-### 2.5 Phase Detector (V120 — Explosao de Precos)
+    LayaRouter --> LayaFlow
+    LayaRouter --> Kronos
+    LayaRouter --> SanityGate
+    SanityGate --> ScalpLab
 
-| Componente | Arquivo | Funcao |
-|------------|---------|--------|
-| **PhaseDetector** | `services/phase_detector.py` | Deteccao de Fase 1 (Acumulacao) e Fase 2 (Compressao) para antecipar movimentos explosivos 4-10% |
+    OKX_WS --> ScalpLab
+    OKX_WS --> LayaRouter
+    OKX_REST --> LayaRouter
 
-**Por que existe:** O sistema so detectava Fase 3 (detonacao). Muitas vezes o preco ja explodia antes do sinal ser gerado. Agora detectamos as fases anteriores para entrar mais cedo.
-
-**Fase 1 — Acumulacao (institucional oculto):**
-- OI Divergence: preco cai mas OI sobe (peso 25)
-- CVD Divergence: preco cai mas CVD sobe (peso 30)
-- Volume Trend: volume medio > 1.2x da media (peso 20)
-- Funding negativo: < -0.05% (peso 15)
-- Choch Detection: ruptureura de strutura (peso 10)
-- Score >= 40 = Fase 1 detectada
-
-**Fase 2 — Compressao (mola comprimida):**
-- BB Width: percentil < 25% (peso 30)
-- Range Compression: range近期 < 0.7x da media (peso 35)
-- Volume Dry-up: volume < 0.8x da media (peso 25)
-- Score >= 50 = Fase 2 detectada
-
-**Explosion Score (composto):**
-- Formula: (Phase1 + Phase2 + Funding Bonus) / 3.33
-- Funding Bonus: se funding < -0.1% ou > +0.15%, +20 pontos
-- Score >= 60 = sinal de ENTRADA recomendado
-- Score 40-59 = sinal de ALERTA (preparar entrada)
-- Score < 40 = sem sinal
-
-**Integracao com as 3 estrategias:**
-- VELOCITY FLOW: explosion_score alimenta confianca
-- ALPHA SHIELD: explosion_score confirma DVAP/MOLA/FAS
-- DECOR SHADOW: explosion_score detecta divergencias com compressao
-
----
-
-## 3. Fluxo de Execucao
-
-```
-Sinal Gerado (Radar/BlitzSniper)
-    |
-    v
-CaptainAgent (Quality Gate)
-    |-- Consenso de frota: Macro 15% + Whale 25% + SMC 30% + OnChain 30%
-    |-- Threshold dinamico: 35% (2+ slots livres) ou 40% (normal)
-    |-- Quartermaster: classificacao de wick -> leverage
-    |
-    v
-BankrollGuardian (Autorizacao)
-    |-- Regime gating: ADX < 25 = so DECOR; >= 25 = so VELOCITY/ALPHA
-    |-- Limites de slots: 20 (ranging) / 40 (trending)
-    |-- Memoria por par: wins/losses, ROI medio, quarentena
-    |-- Equity viva: base + realizado + PnL slots + PnL moonbags
-    |
-    v
-BankrollManager (Execucao)
-    |-- Stop inicial adaptativo: ATR + suporte/resistencia
-    |-- Teto de stop: 30% ROI (config)
-    |-- ExecutionCapacityGate: spread, profundidade, slippage, funding
-    |-- Fila OKX (anti-429): OKXCommandQueue
-    |
-    v
-FlashAgent (Gestao de Stops)
-    |-- Ciclo: 1s por slot
-    |-- Escadinha: progressao de stops por ROI
-    |-- Peak ROI: memoria de pico para decisao
-    |-- Confirmacao REST: quando WebSocket inconsistente
-    |
-    v
-FleetAudit (Reconciliacao)
-    |-- Ciclo: 20s
-    |-- Early ROI Panic: -80% em <300s = saida emergencial
-    |-- Ghost cleanup: slots sem ordem correspondente
+    ScalpLab --> StopLadder
+    ScalpLab --> DB_SQLite
+    DB_SQLite -.-> DB_Postgres
 ```
 
 ---
 
-## 4. Escadinha de Stops (Stop Ladder)
+## 2. Constantes Principais (fonte: `backend/config.py`)
 
-### 4.1 Regime LATERAL (ADX < 25)
+| Constante | Valor | Fonte |
+|-----------|-------|-------|
+| `LEVERAGE` (padrao) | 15x (Cross) | `sandbox_service.py` / V146 Pivot |
+| `MAX_SLOTS` (cap global) | 20 | `config.py:124` |
+| `MAX_SLOTS_LATERAL` | 16 | `config.py:125` |
+| `MAX_SLOTS_TRENDING` | 16 | `config.py:126` |
+| `MARGIN_PER_TRADE` (Laya) | $200.00 | `sandbox_service.py` / V146 |
+| `RISK_CAP_PERCENT` | 0.40 (40% da banca) | `config.py:132` |
+| `MAX_INITIAL_STOP_ROI` | -6.5% a -7.5% ROI (4:1 RR) | `sandbox_service.py:352` / V146 |
+| `RISK_ZERO_TRIGGER_ROI` | +6.0% → +1.5% ROI (Garantia Taxas) | `sandbox_service.py:1610` |
+| `ADX_MIN_ENTRY` | 22 | `config.py:142` |
+| `ADX_TRENDING_THRESHOLD` | 25 | `config.py:144` |
+| `ADX_STRONG_TREND_THRESHOLD` | 30 | `config.py:146` |
+| `SWING_SCAN_ENABLED` | **False (PAUSADO / GATE SOBERANO)** | `config.py:166` / V146 |
+| `SWING_LEVERAGE` | 15x (Cross) | `config.py:168` |
+| `MCP_MOUNT` | `/mcp` (`/mcp/sse`, `/mcp/tools`) | `backend/main.py:806` / V144 |
+| `RAG_ROUTER` | `/api/v1/hermes/rag` (`/search`, `/status`) | `backend/routes/rag_routes.py` |
+| `ML_ROUTER` | `/api/v1/ml` (`/status`, `/dataset-stats`) | `backend/app/api/v1/endpoints/ml.py` |
 
-Degraus simplificados para mercado lateral. Protecao precoce e rápida com o GARANTIA_5 contra falsos rompimentos.
+**Status Operacional Atual [V146-PROFITABILITY-PIVOT & SWING GATE]**:
+- **Scalping Lab (Laya Soberana)**: 100% ativo com alavancagem de **15x**, stops de -7.5% ROI e trailing stop Never Give Back (50% do pico de lucro).
+- **Swing Lab**: Pausado soberanamente (`SWING_SCAN_ENABLED=False`) para estancar drawdown e concentrar 100% dos slots e capital no Scalping.
+- **RAG & MCP**: RAG conectado ao prompt do Hermes e MCP 2.x montado nativamente em `/mcp`.
 
-| Gatilho ROI | Stop (ROI) | Nome | Status |
-|------------|-----------|------|--------|
-| 5% | 0% | GARANTIA_5 | ESCADINHA |
-| 15% | 5% | GARANTIA_15 | ESCADINHA |
-| 20% | 10% | GARANTIA_20 | ESCADINHA |
-| 30% | 20% | GARANTIA_30 | ESCADINHA |
-| 40%+ | Dinamico (-5% do pico) | TRAIL_40 | TRAILING |
+> **[V127] Saldo exibido em PAPER**: `OKX_SIMULATED_BALANCE` e a base do Guardiao/sizing em PAPER, mas o *Net Worth* do Cockpit em PAPER NAO e `OKX_SIMULATED_BALANCE` — e a **Banca Simulada Consolidada do Sandbox** (`get_sandbox_unified_balance`, `database_service.py`: `BANCA_BASE` $10.000 + Σ(pnl_pct/100 × $200) sobre TODOS os trades Scalp+Swing). Ver Secao 8.6.
 
-### 4.2 Regime TENDENCIA (ADX >= 25)
-
-Degraus progressivos para colher lucros em tendencia forte.
-
-| Gatilho ROI | Stop (ROI) | Nome | Status |
-|------------|-----------|------|--------|
-| 5% | 0% | GARANTIA_5 | ESCADINHA |
-| 20% | 5% | GARANTIA_20 | ESCADINHA |
-| 30% | 15% | LUCRO_INICIAL | ESCADINHA |
-| 45% | 30% | LUCRO_MEDIO | ESCADINHA |
-| 60% | 50% | LUCRO_ALTO | ESCADINHA |
-| 80% | 65% | LUCRO_GARANTIDO_80 | ESCADINHA |
-| 100% | 75% | LUCRO_GARANTIDO | ESCADINHA |
-| 130% | 110% | SUCESSO_TOTAL | PROFIT_LOCK |
-| 150% | 110% | ALVO_150 | PROFIT_LOCK |
-| 200% | 150% | WAVE | TRAIL_LOCK |
-| 300% | 220% | ROCKET | TRAIL_LOCK |
-| 400% | 280% | STAR | TRAIL_LOCK |
-| 500% | 350% | CROWN | TRAIL_LOCK |
-| 600% | 420% | SUPERNOVA | TRAIL_LOCK |
-| 700% | 500% | GOD_MODE | TRAIL_LOCK |
-| 750% | 600% | CHOKE_PREP | TRAIL_LOCK |
-| 800% | 650% | CHOKE | TRAIL_LOCK |
-| 1000% | 800% | HYPER | TRAIL_LOCK |
-| 1200% | 1000% | APEX | TRAIL_LOCK |
-
-### 4.3 Pos-APEX (acima de 1200%)
-
-Niveis `ULTRA_*` a cada 200% ROI. Stop = gatilho - 200%.
-
-| Gatilho | Stop |
-|---------|------|
-| ULTRA_1400 | +1200% |
-| ULTRA_1600 | +1400% |
-| ULTRA_1800 | +1600% |
-| ULTRA_2000 | +1800% |
+> Nota: `bankroll.py` le `settings.MARGIN_PER_TRADE_*` (0.50) e `settings.MAX_SLOTS_*` (16). Comentarios legados em `bankroll.py` citam "$2.00/$1.00" e "20/40" — esses valores NAO refletem o config atual.
 
 ---
 
-## 5. Filtro de Regime de Mercado
+## 3. Escadinha de Stops (fonte: `backend/services/order_projection_service.py` + `sandbox_service.py` + `sandbox_swing_service.py`)
 
-### 5.1 Grade ADX
+Existem **6** escadas. A selecao e feita em `get_stop_ladder(roi, is_ranging, slot_type, strategy_class)`:
+- `is_swing` = `slot_type` in (BLITZ_30M, SWING) **ou** `strategy_class` in (VELOCITY FLOW, ALPHA SHIELD, DECOR SHADOW, LAYA_SMART_MONEY_H1)
+- `is_scalping` = `strategy_class`=="VWAP SNIPER" **ou** `slot_type`=="SCALPING"
+- `is_laya_reversion` = `strategy_class`=="LAYA_MEAN_REVERSION"
+- `is_smart_money_h1` = `strategy_class`=="LAYA_SMART_MONEY_H1" (Metodologia Encryptos: Acumulação H1, Rompimento com força, Confirmação LSR x OI, Stop Loss na borda de saída da consolidação).
+- Roteamento: swing+ranging→`SWING_LATERAL` · swing→`SWING` · laya_reversion→`LAYA_REVERSION` · scalping→`SCALPING` · ranging→`RANGING` · senao→`TRENDING`.
 
-**[V123] Regime gating RESTAURADO no Sandbox.** DECOR SHADOW opera APENAS em LATERAL (ADX < 25).
-- Motivo: DECOR SHADOW é estratégia de reversão/exaustão — em TRENDING, o preço pode continuar caindo livremente.
+### 3.1 `ORDER_STOP_LADDER_RANGING` (lateral scalping padrao)
+| Gatilho ROI | Stop ROI | Nome | Status |
+|---|---|---|---|
+| 8% | 2% | GARANTIA_TAXAS | RISCO_ZERO |
+| 12% | 5% | GARANTIA_LUCRO_CURTO | RISCO_ZERO |
+| 20% | 10% | GARANTIA_LUCRO_MEDIO | RISCO_ZERO |
+| 32% | 18% | GARANTIA_LUCRO_ALTO | RISCO_ZERO |
+| 50% | 48% | ALVO_MAXIMO_LATERAL | PROFIT_LOCK |
+Acima de 20% ROI em ranging, a escada sobe dinamicamente de 1% em 1% (trailing gap 5%, ou 10% se `slot_type=BLITZ_30M`).
+
+### 3.2 `ORDER_STOP_LADDER_SCALPING` (VWAP SNIPER) [V146]
+| Gatilho | Stop | Nome | Status |
+|---|---|---|---|
+| 10% | 2% | GARANTIA_TAXAS_SCALP | RISCO_ZERO |
+| 18% | 8% | LUCRO_CURTO_SCALP | RISCO_ZERO |
+| 30% | 18% | LUCRO_MEDIO_SCALP | PROFIT_LOCK |
+| 45% | 32% | TRAILING_SCALP | PROFIT_LOCK |
+
+### 3.3 `ORDER_STOP_LADDER_LAYA_REVERSION` (Laya Mean Reversion) [V147-WINRATE]
+Calibração específica para reversões em consolidação com alavancagem 15x e Early Shield. Protege trades que andaram a favor antes do breakeven (evitando devoluções como no caso da ARB) e garante assimetria de retorno positiva:
+| Gatilho ROI | Stop ROI | Nome | Status |
+|---|---|---|---|
+| 4.0% | -2.0% | EARLY_SHIELD_LAYA | RISCO_BAIXO (Corta 73% do risco inicial) |
+| 6.0% | 1.5% | GARANTIA_TAXAS_LAYA | RISCO_ZERO |
+| 12.0% | 6.0% | LUCRO_CURTO_LAYA | PROFIT_LOCK |
+| 22.0% | 14.0% | LUCRO_MEDIO_LAYA | PROFIT_LOCK |
+| 35.0% | 24.0% | PROFIT_LOCK_LAYA | PROFIT_LOCK |
+| 50.0% | 38.0% | ALVO_MAXIMO_REVERSION | PROFIT_LOCK |
+
+### 3.4 `ORDER_STOP_LADDER_SWING` (swing tendencia - V146 2H 50x)
+Protege lucros contra devolução total (impede que trades de +30% voltem para o zero a zero):
+| Gatilho | Stop | Nome | Status |
+|---|---|---|---|
+| 15% | 2% | BREAKEVEN_2H | RISCO_ZERO |
+| 25% | 12% | PROTECAO_PARCIAL | RISCO_ZERO |
+| 40% | 25% | LUCRO_MEDIO_2H | PROFIT_LOCK |
+| 65% | 45% | LUCRO_ALTO_2H | PROFIT_LOCK |
+| 100% | 75% | EMANCIPADO_2H | PROFIT_LOCK |
+| 200% | 150% | SUPER_TENDENCIA | PROFIT_LOCK |
+| 350% | 280% | ALVO_ESTENDIDO_2H | PROFIT_LOCK |
+
+### 3.5 `ORDER_STOP_LADDER_SWING_LATERAL` (swing em lateral)
+| Gatilho | Stop | Nome |
+|---|---|---|
+| 5% | 1.5% | BREAKEVEN_LATERAL |
+| 15% | 5% | PRE_UNIT1_LATERAL |
+| 30% | 15% | UNIT1_GARANTIDO |
+| 60% | 30% | EMANCIPADO_LATERAL |
+| 100% | 80% | TRAILING_LATERAL |
+
+### 3.6 `ORDER_STOP_LADDER_TRENDING` (tendencia)
+14/2, 25/10, 40/20, 60/40, 80/60, 100/80, 130/110, 150/110, 200/150, 300/220, 400/280, 500/350, 600/420, 700/500, 750/600, 800/650, 1000/800, 1200/1000.
+Acima de 1200% ROI (APEX): niveis `ULTRA_*` a cada +200% ROI, stop = gatilho − 200%.
+
+`ORDER_STOP_LADDER` (sem sufixo) e um alias de `TRENDING` para compatibilidade com o compliance do Hermes.
+
+### 3.7 Proteções Adicionais (Scalping/Swing/Laya Sandbox)
+
+**GARANTIA_4 / GARANTIA_6 — Risco Zero Imediato [V133 / V135-RR / V136-SWING / V145]** (`sandbox_service.py:1571-1583`):
+Quando `max_roi >= threshold` e `current_stop_roi < 0%`, stop vai a 0% ROI (break-even).
+- **Laya Mean Reversion [V145]**: threshold = **+6.0% ROI** → stop sobe imediatamente para **+1.5% ROI** (lucro mínimo garantido contra reversões).
+- **Scalping Geral**: threshold = **+4%** (V135-RR).
+- **Swing**: threshold = **+12%** (V136-SWING). Breakeven mais alto para dar fôlego ao trade de médio prazo.
+
+**GARANTIA_TRAIL — Trailing Dinâmico [V122 / V131-FIX / V133 / V135-RR / V136-SWING / V145]** (`sandbox_service.py:1588-1645`):
+**[V145]** Split por tipo de trade:
+- **Laya Mean Reversion**: `max_roi >= 6.0%` → stop = `max(1.5, max_roi × 0.50)` (**50%** do pico, mínimo +1.5%).
+- **Swing**: `max_roi >= 12%` → stop = `max(3.0, max_roi × 0.50)` (**50%** do pico, mínimo +3%). Trades duram mais sem dar lucro embora.
+- **Scalping Geral**: `max_roi >= 4%` → stop = `max(1.5, max_roi × 0.75)` (**75%** do pico, mínimo +1.5%).
+- **Stop Inicial Máximo [V145]**: Capado rigidamente em **-7.5% ROI** (0.50% de variação no preço com 15x de alavancagem), assegurando assimetria R:R $\ge$ 4:1 com alvos de +30% a +36%.
+- **Scalping**: `max_roi >= 4%` → stop = `max(1.5, max_roi × 0.75)` (**75%** do pico, mínimo +1.5%). Inalterado.
+**[V135-RR]** Apertado de 60% para 75% do pico (Scalping) — avg give-back era 4.0pp.
+**[V131-FIX]** Correção de bug crítico: a condição `current_stop_roi < 0.0` impedia o trailing de avançar após a GARANTIA_8 mover o stop para 0%. Removida a condição.
+**[V133]** Breakeven de ativação igualado para 8% em ambos modos — antes 12% no Scalping, 8% no Swing. **[V135-RR]** Reduzido para 4% (Scalping). **[V136-SWING]** Swing elevado para 12%.
+
+### 3.7 Equity Defense — Defesa Progressiva de Patrimônio [V128]
+
+Sistema de proteção do saldo consolidado da banca Sandbox. Rastreia o pico da equity e protege
+80% do lucro acumulado com stops progressivos por nível.
+
+**Config** (`config.py:193-203`):
+- `EQUITY_DEFENSE_LOCK_RATIO = 0.80` — 80% do lucro do pico é protegido
+- `EQUITY_DEFENSE_STOP_L1 = 7.0%` — L1 LEVE: stop = pico - 7%
+- `EQUITY_DEFENSE_STOP_L2 = 5.0%` — L2 MODERADO: stop = pico - 5%
+- `EQUITY_DEFENSE_STOP_L3 = 3.0%` — L3 FORTE: stop = pico - 3%
+- `EQUITY_DEFENSE_MIN_ROI = 5.0%` — ROI mínimo do trade para defesa aplicar (evita fechar trades com ROI baixo)
+
+**Níveis de defesa** (`sandbox_service.py:1333-1368`):
+
+| Banca (profit %) | Nível | Ação |
+|---|---|---|
+| < +3% | 0 OFF | Stop segue escadinha normal |
+| +3% a +4.9% | 1 LEVE | Stop = pico - 7% |
+| +5% a +9.9% | 2 MODERADO | Stop = pico - 5% |
+| >= +10% | 3 FORTE | Stop = pico - 3% |
+| abaixo do piso | 4 CRITICO | Fecha todos os trades |
+
+**Piso protegido** (`database_service.py:296-301`):
+```
+peak = maior saldo já visto
+peak_profit = peak - base ($10.000)
+floor = base + (peak_profit × 0.80)
+
+Exemplo: peak $10.900 → floor = $10.000 + ($900 × 0.80) = $10.720
+```
+
+**Enforcement** (`sandbox_service.py:1497-1527`, `flash_agent.py:507-547`):
+- L1/L2/L3: sobe stop para `peak_roi - stop_pct` (só se > stop atual E max_roi >= 5%)
+- CRITICO: fecha trade imediatamente com status `CLOSED_EQUITY_DEFENSE`
+- Threshold: defesa só aplica quando ROI máximo do trade >= 5% (evita fechar trades marginais)
+- Regra "só sobe": defense_stop só aplica se > stop atual da escadinha
+
+**UI** (`sandbox.html`):
+- Badge `🛡️ DEFESA` ao lado do `🔒 LOCK-IN` no card de Banca
+- Cores: L1=azul, L2=amarelo, L3=laranja, CRITICO=vermelho+pulse
+- Trade rows: indicador `EQUITY_L1/L2/L3/CRITICO`
+- Tooltip: Pico | Piso | Banca | Stop%
+
+### 3.8 Stops Iniciais
+
+**Scalping Lab — VWAP SNIPER [V127.2 / V132 / V133]** (`sandbox_scalping_engine.py:47`):
+- `_MAX_STOP_ROI = -12.0%` (0.24% preço com 50x). **[V133]** Aumentado de -8% para -12% para dar mais runway ao trade.
+- **[V133]** **Filtro de R:R Mínimo**: trades com `projected_rr < 1.5` são rejeitados (target = 3x risk, mínimo 15% ROI).
+- GARANTIA_4 ativa em +4% ROI → stop vai a 0%. **[V135-RR]** Antecipado de 8% para 4%.
+
+**Scalping Lab — Stop Adaptativo [V123 / V135-RR]** (`sandbox_service.py:321-400`):
+- Tenta stop estrutural 30M (swing low/high + buffer) — aprovado se ROI entre **-12% e -6%** (mais apertado = melhor R:R). **[V135-RR]** Antes aceitava -40% a -25%.
+- Fallback: **-12% ROI** (0.24% preço com 50x). **[V135-RR]** Antes -25% (0.5% preço) — era a causa do avg loss -19.4% vs avg win +7.2%.
+- Teto rígido: **-12% ROI** (0.24% preço). **[V135-RR]** Antes -30%.
+- Fallback ATR (ranging): clamp entre **-8% e -12%**. **[V135-RR]** Antes -12% a -15%.
+
+**Swing Lab — Stop Configurável e Micro-Gatilho [V133]** (`sandbox_swing_service.py`):
+- Alavancagem padrão de 50x com stop inicial rígido de **-20% ROI** (equivalente a 0.4% no preço). **[V133]** Reduzido de -35% para -20% para melhorar R:R (1:2+ vs 1:0.28).
+- **[V133]** Threshold ADX elevado de 25 para 30 — exige confirmação de tendência mais forte antes de abrir trade.
+- Análise baseada inteiramente no timeframe de **2H (120m)** com scan a cada 30 minutos (1800s).
+- **Filtro de Entrada de Alta Precisão (15m):** Os sinais de 2H só iniciam o trade se o Stochastic RSI no gráfico de 15m estiver alinhado com a direção do trade.
+- Zero-Risk Stacking regulado para no máximo 2 posições sob risco de mesa simultâneas.
+
+**Execution Protocol — Breakeven Adaptativo [BLITZ]** (`execution_protocol.py:430-494`):
+- DNA do ativo via Librarian: wick_multiplier e is_retest_heavy.
+- Ativo limpo: breakeven em +30% ROI.
+- Ativo instável: breakeven em +50% ROI.
+- Pavio extremo/retest: breakeven em +60% ROI.
+
+---
+
+## 4. Fluxo de Execucao
+
+```
+Sinal (SignalGenerator / DECOR_HUNTER / Swing Lab / Scalping Lab)
+    v
+CaptainAgent (captain.py) — Quality gate + regime gating + consenso de frota
+    | Consenso: Macro 15% + Whale 25% + SMC 30% + OnChain 30% + Kronos 18%
+    | Quartermaster classifica o wick -> leverage
+    v
+BankrollGuardian (bankroll_guardian.py) — autorizacao
+    | Regime gating por ADX + limites de slots + memoria por par
+    v
+Bankroll (bankroll.py) — execucao
+    | Stop inicial adaptativo (teto 30% ROI) + ExecutionCapacityGate + OKXCommandQueue (anti-429)
+    v
+FlashAgent (flash_agent.py) — gestao de stops, ciclo 1s (escadinha)
+    v
+FleetAudit (fleet_audit.py) — reconciliacao 20s, Early ROI Panic, ghost cleanup
+```
+
+---
+
+## 5. Filtro de Regime de Mercado (OracleAgent)
+
+- Grade ADX: `< 25` = LATERAL (RANGING); `>= 25` = TENDENCIA (TRENDING). Estabilizacao 150s.
+- DECOR SHADOW opera **apenas em LATERAL** (estrategia de reversao/exaustao).
 - ALPHA SHIELD e VELOCITY FLOW operam em qualquer regime.
-
-| Condicao | Acao |
-|----------|------|
-| ADX < 25 | LATERAL: todas as estrategias permitidas |
-| ADX >= 25 | TENDENCIA: apenas VELOCITY FLOW e ALPHA SHIELD (DECOR SHADOW bloqueado) |
-
-**Filtro adicional V118 para LONGS:**
-- Apenas pares desgrudados do BTC (Pearson < 0.35) com gas (confidence >= 70)
-- LONGS aprovados tambem furam o MACRO-BLOCK
-
-### 5.2 Direcao do BTC
-
-Determinada por confluencia de variacao 15m + 1h:
-- Ambas positivas => UP
-- Ambas negativas => DOWN
-- Divergencia => LATERAL (nao bloqueia)
-
-### 5.3 Filtro Trend Bias
-
-- Preco BTC < SMA 200 diaria => BEARISH: so SHORT permitido
-- Preco BTC > SMA 200 diaria => BULLISH: so LONG permitido
+- BLITZ / Swing 30M (`slot_type=BLITZ_30M` ou `is_blitz=True`) faz bypass do gating em LATERAL (`captain.py`).
+- Direcao BTC: confluencia var 15m + 1h. Trend bias: BTC vs SMA 200 diaria (bearish→so SHORT; bullish→so LONG).
 
 ---
 
 ## 6. Estrategias
 
 | Estrategia | Regime | Descricao |
-|------------|--------|-----------|
-| **DECOR SHADOW** | LATERAL | Reversao de exaustao, decorrelacao BTC (Pearson < 0.35) |
-| **DECOR_HUNTER** | LATERAL | Variacao do DECOR com caça a decorrelacao |
-| **VELOCITY FLOW** | TENDENCIA | Momentum de alta, breakout de volatilidade |
-| **ALPHA SHIELD** | TENDENCIA | Protecao de capital, entrada em pullback |
-| **LRT** | Qualquer | Liquidez de alta frequencia |
-| **DVAP** | Qualquer | Reversao de exaustao |
-| **FAS** | Qualquer | Funding Squeeze (isento de alinhamento SMA 2H) |
-| **MOLA** | Qualquer | Breakout de volatilidade |
-| **ABCD / 1-2-3** | TENDENCIA | Tendencias geometricas |
+|---|---|---|
+| VELOCITY FLOW | Qualquer / BLITZ | Momentum, SMA8/21 alinhado + volume |
+| ALPHA SHIELD | Qualquer / BLITZ | Protecao de capital: DVAP/MOLA/FAS/LRT |
+| DECOR SHADOW | LATERAL / BLITZ | Reversao de exaustao, decorrelacao BTC (Pearson) |
+| DECOR_HUNTER | LATERAL | Caca a pares desgrudados do BTC (watchlist propria) |
+| VWAP SNIPER | Scalping (M1/M5) | EMA200 M5 + toque no VWAP diario + Stoch RSI |
+| LRT / DVAP / FAS / MOLA | Qualquer | Liquidez / exaustao / funding squeeze / breakout |
+
+Swing 2H usa `SignalGenerator.analyze_m30_swing()` (reusa DVAP/MOLA/FAS/LRT + TREND + DECOR em timeframe de 120m). O antigo `blitz_sniper.py` foi **removido** (V125.3).
 
 ---
 
-## 7. Constantes Principais
+## 7. Stack de Agentes / Servicos (`backend/services/agents/` + `backend/services/`)
 
-### 7.1 Trading
+### 7.1 Decisao & risco
+- **CaptainAgent** (`agents/captain.py`) — despachante, quality gate, consenso de frota.
+- **OracleAgent** (`agents/oracle_agent.py`) — regime de mercado (ADX), estabilizacao 150s.
+- **FlashAgent** (`agents/flash_agent.py`) — motor da escadinha, ciclo 1s.
+- **BankrollGuardian** (`agents/bankroll_guardian.py`) — autorizacao de trade. **[V127]** Em PAPER, `evaluate_bank_health` fonteia `equity`/`saldo_real_okx` a partir da **Banca Simulada Consolidada do Sandbox** (`get_sandbox_unified_balance`) — e esse `equity` e o *Net Worth* exibido no Cockpit em PAPER (ver Secao 8.6). Em REAL, `equity` vem do saldo real da OKX.
+- **SlotOperator** (`agents/slot_operator.py`) — observador/failsafe, ciclo 3s.
+- **Bankroll** (`services/bankroll.py`) — abertura/gestao de posicao real.
 
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Leverage padrao | 50x | `config.py` |
-| Max slots (config) | 16 | `config.py:124` |
-| Max slots (guardian ranging) | 20 | `bankroll_guardian.py` |
-| Max slots (guardian trending) | 40 | `bankroll_guardian.py` |
-| Margem lateral | $2.00 | `bankroll.py:54` |
-| Margem trending | $1.00 | `bankroll.py:55` |
-| Teto stop inicial | 30% ROI | `config.py:145` |
-| Min gap entre entradas | 2s | `signal_generator.py` |
-| Intervalo de scan | 5s | `signal_generator.py` |
+### 7.2 Sinal
+- **SandboxSwingService** (`services/sandbox_swing_service.py`) — motor Swing Lab 2H (scan 30min, Zero-Risk Stacking cap 2, 15 slots total).
+- **SandboxScalpingEngine** (`services/sandbox_scalping_engine.py`) — motor Scalping Lab (VWAP SNIPER, scan 30s).
+- **SignalGenerator** (`services/signal_generator.py`) — motor principal de estrategias.
+- **AmbushAgent** (`agents/ambush.py`) — entrada Fibonacci (timeout 30min).
+- **WhaleTracker** (`agents/whale_tracker.py`) — fluxo institucional CVD/OI (whale pulse >= 150k).
+- **OnChainWhaleWatcher** (`agents/onchain_whale_watcher.py`) — hot wallets (>$500k USDT / 200 ETH).
 
-### 7.2 Oracle & Regime
+### 7.3 Analise
+- **MacroAnalyst** (`agents/macro_analyst.py`) — risco macro BTC (Pearson panic >0.8 + BTC <-2%).
+- **Librarian** (`agents/librarian.py`) — DNA do ativo/rankings (ciclo 2h).
+- **LibrarianAuditor** (`agents/librarian_auditor.py`) — ajuste de bias (ciclo 4h, range 0.5–1.2).
+- **TradeAnalyst** (`agents/trade_analyst.py`) — autopsia pos-trade (ciclo 30min).
+- **SentimentSpecialist** (`agents/sentiment_specialist.py`) — LS-Ratio + Funding (sem LLM).
 
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Periodo de estabilizacao | 150s | `oracle_agent.py` |
-| ADX trending | 25 | `oracle_agent.py` |
-| ADX minimo para entrada | 22 | `config.py:139` |
-| ADX forte tendencia | 30 | `config.py:143` |
+### 7.4 Infra
+- **FleetAudit** (`agents/fleet_audit.py`) — reconciliacao 20s, Early ROI Panic (-80% em <300s).
+- **KronosScorer** (`services/kronos_scorer.py`) — **[V134-NOVO]** Servico de scoring de conviccao via series temporais. Usa Kronos-mini (4.1M params, CPU, contexto 2048) da Microsoft/Tsinghua (AAAI 2026). Funciona como uma 5a dimensao no consenso de frota do CaptainAgent, com peso de 18% no unified_score. Opera em dois modos:
+  - **Modo REAL** (com `pip install kronos-forecast torch`): inferencia com Kronos-mini, preve direcao das proximas 12 velas, calcula conviccao baseada em alinhamento de direcao + dispersao entre trajetorias.
+  - **Modo FALLBACK** (sem PyTorch): usa regressao linear simples nos closes — leve, rapido, sempre disponivel.
+  - Cache por simbolo com TTL 60s. Timeout de 5s por predicao. Fallback automatico para score=50 se falhar.
+  - Config: `KRONOS_ENABLED`, `KRONOS_MODEL_NAME`, `KRONOS_SCORE_WEIGHT` (0.18), `KRONOS_INTERVAL` ("5"), `KRONOS_CACHE_TTL`(60), `KRONOS_TIMEOUT`(5.0), `KRONOS_FALLBACK_SCORE`(50).
+- **Quartermaster** (`agents/quartermaster.py`) — leverage por wick: SMOOTH(<0.45,50x) / JUMPY(0.45–0.70,20x) / EXTREME(>0.70,10x).
+- **HermesAgent** (`agents/hermes_agent.py`) — compliance/telemetria/chat; le este arquivo + `vault_galaxy/`.
+- **JarvisBrain** (`agents/jarvis_brain.py`) — chat multi-dimensao (10 dimensoes).
+- **AIService** (`agents/ai_service.py`) — cascade DeepSeek → Gemini → OpenRouter.
+- **ExecutionAuditorAgent** (`agents/execution_auditor.py`) — sentinel de execucao: sanitiza chaves de preco, valida contratos OKX, forca leverage, alerta no Firebase.
+- **PhaseDetector** (`services/phase_detector.py`) — deteccao de Fase 1 (acumulacao) e Fase 2 (compressao) para antecipar explosoes.
+- **PortfolioGuardian** (`services/portfolio_guardian.py`), **SentinelAuditor** (`services/sentinel_auditor.py`) — iniciados no startup.
 
-### 7.3 FlashAgent
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Ciclo de trailing | 1s | `flash_agent.py` |
-| TTL cache slots | 3s | `flash_agent.py` |
-| Intervalo check DECOR | 60s | `flash_agent.py` |
-
-### 7.4 FleetAudit
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Intervalo reconciliacao | 20s | `fleet_audit.py:24` |
-| Periodo imunidade (novos) | 60s | `fleet_audit.py:88` |
-| Early panic (idade < 300s) | -80% ROI | `fleet_audit.py:91` |
-| Saida emergencia | -90% ROI | `fleet_audit.py:96` |
-| Tolerancia desvio SL | 0.2% | `fleet_audit.py:152` |
-
-### 7.5 Librarian
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Intervalo de estudo | 7200s (2h) | `librarian.py:37` |
-| Quarantena super | 14400s (4h) | `librarian.py:92` |
-| Janela padrao negativa | 259200s (72h) | `librarian.py:106` |
-| Top rankings | 25 | `librarian.py:408` |
-| Download klines (fresh) | 1500 candles | `librarian.py:244` |
-
-### 7.6 MacroAnalyst
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Cache dominancia BTC | 600s (10min) | `macro_analyst.py:45` |
-| Cache klines | 300s (5min) | `macro_analyst.py:98` |
-| Threshold correlacao (panic) | 0.8 | `macro_analyst.py:129` |
-| Threshold queda BTC (panic) | -2.0% em 1H | `macro_analyst.py:130` |
-| Risk score range | 0-10 | `macro_analyst.py:225` |
-
-### 7.7 WhaleTracker
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Bull trap: CVD delta | > 40.000 + preco < 0.03% | `whale_tracker.py:75` |
-| Bear trap: CVD delta | < -40.000 + preco > -0.03% | `whale_tracker.py:80` |
-| Whale pulse | >= 150.000 CVD | `whale_tracker.py:86` |
-| Presenca alta | abs(CVD) > 100.000 | `whale_tracker.py:99` |
-
-### 7.8 AI Service
-
-| Constante | Valor | Fonte |
-|-----------|-------|-------|
-| Rate limit visao | 10 RPM | `ai_service.py:29` |
-| Timeout Gemini | 15s | `ai_service.py:218` |
-| Timeout OpenRouter | 20s | `ai_service.py:256` |
-| Backoff Gemini 429 | 120s | `ai_service.py:174` |
-| Cascade | DeepSeek -> Gemini -> OpenRouter | `ai_service.py` |
+Iniciados no startup (`backend/main.py`): phase_detector, okx_ws_public/service, fleet_audit, hermes_agent, signal_generator (loops), captain, flash_agent, librarian, trade_analyst, portfolio_guardian, sentinel_auditor, sandbox_service, sandbox_swing_service, sandbox_scalping_engine.
 
 ---
 
-## 8. Watchlists
+## 8. Laboratorios de Forward-Testing
 
-### 8.1 RADAR_WATCHLIST (31 ativos)
-Pares monitorados ativamente para sinais de trading.
+### 8.1 SandboxService (`services/sandbox_service.py`) — ciclo 1s **[V131-FIX]**
+- Espelha o sistema real. Recebe sinais via `on_radar_pulse` → `_process_radar_signals`.
+- Stop adaptativo por regime (fallback): LATERAL -8% ROI / TRENDING -10% ROI; capping -10%.
+- Margem adaptativa por win rate do par: $1.00–$2.50 (`_get_adaptive_margin`).
+- Cooldown pos stop-out **por (simbolo, direcao)**: **1800s** no 1o stop, **3600s** em stops consecutivos (>=2) — `sandbox_service.py:735`.
+- Cooldown de transicao fria (tendencia→lateral): **900s** (`:551`).
+- Confirmacao 5M (2/3 candles alinhados), Entry Sanity Check (70% do stop), auto-blocklist (PnL<-15% E WR<35% apos 3+ trades).
+- Espelhamento real (V124.4): se `OKX_API_KEY_MASTER` + modo REAL, replica ordens; auditado pelo ExecutionAuditorAgent.
+- **[V131-FIX] Limite de slots corrigido de 10 para 5** (`sandbox_service.py:709`): o limite do Radar estava em `>= 10` enquanto o VWAP SNIPER usa `_MAX_SLOTS=5`. Agora consistentes.
+- **[V131-FIX] Anti-hedge via Radar** (`sandbox_service.py:751`): bloqueado trade em direção oposta se o par já tem trade ativo. Evita LONG+SHORT simultâneos no mesmo par.
+- **[V131-FIX] GARANTIA_TRAIL desbloqueado** (`sandbox_service.py:1571`): removida condição `current_stop_roi < 0.0` que travava o trailing em 0% após GARANTIA_8 ativar.
+- **[V131-FIX] `AttributeError: self.dynamic_margin` corrigido** (`sandbox_service.py:1546`): atributo inexistente substituído por leitura dinâmica de `trade.contract_meta["margin"]` com fallback $200.
 
-### 8.2 ELITE_40_MATRIX (35 ativos)
-Pares elite com alavancagem 50x na OKX.
+### 8.2 Scalping Lab — VWAP SNIPER (`services/sandbox_scalping_engine.py`) **[V133]**
+- Scan 30s. Filtro tendência EMA200 (M5); toque no VWAP diário (M1, tol 0.30%).
+- **[V132-REFINADO] Gatilhos e confluência:**
+    *   **BTC Trend Bias (15m):** Bloqueia LONGs se variação de 15m do BTC for < -0.40% e SHORTs se for > 0.40% (evita entrar contra fluxo).
+    *   **Stochastic RSI (1m):** Exige cruzamento real de linhas: %K cruza acima de %D (LONG, k<35) ou cruzamento abaixo (SHORT, k>80).
+    *   **Volume Relativo de 5m:** Rejeita novas entradas se o volume de 5m estiver < 1.1x acima da média simples de 20 períodos (evita mercados estagnados).
+- **[V133] Filtro de R:R Mínimo:** Trades com `projected_rr < 1.5` são rejeitados. Target = 3x risk (mínimo 15% ROI). Garante que cada trade tenha potencial de lucro significativamente maior que o risco.
+- **Leverage/Stops:** 50x isolada, margem dinâmica baseada em score (30%, 60% ou 100% da margem base de 2% da banca consolidada), stop inicial em **-12% ROI** (aumentado de -8% para dar mais runway).
 
-### 8.3 DECOR_WATCHLIST (89 ativos)
-Pares para estrategia de decorrelacao.
+### 8.3 Swing Lab — 2H (`services/sandbox_swing_service.py`) **[V133]**
+- Scan a cada 30min no timeframe de **2H (120m)** via `SignalGenerator.analyze_m30_swing()`.
+- Banca consolidada dinâmica (Juros Compostos), margem inicial $200/trade (2% da banca total recalculado dinamicamente), 50x.
+- **[V133] Stop inicial -20% ROI** (`SWING_STOP_ROI=20.0`): `stop_price = entry × (1 - 0.20/50) = entry × 0.996` (0.4% de oscilacao do preco). Reduzido de -35% para -20% para melhorar R:R.
+- **[V133] ADX Threshold elevado de 25 para 30:** Exige confirmação de tendência mais forte antes de abrir trade, filtrando sinais em mercados laterais ou fracos.
+- **Filtro de Entrada de Alta Precisão (15m):** Setup de 2H só entra se o Stochastic RSI no gráfico de 15m confirmar a direção do momentum (LONG `k_15m > d_15m`, SHORT `k_15m < d_15m`).
+- **Zero-Risk Stacking (cap 2):** Permite no máximo 2 posições sob risco de mesa ao mesmo tempo. Novas entradas exigem que pelo menos uma das ordens ativas já tenha atingido o break-even (risco zero).
 
-### 8.4 ASSET_BLOCKLIST
-Ativos bloqueados permanentemente: DYDXUSDT, FILUSDT, ALGOUSDT, LTCUSDT.
+### 8.4 Constantes de banca do Sandbox UI (`routes/sandbox.py`)
+`BANCA_BASE`=$10.000 (:20) · `MARGEM_SCALP`=dinâmica (2% da banca total) · `MARGEM_SWING`=dinâmica (2% da banca total) · alocacao maxima = 40% da banca consolidada total.
 
-### 8.5 Memecoin Blacklist
-PEPE, DOGE, SHIB, FLOKI, BONK, WIF, MYRO, 1000SATS, ORDI, MEME, TURBO, PEOPLE.
+### 8.5 Protocolo Lock-In (Proteção de Banca — V126)
+- **Objetivo**: Proteger o capital simulado acumulado quando a banca atinge a meta mínima de crescimento.
+- **Ativação**: Ocorre automaticamente quando o saldo consolidado (banca + PnL aberto de Scalp e Swing) grows 10% (gatilho configurado em `SANDBOX_LOCK_IN_TRIGGER_PERCENT` padrão 10.0%, ou seja, >= $11.000).
+- **Ação**: O stop loss das ordens ativas passa a ser recalculado de forma colada a 5% de recuo da margem de entrada por trade (`SANDBOX_LOCK_IN_STOP_PERCENT` padrão 5.0%), equivalente a 5.0% de ROI ou 0.10% de oscilação do preço do ativo a partir do pico.
+- **Identificação**: O stop é marcado no banco e na UI como `LOCK-IN_5%` na fase de `DEFESA`.
+- **Desativação**: O protocolo só é inativado caso a banca consolidada recue abaixo do saldo inicial de $10.000.
+
+### 8.6 Espelho PAPER → Cockpit (V127 / V127.1 / V129)
+
+Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, para que o operador veja a carteira simulada como se fosse a real:
+
+- **Net Worth (Banca)**: vem da **Banca Simulada Realizada do Sandbox** calculada por `DatabaseService.get_sandbox_unified_balance()` (`services/database_service.py`): `10000 + Σ(pnl_pct/100 × margin_at_opening)` sobre **APENAS trades FECHADOS** (status `CLOSED_SL`, `CLOSED_TRAILING` ou `EMANCIPATED`) de Scalping Lab e Swing Lab. O PnL nao realizado dos trades ativos e calculado separadamente pelo `bankroll_guardian._live_bankroll_snapshot()`.
+  - **[V127.1] Fix de dupla contagem**: Anteriormente (V127), `get_sandbox_unified_balance()` somava TODOS os trades (fechados + ativos), causando inflacao artificial do equity quando combinado com o `realized_pnl` do Guardian. Agora, o saldo realizado do Sandbox ja e o `base_balance` do Guardian, e o PnL dos slots ativos e adicionado apenas uma vez via `_live_bankroll_snapshot()`.
+  - Consumido por: `bankroll.update_banca_status` (`saldo_total`/`configured_balance`/`paper_equity` = saldo realizado do Sandbox; `saldo_real_okx` forçado a `0.0` em PAPER), `system.get_banca_data` (PAPER), e `bankroll_guardian.evaluate_bank_health` (PAPER, que define o `equity` exibido como Net Worth).
+- **Painel de Custodia (Ordens)**: `GET /api/slots` (`routes/trading.py`) e o broadcast WS `live_slots` (`main.py:slots_broadcast_loop`, a cada 5s) mesclam em PAPER as ordens ativas do Sandbox como slots:
+  - Scalping Lab → `slot_type="SCALPING"`; Swing Lab → `slot_type="SWING"`.
+  - Mapeamento via `_map_sandbox_trade_to_slot` (direction→side; entry_price/stop_loss/target → entry_price/current_stop/target_price; margin $200; leverage do settings).
+  - O PnL ao vivo de cada ordem e recalculado no `GET /api/slots` via `build_projection` (preco real da OKX); o WS mantem symbol/entry entre os polls.
+- **Net Worth no frontend**: `liveEquity` (`cockpit.html:6442-6449`) usa `guardianEquity` quando `guardianReport.equity > 0` — por isso o `equity` do Guardiao (saldo realizado + PnL slots ativos em PAPER) e a fonte do Net Worth, e nao o `saldo_total` cru.
+
+> **Caveat conhecido**: o header "Slots X/20" / `available_slots_count` ainda reflete os slots reais (0 em PAPER), nao o count do Sandbox. Apenas o Painel de Custodia (posicoes) e o Net Worth sao espelhados.
+> **Nota V127.1**: o endpoint `/api/sandbox/unified-state` continua retornando o saldo consolidado com todos os trades (fechados + ativos) para fins de monitoramento no sandbox.html. Apenas o cálculo do Guardian (que alimenta o Cockpit) usa apenas trades fechados.
 
 ---
 
-## 9. Mapa de Setores
+## 9. Watchlists (fonte: `backend/config.py`)
 
-| Setor | Simbolos |
-|-------|----------|
-| AI | FET, AGIX, OCEAN, RNDR, NEAR, ROSE, TAO, GRT, AI, NFP, WLD, ARKM |
-| MEME | PEPE, DOGE, SHIB, FLOKI, BONK, WIF, MYRO, 1000SATS, ORDI, MEME, TURBO, PEOPLE |
-| L1 | BTC, ETH, SOL, ADA, DOT, AVAX, MATIC, LINK, BNB, ATOM, FTM, OP, ARB, APT, SUI, SEI, NEAR |
-| DEFI | UNI, MKR, AAVE, SNX, LDO, JUP, RUNE, INJ, DYDX, CRV, 1INCH, GMX |
-| INFRA | TIA, FIL, AR, GRT, DYM, PYTH, ALT |
-| GAMEFI | IMX, BEAM, GALA, AXS, SAND, MANA, RON, APE |
-| DEPIN | HNT, IOTX, POWR |
-| PAYMENTS | TRX, XRP, LTC |
+- **ELITE_40_MATRIX** (`:194`) — **35** pares elegiveis 50x OKX.
+- **RADAR_WATCHLIST** (`:212`) — **26** pares (V126 removeu SAND, BCH, SOL, STX, EGLD).
+- **DECOR_WATCHLIST** (`:233`) — **89** pares para o DECOR_HUNTER.
+- **ASSET_BLOCKLIST** (`:266`) — set com ~58 simbolos bloqueados (inclui BTC/ETH como monitor-only, memecoins, stablecoins, metais, e pares de performance negativa no sandbox: AAVE, CRV, SUI, TRX, TIA, LINK, AVAX, SOL, JUP, ONDO, INJ, XLM, GRT, etc.). **[V133]** Adicionados INJUSDT, XLMUSDT, GRTUSDT.
 
 ---
 
-## 10. Endpoints da API
+## 10. Endpoints da API (routers registrados em `backend/main.py:821-834`)
 
-### 10.1 Market (`/api`)
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| GET | `/api/elite-pairs` | Pares elegiveis 50x OKX |
-| GET | `/api/btc/regime` | Regime BTC |
-| GET | `/api/radar/pulse` | Sinais radar pulse |
-| GET | `/api/radar/grid` | Grid de radar de mercado |
-| GET | `/api/radar/librarian` | Inteligencia/rankings Librarian |
-| GET | `/api/radar/regimes` | Analise de regime por par (60s cache) |
-| GET | `/api/captain/tocaias` | Simbolos ativos em ambush |
-| GET | `/api/trend/{symbol}` | Analise de tendencia 1H |
-| GET | `/api/market/klines` | Proxy de klines (15m-4H) |
-| GET | `/api/system/state` | Estado completo do sistema (1s cache) |
-| GET | `/api/market/study` | Estudo com padroes/FVG/OB |
-
-### 10.2 Trading
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| GET | `/api/slots` | Todos os slots (publico) |
-
-### 10.3 Sandbox (`/api/sandbox`)
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| GET | `/api/sandbox/trades` | Listar trades sandbox (param: active_only) |
-| GET | `/api/sandbox/stats` | Estatisticas gerais + regime atual + breakdown por estrategia |
-| GET | `/api/sandbox/patterns` | Analise de padroes: whitelist/blacklist sugerida, win rate por direcao |
-| GET | `/api/sandbox/analytics` | Analytics detalhado: loss por regime, simbolo, hora UTC, risk/reward |
-| POST | `/api/sandbox/clear` | Limpar todo o historico sandbox |
-
-### 10.4 Vault (`/api/vault`)
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| POST | `/api/vault/save` | Salvar chaves encriptadas |
-| GET | `/api/vault/status` | Status do vault |
-
-### 10.5 Admin (`/api/admin`)
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| GET | `/api/admin/users` | Listar usuarios (admin) |
-| GET | `/api/admin/stats` | Stats do sistema |
-| POST | `/api/admin/user/{username}/status` | Atualizar status usuario |
-| POST | `/api/admin/lockdown` | Toggle lockdown |
-| POST | `/api/admin/reset-system` | Nuclear reset |
-
-### 10.6 Auth
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| POST | `/login` | Login (JWT) |
-| POST | `/register` | Registro (aprovacao pendente) |
-| POST | `/refresh` | Refresh token |
-| POST | `/logout` | Logout |
-| GET | `/me` | Perfil usuario atual |
-| POST | `/change-password` | Trocar senha |
-| GET | `/users` | Listar usuarios (admin, paginado) |
-| PUT | `/users/{user_id}/role` | Mudar role |
-| DELETE | `/users/{user_id}` | Deletar usuario |
-| POST | `/users/{user_id}/approve` | Aprovar usuario |
-| POST | `/users/{user_id}/block` | Bloquear usuario |
-
-### 10.7 Chat
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| POST | `/api/hermes/chat` | Hermes chat (primario) |
-| POST | `/api/hermes/compliance` | Forcar compliance check |
-| GET | `/api/hermes/status` | Status Hermes |
-| POST | `/api/chat` | Chat Jarvis legado |
-| POST | `/api/chat/manual` | Chat manual com dimensoes |
-| POST | `/api/chat/reset` | Resetar historico (API key) |
-| GET | `/api/chat/status` | Status chat |
-| POST | `/api/tts` | Text-to-speech |
-| GET | `/api/tts/voices` | Vozes TTS |
-
-### 10.8 System
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| GET | `/api/test` | Teste basico |
-| GET | `/api/debug/test` | Debug teste |
-| GET | `/api/health` | Health check (VERSION, DEPLOYMENT_ID) |
+| Prefixo | Router | Endpoints principais |
+|---|---|---|
+| `/api/auth` | `auth.py` | `/login`, `/register`, `/refresh`, `/logout`, `/me`, `/change-password`, `/users`, `/users/{id}/role`, `/users/{id}/approve`, `/users/{id}/block` |
+| `/api/admin` | `admin.py` | `/users`, `/stats`, `/user/{username}/status`, `/lockdown`, `/reset-system` |
+| `/api/sandbox` | `sandbox.py` | `/unified-state` (Banca Simulada Consolidada — fonte do espelho PAPER), `/trades`, `/stats`, `/patterns`, `/analytics`, `/clear`, `/swing/trades`, `/swing/stats`, `/swing/patterns`, `/swing/analytics`, `/swing/clear`, `/swing/mirror-status`, `/swing/mirror-toggle` |
+| `/api/vault` | `vault.py` | `/save`, `/status` |
+| `/api/sentinel` | `sentinel.py` | Auditoria de execucao |
+| `/api/memory` | `memory_routes.py` | Memory Galaxy |
+| `/api/account` | `tokens.py` | Credenciais OKX por usuario |
+| `/api` | `market.py` | `/elite-pairs`, `/btc/regime`, `/radar/pulse`, `/radar/grid`, `/radar/librarian`, `/radar/regimes`, `/captain/tocaias`, `/trend/{symbol}`, `/market/klines`, `/system/state`, `/market/study` |
+| `/api` | `trading.py` | `/slots` (em PAPER mescla ordens ativas do Sandbox: Scalp→SCALPING, Swing→SWING — Secao 8.6) |
+| `/api` | `chat.py` | `/hermes/chat`, `/hermes/compliance`, `/hermes/status`, `/hermes/sessions` (GET/POST), `/hermes/sessions/{id}` (GET/DELETE/PATCH), `/chat`, `/chat/manual`, `/chat/reset`, `/chat/status`, `/tts`, `/tts/voices`, `/logs` |
+| `/api` | `system.py` | `/test`, `/debug/test`, `/health` |
+| — | `dashboard.py`, `aios.py`, `backtest_routes.py` | SPA / AIOS / backtest |
 
 ---
 
 ## 11. Camadas de Dados
 
-| Banco | Funcao | Tabelas Principais |
-|-------|--------|-------------------|
-| PostgreSQL | SSOT persistente | `slots`, `radar_pulse`, `banca_status`, `sandbox_trades`, `moonbags` |
+| Banco | Funcao | Tabelas principais |
+|---|---|---|
+| PostgreSQL | SSOT persistente | `slots`, `radar_pulse`, `banca_status`, `sandbox_trades`, `moonbags`, `chat_sessions`, `chat_messages` |
 | Firebase Firestore | Multi-tenant, sync nuvem | `users`, `trade_history`, `trade_analytics`, `fleet_intelligence`, `vault_history` |
 | Firebase RTDB | Estado em tempo real | `system_state`, `active_slots`, `radar_pulse`, `chat_status`, `banca` |
 | SQLite | Cache de klines (librarian) | `klines` |
 
 ---
 
-## 12. Deploy
+## 12. Memory Galaxy & Hermes Chat
+
+- **Memory Galaxy** (`services/galaxy_memory_service.py`): cofre Obsidian em `vault_galaxy/` com subpastas `trades/`, `journal/`, `strategies/`. Gravacao disparada em `database_service.save_trade_history_item`, transicoes de regime (`oracle_agent`) e chats do Hermes.
+- **Hermes Chat** (`frontend/hermes-chat.html`, rota `/hermes`): cascade NVIDIA → DeepSeek → AIService (Gemini/OpenRouter). Persiste em Postgres (`chat_sessions`, `chat_messages`).
+- **Contexto do Hermes**: le este `MASTER_ARCHITECTURE.md` (primeiros 8000 chars, cache 10min) + busca por keyword em `vault_galaxy/{journal,trades,strategies}/*.md` + intel wiki + compliance + dimensoes do JarvisBrain.
+
+---
+
+## 13. Deploy
 
 | Componente | Valor |
-|------------|-------|
+|---|---|
 | Plataforma | Railway + Docker |
 | Python | 3.12-slim |
 | PORT | 8085 |
-| Procfile | `web: python main.py` / `worker: python worker.py` |
+| Entry (todos) | `uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1` |
 | Health Check | `GET /api/health` |
-| Entry (Docker) | `uvicorn backend.main:app --host 0.0.0.0 --port 8085` |
-| Entry (Railway) | `python main.py` |
+| VERSION / DEPLOYMENT_ID | `V124.7` / `V124.7_M30_SWING` (`backend/main.py:68-69`) |
 
 ---
 
-## 13. Contradicoes Conhecidas no Codigo
+## 14. Observacoes Tecnicas Conhecidas
 
-1. ~~**RISK_ZERO**: `chat.py` diz 80% ROI, `hermes_agent.py` diz 50% ROI~~ ✅ RESOLVIDO V121: unificado em `config.py` (50% trigger → +25% stop)
-2. **Versoes**: Multiplas versoes coexistem (V20.5 captain, V110.x services, V2.x hermes, etc.)
-3. **Portfolio Guardian**: Importado e instanciado no `main.py` raiz mas marcado DESATIVADO
-4. **Referencias Bybit legadas**: `market.py` ainda usa nomes `BybitRest`, `BybitWS`
-5. **`get_slot_type()` sempre retorna "DVAP"** (V110.950)
-6. ~~**Dois FastAPI apps**: Root `main.py` (Firebase-first) e `backend/main.py` (Postgres-first)~~ ✅ RESOLVIDO V120.4
-7. ~~**Max slots**: `config.py` (16) vs `bankroll_guardian.py` (20/40)~~ ✅ RESOLVIDO V121: todas as camadas leem do mesmo `settings.MAX_SLOTS` (20)
-8. **Reset banca**: `admin.py` diz $100 mas comentarios dizem $20
-9. **`radar_pulse`**: Nao e arquivo separado — e estrutura de dados em database_service, firebase_service e websocket_service
+1. Multiplas versoes coexistem nos cabecalhos (V20.5 captain, V110.x services, V124–V126 features). O DEPLOYMENT_ID oficial e `V124.7`.
+2. **[V134-CLEANUP]** Referencias Bybit removidas de 26 arquivos. `from pybit.unified_trading import HTTP` removido. `okx_rest.py` agora usa `okx_service` nativo em vez de sessao pybit. `pybit==5.8.0` removido do `requirements.txt`.
+3. `get_slot_type()` em `bankroll.py` retorna sempre "DVAP" (V110.950) — diferenciacao de tipo de slot e vestigial.
+4. `radar_pulse` nao e arquivo: e estrutura de dados em `database_service`, `firebase_service` e `websocket_service`.
+5. Comentarios legados em `bankroll.py` ($2/$1, 20/40) divergem do `config.py` atual (0.50, 16/16) — o `config.py` prevalece.
+6. **[V127] Espelho PAPER Sandbox→Cockpit** (refinamento sobre o V124.7): em PAPER o *Net Worth* e o *Painel de Custodia* do Cockpit representam o Sandbox (Banca Simulada Consolidada via `get_sandbox_unified_balance` + ordens ativas Scalp/Swing como slots). `saldo_real_okx` e forçado a `0.0` em PAPER em `update_banca_status`. `OKX_SIMULATED_BALANCE` deixa de ser o saldo exibido em PAPER (subsituido pelo saldo do Sandbox), mas segue como base de sizing/guardian. Ver Secao 8.6.
+7. **[V127] Swing Stop refinado**: stop inicial configuravel via `SWING_STOP_ROI` (padrao 5.0 = -5% ROI = 0.1% preco). Escadinha BREAKEVEN em +10% ROI (antes +30%). Confirmação de entry: candle 5m fecha na direcao + volume ≥ 1.5x media. Trade INJUSDT +15.7% (+$31.40) e DOTUSDT -5.3% (-$10.68) validaram o sistema (R:R 1:2.94).
+8. **[V128] Swing Lab otimizado por simulacao**: STOP=10% (0.2% preco), BE=+2% (protecao rapida), regime filter (bearish→SHORT, bullish→LONG), hour filter (pausa 14-15 UTC), blacklist dinamica (auto-bloqueio apos 3+ trades com WR<20%). Simulacao mostrou que SHORTs tem 50% WR vs LONGs 10%.
+9. **[V127.1] Fix de dupla contagem de PnL**: Corrigido bug onde o equity do Guardian era inflado por somar o PnL realizado duas vezes (via `get_sandbox_unified_balance` que incluia TODOS os trades + `realized_pnl` do Firebase). Agora, `get_sandbox_unified_balance()` filtra APENAS trades fechados (`CLOSED_SL`, `CLOSED_TRAILING`, `EMANCIPATED`), e `_live_bankroll_snapshot()` em PAPER NAO soma `realized_pnl` novamente. Correções em: `database_service.py:1195-1223`, `bankroll_guardian.py:342-371`. Ver Secao 8.6.
+10. **[V128→V127.2] Swing Stop restaurado para 5% ROI (0.1% preço)**: `SWING_STOP_ROI=5.0` (config.py:181). O V128 aumentou para 25% ROI (0.5% preço), causando 100% de trades Swing em stop (-25% cada). Restaurado para 5% (0.1% preço) para dar fôlego ao trade. Breakeven restaurado de +4% para +10% ROI.
+11. **[V127.2] Scalping Stop restaurado para -8% ROI (0.16% preço)**: `_MAX_STOP_ROI=-8.0` (sandbox_scalping_engine.py:47). O V128 aumentou para -15% (0.3% preço), causando R:R 1:3 e expectancy negativa (-2.08% por trade). Restaurado para -8% (0.16% preço) para R:R ~1:1.
+12. **[V127.2] GARANTIA_8 (antes GARANTIA_5)**: Threshold de proteção subiu de +5% para +8% ROI. Stop vai a 0% quando trade atinge +8% ROI. Evita violinada em lucros marginais.
+13. **[V122] GARANTIA_TRAIL: trailing 60% do pico**: Quando max_roi >= 8% e stop < 0%, stop = max(1.5, max_roi × 0.60). Trade com pico +21% tem stop em +12.6% (não +1.5% fixo). Protege lucro sem travar cedo demais.
+14. **[V128] Breakeven adaptativo BLITZ**: Execution Protocol usa DNA do ativo (Librarian) para definir breakeven: ativo limpo +30% ROI, instável +50%, pavio extremo +60%.
+15. **[V128] Equity Defense — Defesa Progressiva de Patrimônio**: Protege o saldo consolidado da banca Sandbox. Rastreia o pico (`equity_peak`) e calcula um piso protegido = base + (peak_profit × 0.80). Níveis: OFF (<3%), L1 LEVE (+3%, stop=pico-7%), L2 MODERADO (+5%, stop=pico-5%), L3 FORTE (+10%, stop=pico-3%), CRITICO (abaixo do piso, fecha tudo). Enforcement em `sandbox_service.py:1497-1527` e `flash_agent.py:507-547`. Telemetria em `GET /api/sandbox/unified-state`. Badge UI no sandbox.html.
+16. **[V129] Correção do Filtro de Regime e Filtro de Gás/Volume em LATERAL**: Corrigido bug que bloqueava ordens SHORT no regime LATERAL (usava `not is_bearish` incorretamente bloqueando o SHORT). Adicionada exigência de "gás" para o regime LATERAL: novos trades Swing exigem score >= 80 e volume_ratio >= 1.5x para garantir rompimentos fortes com momentum.
+18. **[V131] Correções críticas de bugs identificados via diagnóstico do PostgreSQL Railway** (2026-07-18, banca em $9.537 = -4.63%):
+    - **Leverage/Stop inconsistentes**: `_LEVERAGE` estava em 10x (V130) mas `sandbox_service.py` monitora com 50x real. Restaurado: `_LEVERAGE=50.0`, `_MAX_STOP_ROI=-8.0` (0.16% de preço).
+    - **Hedge LONG+SHORT no mesmo par**: Detecção anti-duplicata em `_try_open_trade` bloqueava apenas mesma direção. Corrigido para bloquear qualquer trade ativo no par. Idem em `sandbox_service._process_radar_signals`.
+    - **Race condition — mais de 5 slots abertos**: Resolvido com `asyncio.Lock()` (`_open_lock`) + refetch atômico dentro do lock.
+    - **Limite de slots Radar era 10 (deveria ser 5)**: Corrigido para `>= 5`.
+    - **GARANTIA_TRAIL travado em 0%**: Condição `current_stop_roi < 0.0` impedia o trailing de avançar após GARANTIA_8 mover stop para 0%. Removida a condição.
+    - **`AttributeError: self.dynamic_margin`**: Corrigido para usar `trade.contract_meta["margin"]` com fallback $200.
+
+19. **[V132] Otimização de R:R no Scalping Lab** (2026-07-18):
+    - **Limpeza de Base de Dados**: Encerramento manual via script SQL de dois trades travados há >8.5h (`SOLUSDT` e `VETUSDT`).
+    - **Garantia de Risco Zero a +12% ROI**: Elevação do patamar do break-even de +8% para +12% no VWAP SNIPER para dar mais runway contra ruídos de preço.
+    - **Escadinha de Scalping afrouxada**: Nova escala `ORDER_STOP_LADDER_SCALPING` configurada como (+6%/+1.5%, +10%/+3.5%, +15%/+8.0%, +22%/+15.0%) para dar distância entre o preço atual e o stop, maximizando a captura de lucros e pagando as perdas de -8% de forma estatisticamente lucrativa.
+20. **[V132-REFINADO / V132-SWING-2H] Otimização e Refinamento do Sandbox** (2026-07-20):
+    - **Scalping Lab:** Injetados os filtros de confluência inteligente: *BTC Trend Bias* no gráfico de 15m, *cruzamento real do Stochastic RSI (K/D)* na sobrevenda/sobrecompra, e *Volume Relativo de 5m* mínimo de 1.1x.
+    - **Swing Lab:** Transicionado o motor autônomo para operar no gráfico macro de **2H (120m)** com alavancagem forçada de **50x** e stop loss inicial rígido de **-35% ROI** (0.7% no preço). Scan executado a cada 30min (1800s).
+    - **Micro-Gatilho de Precisão (15m):** As ordens de 2H do Swing Lab agora são filtradas na entrada pelo alinhamento do Stochastic RSI no tempo menor de 15m.
+    - **Escadinha de Swing 2H 50x:** Atualizada a escala `ORDER_STOP_LADDER_SWING` para gatilho de break-even a +15% ROI, e níveis escalonados (+35%/+10%, +70%/+35%, +120%/+80%, +200%/+150%, +350%/+280% de lucro).
+    - **Risco de mesa do Swing:** Mantido limite rígido de no máximo 2 posições sob risco de mesa simultâneas.
+21. **[V133] Otimizações de R:R e Risco — Sandbox** (2026-07-24):
+    - **Swing Lab — Stop reduzido:** `SWING_STOP_ROI` de -35% para **-20% ROI** (0.4% preço com 50x). Melhora R:R de 1:0.28 para 1:2+.
+    - **Swing Lab — ADX elevado:** Threshold de `btc_adx >= 25` para `>= 30`. Exige confirmação de tendência mais forte, filtrando mercados laterais.
+    - **Scalping Lab — Stop aumentado:** `_MAX_STOP_ROI` de -8% para **-12% ROI** (0.24% preço com 50x). Dá mais runway ao trade contra ruídos.
+    - **Scalping Lab — Filtro de R:R:** Novo filtro rejeita trades com `projected_rr < 1.5` (target = 3x risk, mínimo 15% ROI). Garante potencial de lucro significativamente maior que o risco.
+    - **GARANTIA_TRAIL — Breakeven igualado:** `GARANTIA_TRAIL_THRESHOLD` elevado para 8% em ambos modos (Scalping e Swing). Antes 12% no Scalping, 8% no Swing.
+    - **Blocklist expandida:** Adicionados INJUSDT, XLMUSDT, GRTUSDT ao `ASSET_BLOCKLIST`.
+
+22. **[V135-RR] Correção de R:R no Scalping Lab — Stop Cap, Breakeven e Trailing** (2026-08-01):
+    - **Diagnóstico (Postgres Railway, 150 trades fechados 28/07–01/08):** WR 70.7%, avg win +7.17%, avg loss **−19.41%** → expectancy **−0.62%/trade** (soma −93.6%). Causa raiz: **55% dos stops (24/44) estiveram no lucro (+1% a +8%) e caíram até −25%**; VELOCITY FLOW −98%; LONGs −127% vs SHORTs +33.6%.
+    - **Simulação `sim_rr.py` sobre os 150 trades reais:** Cenário A (breakeven +4%, trailing 75%, stop −12%) → **expectancy +3.23%/trade, +487.7pp, WR 76.2%**, avg loss −12%. Atual = −1.02%/trade.
+    - **Breakeven antecipado** (`sandbox_service.py:1586`): GARANTIA_8 → **GARANTIA_4**, stop vai a 0% ROI em **+4%** (ambos modos). Protege os 55% de trades que atingiam +1~+8% e revertiam.
+    - **Trailing apertado** (`sandbox_service.py:1608`): 60% → **75% do pico** (`max(1.5, max_roi × 0.75)`). Trava mais lucro nas costas do trade sem matar home runs.
+    - **Stop inicial capado em −12%** (`sandbox_service.py`): fallback `−25%` → **−12%**, teto estrutural `−15%` → **−12%**, range estrutural `[−40,−25]` → **[−12,−6]**, clamp ATR `[−12,−15]` → **[−8,−12]**.
+    - **Resultado esperado:** avg loss −19.4% → ~−12%, expectancy negativa → **+3.2%/trade** em PAPER (validado pela simulação sobre os trades reais).
+
+23. **[V136-SWING] Swing Lab — Trades de 1-7 dias, TP por S/R e Padrões Gráficos** (2026-08-06):
+    - **Trailing suave Swing** (`sandbox_service.py:1582-1620`): GARANTIA_TRAIL agora aplica **50% do pico** para Swing (era 75%统一). Breakeven antecipado de +4% para **+12%** no Swing. Min trail +3% (era +1.5%). Scalping inalterado (75%/+4%/+1.5%).
+    - **Fix leverage** (`config.py:175`): `SWING_LEVERAGE=50` (era 10, conflito com `sandbox_service.py` que usava 50).
+    - **Janela preço 30min** (`okx_ws_public.py`): Nova função `get_conservative_price_swing()` usa janela de 1800s (30min) — evita fechar em wicks de 2min. FlashAgent rota Swing para esta função.
+    - **Take Profit baseado em S/R** (`sandbox_swing_service.py:549-633`): `_calculate_swing_tp()` detecta resistências acima (LONG) ou suportes abaixo (SHORT) e cria stop ratchet progressivo. Configs: `SWING_TP_ENABLED=True`, `SWING_TP_MIN_DISTANCE=5%`, `SWING_TP_MAX_DISTANCE=100%`.
+    - **Detecção de padrões gráficos** (`backend/services/patterns/`): Triângulos (simétrico/ascendente/descendente), Topo/Fundo Duplo, Head & Shoulders. PatternDetector unificado com boost +10 a +25 pontos no score do sinal.
+    - **Resultado esperado:** Trades Swing duram 1-7 dias (não fecham prematuramente), TP alvo em S/R, score boostado por padrões gráficos confirmados.
+
+24. **[V140-LAYA-WHALE-RADAR] Laya Sovereign Brain & Radar Institucional de Baleias e Sardinhas** (2026-09-26):
+    - **Cérebro Soberano Unificado**: Laya assumiu o loop decisório de entrada e saída, absorvendo as responsabilidades táticas do CaptainAgent e FlashAgent.
+    - **LayaFlowService (`backend/app/services/laya_flow_service.py`)**: Monitora endpoints públicos da OKX Rubik (`long-short-account-ratio` e `open-interest-volume` com candles de 5m).
+    - **Matriz de Fluxo Baleia vs Sardinha**: Cruza o delta de preço com o delta de Open Interest e o Long/Short Ratio:
+        * `RETAIL_TRAP_LONG`: Varejo eufórico em Long (LSR > 1.35). Emite veto automático de compra e prepara scalps de venda a favor do dump das baleias.
+        * `LONG_LIQUIDATION_BOTTOM`: Preço caindo com OI despencando (varredura de stops de sardinhas). Quando o preço rejeita a mínima e o OI estabiliza, Laya autoriza compra de reversão institucional com score 93%+.
+        * `INSTITUTIONAL_ACCUMULATION`: Rompimento com dinheiro novo (+OI) e varejo equilibrado (LSR < 1.15).
+    - **Cockpit HUD e Telemetria**: Visualização nos 4 gráficos do Cockpit com badges em tempo real (`LSR`, `OI Delta` e `Regime de Fluxo`), além de terminal de fluxo de consciência da Laya com atualização a cada 3s.
+
+25. **[V141-SUPERPOWERS-METHODOLOGY] Metodologia Superpowers & Framework de Engenharia Agêntica** (2026-10-02):
+    - **Governança de Agentes Autônomos**: Integração formal da metodologia `obra/superpowers` ao 1Crypten.
+    - **Regras Canônicas (`.agents/rules/superpowers_methodology.md`)**: Enforçamento de TDD estrito (Red-Green-Refactor), Never Give Back em stops progressivos, anti-hedge rígido e verificação empírica antes de qualquer encerramento de tarefa.
+    - **Catálogo de 7 Skills (`.agents/skills/`)**: `brainstorming_blueprint`, `writing_plans`, `test_driven_development`, `subagent_driven_development`, `systematic_debugging`, `verification_before_completion` e `session_forensics`.
+    - **AGENTS.md**: Ponto de entrada canônico na raiz para orientar qualquer harness de IA (Antigravity, Claude Code, Cursor, Hermes, OpenCode).
+
+26. **[V142-LAYA-KRONOS-CONFLUENCE] Matriz Bidimensional de Confluência: Laya (Fluxo) + Kronos (Tempo)** (2026-10-02):
+    - **LayaKronosConfluenceService (`backend/app/services/laya_kronos_confluence_service.py`)**: Cruza em tempo real a psicologia do fluxo de baleias vs sardinhas da OKX Rubik (LSR e ΔOI) com a previsão geométrica autorregressiva de séries temporais do Kronos (AAAI 2026).
+    - **Veto de Euforia de Varejo (`RETAIL_TRAP_VETO`)**: Se o LSR >= 1.35 (varejo eufórico comprando topo), veta automaticamente ordens LONG mesmo que o modelo neural preveja alta.
+    - **Super Gatilho Sniper Long/Short**: `LONG_LIQUIDATION_BOTTOM` + Kronos `UP` (+15 pts score boost, 50x liberado); `SHORT_SQUEEZE_EXHAUSTION` + Kronos `DOWN` (+15 pts boost).
+    - **Teto Dinâmico de Alavancagem por Dispersão de Trajetórias**: Quando a dispersão entre caminhos probabilísticos do Kronos >= 0.035, capa alavancagem em 20x contra wicks.
+    - **Endpoint de Telemetria**: `GET /api/v1/laya/kronos-confluence` integrado ao Hermes e ao Cockpit.
+
+27. **[V143-KRONOS-CHART-PROJECTION & MULTI-ASSET-ROTATION] Projeção Visual Kronos nos Gráficos & Rotação de 14 Pares** (2026-10-02):
+    - **Visualização de Alvos Kronos no Cockpit (`cockpit.html`)**:
+        * **Linhas de Preço Tracejadas Roxas Neon (`#B388FF`, `LargeDashed`)**: Cada quadrante G1–G4 renderiza em tempo real a projeção do alvo calculada pelo Kronos (`❖ KRONOS ALVO`), além das linhas amarela (entrada), vermelha (stop loss) e verde (take profit).
+        * **Badges de Convicção nos Headers**: Exibição dinâmica de `❖ KRONOS: {SIDE} {CONVICTION}%` no cabeçalho de cada gráfico.
+        * **Overlay HUD Tático Flutuante**: Linha dinâmica no canto superior esquerdo dos 4 gráficos com `❖ KRONOS: $alvo ({change_pct}%)`.
+    - **Pool de 14 Ativos Institucionais com Rotação Anti-Monopólio**:
+        * Expansão da varredura Laya para 14 pares de elite (`SOL`, `AVAX`, `NEAR`, `LINK`, `ETH`, `SUI`, `XRP`, `ADA`, `DOT`, `APT`, `ARB`, `OP`, `INJ`, `RENDER`).
+        * Aplicação de penalidade de rotação (-8.0 pts para a última moeda operada), impedindo o monopólio de `SOLUSDT` e distribuindo as ordens ativas simultaneamente entre os 4 quadrantes.
+    - **Novo Endpoint REST de Projeção**: `GET /api/v1/hermes/laya/kronos-projection?symbol={symbol}&side={side}&current_price={price}`.
+    - **Otimização Concorrente & Cache Não-Bloqueante**:
+        * Ativação de concorrência SQLite em modo WAL (`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=30000;`) eliminando travamentos de escrita/leitura.
+        * Caches em memória com TTL de 2 a 3.5s nas rotas `/api/sandbox/unified-state`, `/api/slots` e `/api/radar/pulse` para manter tempo de resposta abaixo de 50ms sob polling massivo do frontend.
+
+28. **[V144-MCP2-RAG-FINETUNING-PIPELINE] MCP 2.x, RAG Semântico Unificado & Fine-Tuning** (2026-10-02 / Validado 2026-10-06):
+    - **Model Context Protocol (MCP 2.x) Nativo (`backend/services/mcp_bridge.py`)**:
+        * Montagem nativa a nível de módulo FastAPI em `/mcp` (`app.mount("/mcp", ...)`).
+        * Suporte a clientes SSE MCP 2.x em `/mcp/sse` e `/mcp/messages`, com endpoint de auditoria em `/mcp/tools`.
+        * Exposição de 5 ferramentas oficiais de trading para OKX SWAP (`get_balance`, `get_positions`, `get_radar_signals`, `evaluate_asset`, `get_system_snapshot`).
+        * Suporte standalone via `backend/mcp_server.py` para Claude Desktop, Cursor e n8n.
+    - **Motor RAG Semântico Unificado (`backend/services/rag_service.py` & `backend/routes/rag_routes.py`)**:
+        * Indexação em memória de 120+ seções canônicas de `MASTER_ARCHITECTURE.md`, `vault_galaxy/` (Obsidian Vault: journal, trades, strategies), `AGENTS.md` e `.agents/rules/`.
+        * Algoritmo de busca semântica BM25/TF-IDF sub-milissegundo (~60ms de indexação).
+        * Integração ativa com o `HermesAgent` e `routes/chat.py`: injeção dinâmica de contexto nos prompts do operador.
+        * Endpoints REST ativos: `GET /api/v1/hermes/rag/search?q={query}`, `POST /api/v1/hermes/rag/reindex` e `GET /api/v1/hermes/rag/status`.
+    - **Pipeline de Datasets & Fine-Tuning (`backend/app/ml/fine_tuning/` & `backend/app/api/v1/endpoints/ml.py`)**:
+        * **DatasetGenerator (`dataset_generator.py`)**: Exportação automática de histórico de trades do Sandbox/OKX e fluxo Rubik em formato JSONL supervisionado para Laya (`laya_decision_dataset.jsonl`) e sequências temporais de 24→12 velas para Kronos (`kronos_series_dataset.jsonl`).
+        * **LayaFineTuneTrainer (`laya_finetune_trainer.py`)**: Calibração empírica Bayesiana / Temperature Scaling sobre as probabilidades de decisão (BUY/SELL/HOLD) por regime de mercado, gerando `laya_calibrated_weights.json`.
+        * **KronosAdapterTrainer (`kronos_adapter_trainer.py`)**: Calibração de dispersão probabilística de trajetórias e incerteza para as K-lines da OKX (`kronos_adapter.json`).
+        * **Integração em Produção**: `LayaRouterService` carrega dinamicamente `laya_calibrated_weights.json` na inicialização e modula a confiança das decisões de entrada.
+        * Endpoints REST ativos: `POST /api/v1/ml/generate-dataset`, `GET /api/v1/ml/dataset-stats`, `POST /api/v1/ml/train-laya`, `POST /api/v1/ml/train-kronos` e `GET /api/v1/ml/status`.
+
+29. **[V145-ASYMMETRIC-RR-REALTIME-PRICE-INTEGRITY] Calibração de Risco/Retorno Assimétrico 4:1, Escada Laya e Integridade de Preços em Tempo Real** (2026-10-04):
+    - **Expectativa Matemática Positiva (R:R 4:1)**:
+        * Limitação estrita da perda máxima por operação em `stop_dist = 0.005` (0.50% no preço = **-7.5% ROI** com alavancagem 15x).
+        * Alvos calibrados em `target_dist >= 0.020 a 0.024` (+30.0% a +36.0% ROI), revertendo a assimetria anterior deficitária (de 0.36:1 para **4:1**).
+        * Reversão da expectativa matemática líquida de -10.63% para **+4.93% por trade** mesmo com taxa de acerto conservadora de 35%.
+    - **Nova Escadinha Dedicada `ORDER_STOP_LADDER_LAYA_REVERSION`**:
+        * Inclusão formal da 6ª escadinha no motor (`order_projection_service.py`): Breakeven antecipado a +6.0% ROI travando +1.5%, subindo progressivamente (+10%/+4%, +15%/+8%, +22%/+15%, +30%/+25%).
+        * Roteamento automático no Sandbox (`sandbox_service.py`) quando `strategy_class == "LAYA_MEAN_REVERSION"`.
+    - **Integridade de Cotações em Tempo Real (Zero Phantom Fallbacks)**:
+        * Remoção de todos os preços estáticos fixos em `laya_router_service.py` (antigos INJ a $18.50 e ADA a $0.35 eliminados).
+        * Resolução em cascata: WebSocket `okx_ws_public` -> Cache REST -> Batch SWAP tickers (`https://www.okx.com/api/v5/market/tickers?instType=SWAP`) com contingência AWS.
+        * Se o preço for <= 0 ou indisponível, o ativo é sumariamente ignorado pela Laya. Nunca mais abre ordem com preço sintético.
+        * Cálculo de suporte/resistência para Mean Reversion baseado no ponto médio real das últimas 24h: `(high24h + low24h) / 2.0`.
+    - **Correção Visual no Cockpit e Deduplicação no Multi-Chart Grid**:
+        * Refatoração do hook `gridSymbols` em `frontend/cockpit.html`, garantindo 4 pares distintos e eliminando a duplicação entre G1 e G3.
+        * Traçado de linhas de entrada e stop garantido dentro da amplitude visível das velas (resolvendo o problema das linhas "invisíveis" que ficavam 2.5x acima da tela).
+    - **Reativação Concorrente do Swing Lab**:
+        * Inicialização do `sandbox_swing_service.start()` no `backend/main.py`, permitindo operação paralela de até 15 slots de swing com 4 slots de scalping.
+    - **Otimização de Latência em `/api/slots`**:
+        * Configurado `fetch_contract=False` em `database_service._attach_order_projections`, reduzindo o tempo de resposta da rota de 10s para < 200ms.
+
+30. **[V146-PROFITABILITY-PIVOT] Re-calibração Estrutural de Risco/Retorno Positivo (R:R > 2:1), Eliminação da Asfixia do Trailing e Desacoplamento do Viés Direcional** (2026-10-05):
+    - **Diagnóstico Forense do Déficit Estrutural (`local_sniper.db`)**:
+        * Auditoria sobre 68 trades de Scalp revelou Win Rate de 48.5%, ganho médio de +4.57% (+$9.13) e perda média de **-9.55% (-$19.09)**.
+        * Payoff ratio de **1 : 2.09 INVERSO** (derrota média 2x maior que vitória), exigindo mais de 67.6% de acerto apenas para breakeven.
+        * No Swing Lab, perdas atingiram -22.46% (FETUSDT) e 28.91% de lucro foi devolvido da máxima (THETA bateu +32% e saiu no 0.00%).
+        * Viés artificial: 80.9% dos trades eram SHORT empurrados pela regra fixa de `if lsr >= 1.35`.
+    - **Inversão Matemática das Escadinhas (`order_projection_service.py`)**:
+        * **`ORDER_STOP_LADDER_LAYA_REVERSION`**: Fim da asfixia precoce em +6%. Novo Nível 1: Disparo em +10% ROI -> Stop +2% (breakeven real cobrindo taxas). Nível 2: Disparo em +18% ROI -> Stop +8% (lucro real garantido). Nível 3: +28%/+18%. Nível 4: +42%/+30%. Trailing: +60%/+45%.
+        * **`ORDER_STOP_LADDER_SWING`**: Proteção contra devolução total de lucros. Nível 1: +15%/+2%. Nível 2: Disparo em +25% ROI -> Stop +12% (impossibilita devoluções de trades de +30% para zero). Nível 3: +40%/+25%. Nível 4: +65%/+45%.
+        * **`ORDER_STOP_LADDER_SCALPING`**: Nível 1: +10%/+2%, Nível 2: +18%/+8%, Nível 3: +30%/+18%, Trailing: +45%/+32%.
+    - **Redução e Capagem Estrita de Stops Iniciais**:
+        * Scalping Lab (`sandbox_service.py`): `fallback_roi` reduzido de -12.0% para -6.5%; `limit_roi` travado no teto rígido de **-7.0% ROI**; ATR clamp ajustado para `[-7.0%, -5.0%]`.
+        * Swing Lab (`sandbox_swing_service.py`): `stop_roi_target` reduzido de 20.0% para **10.0% ROI**.
+    - **Eliminação do Viés de Venda e Dinamização de Canais (`laya_router_service.py`)**:
+        * Remoção dos suportes e resistências fixos defasados (`base_sr` estático de 2024 removido).
+        * Análise por posição de canal: Se preço estiver na metade inferior (`diff_pct <= -0.2%`), prioridade total para **LONG** (comprar fundo no suporte). Se estiver esticado no topo (`diff_pct >= +0.2%`), prioridade para **SHORT**.
+31. **[V147-BINANCE-ORBS-INTELLIGENCE] Redesign Binance Design System, Thinking Orbs em 15 Pontos, RAG Semântico e MCP 2.x Bridge** (2026-10-09):
+    - **Identidade Visual Binance Design System (getdesign.md/binance/design-md)**:
+        * Paleta oficial Binance aplicada rigorosamente em `backend/app/static/css/lamborghini.css` e templates frontend: Deep Canvas `#0B0E11`, Superfícies e Cards `#1E2329` / `#181A20`, Bordas `#2B3139`, Amarelo Ícone Binance `#FCD535` (`#F0B90B` no hover), Verde Trading `#0ECB81` e Vermelho Trading `#F6465D`.
+        * Cantos polidos com raio sutil (`border-radius: 4px`), eliminando a estética opaca antiga e conferindo acabamento de terminal institucional.
+    - **Motor Matemático 2D Thinking Orbs (marcondes-orbs.vercel.app)**:
+        * Implementação pura em Canvas 2D sem dependências pesadas (`thinking_orbs.js`), com suporte aos 9 estados dinâmicos (`working`, `searching`, `solving`, `listening`, `connecting`, `weaving`, `composing`, `breathing`, `shaping`) e DPR dinâmico.
+        * **15 pontos estratégicos** em execução no Cockpit:
+            1. Banner Laya Soberana (`solving`, `#FCD535`)
+            2. Net Worth & Equity (`breathing`, `#FCD535`)
+            3. Slots & Capacidade (`working`, `#0ECB81`)
+            4. Regime & Oracle (`solving`, `#FCD535`)
+            5. Kronos Conviction (`searching`, `#B388FF`)
+            6. Flash Map Container (`working`, `#FCD535`)
+            7-10. Headers dos 4 Gráficos G1, G2, G3 e G4 (`weaving`, `#FCD535`)
+            11. Banca Consolidada (`breathing`, `#FCD535`)
+            12. Ordens Abertas (`working`, `#0ECB81`)
+            13. Laya Soberana Consciência (`solving`, `#FCD535`)
+            14. Painel de Custódia Geral (`working`, `#FCD535`)
+            15. Histórico de Auditoria (`solving`, `#FCD535`)
+        * Header Global (`shell.js`): Orb de sistema (`solving`) e Pulso da Frota (`listening`).
+        * Hermes Intelligence Console (`hermes.html`): Orb no header (`solving`) e orbs de composição.
+    - **Protocolos de Inteligência & Memória Unificada**:
+        * **RAG Semântico (`RAGService`)**: Indexação vetorial BM25/TF-IDF cobrindo `MASTER_ARCHITECTURE.md`, o cofre Obsidian `vault_galaxy/` e regras `.agents/rules/` com recuperação sub-milissegundo integrada diretamente no prompt do Hermes e da Laya.
+        * **MCP Bridge 2.x (`mcp_bridge.py`)**: Montagem nativa em `/mcp` com suporte a SSE (`/mcp/sse`) e ferramentas expostas: `get_balance`, `get_positions`, `get_radar_signals`, `evaluate_asset`, `get_system_snapshot`.
+        * **Memória Única e Persistência de Conversas**: Gravações de voz via Whisper e interações de chat registradas automaticamente no Obsidian Vault (`vault_galaxy/journal/`), garantindo que tanto o Hermes quanto a Laya possuam histórico compartilhado contínuo e sem alucinações.
+
+32. **[V148-PROFITABILITY-TURNAROUND] Inversão Estrutural do Payoff (R:R Realizado 1.81:1, Profit Factor 2.32), Resolução Multi-Variante de Símbolos, TP1 Inteligente (+8.0% ROI), Capping Rígido (-3.5% ROI) e Liquidação Disciplinada de Alvos** (2026-10-10):
+    - **Diagnóstico Forense de Produção (`scratch/analyze_performance.py`)**:
+        * Baseline inicial com 12 trades: 58.3% Win Rate (7W / 5L), porém PnL negativo de **-5.06%** (-$142.51) com Payoff invertido de **0.56:1** (ganho médio +2.69% vs perda média -4.77%).
+        * Perdas extremas de -9.66% e -9.46% consumiam 4 vitórias consecutivas.
+        * Viés de 100% SHORT gerado por falha no cálculo de `mid_prices` no `laya_router_service.py` (que só rodava para ativos faltantes no cache).
+        * Ordens zumbis no Sandbox (ex: XRP a 1.40 com stop em 1.05) nunca disparavam stop porque `okx_ws_public` armazenava `XRPUSDT`, enquanto o Sandbox consultava `XRP-USDT-SWAP` e recebia preço 0.0.
+        * O loop do Sandbox checava apenas stops, sem nenhuma verificação de alcance de alvos de lucro (`trade.target`).
+    - **Inversão Matemática do Risco/Retorno & Novo Teto Rígido de Stop Loss**:
+        * **Capping Estrito de Stop Loss**: `_calculate_adaptive_stop` travado no limite rígido de **-3.5% ROI** (anteriormente permitia até -7.5%, atingindo -9.66% com custos operacionais).
+        * **TP1 Inteligente (+8.0% ROI)**: Realização parcial de 50% da margem em +8.0% ROI, elevando o stop da metade restante para **+2.5% ROI** (lucro garantido em ambos os lados).
+        * **Liquidação Disciplinada de Alvos (`CLOSED_TARGET`)**: Implementada validação de direção (`target > entry` para LONG, `target < entry` para SHORT) e fechamento instantâneo no alvo estipulado.
+    - **Resolução Multi-Variante de Símbolos (`backend/services/okx_ws_public.py`)**:
+        * `_resolve_symbol_variants()` mapeia transparentemente `XRPUSDT`, `XRP-USDT`, `XRP-USDT-SWAP` e `XRPUSDT.P`.
+        * Preços e cotações extremas são propagados em todas as variantes, eliminando falhas de cotação 0.0 e stops fantasmas.
+    - **Filtro Protetivo de Momentum e Simetria LONG/SHORT (`backend/app/services/laya_router_service.py`)**:
+        * Busca em lote de tickers SWAP agora calcula `mid_prices` e `change_24h_pct` para **todos os 14 ativos da frota** em todo ciclo de varredura.
+        * `evaluate_channel_position` bloqueia SHORTs contra momentum quando a variação de 24h for >= +1.8% ou LSR < 1.10.
+        * Redimensionamento de ordens: Margem de **$150.0** e Alavancagem de **12x** (nocional $1.800), reduzindo o impacto de taxas OKX + slippage de 1.95% para **1.56%**.
+    - **Evidência Empírica Pós-Turnaround**:
+        * **16 trades fechados**: 9 vitórias (56.2%), 7 derrotas (43.8%).
+        * Lucro Bruto: **+80.92%** | Prejuízo Bruto: **-34.87%**.
+        * **PnL Líquido Acumulado**: **+46.06%**.
+        * **Gain Médio**: **+8.99%** | **Loss Médio**: **-4.98%**.
+        * **Payoff Ratio Realizado**: **1.81:1** (a favor do sistema).
+        * **Profit Factor**: **2.32**.
+        * 100% de aprovação na suíte de testes de invariantes (`test_laya_stop_ladder.py`, `test_laya_stop_invariants.py`, `test_profitability_pivot.py`).
+
+33. **[V149-UNIFIED-BANCA-RESET] Correção Estrutural do Reset da Banca, Desacoplamento de Auth Local e Purga Consolidada de Sandbox/Cockpit** (2026-10-10):
+    - **Diagnóstico da Falha do Botão Reset**:
+        * **Falha de Autorização 401**: No `auth_service.py`, a regra de bypass dev exigia simultaneamente `secrets_manager.environment.value == "dev"` e `settings.DEBUG`. Como em desenvolvimento local `settings.DEBUG` estava `False`, chamadas a `/api/admin/reset-system` eram rejeitadas com `401 Unauthorized`.
+        * **Desincronização de Estado (Escopo Incompleto)**: A rota antiga limpava apenas o Postgres/Slots legados, mantendo intactas as tabelas `sandbox_trades` e `sandbox_swing_trades` no SQLite `local_sniper.db`. Como o Cockpit calcula o saldo simulado via `get_sandbox_unified_balance() = 10000.0 + total_pnl_usd`, a banca mantinha o valor anterior mesmo após o reset.
+        * **Caches In-Memory Órfãos**: `sandbox_service.base_balance_cache`, `_peak_roi_cache`, `equity_peak` e `equity_floor` não eram zerados.
+    - **Solução Implementada**:
+        * **Correção no `auth_service.py`**: Bypass em dev ativado para `secrets_manager.environment.value == "dev" or settings.DEBUG`, concedendo `SOVEREIGN_USER` (admin) para requisições locais.
+        * **Purga Nuclear em `database_service.reset_system_data()`**: Limpa `SandboxTrade`, `SandboxSwingTrade`, `Slot` (reseta para status LIVRE), `Moonbag`, `TradeHistory`, zera `equity_peak = 10000.0`, `equity_floor = 10000.0`, e reseta `sandbox_service` e `sandbox_swing_service`.
+        * **Nova Rota Direta `POST /api/banca/reset`**: Endpoint unificado para restauração instantânea da banca para $10,000.00 com retorno do saldo sincronizado.
+        * **Atualização na UI (`SettingsPage.js` e `cockpit.html`)**: Fallback automático entre rotas de reset, purga de `localStorage` (`banca_cache`, `cockpit_cache`), e adição de botões de reset rápido nos cards de Patrimônio Líquido e Net Worth do Cockpit.
+
+34. **[V150-MCP-RAG-FINETUNING-CONSOLIDATION] Consolidação Canônica de MCP 2.x, RAG Semântico e Fine-Tuning Supervisionado H1** (2026-10-12):
+    - **Documentação Técnica Canônica**: Publicada formalmente em [`docs/07_MCP_RAG_FINE_TUNING.md`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/docs/07_MCP_RAG_FINE_TUNING.md).
+    - **Model Context Protocol (MCP 2.x)**:
+        * Montagem ASGI FastAPI em `/mcp` (`/mcp/sse`, `/mcp/messages`, `/mcp/tools`) + Servidor Stdio Standalone em `backend/mcp_server.py`.
+        * Catálogo de 5 ferramentas para OKX SWAP: `get_balance`, `get_positions`, `get_radar_signals`, `evaluate_asset`, `get_system_snapshot`.
+    - **RAG Semântico Unificado (Second Brain)**:
+        * Indexação vetorial BM25/TF-IDF sub-milissegundo cobrindo `MASTER_ARCHITECTURE.md`, `vault_galaxy/`, `AGENTS.md`, `.agents/rules/` e `docs/`.
+        * Injeção de contexto em tempo real no prompt do `HermesAgent` e na rota `/chat`. Endpoints `/api/v1/hermes/rag/search`, `/reindex` e `/status`.
+    - **Pipeline de Datasets & Fine-Tuning / Calibração**:
+        * Exportação supervisionada de trades para JSONL (`laya_decision_dataset.jsonl`, `kronos_series_dataset.jsonl`).
+        * Calibração Bayesiana e Temperature Scaling ($T = 0.85$) com fatores de escala por regime (`laya_calibrated_weights.json`).
+        * Integração com a nova tese **LAYA_SMART_MONEY_H1** (saída de acumulação 1H, confluência LSR x Open Interest e stop loss blindado alimentando o pipeline contínuo de aprendizado).
+
+35. **[V151-PLUTUS-ARCA-PASSIVE-INCOME-ENGINE] Agente Plutus, Método ARCA e UI Dedicada Binance Design System** (2026-10-12):
+    - **Blueprint e Especificação Técnica**: Registrado em [`docs/blueprint/07_PLANO_AGENTE_PLUTUS_ARCA.md`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/docs/blueprint/07_PLANO_AGENTE_PLUTUS_ARCA.md).
+    - **Motor do Agente Plutus (`backend/services/plutus_agent.py`)**:
+        * Matemática reversa para viver de renda: calcula o patrimônio exato necessário a partir de qualquer meta mensal desejada (ex: R$ 50.000,00/mês).
+        * Alocação em 4 pilares anti-frágeis do **Método ARCA** (Primo Rico / Thiago Nigro):
+          1. **Real Estate (FIIs Isentos de IR)**: HGLG11, BTLG11, XPML11, KNCR11, KNHY11, HGRU11 (35%-45%).
+          2. **Ações de Dividendos BR**: BBAS3, TAEE11, ITUB4, EGIE3, BBSE3 (20%-30%).
+          3. **Caixa & Renda Fixa**: Tesouro IPCA+ c/ Juros Semestrais, Debêntures Incentivadas, Tesouro Selic (10%-25%).
+          4. **Ativos Internacionais (Dólar)**: Realty Income (O - dividend mensal), SCHD, VNQ, IVVB11 (15%-20%).
+        * Integração com APIs públicas gratuitas (AwesomeAPI / Yahoo / BCB) com fallback canônico auditado.
+        * Orquestração nativa com o **Hermes Intelligence** para parecer executivo e confluência macroeconômica.
+    - **Rotas FastAPI (`backend/routes/plutus_routes.py`)**:
+        * `POST /api/v1/plutus/simulate`: Cálculo financeiro reverso, cotas a comprar e fluxo de caixa de 12 meses.
+        * `GET /api/v1/plutus/universe`: Catálogo de ativos de elite da ARCA.
+        * `POST /api/v1/plutus/hermes-diagnosis`: Parecer institucional emitido pelo Hermes.
+        * Página estática servida em `/plutus` e `/plutus.html`.
+    - **Interface Dedicada Binance Design System (`backend/app/static/plutus.html`)**:
+        * 100% aderente aos tokens oficiais de `getdesign.md/binance/design-md`: Fundo Canvas `#0b0e11`, cards `#1e2329`, bordas `#2b3139`, amarelo `#fcd535`, verdes/vermelhos de trading `#0ecb81` / `#f6465d`, zero emojis e fontes mono para finanças.
+        * Input interativo de renda mensal, seletor de perfil, 4 cards de KPIs, visualizador dos pilares da ARCA, tabela detalhada cota por cota e diagnóstico do Hermes.
+    - **Integração no Shell Unificado & Menu Lateral (`backend/app/static/shell.js` e `cockpit.html`)**:
+        * **Sidebar Drawer Retrátil (`#app-sidebar`)**:
+          - Seção *Páginas do Sistema*: `PLUTUS (VIVER DE RENDA)` com badge dourado `[ARCA]` e ícone SVG monetário.
+          - Seção *Agentes da Frota*: `PLUTUS · MÉTODO ARCA` com status `ON`.
+        * **Barra Superior Desktop (`desktop-nav`)**: Atalho direto `PLUTUS` ao lado do Cockpit, Hermes, Radar e Docs.
+        * **Frota no Header (`header-fleet-pills`)**: Telemetria visual exibindo `HERMES • CAPTAIN • FLASH • KRONOS • PLUTUS`.
+        * **Barra Inferior Mobile (`app-bottom-bar`)**: Item de acesso tátil rápido `Plutus`.
+        * **Cockpit Tático (`cockpit.html`)**: Card de destaque no topo da coluna esquerda (Mesa Tática) e badge direto no banner superior horizontal com transição de hover em ouro Binance.
+
+36. **[V152-LAYA-MULTI-TIMEFRAME-MULTI-SETUP-ENGINE] Matriz Multi-Timeframe (H1, 15M, 5M) e Orquestração Concorrente de Setups** (2026-10-12):
+    - **Diagnóstico da Limitação Anterior**: A Laya rodava exclusivamente a busca por rompimento de consolidação em 1H (`evaluate_h1_breakout`). Como o mercado passa 85% do tempo consolidando no H1, o sistema ficava inativo de braços cruzados emitindo mensagens de `HOLD` contínuas, descartando oportunidades intradiárias.
+    - **Arquitetura Hierárquica Multi-Timeframe Implementada (`backend/app/services/laya_router_service.py`)**:
+        * **Camada 1 (Prioridade 1 - H1)**: `LAYA_SMART_MONEY_H1` — Saída de acumulação institucional no H1 com confirmação de fluxo (OI novo + LSR descompassado) e stop loss colado na borda da acumulação para anular falsos rompimentos.
+        * **Camada 2 (Prioridade 2 - 15M)**: `LAYA_MOMENTO_MOLA` — Compressão de volatilidade máxima (Bollinger Width $\le 1.8\%$) no suporte ou resistência da consolidação de 1H, operando o disparo elástico pré-explosão com stop curto no extremo.
+        * **Camada 3 (Prioridade 3 - 5M/1M)**: `LAYA_DVWAP_REVERSION` — Quando o preço está dentro do range de 1H, mas esticado $\ge 1.0\%$ a $2.5\%$ longe da média móvel ponderada por volume (VWAP intradiária), captura o retorno magnético ao centro com alvo na própria linha da VWAP.
+        * **Camada 4 (Diagnóstico Integrado no Thought Stream)**: Quando nenhum setup qualifica, o radar não fica em silêncio; emite telemetria das 3 camadas ao vivo: `CONSOLIDAÇÃO H1 ($sup - $res) | DVWAP: diff% | MOLA: BBW%. Aguardando gatilho de borda.`
+    - **Roteamento de Stops & Gestão de Risco (`backend/services/order_projection_service.py`)**:
+        * As novas classes `LAYA_DVWAP_REVERSION` e `LAYA_MOMENTO_MOLA` foram integradas no roteamento de `ORDER_STOP_LADDER_LAYA_REVERSION` com Early Shield (corte de 73% do risco em +4.0% ROI), breakeven rápido e Trailing Stop Never Give Back.
+    - **Evidência Empírica TDD**: Suíte de testes criada em [`tests/test_laya_multi_setup.py`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/tests/test_laya_multi_setup.py) com 100% de aprovação (4/4 testes passando, mais 12 testes do ecossistema intactos).
+
+37. **[V153-LAYA-ANTI-FALLING-KNIFE-CALIBRATION] Blindagem Anti-Faca Caindo, Farol Macro do BTC, Circuit Breaker Direcional e Stop Folgado** (2026-10-12):
+    - **Diagnóstico da Causa Raiz de Perdas no Sandbox**:
+        * A Laya abriu operações de compra LONG sucessivas em altcoins (ETH, INJ, AVAX, DOT) que resultaram em perdas de -3.6% de ROI por trade durante um movimento acentuado de queda do Bitcoin ($87k \to $83.8k).
+        * Causa 1: O gatilho de DVWAP disparava com desvio prematuro de apenas 1.0% sem exigir confirmação da tendência do Bitcoin.
+        * Causa 2: O stop loss ficava colado demais a 0.6% do preço (`current_price * 0.994`), sendo estopado pelo ruído natural das velas com 15x de alavancagem ($0.6\% \times 15 = 9.0\%$).
+        * Causa 3: Ausência de correlação macro com o Bitcoin (`btc_trend_bias`), levando a Laya a comprar faca caindo em altcoins enquanto o BTC derretia.
+    - **As 5 Blindagens Implementadas (`backend/app/services/laya_router_service.py` & `sandbox_service.py`)**:
+        * **1. Farol Macro do Bitcoin (`btc_trend_bias`)**: Cálculo em tempo real ponderando a variação de 24h e a distância do preço médio do BTC. Se o BTC estiver em viés de queda ($< -0.3\%$), compras de reversão e saídas de acumulação em LONG nas altcoins são vetadas sumariamente (`[BTC MACRO VETO]`).
+        * **2. Endurecimento do DVWAP Reversion**: Limiar de desvio elástico elevado de $1.0\%$ para $\ge 2.0\%$ de esticamento da VWAP intradiária, assegurando reversão genuína de sobrevenda institucional.
+        * **3. Afastamento do Stop Loss Anti-Ruído**: Distância mínima de stop loss aumentada para pelo menos $1.5\%$ de folga de preço (em vez de $0.6\%$), protegendo a operação de mechas espúrias.
+        * **4. Circuit Breaker Direcional**: Rastreador em janela rolante de 45 minutos. Se 2 stops na mesma direção ocorrerem no período, essa direção é travada por 45 minutos (`is_direction_in_cooldown`), impedindo sequências destrutivas.
+        * **5. Debounce no Thought Stream**: Supressão de mensagens redundantes repetidas a cada 3 segundos com o mesmo símbolo e ação, mantendo a telemetria clara e limpa.
+    - **Evidência Empírica TDD & Operacional**:
+        * 100% de aprovação na suíte de testes [`tests/test_laya_multi_setup.py`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/tests/test_laya_multi_setup.py) cobrindo Farol Macro do BTC, Circuit Breaker Direcional e limiar de 2.0%.
+        * Banca simulada resetada com sucesso para **$10,000.00** via `/api/banca/reset` e verificada em `/api/sandbox/unified-state`.
+
+38. **[V154-LAYA-PREDATORY-INSTITUTIONAL-UPGRADE] Funding Rate Shield, Stop Loss por ATR Dinâmico e Blindagem Diária de Lucro** (2026-10-14):
+    - **Diagnóstico da Devolução de Lucro em Sistemas Quantitativos**:
+        * Identificação dos 3 fatores que fazem um sistema vencedor devolver o lucro acumulado ao mercado:
+          1. *Taxas Invisíveis de Financiamento (Funding Rates)*: Comprar quando o varejo está eufórico pagando taxas às baleias (> +0.03% a cada 8h) ou vender em euforia de baixa (< -0.03%).
+          2. *Stop Hunting por Falta de ATR*: Stops fixos a 0.3%–0.5% em moedas de alta volatilidade sendo caçados pelo ruído de velas de 1 minuto antes do movimento ocorrer.
+          3. *Overtrading Pós-Meta*: Não travar o capital ganho e continuar expondo a banca a 4 slots em horários de liquidez degradada.
+    - **As 3 Inovações Predatórias Implementadas (`backend/app/services/laya_router_service.py`)**:
+        * **1. Funding Rate Shield (`funding_rate_map`)**:
+          - Consulta em tempo real das taxas de financiamento da OKX SWAP oficial via `okx_rest_service.get_funding_rate(pair)`.
+          - Se `funding_rate > +0.0003` (+0.03%): Veto imediato de LONG (`[VETO FUNDING RATE]`). A Laya recusa-se a pagar aluguel às baleias.
+          - Se `funding_rate < -0.0003` (-0.03%): Veto imediato de SHORT (`[VETO FUNDING RATE]`). Evita a armadilha clássica de Short Squeeze institucional.
+        * **2. Stop Loss Estrutural por ATR Dinâmico (`calculate_atr_pct`)**:
+          - O stop loss não é mais uma porcentagem fixa cega. Ele calcula o Average True Range real de 14 períodos das velas de 1H de cada par.
+          - Distância mínima de stop calibrada em $\max(1.2\%, 1.2 \times ATR\_pct)$, impedindo que ativos pesados como ETH ou SOL tenham stops asfixiados a menos de $1.2\%$.
+        * **3. Trava de Meta Diária de Preservação de Capital (Capital Preservation Lock)**:
+          - A Laya consulta o saldo consolidado da Sandbox em tempo real.
+          - Se o lucro diário atingir $\ge +2.5\%$ (+$250): Reduz a capacidade de slots para 2 (em vez de 4) e eleva a nota de corte `MIN_ENTRY_SCORE` de 84 para 92 (Modo Sniper Seletivo).
+          - Se o lucro diário atingir $\ge +5.0\%$ (+$500): Trava 100% de novas aberturas (`max_allowed_slots = 0`), garantindo que o dinheiro conquistado não volte para o mercado no overtrading.
+    - **Evidência Empírica TDD & Operacional**:
+        * 100% de aprovação na suíte de testes [`tests/test_laya_multi_setup.py`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/tests/test_laya_multi_setup.py) com 11 de 11 testes unitários passando.
 
 ---
 
-## 14. Blacklist de Memecoins
+*Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*
 
-`PEPE`, `DOGE`, `SHIB`, `FLOKI`, `BONK`, `WIF`, `MYRO`, `1000SATS`, `ORDI`, `MEME`, `TURBO`, `PEOPLE`
-## 15. SandboxService — Forward Testing Lab
 
-Servico que espelha o sistema real de forma fiel. Iniciado junto ao backend no startup SaaS.
 
-### 15.1 Fluxo de entrada de sinais
-```
-firebase_service.update_radar_pulse(signals)
-    |
-    +---> asyncio.create_task(sandbox_service.on_radar_pulse(signals))
-              |
-              v
-          _process_radar_signals()
-              |-- [V120] Filtro ADX/regime: REMOVIDO — todas as estrategias livres (VELOCITY, ALPHA, DECOR)
-              |-- [V120] Filtro LONGS: relaxado (Pearson < 0.50 OU confidence >= 60)
-              |-- [V120] LONGs aprovados furam MACRO-BLOCK (decor_bypass)
-              |-- [V120] Asian Session Penalty: ADX >= 32 entre 23h-01h UTC
-              |-- Filtro macro BTC (SMA 200 diaria)
-              |-- Filtro blocklist (ASSET_BLOCKLIST + auto-blocklist + V120 blacklist)
-              |-- Filtro horario abertura US (13:30-14:30 UTC)
-              |-- Deduplicacao por signal_id
-              |-- [V114] Cooldown 300s pos stop-out por simbolo
-              |-- [V118.3] Confirmacao 5M (exige maioria 2/3 alinhada com direcao)
-              |-- Entry Sanity Check (preco defasado)
-              |-- [V120] Stop adaptativo por regime: LATERAL -8%, TRENDING -10%
-              |-- [V120] Margem adaptativa por win rate do par ($1.00-$2.50)
-              +---> save_sandbox_trade()
-```
-
-### 15.2 Resolucao de preco (fallback em cascata)
-```
-_get_current_price(symbol):
-    1. WebSocket (okx_ws_public_service.get_current_price)
-    2. REST OKX  (_get_rest_price -> /api/v5/market/ticker)
-    3. Cache local (60s TTL)
-
-_check_stop_hit(side, stop_price, symbol):
-    1. Conservative price HIGH/LOW 120s (captura spikes intra-ciclo)
-    2. Preco atual WS
-    3. Fallback 2: _get_current_price() completo (REST + cache)
-```
-
-### 15.3 Stop adaptativo por regime
-
-| Regime | ADX | Stop Inicial (V120) | Threshold Stale Entry |
-|--------|-----|----------------------|----------------------|
-| LATERAL | < 25 | **-8% ROI** | ROI imediato < -5.6% (floor -10%) |
-| TENDENCIA | >= 25 | **-10% ROI** | ROI imediato < -7.0% (floor -10%) |
-
-> **[V120]**: Stops otimizados para melhorar Risk/Reward de 0.61 para ~1.0.
-> - LATERAL: -8% ROI (era -10%) — menor stop = loss menor
-> - TRENDING: -10% ROI (era -15%) — pullbacks precisam de espaço mas menos que antes
-> - Capping de segurança: -10% ROI máximo (era -12%)
-> GARANTIA_5 (+5% ROI na escadinha) leva o stop a 0% rapidamente, protegendo o capital.
-> GARANTIA_TAXAS (+3% ROI) ativa break-even com 1.5% para cobrir taxas.
-> O floor de -10% no stale threshold evita descartes agressivos.
-
-- Stop price calculado via `raw_price_from_roi()` com tick_size rounding (ROUND_CEILING para SHORT negativo).
-- Entry Sanity Check: se ROI imediato ao abrir ja ultrapassou 70% do stop (floor: -10%), o sinal e descartado com log `[SANDBOX-STALE]`.
-
-### 15.4 [V114] Cooldown pos stop-out
-
-Apos cada `CLOSED_SL`, o simbolo entra em quarentena de **300 segundos** (5 minutos).
-Durante esse periodo, qualquer novo sinal para o mesmo par e descartado automaticamente.
-
-- Dict `_stop_cooldown: Dict[str, float]` em `SandboxService.__init__`
-- Populado em `_process_trade_tick` no momento do `CLOSED_SL`
-- Verificado em `_process_radar_signals` apos o check `already_active`
-- Log `[SANDBOX-COOLDOWN-SET]` ao ativar; `[SANDBOX-COOLDOWN]` ao bloquear
-- **Objetivo**: eliminar re-entries em cadeia (INJUSDT tinha 11 stops seguidos, ATOMUSDT 4)
-
-### 15.5 [V118.3] Confirmacao 5M com alinhamento de tendencia
-
-Antes de abrir qualquer trade, o sandbox verifica se o TF 5M esta alinhado com a direcao do sinal.
-
-- Metodo: `_check_5m_confirmation(symbol, side)`
-- Busca os 5 ultimos candles de 5M via `okx_rest_service.get_klines(symbol, interval="5", limit=5)`
-- Usa o cache de 3min do `get_klines` (sem custo extra de API)
-- Analisa os **3 candles fechados mais recentes** (ignora candle aberto em formacao) = 15 min de dados
-- **Exige maioria 2/3 alinhada com a direcao do sinal**:
-  - **SHORT**: precisa de >= 2 bearish (close < open) de 3 candles
-  - **LONG**: precisa de >= 2 bullish (close > open) de 3 candles
-- Se aprovado: score_boost = +10 (3/3) ou +5 (2/3)
-- Se rejeitado: trade bloqueado com log `[SANDBOX-5M-BLOCK]`
-- Edge case: se todos os candles sao DOJI/UNK (sem direcao definida), fail-open (aprova)
-- Comportamento em falha de API: **fail-open** (aprova o trade, nao bloqueia por instabilidade)
-- Log `[SANDBOX-5M]` ao registrar confirmacao
-
-#### Motivo da mudanca V117 -> V118.3
-O filtro V117 usava 2 candles e bloqueava apenas se AMBOS iam contra o sinal (0/2 confirmando).
-Isso era muito permissivo: com apenas 1/2 confirmando (50%), trades entravam com o 5M indo contra
-(como NEARUSDT SHORT que bateu stop em segundos porque o 5M estava bullish).
-
-Com 3 candles e exigencia 2/3 (66%), o filtro agora bloqueia entradas onde o 5M nao esta claramente
-alinhado com a direcao do sinal.
-
-### 15.5.1 [V114] Confirmacao 1M (desativada no sandbox)
-
-O filtro 1M original (V114) foi substituido pelo filtro 5M (V116, depois V118.3) por ser mais limpo e menos ruidoso.
-O metodo `_check_1m_confirmation` ainda existe no codigo mas nao e chamado no fluxo normal.
-
-### 15.6 Gestao de stops (paridade FlashAgent)
-- **Peak ROI**: `max(current_roi, cached_peak, stored_peak)` — nao perde picos entre reinicializacoes.
-- **Escadinha**: usa `OrderProjectionService.get_stop_ladder()` + `get_active_level()` — **identico ao FlashAgent real**.
-- **Saida parcial lateral**: ao atingir +15% ROI em regime LATERAL, registra `has_taken_partial=True`; PnL final = media 50/50.
-- **Confirmacao REST antes de fechar**: apos `stop_hit=True`, busca preco fresco via REST antes de persistir o fechamento.
-- **Auto-blocklist [V118]**: pares com PnL total < -15% E win rate < 35% apos 3+ trades bloqueados automaticamente em runtime (era 5/20/30). Verificado a cada 120s.
-- **Transicao Fria ADX [V119]**: Ao mudar do regime de tendência para lateral, bloqueia novos sinais laterais por 15min (900s) para estabilização de volatilidade.
-- **Espelhamento em Conta Real [V119]**: Se `OKX_API_KEY_MASTER` e `REAL` mode estiverem ativos, replica ordens a mercado, cruzadas e com 50x de alavancagem com qty dinâmico proporcional à banca real da OKX.
-
-### 15.7 Constantes do SandboxService (V120)
-
-| Constante | Valor | Localizacao |
-|-----------|-------|-------------|
-| Ciclo de monitoramento | 1s | `sandbox_service.py` |
-| Banca virtual | **$100.00 USD** | `routes/sandbox.py:49` (`BANCA = 100.0`) |
-| Margem media por trade | **$2.00** | `routes/sandbox.py:50` (`MARGEM_MEDIA = 2.0`) |
-| Margem adaptativa | **$1.00-$2.50** (por win rate do par) | `sandbox_service.py:_get_adaptive_margin()` |
-| Leverage (sandbox) | 50x | `sandbox_service.py` |
-| Janela conservative price | 120s | `okx_ws_public.py:291` |
-| TTL cache de preco | 60s | `sandbox_service.py` |
-| [V120] Stop inicial LATERAL | **-8% ROI** (era -10%) | `sandbox_service.py` |
-| [V120] Stop inicial TRENDING | **-10% ROI** (era -15%) | `sandbox_service.py` |
-| [V120] Capping stop | **-10% ROI** (era -12%) | `sandbox_service.py` |
-| Threshold stale entry | 70% do stop (floor -10%) | `sandbox_service.py` |
-| [V119] Cooldown pos stop-out | **3600s (1 hora)** (impede re-entry consecutivo no mesmo par sob estresse) | `sandbox_service.py` |
-| [V119] Cooldown transicao ADX | **900s (15 min)** do modo tendência para lateral (evita volatilidade residual) | `sandbox_service.py` |
-| [V118.3] Candles 5M para confirmacao | 3 fechados (5 buscados), exige 2/3 alinhados com direcao | `sandbox_service.py` |
-| [V120] Filtro LONGS | Pearson < 0.50 OU confidence >= 60 (era AND com 0.35/70) | `sandbox_service.py` |
-| [V120] Asian Session Penalty | ADX >= 32 entre 23h-01h UTC | `sandbox_service.py` |
-| [V120] GARANTIA_TAXAS | +3.0% ROI (era +3.5%) | `sandbox_service.py` |
-| [V120] Partial TP TRENDING | +25% ROI (novo, era só LATERAL +15%) | `sandbox_service.py` |
-| Polling frontend | 2s | `sandbox.html` |
-| Polling patterns | 5s | `sandbox.html` |
-| Placeholder banca (HTML) | **$100.00 USD** | `sandbox.html:158` |
-| Auto-blocklist check | 120s | `sandbox_service.py` |
-| [V118] Auto-blocklist criterio | PnL < -15% E WR < 35% apos 3+ trades | `sandbox_service.py` |
-| [V120] Static blocklist novos | ADA, GALA, ARB, OP, POL, NEAR | `config.py:ASSET_BLOCKLIST` |
-
-### 15.8 Logs esperados no comportamento normal
-
-| Log | Significado |
-|-----|-------------|
-| `[SANDBOX-OPEN]` | Trade aberto com Entry, SL, MktPrice, TickSize |
-| `[SANDBOX-STALE]` | Sinal descartado — entry defasado (ROI imediato < threshold) |
-| `[SANDBOX-TRANSITION-BLOCK]` | Sinal de contra-tendencia bloqueado por cooldown de transicao fria (900s) |
-| `[SANDBOX-MIRROR-OPEN]` | Replicando abertura da ordem simulada na conta real da OKX |
-| `[SANDBOX-MIRROR-CLOSE]` | Replicando fechamento/stop da ordem simulada na conta real da OKX |
-| `[SANDBOX-FLASH]` | Degrau da escadinha ativado |
-| `[SANDBOX-PARTIAL]` | Saida parcial 50% executada em lateral |
-| `[SANDBOX-LOSS]` | Trade fechado no stop (com ROI, Entry, Exit, MaxROI) |
-| `[SANDBOX-PRICE-UNAVAILABLE]` | Preco indisponivel em WS + REST + cache — trade pulado |
-| `[SANDBOX-COOLDOWN-SET]` | Cooldown de 300s registrado apos stop-out |
-| `[SANDBOX-COOLDOWN]` | Sinal bloqueado — simbolo em cooldown (com segundos restantes) |
-| `[SANDBOX-5M]` | Confirmacao 5M: boost de score aplicado (+5 ou +10) |
-| `[SANDBOX-BLOCKLIST]` | Simbolo bloqueado por blocklist estatica ou auto-blocklist |
-| `[SANDBOX-MACRO-BLOCK]` | Sinal bloqueado por filtro macro BTC (SMA 200) |
-| `[SANDBOX-OPEN-FILTER]` | Sinal bloqueado por filtro de abertura US (13:30-14:30 UTC) |
-| `[SANDBOX-AUTO-BLOCKLIST]` | Par bloqueado automaticamente por performance critica |
-| `[SANDBOX-V120-LONG]` | LONG descartado — filtro de decorrelação relaxado não atendido |
-| `[SANDBOX-ASIAN-PENALTY]` | Sinal bloqueado — sessão asiática (23h-01h UTC) com ADX < 32 |
-
-### 15.9 Bugs corrigidos (historial)
-
-| Bug | Commit | Descricao |
-|-----|--------|-----------|
-| WS=0 nao detectava stop | `5d77b0f` | `_check_stop_hit` nao consultava REST/cache quando WS retornava 0. Fix: Fallback 2 com `_get_current_price()` |
-| Analytics: typo `fase` | `7175a80` | `state.get("fase")` deveria ser `state.get("phase")`. Fix: corrigido em `routes/sandbox.py:158` |
-| Entry stale (MaxROI=0%) | `d92c28f` | Sandbox abria trades com preco de mercado ja alem do stop. Fix: Entry Sanity Check 70% do stop |
-| Re-entries em cadeia | `855fcec` | INJUSDT/ATOM abriam identicos apos stop-out imediato. Fix: Cooldown 300s por simbolo (V114) |
-| Entrada contra momentum | `855fcec` | Trades abriam com candles 1M indo na direcao oposta ao sinal. Fix: Confirmacao 1M 2/3 candles (V114) |
-| Captain UnboundLocalError | V116 | `_run_user_execution_logic` crashava com `settings` nao importado. Fix: `from config import settings` no topo da funcao |
-| MACRO-BLOCK impossivel bypass | V116 | DECOR SHADOW bloqueada por pearson > 0.85 (bypass impossivel). Fix: MACRO-BLOCK desativado em LATERAL, high_score_bypass em TRENDING |
-| 1M-REJECT 100% sinais | V116 | Filtro 1M requeria 2/3 candles confirmando mas quase sempre 0/3 confirmavam. Fix: Substituido por 5M confirmation (boost, nao bloqueia) |
-| Regime gating + GARANTIA_5 + LONGS filter | V118 | 100% VELOCITY FLOW, LONGS perdendo, escadinha nao capturava lucro. Fix: regime gating removido, GARANTIA_5 (break-even +5%), LONGS exigem decorrelacao+gas, auto-blocklist mais agressivo |
-| 5M muito permissivo (NEARUSDT stops) | V118.3 | V117 usava 2 candles e so bloqueava se 0/2 confirmavam — trades entravam contra o 5M. Fix: 3 candles com exigencia 2/3 de alinhamento com direcao do sinal |
-| Stop -10%/-15% ainda apertados (0% win rate sandbox) | V119 | Stops fixos nao respeitam estrutura 30M. Fix: stop estrutural baseado em swing low/high do TF 30M com buffer 0.15% |
-| R:R 0.61, 100% SHORT, 0% ALPHA/DECOR | V120 | Stops muito largos (-12%/-15%), regime gating bloqueava estratégias, filtro LONG too restritivo. Fix: stops -8%/-10%, regime gating removido, filtro LONG relaxado (OR), Asian penalty, margem adaptativa, partial TP em TRENDING |
-
----
-
-*Baseado no codigo-fonte em 2026-06-25. Atualizar ao modificar qualquer constante ou componente.*
-componente.*
