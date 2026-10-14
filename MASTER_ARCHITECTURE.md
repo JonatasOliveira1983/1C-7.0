@@ -800,6 +800,25 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
     - **Evidência Empírica TDD & Operacional**:
         * 100% de aprovação na suíte de testes [`tests/test_laya_multi_setup.py`](file:///c:/Users/jonat/Desktop/Sistemas%202026/2%20-%201C-SET26/tests/test_laya_multi_setup.py) com 11 de 11 testes unitários passando.
 
+39. **[V155-OKX-MARKET-UNIVERSE-AND-TARGET-GEOMETRY] Catálogo Universal da OKX (489 Contratos USDT-SWAP), Blindagem Geométrica de Alvos e Expurgamento de Código Legado** (2026-10-14):
+    - **Diagnóstico do Bug Crítico de Geometria de Alvo**:
+        * Ordens de SHORT abertas pelo motor legado `sandbox_service.py` (`VELOCITY FLOW`, ex: `FETUSDT` e `IMXUSDT`) calculavam o alvo cegamente como `entry_price * 1.5` (+50% para cima).
+        * Consequência: Em operações vendidas (SHORT), a linha de Take Profit ficava desenhada no topo do gráfico no sentido de LONG, e a checagem `current_price <= target_price` nunca disparava porque o alvo estava acima da entrada.
+    - **As 4 Soluções Estruturais Implementadas**:
+        * **1. Correção Universal da Geometria de Alvo e Stop (`sandbox_service.py` & `cockpit.html`)**:
+          - Se `LONG`: Alvo $= \text{Entrada} \times 1.035$ (Acima) | Stop $= \text{Entrada} \times 0.988$ (Abaixo).
+          - Se `SHORT`: Alvo $= \text{Entrada} \times 0.965$ (Abaixo) | Stop $= \text{Entrada} \times 1.012$ (Acima).
+          - Cockpit HUD e Chart PriceLines possuem trava geométrica sanitizadora que impede visualização invertida mesmo sob anomalias de dados legados.
+        * **2. Catálogo Universal de Mercado OKX (`backend/app/services/okx_universe_service.py`)**:
+          - Mapeamento universal em lote de 489 contratos USDT-SWAP da OKX (`GET /api/v5/public/instruments?instType=SWAP`).
+          - Resolução precisa de especificações canônicas: `instId`, `ctVal`, `tickSize`, `lotSize`, `minSz`.
+          - Consulta dinâmica de tickers (`GET /api/v5/market/tickers?instType=SWAP`) trazendo preços reais, volumes 24h e variações.
+          - A Laya Soberana não está mais limitada a uma lista fixa de 14 moedas; ela opera sobre os ativos de maior liquidez e volume ranqueados em tempo real (`okx_universe_service.get_tradable_universe()`).
+        * **3. Expurgamento de Bypass Legado (`firebase_service.py`)**:
+          - Desativado o hook obsoleto `sandbox_service.on_radar_pulse(signals)`, assegurando soberania única e exclusiva da Laya para autorização de trades.
+        * **4. Sanitização do Banco de Dados Operacional (`local_sniper.db`)**:
+          - Executada rotina de correção imediata das ordens ativas com alvo no céu, restaurando a conformidade dos trades ativos.
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*

@@ -919,7 +919,7 @@ class SandboxService:
                 "entry_price": entry_price,
                 "current_price": entry_price,
                 "stop_loss": stop_price,
-                "target": entry_price * 1.5,
+                "target": round(entry_price * 1.035, 6) if direction == "LONG" else round(entry_price * 0.965, 6),
                 "max_roi": 0.0,
                 "current_roi": 0.0,
                 "pnl_pct": 0.0,

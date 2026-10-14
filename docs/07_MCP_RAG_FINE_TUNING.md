@@ -156,6 +156,21 @@ Com a migração do sistema para o padrão **1H (LAYA_SMART_MONEY_H1)**:
 - **`POST /api/v1/ml/train-kronos`**: Inicia o treinamento/calibração do adaptador Kronos.
 - **`GET /api/v1/ml/status`**: Relatório de status dos modelos calibrados e histórico do último treinamento.
 
+### 3.4. Catálogo Universal de Mercado OKX & Geometria Inviolável (V155)
+
+A partir da versão **V155**, o ecossistema RAG e os modelos preditivos da Laya contam com o **`OKXUniverseService`** (`backend/app/services/okx_universe_service.py`):
+1. **Mapeamento de 489 Instrumentos Perpétuos USDT-SWAP**:
+   - Resolução assíncrona dos contratos diretamente da OKX pública (`/api/v5/public/instruments?instType=SWAP`).
+   - Carregamento de especificações canônicas: `ctVal` (valor do contrato), `tickSize` (precisão de preço), `lotSize` e `minSz` (lotes mínimos).
+2. **Telemetria e Ranking de Liquidez em Tempo Real**:
+   - Sincronização contínua com `/api/v5/market/tickers?instType=SWAP`, permitindo ordenar o mercado por volume financeiro real em USDT nas 24h.
+   - A Laya não depende de listas estáticas de moedas; ela seleciona os ativos mais líquidos e operáveis organicamente.
+3. **Geometria Inviolável de Stop e Alvo**:
+   - Eliminação de qualquer código legado que gere alvos estáticos cegos (`* 1.5`).
+   - `LONG`: Alvo sempre acima do preço de entrada ($> P_{\text{entry}}$) e Stop Loss abaixo ($< P_{\text{entry}}$).
+   - `SHORT`: Alvo sempre abaixo do preço de entrada ($< P_{\text{entry}}$) e Stop Loss acima ($> P_{\text{entry}}$).
+   - Sanitização no backend e trava geométrica no frontend (`cockpit.html`).
+
 ---
 
 ## 4. 🛠️ Guia de Manutenção e Operação
@@ -189,3 +204,5 @@ python backend/mcp_server.py
 - [x] **Sub-Milissegundo no RAG**: Algoritmo BM25 em memória sem gargalos de rede ou chamadas de API externas pagas.
 - [x] **Segurança no MCP**: Ferramentas expostas operam estritamente sob os limites de governança do Sandbox/OKX.
 - [x] **Conexão Direta H1**: O pipeline de treino e o RAG refletem fielmente a saída de acumulação em 1H com confirmação de fluxo.
+- [x] **OKX Market Universe Integrado (V155)**: 489 contratos USDT-SWAP mapeados com `ctVal` e `tickSize` canônicos.
+- [x] **Geometria de Alvo e Stop Blindada (V155)**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.

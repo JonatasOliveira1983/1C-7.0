@@ -980,24 +980,50 @@ class LayaRouterService:
 
         t0 = time.time()
         self.last_scan_time = t0
-        assets = [
-            {"symbol": "SOL-USDT-SWAP", "pair": "SOLUSDT"},
-            {"symbol": "AVAX-USDT-SWAP", "pair": "AVAXUSDT"},
-            {"symbol": "NEAR-USDT-SWAP", "pair": "NEARUSDT"},
-            {"symbol": "LINK-USDT-SWAP", "pair": "LINKUSDT"},
-            {"symbol": "ETH-USDT-SWAP", "pair": "ETHUSDT"},
-            {"symbol": "SUI-USDT-SWAP", "pair": "SUIUSDT"},
-            {"symbol": "XRP-USDT-SWAP", "pair": "XRPUSDT"},
-            {"symbol": "ADA-USDT-SWAP", "pair": "ADAUSDT"},
-            {"symbol": "DOT-USDT-SWAP", "pair": "DOTUSDT"},
-            {"symbol": "APT-USDT-SWAP", "pair": "APTUSDT"},
-            {"symbol": "ARB-USDT-SWAP", "pair": "ARBUSDT"},
-            {"symbol": "OP-USDT-SWAP", "pair": "OPUSDT"},
-            {"symbol": "INJ-USDT-SWAP", "pair": "INJUSDT"},
-            {"symbol": "RENDER-USDT-SWAP", "pair": "RENDERUSDT"}
-        ]
+        
+        # [V155-OKX-UNIVERSE] Catálogo universal dinâmico de contratos da OKX
+        try:
+            from app.services.okx_universe_service import okx_universe_service
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=24)
+            if dynamic_assets:
+                assets = dynamic_assets
+            else:
+                assets = [
+                    {"symbol": "SOL-USDT-SWAP", "pair": "SOLUSDT"},
+                    {"symbol": "AVAX-USDT-SWAP", "pair": "AVAXUSDT"},
+                    {"symbol": "NEAR-USDT-SWAP", "pair": "NEARUSDT"},
+                    {"symbol": "LINK-USDT-SWAP", "pair": "LINKUSDT"},
+                    {"symbol": "ETH-USDT-SWAP", "pair": "ETHUSDT"},
+                    {"symbol": "SUI-USDT-SWAP", "pair": "SUIUSDT"},
+                    {"symbol": "XRP-USDT-SWAP", "pair": "XRPUSDT"},
+                    {"symbol": "ADA-USDT-SWAP", "pair": "ADAUSDT"},
+                    {"symbol": "DOT-USDT-SWAP", "pair": "DOTUSDT"},
+                    {"symbol": "APT-USDT-SWAP", "pair": "APTUSDT"},
+                    {"symbol": "ARB-USDT-SWAP", "pair": "ARBUSDT"},
+                    {"symbol": "OP-USDT-SWAP", "pair": "OPUSDT"},
+                    {"symbol": "INJ-USDT-SWAP", "pair": "INJUSDT"},
+                    {"symbol": "RENDER-USDT-SWAP", "pair": "RENDERUSDT"}
+                ]
+        except Exception as _e_uni:
+            logger.debug(f"[LAYA-UNIVERSE] Fallback para ativos estáticos: {_e_uni}")
+            assets = [
+                {"symbol": "SOL-USDT-SWAP", "pair": "SOLUSDT"},
+                {"symbol": "AVAX-USDT-SWAP", "pair": "AVAXUSDT"},
+                {"symbol": "NEAR-USDT-SWAP", "pair": "NEARUSDT"},
+                {"symbol": "LINK-USDT-SWAP", "pair": "LINKUSDT"},
+                {"symbol": "ETH-USDT-SWAP", "pair": "ETHUSDT"},
+                {"symbol": "SUI-USDT-SWAP", "pair": "SUIUSDT"},
+                {"symbol": "XRP-USDT-SWAP", "pair": "XRPUSDT"},
+                {"symbol": "ADA-USDT-SWAP", "pair": "ADAUSDT"},
+                {"symbol": "DOT-USDT-SWAP", "pair": "DOTUSDT"},
+                {"symbol": "APT-USDT-SWAP", "pair": "APTUSDT"},
+                {"symbol": "ARB-USDT-SWAP", "pair": "ARBUSDT"},
+                {"symbol": "OP-USDT-SWAP", "pair": "OPUSDT"},
+                {"symbol": "INJ-USDT-SWAP", "pair": "INJUSDT"},
+                {"symbol": "RENDER-USDT-SWAP", "pair": "RENDERUSDT"}
+            ]
 
-        self.log_thought("SISTEMA", f"Iniciando varredura soberana autônoma. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
+        self.log_thought("SISTEMA", f"Iniciando varredura soberana autônoma ({len(assets)} ativos da OKX). Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
 
         best_setup = None
         best_score = 0
@@ -1331,14 +1357,22 @@ class LayaRouterService:
                 lot_sz = 1.0
                 min_sz = 1.0
                 try:
-                    from services.okx_service import okx_service
-                    details = await okx_service.get_instrument_details(sym)
-                    ct_val = float(details.get("ctVal", "1.0"))
-                    tick_sz = float(details.get("tickSize", "0.001"))
-                    lot_sz = float(details.get("lotSize", "1.0"))
-                    min_sz = float(details.get("minSz", "1.0"))
+                    from app.services.okx_universe_service import okx_universe_service
+                    specs = okx_universe_service.get_specs(sym)
+                    ct_val = float(specs.get("ctVal", 1.0))
+                    tick_sz = float(specs.get("tickSize", 0.001))
+                    lot_sz = float(specs.get("lotSize", 1.0))
+                    min_sz = float(specs.get("minSz", 1.0))
                 except Exception:
-                    pass
+                    try:
+                        from services.okx_service import okx_service
+                        details = await okx_service.get_instrument_details(sym)
+                        ct_val = float(details.get("ctVal", "1.0"))
+                        tick_sz = float(details.get("tickSize", "0.001"))
+                        lot_sz = float(details.get("lotSize", "1.0"))
+                        min_sz = float(details.get("minSz", "1.0"))
+                    except Exception:
+                        pass
 
                 margin = 150.0
                 leverage = 12

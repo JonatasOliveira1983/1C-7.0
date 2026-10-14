@@ -1751,6 +1751,29 @@
       const normSide = (side || 'BUY').toUpperCase();
       const isLong = normSide === 'BUY' || normSide === 'LONG';
 
+      // [SANITY GEOMETRICA INVIOLAVEL: LONG tem Alvo Acima e Stop Abaixo; SHORT tem Alvo Abaixo e Stop Acima]
+      let safeTarget = nt;
+      if (safeTarget && !isNaN(safeTarget) && safeTarget > 0) {
+        if (!isLong && safeTarget >= ne) {
+          safeTarget = Number((ne * 0.965).toFixed(6));
+        } else if (isLong && safeTarget <= ne) {
+          safeTarget = Number((ne * 1.035).toFixed(6));
+        }
+      }
+
+      let safeStop = ns;
+      if (safeStop && !isNaN(safeStop) && safeStop > 0) {
+        // Se ainda em risco inicial (nao travado em lucro)
+        const isLocked = isLong ? (safeStop > ne * 1.002) : (safeStop < ne * 0.998);
+        if (!isLocked) {
+          if (!isLong && safeStop <= ne) {
+            safeStop = Number((ne * 1.012).toFixed(6));
+          } else if (isLong && safeStop >= ne) {
+            safeStop = Number((ne * 0.988).toFixed(6));
+          }
+        }
+      }
+
       // 1. Linha de ENTRADA (Gold)
       try {
         const entryLine = series.createPriceLine({
@@ -1765,11 +1788,11 @@
       } catch(e){}
 
       // 2. Linha de ALVO (Take Profit / Verde)
-      if (nt && !isNaN(nt) && nt > 0) {
+      if (safeTarget && !isNaN(safeTarget) && safeTarget > 0) {
         try {
-          const tgtPct = ((nt - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+          const tgtPct = ((safeTarget - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
           const targetLine = series.createPriceLine({
-            price: nt,
+            price: safeTarget,
             color: '#00E676',
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Dashed,
@@ -1782,11 +1805,11 @@
 
       // 3. Linha de STOP LOSS (Vermelho / Trailing Profit Verde / Breakeven Azul)
       let finalStatus = statusTag || 'ATIVA';
-      if (ns && !isNaN(ns) && ns > 0) {
+      if (safeStop && !isNaN(safeStop) && safeStop > 0) {
         try {
-          const stopPct = ((ns - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-          const isProfitLocked = isLong ? (ns > ne * 1.002) : (ns < ne * 0.998);
-          const isRiskFree = !isProfitLocked && (Math.abs(ns - ne) / ne < 0.0025);
+          const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+          const isProfitLocked = isLong ? (safeStop > ne * 1.002) : (safeStop < ne * 0.998);
+          const isRiskFree = !isProfitLocked && (Math.abs(safeStop - ne) / ne < 0.0025);
           
           let slColor = '#FF1744';
           let slTitle = `STOP LOSS (${stopPct}%)`;
@@ -1802,7 +1825,7 @@
           }
 
           const stopLine = series.createPriceLine({
-            price: ns,
+            price: safeStop,
             color: slColor,
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Dashed,
@@ -1838,13 +1861,13 @@
       const kronosTxt = document.getElementById(`hud-kronos-txt-${i}`);
 
       if (entryTxt) entryTxt.textContent = "$" + (ne >= 1 ? ne.toFixed(4) : ne.toFixed(6));
-      if (targetTxt && nt > 0) {
-        const diffT = ((nt - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-        targetTxt.textContent = "$" + (nt >= 1 ? nt.toFixed(4) : nt.toFixed(6)) + ` (+${Math.abs(diffT)}%)`;
+      if (targetTxt && safeTarget > 0) {
+        const diffT = ((safeTarget - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+        targetTxt.textContent = "$" + (safeTarget >= 1 ? safeTarget.toFixed(4) : safeTarget.toFixed(6)) + ` (+${Math.abs(diffT)}%)`;
       }
-      if (stopTxt && ns > 0) {
-        const diffS = ((ns - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-        stopTxt.textContent = "$" + (ns >= 1 ? ns.toFixed(4) : ns.toFixed(6)) + ` (${diffS}%)`;
+      if (stopTxt && safeStop > 0) {
+        const diffS = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+        stopTxt.textContent = "$" + (safeStop >= 1 ? safeStop.toFixed(4) : safeStop.toFixed(6)) + ` (${diffS}%)`;
         stopTxt.style.color = finalStatus.includes('TRAILING') ? '#00E676' : (finalStatus.includes('BE') ? '#29ABE2' : '#FF1744');
       }
       if (kronosTxt) {
