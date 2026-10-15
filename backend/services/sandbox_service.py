@@ -337,8 +337,10 @@ class SandboxService:
         leverage = 15.0
         if isinstance(contract_meta, dict):
             leverage = float(contract_meta.get("leverage") or contract_meta.get("maxLeverage") or 15.0)
-        # [V148-PAYOFF] Stop inicial capado estritamente em -3.5% ROI para garantir R:R favorável (> 2.5:1)
-        fallback_roi = -3.5
+        # [V159-ENCRYPTOS] Stop estrutural ancorado na volatilidade real e alavancagem:
+        # Folga de preço de 3.0% a 4.0% -> ROI = -3.0% * leverage (ex: -45.0% em 15x)
+        fallback_roi = -3.0 * leverage
+        limit_roi = -4.2 * leverage
         tick_size = 0.0
         if isinstance(contract_meta, dict):
             tick_size = float(contract_meta.get("tickSize", 0) or 0)
@@ -350,31 +352,29 @@ class SandboxService:
             # Verificar se o ROI resultante é razoável
             stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
             
-            # [V148-PAYOFF] Capping estrito de segurança de risco:
-            # Limita a no máximo -3.5% de ROI para proteger o capital e garantir Payoff > 2.5:1
-            limit_roi = -3.5
+            # [V159-ENCRYPTOS] Capping estrito de segurança de risco fora do ruído:
             if stop_roi < limit_roi:
                 logger.info(
-                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o teto. "
+                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o teto. "
                     f"Ajustando para o teto rígido de {limit_roi:.1f}% ROI"
                 )
                 stop_roi = limit_roi
                 stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                 
-            # [V148-PAYOFF] Aceita stops estruturais entre -3.5% e -1.8%
-            if -3.5 <= stop_roi <= -1.8:
+            # [V159-ENCRYPTOS] Aceita stops estruturais entre o teto e -15% ROI (-1.0% a -4.2% de preço)
+            if limit_roi <= stop_roi <= -15.0:
                 source = "structural_30m"
                 if tick_size > 0:
                     stop_price = self._round_stop_to_tick(stop_price, tick_size, side, stop_roi)
                 logger.info(
-                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural 30M aprovado: "
+                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural 30M aprovado: "
                     f"{stop_price:.4f} (ROI={stop_roi:.1f}%, source={source})"
                 )
                 return {"stop_price": stop_price, "stop_roi": stop_roi, "source": source}
             else:
                 logger.info(
-                    f"🧪 [SANDBOX-V148] {symbol} stop estrutural 30M rejeitado: "
-                    f"ROI={stop_roi:.1f}% fora do range [-3.5%, -1.8%] — usando fallback"
+                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural 30M rejeitado: "
+                    f"ROI={stop_roi:.1f}% fora do range [{limit_roi:.1f}%, -15.0%] — usando fallback"
                 )
 
         # 2. [V119] Tentar fallback dinâmico por volatilidade ATR de 30M em mercado lateral
@@ -397,20 +397,20 @@ class SandboxService:
                     # Calcular ATR de 14 períodos
                     atr = sum(tr_list[-14:]) / 14.0 if tr_list else 0.0
                     if atr > 0:
-                        # Afasta o stop a uma distância moderada em relação ao entry_price
+                        # Afasta o stop a 1.8x ATR em relação ao entry_price
                         if side.lower() in ("buy", "long", "b"):
-                            stop_price = entry_price - (atr * 1.0)
+                            stop_price = entry_price - (atr * 1.8)
                         else:
-                            stop_price = entry_price + (atr * 1.0)
+                            stop_price = entry_price + (atr * 1.8)
                             
                         stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
                         
-                        # [V148-PAYOFF] Trava o ROI de stop: teto -3.5%
-                        if stop_roi < -3.5:
-                            stop_roi = -3.5
+                        # Trava o ROI de stop: teto limit_roi (-4.2 * leverage) e piso -20% ROI
+                        if stop_roi < limit_roi:
+                            stop_roi = limit_roi
                             stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
-                        elif stop_roi > -2.0:
-                            stop_roi = -2.0
+                        elif stop_roi > -20.0:
+                            stop_roi = -20.0
                             stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                             
                         source = "volatility_atr"
@@ -420,7 +420,7 @@ class SandboxService:
                         stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
                         
                         logger.info(
-                            f"🧪 [SANDBOX-V119] {symbol} stop por volatilidade ATR (1.5x) aprovado: "
+                            f"🧪 [SANDBOX-V159] {symbol} stop por volatilidade ATR (1.8x) aprovado: "
                             f"{stop_price:.4f} (ROI={stop_roi:.1f}%, source={source})"
                         )
                         return {"stop_price": stop_price, "stop_roi": stop_roi, "source": source}
@@ -434,7 +434,7 @@ class SandboxService:
         stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
         source = "regime_fixed"
         logger.info(
-            f"🧪 [SANDBOX-V119] {symbol} usando fallback regime fixo: "
+            f"🧪 [SANDBOX-V159] {symbol} usando fallback regime fixo: "
             f"{stop_price:.4f} (ROI={stop_roi:.1f}%, source={source})"
         )
         return {"stop_price": stop_price, "stop_roi": stop_roi, "source": source}
@@ -1922,12 +1922,10 @@ class SandboxService:
                 opposite_dir = "LONG" if trade_dir == "SHORT" else "SHORT"
                 self._consecutive_stops[(clean_sym, opposite_dir)] = 0
                 self._stop_cooldown[cooldown_key] = time.time()
-                new_consec = self._consecutive_stops[cooldown_key]
-                # [V123.1-FIX] Cooldown: 1800s no 1º stop, 3600s em stops consecutivos (>=2)
-                cooldown_applied = 3600 if new_consec >= 2 else 1800
+                # [V159-TITANS] Quarentena canônica de 2 horas (7200s) pós-Stop Loss para blindar contra reincidência
+                cooldown_applied = 7200
                 logger.info(
-                    f"🧪 [SANDBOX-COOLDOWN-SET] {clean_sym} {trade_dir} cooldown de {cooldown_applied}s "
-                    f"(stops consecutivos nesta direção: {new_consec})"
+                    f"🧪 [SANDBOX-COOLDOWN-SET] {clean_sym} {trade_dir} quarentena institucional de {cooldown_applied}s (2 horas)"
                 )
                 try:
                     from app.services.laya_router_service import laya_router_service

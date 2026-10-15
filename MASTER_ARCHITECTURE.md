@@ -46,10 +46,12 @@ flowchart TD
 
     subgraph Decision_Engines["Tactical & Decision Engines"]
         LayaRouter["LayaRouterService (Sovereign Whale/Retail Hunter + Calibrated Weights)"]
+        BTCSpecialist["LayaBTCSpecialist (BTC.D Matrix, Lead-Lag Spot x Swap, Macro Climate)"]
         Kronos["KronosScorer (AAAI 2026 Temporal Trajectory)"]
         LayaFlow["LayaFlowService (OKX Rubik LSR & OI Delta)"]
+        Titans10["OKXUniverseService (Canonical 10 Titans Whitelist & Asset Dossier)"]
         StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
-        SanityGate["Price Sanity & Asymmetric R:R Gate (4:1)"]
+        SanityGate["Price Sanity & Structural ATR Stop Gate (2.8% - 4.5%)"]
     end
 
     subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
@@ -60,6 +62,7 @@ flowchart TD
     subgraph Ingestion_Layer["Market Ingestion Layer"]
         OKX_WS["OKXWSPublic (Live WS Tickers, Extreme Low/High 120s)"]
         OKX_REST["OKXRest (Batch SWAP Tickers & Contingency)"]
+        CoinGecko["CoinGecko/CoinCap API (Global BTC.D Live Oracle)"]
     end
 
     subgraph Data_Layer["Data & Persistence Layer"]
@@ -83,11 +86,14 @@ flowchart TD
     R_State --> DB_SQLite
     R_Pulse --> LayaRouter
 
+    LayaRouter --> BTCSpecialist
+    LayaRouter --> Titans10
     LayaRouter --> LayaFlow
     LayaRouter --> Kronos
     LayaRouter --> SanityGate
     SanityGate --> ScalpLab
 
+    CoinGecko --> BTCSpecialist
     OKX_WS --> ScalpLab
     OKX_WS --> LayaRouter
     OKX_REST --> LayaRouter
@@ -103,22 +109,43 @@ flowchart TD
 
 | Constante | Valor | Fonte |
 |-----------|-------|-------|
-| `LEVERAGE` (padrao) | 15x (Cross) | `sandbox_service.py` / V146 Pivot |
+| `LEVERAGE` (Altcoins) | 15x (Cross) | `okx_universe_service.py` / Dossiê dos 10 Titãs |
+| `LEVERAGE` (BTC / ETH) | 30x (Cross) | `okx_universe_service.py` / Dossiê dos 10 Titãs |
 | `MAX_SLOTS` (cap global) | 20 | `config.py:124` |
 | `MAX_SLOTS_LATERAL` | 16 | `config.py:125` |
 | `MAX_SLOTS_TRENDING` | 16 | `config.py:126` |
-| `MARGIN_PER_TRADE` (Laya) | $200.00 | `sandbox_service.py` / V146 |
+| `MARGIN_PER_TRADE` (Laya) | $150.00 a $200.00 | `sandbox_service.py` / V159 |
 | `RISK_CAP_PERCENT` | 0.40 (40% da banca) | `config.py:132` |
-| `MAX_INITIAL_STOP_ROI` | -6.5% a -7.5% ROI (4:1 RR) | `sandbox_service.py:352` / V146 |
-| `RISK_ZERO_TRIGGER_ROI` | +6.0% → +1.5% ROI (Garantia Taxas) | `sandbox_service.py:1610` |
+| `STRUCTURAL_STOP_DIST` | 2.8% a 4.5% ATR (fora do H1) | `laya_router_service.py:333` / V159 |
+| `STOP_LOSS_QUARANTINE` | 7200s (2 Horas Anti-Reincidência) | `laya_router_service.py:885` / V159 |
+| `WHITELIST_TITANS_10` | 10 Titãs Canônicos Imutáveis | `okx_universe_service.py:28` / V159 |
+| `RISK_ZERO_TRIGGER_ROI` | +8.0% → +1.0% ROI (Garantia Taxas) | `sandbox_service.py:1610` / V159 |
 | `ADX_MIN_ENTRY` | 22 | `config.py:142` |
 | `ADX_TRENDING_THRESHOLD` | 25 | `config.py:144` |
 | `ADX_STRONG_TREND_THRESHOLD` | 30 | `config.py:146` |
 | `SWING_SCAN_ENABLED` | **False (PAUSADO / GATE SOBERANO)** | `config.py:166` / V146 |
-| `SWING_LEVERAGE` | 15x (Cross) | `config.py:168` |
 | `MCP_MOUNT` | `/mcp` (`/mcp/sse`, `/mcp/tools`) | `backend/main.py:806` / V144 |
 | `RAG_ROUTER` | `/api/v1/hermes/rag` (`/search`, `/status`) | `backend/routes/rag_routes.py` |
 | `ML_ROUTER` | `/api/v1/ml` (`/status`, `/dataset-stats`) | `backend/app/api/v1/endpoints/ml.py` |
+
+### 2.1 Motor Soberano Laya V159 (Metodologia Encryptos: 10 Titãs, BTC.D & Lead-Lag)
+1. **Whitelist Fixa dos 10 Titãs**:
+   - `BTC-USDT-SWAP`, `ETH-USDT-SWAP`, `SOL-USDT-SWAP`, `NEAR-USDT-SWAP`, `ZK-USDT-SWAP`, `XRP-USDT-SWAP`, `DOGE-USDT-SWAP`, `SUI-USDT-SWAP`, `LINK-USDT-SWAP`, `XPL-USDT-SWAP`.
+   - Proibido varrer pares ruidosos ou memecoins ilíquidas.
+2. **Especialista em Bitcoin & Microestrutura Lead-Lag**:
+   - Monitoramento simultâneo de `BTC-USDT` (Spot) e `BTC-USDT-SWAP` (Perpétuo).
+   - Detecção de absorção institucional no Spot antes do descolamento nos Futuros.
+3. **Matriz de Clima por Dominância do Bitcoin (BTC.D)**:
+   - `ALTCOIN_EXPANSION`: BTC.D em queda + BTC estável/alta -> Compras agressivas (LONG) em 15x liberadas; Vendas (SHORT) vetadas.
+   - `ALTCOIN_BLOODBATH`: BTC.D subindo + BTC caindo -> Veto total de compras (LONG); Apenas SHORTS autorizados.
+   - `BTC_DRAINAGE`: BTC rali forte (> +2.5%) com dominância >= 60% -> Foco estrito em BTC/ETH.
+   - `CONSOLIDATION_CHOP`: Mercado lateral -> Caça de liquidez em extremidades de canal.
+4. **Quarentena Rígida Anti-Reincidência (2 Horas)**:
+   - Todo ativo que sofrer Stop Loss entra em quarentena inegociável de 7200 segundos (2h), impedindo perdas repetidas no mesmo par.
+5. **Stops Estruturais de Borda H1 (Eliminação de Ruído)**:
+   - Distância de Stop Loss ancorada em `max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))`.
+   - Stops calibrados para 2.8% a 4.5% fora da acumulação, eliminando violinadas de 15 segundos causadas por micro-ruído de spread.
+   - `stop_roi` calibrado proporcionalmente à alavancagem (`calculate_roi`), eliminando o bug de capping a -3.5% ROI que correspondia a -0.23% de preço.
 
 **Status Operacional Atual [V146-PROFITABILITY-PIVOT & SWING GATE]**:
 - **Scalping Lab (Laya Soberana)**: 100% ativo com alavancagem de **15x**, stops de -7.5% ROI e trailing stop Never Give Back (50% do pico de lucro).

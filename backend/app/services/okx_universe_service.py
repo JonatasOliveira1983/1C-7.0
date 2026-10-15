@@ -37,6 +37,12 @@ class OKXUniverseService:
         self._last_tickers_ts: float = 0.0
         self._lock = asyncio.Lock()
         
+        # [V160] Cesta Canônica Imutável dos 10 Titãs de Elite Institucional da OKX
+        self._titans_10 = [
+            "BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "ZK-USDT-SWAP",
+            "XRP-USDT-SWAP", "DOGE-USDT-SWAP", "SUI-USDT-SWAP", "LINK-USDT-SWAP", "XPL-USDT-SWAP"
+        ]
+        
         # [V158] Cesta Canônica de 50 Ativos de Elite Institucional da OKX (Zero Memecoins, Zero Pó)
         self._core_assets = [
             # 1. Layer 1 Consagradas & Bluechips (15)
@@ -244,18 +250,51 @@ class OKXUniverseService:
             "updated_at": 0
         }
 
-    async def get_tradable_universe(self, limit: int = 50, min_volume_usd: float = 3_000_000.0) -> List[Dict[str, Any]]:
+    def get_asset_dossier_sync(self, symbol: str) -> Dict[str, Any]:
         """
-        [V158] Retorna a cesta oficial de 50 ativos de elite institucional da OKX.
+        [DOSSIÊ DO ATIVO OKX - SÍNCRONO]
+        Retorna especificações de contrato em memória sem requisições HTTP adicionais.
+        """
+        inst_id = self.to_inst_id(symbol)
+        clean = self.to_clean_pair(symbol)
+        specs = self.get_specs(inst_id)
+        base = inst_id.split("-")[0].upper()
+        leverage = 30.0 if base in ("BTC", "ETH") else 15.0
+
+        return {
+            "symbol": inst_id,
+            "pair": clean,
+            "clean_sym": clean,
+            "base_coin": base,
+            "ctVal": specs.get("ctVal", 1.0),
+            "tickSize": specs.get("tickSize", 0.0001),
+            "lotSize": specs.get("lotSize", 1.0),
+            "minSz": specs.get("minSz", 1.0),
+            "leverage": leverage,
+            "is_titan": inst_id in self._titans_10
+        }
+
+    async def get_asset_dossier(self, symbol: str) -> Dict[str, Any]:
+        """
+        [DOSSIÊ DO ATIVO OKX - ENCRYPTOS SSOT]
+        Retorna as especificações de contrato oficiais da OKX, regras de lote, precisão
+        de tick e alavancagem calibrada para o par (15x nas altcoins, até 30x no BTC/ETH).
+        """
+        await self.sync_instruments()
+        return self.get_asset_dossier_sync(symbol)
+
+    async def get_tradable_universe(self, limit: int = 10, min_volume_usd: float = 3_000_000.0) -> List[Dict[str, Any]]:
+        """
+        [V160] Retorna a cesta oficial dos 10 Titãs (ou até 50 ativos) de elite institucional da OKX.
         Combina o catálogo oficial com os preços em tempo real, filtrando 100% das memecoins e tokens de pó.
         """
         await self.sync_instruments()
         await self.sync_tickers()
 
         universe = []
-        # Adiciona primeiro os ativos core garantidos para nunca faltar dados dos pilares
+        target_core = self._titans_10 if limit <= 10 else self._core_assets
         seen = set()
-        for core_id in self._core_assets:
+        for core_id in target_core:
             if core_id in self._tickers_cache and core_id in self._instruments_cache:
                 t = self._tickers_cache[core_id]
                 s = self._instruments_cache[core_id]

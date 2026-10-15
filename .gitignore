@@ -85,6 +85,7 @@ verify_v3.py
 # Large resources & database files
 Smart_Money_Decoded.pdf
 *.db
+*.db-*
 *.log*
 **/*.log*
 *.pdf
