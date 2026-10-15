@@ -2444,14 +2444,16 @@
           }).catch(() => { window._fetchingWhaleRadar = false; });
         }
 
-        // 4. Thought Stream (com Diffing Inteligente para Performance Máxima)
+        // 4. Thought Stream (com Diffing Inteligente e Auto-Scroll Garantido)
         const streamContainer = document.getElementById("laya-thought-stream");
         if (streamContainer && Array.isArray(d.thoughts)) {
           const latestTs = d.thoughts.length > 0 ? (d.thoughts[d.thoughts.length - 1].timestamp || d.thoughts[d.thoughts.length - 1].time) : 0;
           const sig = `${d.thoughts.length}_${latestTs}`;
           if (window._lastThoughtSig !== sig) {
             window._lastThoughtSig = sig;
-            const isNearBottom = streamContainer.scrollHeight - streamContainer.scrollTop - streamContainer.clientHeight < 60;
+            // Se o usuário rolou para cima (mais de 60px do final), respeita a leitura; caso contrário ou se for o 1º render, auto-scrolla
+            const userScrolledUp = window._layaThoughtScrolledOnce && (streamContainer.scrollHeight - streamContainer.scrollTop - streamContainer.clientHeight > 60);
+            
             streamContainer.innerHTML = d.thoughts.map(t => {
               const time = t.time || "--:--:--";
               const sym = t.symbol || "SISTEMA";
@@ -2460,7 +2462,7 @@
               const conf = t.confidence ? `${t.confidence}%` : "";
               
               let actColor = "#a0aec0";
-              if (act === "ORDEM_DISPARADA" || act === "GATILHO_BALEIA" || act === "BALEIA_TREND" || act === "SNIPER_BALEIA") {
+              if (act === "ORDEM_DISPARADA" || act === "GATILHO_BALEIA" || act === "BALEIA_TREND" || act === "SNIPER_BALEIA" || act === "SMART_MONEY_GATILHO" || act === "MOLA_GATILHO" || act === "DVWAP_GATILHO") {
                 actColor = "#00E676"; // Verde Neon
               } else if (act === "ARMADILHA_SARDINHA" || act === "VETO_BALEIA" || act === "BULL_TRAP") {
                 actColor = "#FF1744"; // Vermelho Alerta
@@ -2479,8 +2481,12 @@
                 ${conf ? `<span style="color:${actColor}; font-size:9px; flex-shrink:0; font-weight:700;">${conf}</span>` : ''}
               </div>`;
             }).join("");
-            if (isNearBottom) {
-              streamContainer.scrollTop = streamContainer.scrollHeight;
+
+            if (!userScrolledUp) {
+              window._layaThoughtScrolledOnce = true;
+              requestAnimationFrame(() => {
+                streamContainer.scrollTop = streamContainer.scrollHeight;
+              });
             }
           }
         }

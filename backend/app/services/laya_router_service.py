@@ -913,16 +913,14 @@ class LayaRouterService:
         """Inicializa pensamentos táticos para exibir sinal de vida na UI imediatamente."""
         now = time.time()
         seeds = [
-            ("SISTEMA", "Laya Sovereign Brain inicializado. Assumindo comando supremo da frota e caça de liquidez.", "BOOT", 98, "LATERAL"),
-            ("BTC-ORACLE", "Master ADX medido em 14.5 -> Mercado em consolidação de fim de semana.", "ORACULO", 90, "LATERAL"),
-            ("RADAR-FLUXO", "Conectado ao OKX Rubik: rastreando OI Delta, LSR de sardinhas e pools de liquidação.", "GATILHO_BALEIA", 95, "LATERAL"),
-            ("SOLUSDT", "LSR 1.48 (Sardinhas comprando topo). Veto de compra ativo: caçando reversão com as baleias.", "ARMADILHA_SARDINHA", 89, "LATERAL"),
-            ("AVAXUSDT", "LSR 2.41 (Euforia extrema de varejo). Risco de despejo detectado pelas baleias.", "VETO_BALEIA", 91, "LATERAL")
+            ("SISTEMA", "Laya Sovereign Brain inicializado. Carregando catálogo de 50 ativos de alta liquidez da OKX...", "BOOT", 98, "LATERAL"),
+            ("BTC-ORACLE", "Farol Macro Bitcoin sincronizado. Aguardando leitura de ADX e viés institucional...", "ORACULO", 95, "LATERAL"),
+            ("RADAR-FLUXO", "Conectando ao OKX Rubik: preparando varredura multi-timeframe de fluxo e liquidez...", "VARREDURA", 92, "LATERAL")
         ]
         for sym, msg, act, conf, reg in seeds:
             self.thought_stream.append({
-                "time": time.strftime("%H:%M:%S", time.localtime(now - 120)),
-                "timestamp": now - 120,
+                "time": time.strftime("%H:%M:%S", time.localtime(now - 10)),
+                "timestamp": now - 10,
                 "symbol": sym,
                 "thought": msg,
                 "action": act,
