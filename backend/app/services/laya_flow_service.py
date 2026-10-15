@@ -35,77 +35,41 @@ class LayaFlowService:
         if cached and (now - cached.get("ts", 0)) < self._cache_ttl:
             return cached.get("data", {})
 
-        async with self._lock:
-            # Dupla checagem após adquirir lock
-            cached = self._cache.get(clean_ccy)
-            if cached and (now - cached.get("ts", 0)) < self._cache_ttl:
-                return cached.get("data", {})
-
-            radar = await self._fetch_and_calculate_metrics(clean_ccy, inst_id)
-            self._cache[clean_ccy] = {
-                "ts": now,
-                "data": radar
-            }
-            return radar
+        radar = await self._fetch_and_calculate_metrics(clean_ccy, inst_id)
+        self._cache[clean_ccy] = {
+            "ts": now,
+            "data": radar
+        }
+        return radar
 
     async def _fetch_and_calculate_metrics(self, ccy: str, inst_id: str) -> Dict[str, Any]:
-        """Executa consultas concorrentes à OKX e extrai deltas de fluxo."""
-        now = time.time()
-        lsr_url = f"https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy={ccy}&period=5m"
-        oi_url = f"https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy={ccy}&period=5m"
-        funding_url = f"https://www.okx.com/api/v5/public/funding-rate?instId={inst_id}"
+        """Executa consultas protegidas à OKX e extrai métricas de fluxo."""
+        from services.okx_rest import okx_rest_service
 
         lsr_val = 1.0
-        lsr_prev = 1.0
         oi_val_usd = 0.0
-        oi_prev_usd = 0.0
         funding_rate = 0.0
 
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            tasks = [
-                client.get(lsr_url),
-                client.get(oi_url),
-                client.get(funding_url)
-            ]
-            responses = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            lsr_val = float(await okx_rest_service.get_account_ratio(ccy, period="5min") or 1.0)
+        except Exception as _e_lsr:
+            logger.debug(f"[LAYA-FLOW] Erro ao obter LSR via okx_rest para {ccy}: {_e_lsr}")
+            lsr_val = 1.0
 
-            # 1. Processar Long/Short Ratio (LSR)
-            resp_lsr = responses[0]
-            if not isinstance(resp_lsr, BaseException) and resp_lsr.status_code == 200:
-                try:
-                    d = resp_lsr.json().get("data", [])
-                    if len(d) >= 1:
-                        lsr_val = float(d[0][1])
-                    if len(d) >= 4:  # Comparar com 15-20 min atrás
-                        lsr_prev = float(d[3][1])
-                    elif len(d) >= 2:
-                        lsr_prev = float(d[1][1])
-                except Exception as e:
-                    logger.debug(f"Erro ao parsear LSR para {ccy}: {e}")
+        try:
+            oi_val_usd = float(await okx_rest_service.get_open_interest(inst_id) or 0.0)
+        except Exception as _e_oi:
+            logger.debug(f"[LAYA-FLOW] Erro ao obter OI via okx_rest para {ccy}: {_e_oi}")
+            oi_val_usd = 0.0
 
-            # 2. Processar Open Interest Volume
-            resp_oi = responses[1]
-            if not isinstance(resp_oi, BaseException) and resp_oi.status_code == 200:
-                try:
-                    d = resp_oi.json().get("data", [])
-                    if len(d) >= 1:
-                        oi_val_usd = float(d[0][1])
-                    if len(d) >= 4:  # Comparar com 15-20 min atrás
-                        oi_prev_usd = float(d[3][1])
-                    elif len(d) >= 2:
-                        oi_prev_usd = float(d[1][1])
-                except Exception as e:
-                    logger.debug(f"Erro ao parsear OI para {ccy}: {e}")
+        try:
+            funding_rate = float(await okx_rest_service.get_funding_rate(inst_id) or 0.0)
+        except Exception as _e_fr:
+            logger.debug(f"[LAYA-FLOW] Erro ao obter Funding via okx_rest para {ccy}: {_e_fr}")
+            funding_rate = 0.0
 
-            # 3. Processar Funding Rate
-            resp_fr = responses[2]
-            if not isinstance(resp_fr, BaseException) and resp_fr.status_code == 200:
-                try:
-                    d = resp_fr.json().get("data", [])
-                    if len(d) >= 1:
-                        funding_rate = float(d[0].get("fundingRate", 0.0))
-                except Exception as e:
-                    logger.debug(f"Erro ao parsear Funding para {ccy}: {e}")
+        lsr_prev = lsr_val
+        oi_prev_usd = oi_val_usd
 
         # Calcular Deltas
         lsr_delta_pct = round(((lsr_val - lsr_prev) / lsr_prev) * 100.0, 2) if lsr_prev > 0 else 0.0

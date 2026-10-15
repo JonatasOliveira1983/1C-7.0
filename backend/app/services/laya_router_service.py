@@ -451,12 +451,15 @@ class LayaRouterService:
             except (ValueError, TypeError, IndexError):
                 continue
 
-        if cum_vol <= 0:
+        if cum_vol <= 0 or cum_tpv <= 0:
             return {"vwap": current_price, "diff_pct": 0.0}
 
-        vwap = round(cum_tpv / cum_vol, 4)
+        vwap = cum_tpv / cum_vol
+        if vwap <= 0:
+            return {"vwap": current_price, "diff_pct": 0.0}
+
         diff_pct = round(((current_price - vwap) / vwap) * 100.0, 2)
-        return {"vwap": vwap, "diff_pct": diff_pct}
+        return {"vwap": round(vwap, 8), "diff_pct": diff_pct}
 
     def calculate_atr_pct(self, candles: List[Any], current_price: float, period: int = 14) -> float:
         """
@@ -984,7 +987,7 @@ class LayaRouterService:
         # [V155-OKX-UNIVERSE] Catálogo universal dinâmico de contratos da OKX
         try:
             from app.services.okx_universe_service import okx_universe_service
-            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=24)
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=12)
             if dynamic_assets:
                 assets = dynamic_assets
             else:

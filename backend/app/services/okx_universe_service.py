@@ -37,12 +37,12 @@ class OKXUniverseService:
         self._last_tickers_ts: float = 0.0
         self._lock = asyncio.Lock()
         
-        # Fallback de segurança para os principais ativos de liquidez máxima
+        # Fallback de segurança para os principais ativos de liquidez máxima (sem BTC que é benchmark)
         self._core_assets = [
-            "SOL-USDT-SWAP", "BTC-USDT-SWAP", "ETH-USDT-SWAP", "NEAR-USDT-SWAP",
-            "AVAX-USDT-SWAP", "LINK-USDT-SWAP", "SUI-USDT-SWAP", "XRP-USDT-SWAP",
-            "ADA-USDT-SWAP", "DOT-USDT-SWAP", "APT-USDT-SWAP", "ARB-USDT-SWAP",
-            "OP-USDT-SWAP", "INJ-USDT-SWAP", "RENDER-USDT-SWAP", "FET-USDT-SWAP"
+            "SOL-USDT-SWAP", "ETH-USDT-SWAP", "NEAR-USDT-SWAP", "AVAX-USDT-SWAP",
+            "LINK-USDT-SWAP", "SUI-USDT-SWAP", "XRP-USDT-SWAP", "ADA-USDT-SWAP",
+            "DOT-USDT-SWAP", "APT-USDT-SWAP", "ARB-USDT-SWAP", "OP-USDT-SWAP",
+            "INJ-USDT-SWAP", "RENDER-USDT-SWAP", "FET-USDT-SWAP", "TIA-USDT-SWAP"
         ]
 
     @staticmethod
@@ -272,12 +272,22 @@ class OKXUniverseService:
         ]
         other_tickers.sort(key=lambda x: x.get("volume_24h_usd", 0.0), reverse=True)
 
+        # Governança: Filtra Memecoins, BTC benchmark e derivativos de ações/commodities
+        FORBIDDEN_BASE = {
+            "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
+            "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"
+        }
+
         for t in other_tickers:
             if len(universe) >= limit:
                 break
             inst_id = t["instId"]
+            base_coin = inst_id.split("-")[0].upper()
+            if base_coin in FORBIDDEN_BASE or "SATS" in base_coin or t.get("last", 0.0) < 0.001:
+                continue
+
             s = self._instruments_cache[inst_id]
-            if t.get("volume_24h_usd", 0.0) < min_volume_usd and len(universe) >= 15:
+            if t.get("volume_24h_usd", 0.0) < min_volume_usd and len(universe) >= 12:
                 continue
             universe.append({
                 "symbol": inst_id,

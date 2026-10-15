@@ -819,6 +819,23 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * **4. Sanitização do Banco de Dados Operacional (`local_sniper.db`)**:
           - Executada rotina de correção imediata das ordens ativas com alvo no céu, restaurando a conformidade dos trades ativos.
 
+40. **[V156-LAYA-HIGH-THROUGHPUT-CONCURRENCY-AND-DUST-SHIELD] Otimização de Concorrência de Alta Vazão da Laya, Blindagem Anti-429 e Filtragem de Ativos Não-Cripto** (2026-10-14):
+    - **Diagnóstico da Latência e Bloqueio de Execução**:
+        * Identificado `ZeroDivisionError` em moedas de pó microscópicas (preço $< 0.001$) no cálculo de VWAP.
+        * Identificado afunilamento assíncrono em `laya_flow_service.py` causado por lock global desnecessário que serializava consultas a todas as moedas.
+        * Identificado rate-limiting (HTTP 429) em endpoints OKX Rubik por requisições paralelas não cacheadas.
+        * Presença de ativos não-cripto da OKX (ações e commodities sintéticas: `NVDA`, `XCU`, `CL`, etc.) causando fallback de candles.
+    - **As 4 Soluções Estruturais Implementadas**:
+        * **1. Resiliência Matemática no Cálculo de VWAP (`laya_router_service.py`)**:
+          - Proteção estrita contra divisão por zero para moedas de pó (`if cum_vol <= 0 or cum_tpv <= 0: return ...`, `if vwap <= 0: return ...`).
+        * **2. Blindagem Anti-429 e Conexão com Rate Limiter Canônico (`laya_flow_service.py`)**:
+          - `laya_flow_service` agora utiliza os métodos oficiais e rate-limitados de `okx_rest_service.get_account_ratio` e `get_open_interest`, com TTL de 120 segundos.
+          - Removido o lock global serializador, liberando concorrência de alta vazão para os 12 ativos da Matrix Elite.
+        * **3. Filtragem de Ativos de Pó e Ações/Commodities (`okx_universe_service.py`)**:
+          - Adicionados filtros contra tokens de pó (`< 0.001`, `SATS`) e derivativos não-cripto (`NVDA`, `AAPL`, `TSLA`, `XAU`, `CL`, etc.).
+        * **4. Abertura Autônoma e Gestão Validada no Sandbox**:
+          - Execução validada em tempo real com abertura de ordens e stops posicionados rigorosamente abaixo da entrada em LONG.
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*
