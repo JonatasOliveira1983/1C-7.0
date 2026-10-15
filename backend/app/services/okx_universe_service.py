@@ -37,6 +37,21 @@ class OKXUniverseService:
         self._last_tickers_ts: float = 0.0
         self._lock = asyncio.Lock()
         
+        # [V160] Cesta Canônica Soberana das Top 30 Altcoins de Elite Institucional da OKX (Zero BTC para trade)
+        self._titans_30_altcoins = [
+            # Top Tier L1 Consagradas & Bluechips (11)
+            "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "SUI-USDT-SWAP", "AVAX-USDT-SWAP",
+            "ADA-USDT-SWAP", "XRP-USDT-SWAP", "LINK-USDT-SWAP", "DOT-USDT-SWAP", "SEI-USDT-SWAP", "TON-USDT-SWAP",
+            # Layer 2 & Rollups (5)
+            "ARB-USDT-SWAP", "OP-USDT-SWAP", "ZK-USDT-SWAP", "XPL-USDT-SWAP", "POL-USDT-SWAP",
+            # DeFi & Oráculos de Topo (7)
+            "UNI-USDT-SWAP", "AAVE-USDT-SWAP", "MKR-USDT-SWAP", "PYTH-USDT-SWAP", "ONDO-USDT-SWAP", "INJ-USDT-SWAP", "PENDLE-USDT-SWAP",
+            # IA, DePIN & Big Data (5)
+            "RENDER-USDT-SWAP", "FET-USDT-SWAP", "TIA-USDT-SWAP", "ICP-USDT-SWAP", "AR-USDT-SWAP",
+            # Liquidez Consagrada (2)
+            "DOGE-USDT-SWAP", "LTC-USDT-SWAP"
+        ]
+
         # [V160] Cesta Canônica Imutável dos 10 Titãs de Elite Institucional da OKX
         self._titans_10 = [
             "BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "ZK-USDT-SWAP",
@@ -271,7 +286,7 @@ class OKXUniverseService:
             "lotSize": specs.get("lotSize", 1.0),
             "minSz": specs.get("minSz", 1.0),
             "leverage": leverage,
-            "is_titan": inst_id in self._titans_10
+            "is_titan": inst_id in self._titans_30_altcoins or inst_id in self._titans_10
         }
 
     async def get_asset_dossier(self, symbol: str) -> Dict[str, Any]:
@@ -283,18 +298,32 @@ class OKXUniverseService:
         await self.sync_instruments()
         return self.get_asset_dossier_sync(symbol)
 
-    async def get_tradable_universe(self, limit: int = 10, min_volume_usd: float = 3_000_000.0) -> List[Dict[str, Any]]:
+    async def get_tradable_universe(
+        self,
+        limit: int = 30,
+        min_volume_usd: float = 3_000_000.0,
+        exclude_btc: bool = True
+    ) -> List[Dict[str, Any]]:
         """
-        [V160] Retorna a cesta oficial dos 10 Titãs (ou até 50 ativos) de elite institucional da OKX.
-        Combina o catálogo oficial com os preços em tempo real, filtrando 100% das memecoins e tokens de pó.
+        [V160] Retorna a cesta oficial dos Top 30 Titãs Altcoins de elite institucional da OKX.
+        O BTC é excluído da lista de execução de ordens por atuar exclusivamente como Oráculo Macro.
+        Combina o catálogo oficial com os preços em tempo real, filtrando 100% de tokens ruidosos.
         """
         await self.sync_instruments()
         await self.sync_tickers()
 
         universe = []
-        target_core = self._titans_10 if limit <= 10 else self._core_assets
+        if limit <= 10:
+            target_core = [c for c in self._titans_10 if not (exclude_btc and c.startswith("BTC"))]
+        elif limit <= 30:
+            target_core = [c for c in self._titans_30_altcoins if not (exclude_btc and c.startswith("BTC"))]
+        else:
+            target_core = [c for c in self._core_assets if not (exclude_btc and c.startswith("BTC"))]
+
         seen = set()
         for core_id in target_core:
+            if exclude_btc and core_id.startswith("BTC"):
+                continue
             if core_id in self._tickers_cache and core_id in self._instruments_cache:
                 t = self._tickers_cache[core_id]
                 s = self._instruments_cache[core_id]

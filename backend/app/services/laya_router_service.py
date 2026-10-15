@@ -782,6 +782,21 @@ class LayaRouterService:
         3. Prioridade 3: DVWAP Reversion 5M (Preço esticado >= 2.0% da VWAP com BTC neutro/favorável).
         4. Neutro: Diagnóstico integrado das 3 camadas.
         """
+        # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordens de trade nele
+        sym_clean = symbol.upper().replace("-", "").replace("_", "")
+        if sym_clean.startswith("BTC"):
+            return {
+                "qualifies": False,
+                "direction": "HOLD",
+                "score": 0,
+                "strategy": "BTC_ORACLE_MONITOR",
+                "stop_loss": 0.0,
+                "target": 0.0,
+                "stop_dist": 0.0,
+                "target_dist": 0.0,
+                "rationale": "[ORÁCULO MACRO]: BTC é utilizado exclusivamente como bússola de dominância e fluxo. Proibido abrir ordens de trade no BTC."
+            }
+
         # CAMADA 1: AVALIA ROMPIMENTO DE 1H (PRIORIDADE MÁXIMA)
         setup_res = None
         h1_eval = self.evaluate_h1_breakout(
@@ -1058,20 +1073,20 @@ class LayaRouterService:
         t0 = time.time()
         self.last_scan_time = t0
         
-        # [V159-TITANS] Catálogo congelado dos 10 Titãs de liquidez soberana da OKX
+        # [V160-TITANS-30] Catálogo das Top 30 Altcoins de liquidez soberana da OKX (Zero BTC para trade)
         try:
             from app.services.okx_universe_service import okx_universe_service
-            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=10)
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
             if dynamic_assets:
                 assets = dynamic_assets
             else:
-                assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_10]
+                assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
         except Exception as _e_uni:
-            logger.debug(f"[LAYA-UNIVERSE] Fallback para 10 Titãs: {_e_uni}")
+            logger.debug(f"[LAYA-UNIVERSE] Fallback para 30 Altcoins: {_e_uni}")
             from app.services.okx_universe_service import okx_universe_service
-            assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_10]
+            assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
 
-        self.log_thought("SISTEMA", f"Iniciando varredura soberana dos 10 Titãs ({len(assets)} ativos). Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
+        self.log_thought("SISTEMA", f"Iniciando varredura soberana do Top 30 Altcoins ({len(assets)} ativos). Farol Macro: BTC. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
 
         best_setup = None
         best_score = 0
@@ -1208,6 +1223,11 @@ class LayaRouterService:
         for a in deep_dive_assets:
             sym = a["symbol"]
             clean_sym = a["pair"]
+
+            # [REGRA ENCRYPTOS]: BTC é estritamente o Farol Macro, proibido abrir ordens de trade nele
+            if clean_sym.startswith("BTC") or sym.startswith("BTC"):
+                continue
+
             price = prices.get(clean_sym, 0.0)
             if price <= 0:
                 continue
@@ -1761,6 +1781,19 @@ class LayaRouterService:
         t0 = time.time()
         text = (market_summary or "").upper()
         data = structured_data or {}
+
+        # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordem de trade nele
+        sym_check = (data.get("symbol") or "").upper().replace("-", "")
+        if sym_check.startswith("BTC") or "BTCUSDT" in text or "BTC-USDT" in text:
+            return {
+                "available": False,
+                "decision": "HOLD",
+                "confidence": 0.0,
+                "confluence_score": 0.0,
+                "strategy": "BTC_ORACLE_MONITOR",
+                "regime_mode": "ORACLE",
+                "reason": "[ORÁCULO MACRO]: BTC é utilizado exclusivamente como bússola de dominância e fluxo. Proibido abrir ordens de trade no BTC."
+            }
         
         # 1. Extração de Parâmetros
         import re

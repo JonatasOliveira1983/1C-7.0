@@ -118,7 +118,8 @@ flowchart TD
 | `RISK_CAP_PERCENT` | 0.40 (40% da banca) | `config.py:132` |
 | `STRUCTURAL_STOP_DIST` | 2.8% a 4.5% ATR (fora do H1) | `laya_router_service.py:333` / V159 |
 | `STOP_LOSS_QUARANTINE` | 7200s (2 Horas Anti-Reincidência) | `laya_router_service.py:885` / V159 |
-| `WHITELIST_TITANS_10` | 10 Titãs Canônicos Imutáveis | `okx_universe_service.py:28` / V159 |
+| `WHITELIST_TITANS_30` | Top 30 Altcoins de Elite Institucional (Sem BTC para trade) | `okx_universe_service.py:42` / V160 |
+| `BTC_ROLE` | Oráculo Macro Exclusivo (Zero trades em BTC) | `laya_router_service.py:785` / V160 |
 | `RISK_ZERO_TRIGGER_ROI` | +8.0% → +1.0% ROI (Garantia Taxas) | `sandbox_service.py:1610` / V159 |
 | `ADX_MIN_ENTRY` | 22 | `config.py:142` |
 | `ADX_TRENDING_THRESHOLD` | 25 | `config.py:144` |
@@ -128,13 +129,13 @@ flowchart TD
 | `RAG_ROUTER` | `/api/v1/hermes/rag` (`/search`, `/status`) | `backend/routes/rag_routes.py` |
 | `ML_ROUTER` | `/api/v1/ml` (`/status`, `/dataset-stats`) | `backend/app/api/v1/endpoints/ml.py` |
 
-### 2.1 Motor Soberano Laya V159 (Metodologia Encryptos: 10 Titãs, BTC.D & Lead-Lag)
-1. **Whitelist Fixa dos 10 Titãs**:
-   - `BTC-USDT-SWAP`, `ETH-USDT-SWAP`, `SOL-USDT-SWAP`, `NEAR-USDT-SWAP`, `ZK-USDT-SWAP`, `XRP-USDT-SWAP`, `DOGE-USDT-SWAP`, `SUI-USDT-SWAP`, `LINK-USDT-SWAP`, `XPL-USDT-SWAP`.
-   - Proibido varrer pares ruidosos ou memecoins ilíquidas.
-2. **Especialista em Bitcoin & Microestrutura Lead-Lag**:
-   - Monitoramento simultâneo de `BTC-USDT` (Spot) e `BTC-USDT-SWAP` (Perpétuo).
-   - Detecção de absorção institucional no Spot antes do descolamento nos Futuros.
+### 2.1 Motor Soberano Laya V160 (Metodologia Encryptos: Top 30 Altcoins & BTC Oráculo)
+1. **Top 30 Altcoins de Elite Institucional da OKX**:
+   - `ETH`, `SOL`, `NEAR`, `SUI`, `AVAX`, `ADA`, `XRP`, `LINK`, `DOT`, `SEI`, `TON`, `ARB`, `OP`, `ZK`, `XPL`, `POL`, `UNI`, `AAVE`, `MKR`, `PYTH`, `ONDO`, `INJ`, `PENDLE`, `RENDER`, `FET`, `TIA`, `ICP`, `AR`, `DOGE`, `LTC`.
+   - Proibido varrer pares ruidosos, memecoins ilíquidas ou ativos de baixa capitalização.
+2. **BTC como Oráculo Macro Exclusivo (Zero Trades no BTC)**:
+   - Monitoramento contínuo de `BTC-USDT` (Spot) vs `BTC-USDT-SWAP` (Perpétuo) para capturar o *Lead-Lag* institucional.
+   - O BTC atua como a bússola/farol de tendência e dominância, sendo estritamente vetado para abertura de posições de trade para concentrar o capital e os 15x de alavancagem na assimetria elástica das altcoins.
 3. **Matriz de Clima por Dominância do Bitcoin (BTC.D)**:
    - `ALTCOIN_EXPANSION`: BTC.D em queda + BTC estável/alta -> Compras agressivas (LONG) em 15x liberadas; Vendas (SHORT) vetadas.
    - `ALTCOIN_BLOODBATH`: BTC.D subindo + BTC caindo -> Veto total de compras (LONG); Apenas SHORTS autorizados.

@@ -39,16 +39,17 @@ async def test_btc_dominance_and_climate_matrix():
 
 
 @pytest.mark.asyncio
-async def test_titans_10_whitelist_and_dossier():
-    # Verifica universo dos 10 Titãs
-    titans = await okx_universe_service.get_tradable_universe(limit=10)
-    assert len(titans) == 10
+async def test_titans_30_altcoins_and_dossier():
+    # Verifica universo dos Top 30 Altcoins com BTC estritamente excluído para trade
+    titans = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
+    assert len(titans) == 30
     symbols = [t["symbol"] for t in titans]
-    assert "BTC-USDT-SWAP" in symbols
+    assert "BTC-USDT-SWAP" not in symbols, "BTC não pode estar na cesta de trades"
     assert "ETH-USDT-SWAP" in symbols
     assert "SOL-USDT-SWAP" in symbols
     assert "NEAR-USDT-SWAP" in symbols
     assert "ZK-USDT-SWAP" in symbols
+    assert "XPL-USDT-SWAP" in symbols
 
     # Dossiê de Altcoin (SOL): 15x de alavancagem
     sol_dossier = await okx_universe_service.get_asset_dossier("SOL-USDT-SWAP")
@@ -57,9 +58,15 @@ async def test_titans_10_whitelist_and_dossier():
     assert sol_dossier["ctVal"] > 0
     assert sol_dossier["tickSize"] > 0
 
-    # Dossiê de BTC: 30x de alavancagem
-    btc_dossier = await okx_universe_service.get_asset_dossier("BTC-USDT-SWAP")
-    assert btc_dossier["leverage"] == 30
+    # Veto absoluto de abertura de ordens no BTC
+    btc_eval = laya_router_service.evaluate_multi_setup_opportunity(
+        symbol="BTC-USDT-SWAP",
+        current_price=82000.0,
+        acc_range={"resistance_h1": 81000.0, "support_h1": 80000.0}
+    )
+    assert btc_eval["qualifies"] is False
+    assert btc_eval["direction"] == "HOLD"
+    assert "ORÁCULO MACRO" in btc_eval["rationale"]
 
 
 def test_quarantine_2h_after_stop_loss():
