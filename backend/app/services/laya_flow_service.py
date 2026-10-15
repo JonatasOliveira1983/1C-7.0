@@ -45,6 +45,7 @@ class LayaFlowService:
     async def _fetch_and_calculate_metrics(self, ccy: str, inst_id: str) -> Dict[str, Any]:
         """Executa consultas protegidas à OKX e extrai métricas de fluxo."""
         from services.okx_rest import okx_rest_service
+        now = time.time()
 
         lsr_val = 1.0
         oi_val_usd = 0.0

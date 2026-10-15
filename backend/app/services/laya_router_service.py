@@ -1069,7 +1069,40 @@ class LayaRouterService:
             mid_diff = ((btc_px - btc_mid) / btc_mid) * 100.0
             btc_trend_bias = round((btc_chg * 0.5) + (mid_diff * 0.5), 2)
 
-        # [FUNIL ESTÁGIO 2]: Coleta concorrente com semáforo de alta vazão para os 50 pares
+        # Atualiza pensamento do Farol Macro em tempo real
+        self.log_thought(
+            "BTC-ORACLE",
+            f"Farol Macro BTC: ${btc_px:.0f} ({btc_chg:+.2f}%). Viés: {btc_trend_bias:+.2f}%. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).",
+            action="ORACULO",
+            confidence=95
+        )
+
+        # [FUNIL ESTÁGIO 2]: Ranqueamento rápido dos 50 ativos a partir do batch de tickers
+        # Seleciona os 14 ativos com maior atividade e volatilidade para deep dive MTF (executa em <2s)
+        ranked_assets = []
+        for a in assets:
+            clean = a["pair"]
+            px = prices.get(clean, 0.0)
+            if px <= 0:
+                continue
+            vol = float(a.get("volume_24h_usd", 0.0) or 0.0)
+            chg = abs(change_24h_map.get(clean, 0.0))
+            activity_score = (vol / 1_000_000.0) * 0.3 + chg * 2.5
+            ranked_assets.append((activity_score, a))
+
+        ranked_assets.sort(key=lambda x: x[0], reverse=True)
+        deep_dive_assets = [a for _, a in ranked_assets[:14]]
+        if not deep_dive_assets:
+            deep_dive_assets = assets[:14]
+
+        self.log_thought(
+            "SISTEMA",
+            f"Funil 50 Ativos: Selecionados 14 pares mais ativos para análise MTF e fluxo Rubik.",
+            action="VARREDURA",
+            confidence=92
+        )
+
+        # Coleta concorrente com semáforo de alta vazão para os top ativos
         sem_flow = asyncio.Semaphore(10)
         async def _safe_flow(p):
             async with sem_flow:
@@ -1086,31 +1119,30 @@ class LayaRouterService:
                 return await okx_rest_service.get_funding_rate(p)
 
         # Executa em lote controlado com semáforo
-        flow_tasks = [_safe_flow(a["pair"]) for a in assets]
+        flow_tasks = [_safe_flow(a["pair"]) for a in deep_dive_assets]
         flow_resps = await asyncio.gather(*flow_tasks, return_exceptions=True)
-        for a, flow in zip(assets, flow_resps):
+        for a, flow in zip(deep_dive_assets, flow_resps):
             if not isinstance(flow, BaseException):
                 self.whale_flow_cache[a["pair"]] = flow
 
-        kline_tasks = [_safe_kline(a["pair"]) for a in assets]
+        kline_tasks = [_safe_kline(a["pair"]) for a in deep_dive_assets]
         kline_resps = await asyncio.gather(*kline_tasks, return_exceptions=True)
         klines_h1_map = {}
-        for a, k_data in zip(assets, kline_resps):
+        for a, k_data in zip(deep_dive_assets, kline_resps):
             if not isinstance(k_data, BaseException) and k_data:
                 klines_h1_map[a["pair"]] = k_data
 
-        funding_tasks = [_safe_fund(a["pair"]) for a in assets]
+        funding_tasks = [_safe_fund(a["pair"]) for a in deep_dive_assets]
         funding_resps = await asyncio.gather(*funding_tasks, return_exceptions=True)
         funding_rate_map = {}
-        for a, f_data in zip(assets, funding_resps):
+        for a, f_data in zip(deep_dive_assets, funding_resps):
             if not isinstance(f_data, BaseException):
                 funding_rate_map[a["pair"]] = float(f_data or 0.0)
 
-        for a in assets:
+        for a in deep_dive_assets:
             sym = a["symbol"]
             clean_sym = a["pair"]
             price = prices.get(clean_sym, 0.0)
-            # NUNCA negociar ativos sem cotação de mercado real e verificada
             if price <= 0:
                 continue
 
