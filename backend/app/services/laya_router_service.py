@@ -1236,8 +1236,27 @@ class LayaRouterService:
         if len(self.thought_stream) > 80:
             self.thought_stream.pop(0)
 
+        # [MEMORIA-EPISODICA]: Persistência deduplicada de insights e ações institucionais
+        if action in ("ORDEM_DISPARADA", "VETO_MACRO", "PADRAO_CONFIRMADO", "ABSORPCAO", "LIQUIDACAO", "GATILHO_MOLA", "DVAP_CROSS", "VARREDURA_SNIPER"):
+            try:
+                from app.services.memory_service import memory_service
+                conf_val = round(min(1.0, max(0.1, (confidence or 80) / 100.0)), 2)
+                if symbol in ("SISTEMA", "BTC-ORACLE", "MACRO", "RADAR-FLUXO"):
+                    memory_service.record_macro_fact(thought, confidence=conf_val)
+                elif symbol and not symbol.startswith("["):
+                    memory_service.record_pair_insight(symbol, thought, confidence=conf_val, metadata={"action": action, "regime": regime or self.current_regime})
+            except Exception:
+                pass
+
     def get_pulse(self) -> Dict[str, Any]:
         """Retorna telemetria completa de sinal de vida da Laya para o Cockpit."""
+        mem_stats = {}
+        try:
+            from app.services.memory_service import memory_service
+            mem_stats = memory_service.get_stats()
+        except Exception:
+            pass
+
         return {
             "status": "ONLINE (SOVEREIGN COMMANDER)",
             "sovereign": True,
@@ -1248,7 +1267,8 @@ class LayaRouterService:
             "thoughts": self.thought_stream[-20:],
             "candidate_setups": self.candidate_setups,
             "whale_flow": self.whale_flow_cache,
-            "doctrine": "INSTITUTIONAL_LIQUIDITY_HUNTER"
+            "doctrine": "INSTITUTIONAL_LIQUIDITY_HUNTER",
+            "memory_stats": mem_stats
         }
 
     async def scan_and_execute_autonomous(self, force_open_if_empty: bool = True) -> Dict[str, Any]:
@@ -1581,6 +1601,13 @@ class LayaRouterService:
                     confidence=score
                 )
 
+            pair_mem = ""
+            try:
+                from app.services.memory_service import memory_service
+                pair_mem = memory_service.synthesize_pair_memory(clean_sym, limit=2)
+            except Exception:
+                pass
+
             self.candidate_setups[clean_sym] = {
                 "symbol": sym,
                 "clean_sym": clean_sym,
@@ -1601,6 +1628,7 @@ class LayaRouterService:
                 "confluence": {},
                 "leverage_cap": 50.0,
                 "rationale": rationale,
+                "memory_context": pair_mem,
                 "time": time.strftime("%H:%M:%S")
             }
 
