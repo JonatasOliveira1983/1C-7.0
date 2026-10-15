@@ -79,6 +79,7 @@ flowchart TD
 
     MCP_Bridge --> ScalpLab
     MCP_Bridge --> DB_SQLite
+    MCP_Bridge --> RAG_Engine
     R_RAG --> RAG_Engine
     RAG_Engine --> DB_Galaxy
 
@@ -87,9 +88,10 @@ flowchart TD
     R_Pulse --> LayaRouter
 
     LayaRouter --> BTCSpecialist
-    LayaRouter --> Titans10
+    LayaRouter --> Titans30
     LayaRouter --> LayaFlow
     LayaRouter --> Kronos
+    LayaRouter --> RAG_Engine
     LayaRouter --> SanityGate
     SanityGate --> ScalpLab
 
@@ -99,6 +101,8 @@ flowchart TD
     OKX_REST --> LayaRouter
 
     ScalpLab --> StopLadder
+    ScalpLab --> AutoFineTune
+    AutoFineTune --> ML_Calibration
     ScalpLab --> DB_SQLite
     DB_SQLite -.-> DB_Postgres
 ```

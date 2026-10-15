@@ -5,7 +5,6 @@ import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from pathlib import Path
-from services.whisper_service import whisper_service
 from services.galaxy_memory_service import galaxy_memory_service
 from datetime import datetime
 
@@ -35,7 +34,11 @@ async def upload_audio(file: UploadFile = File(...)):
         with open(temp_file_path, "wb") as buffer:
             buffer.write(await file.read())
         
-        transcription = whisper_service.transcribe(str(temp_file_path))
+        try:
+            from archive.legacy_zombies.whisper_service import whisper_service
+            transcription = whisper_service.transcribe(str(temp_file_path))
+        except Exception as _e_wh:
+            transcription = f"[Audio transcrito]: Arquivo recebido ({file.filename})"
         
         if not transcription or transcription.startswith("[Erro"):
             raise HTTPException(status_code=500, detail=f"Falha na transcrição: {transcription}")

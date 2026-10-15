@@ -6,6 +6,15 @@ Tests for Laya Sovereign Institutional Engine (Encryptos Whale Framework)
 - 2-Hour Quarantine After Stop Loss
 - Structural Stop Distance (min 2.8%)
 """
+import sys
+from pathlib import Path
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BACKEND_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import pytest
 import asyncio
 import time
@@ -148,3 +157,60 @@ def test_altcoin_climate_veto_in_multi_setup():
     assert eval_res["qualifies"] is False
     assert eval_res["direction"] == "HOLD"
     assert "VETO BTC.D CLIMA" in eval_res["rationale"]
+
+
+@pytest.mark.asyncio
+async def test_unified_rag_and_mcp_quarantine():
+    from services.rag_service import rag_service
+    from services.mcp_bridge import _tool_quarantine_symbol, _tool_get_quarantines, _tool_query_rag
+
+    # 1. RAG unificado retorna chunks relevantes
+    results = rag_service.search("Never Give Back", top_k=2)
+    assert len(results) > 0
+    assert rag_service.is_indexed is True
+
+    # 2. MCP Ferramenta de Quarentena
+    quar_res = await _tool_quarantine_symbol("SUI-USDT-SWAP", duration_seconds=3600)
+    assert quar_res["status"] == "success"
+    assert quar_res["symbol"] == "SUI"
+
+    # 3. MCP Ferramenta de Listagem de Quarentenas
+    list_res = await _tool_get_quarantines()
+    assert list_res["status"] == "success"
+    assert "SUI" in list_res["quarantines"]
+
+    # 4. MCP Ferramenta de Consulta RAG
+    mcp_rag = await _tool_query_rag("Dominancia do Bitcoin", top_k=2)
+    assert mcp_rag["status"] == "success"
+    assert len(mcp_rag["matches"]) > 0
+
+
+if __name__ == "__main__":
+    async def run_all():
+        print("[TEST] Running test_btc_dominance_and_climate_matrix...")
+        await test_btc_dominance_and_climate_matrix()
+        print("[PASS] test_btc_dominance_and_climate_matrix")
+
+        print("[TEST] Running test_titans_30_altcoins_and_dossier...")
+        await test_titans_30_altcoins_and_dossier()
+        print("[PASS] test_titans_30_altcoins_and_dossier")
+
+        print("[TEST] Running test_quarantine_2h_after_stop_loss...")
+        test_quarantine_2h_after_stop_loss()
+        print("[PASS] test_quarantine_2h_after_stop_loss")
+
+        print("[TEST] Running test_structural_stop_loss_distance_minimum...")
+        test_structural_stop_loss_distance_minimum()
+        print("[PASS] test_structural_stop_loss_distance_minimum")
+
+        print("[TEST] Running test_altcoin_climate_veto_in_multi_setup...")
+        test_altcoin_climate_veto_in_multi_setup()
+        print("[PASS] test_altcoin_climate_veto_in_multi_setup")
+
+        print("[TEST] Running test_unified_rag_and_mcp_quarantine...")
+        await test_unified_rag_and_mcp_quarantine()
+        print("[PASS] test_unified_rag_and_mcp_quarantine")
+
+        print("\n>>> ALL 6 SOVEREIGN TESTS PASSED SUCCESSFULLY! <<<")
+
+    asyncio.run(run_all())

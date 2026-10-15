@@ -1947,6 +1947,24 @@ class SandboxService:
             self._peak_roi_cache.pop(trade_key, None)
 
         await database_service.update_sandbox_trade(trade.id, update_payload)
+        asyncio.create_task(self._check_auto_finetune_cycle())
+
+    async def _check_auto_finetune_cycle(self):
+        """[V160 AUTO-LEARNING] Dispara re-calibração autônoma da Laya a cada 20 trades fechados."""
+        try:
+            from services.database_service import database_service
+            trades = await database_service.get_sandbox_trades(active_only=False)
+            closed_trades = [t for t in trades if getattr(t, "status", "").startswith("CLOSED")]
+            count = len(closed_trades)
+            if count >= 20 and count % 20 == 0:
+                logger.info(f"🧠 [AUTO-FINE-TUNING] Lote de {count} trades atingido. Disparando calibração da Laya...")
+                from app.ml.fine_tuning.dataset_generator import dataset_generator
+                from app.ml.fine_tuning.laya_finetune_trainer import laya_trainer
+                await dataset_generator.generate_laya_dataset(min_samples=20)
+                await laya_trainer.run_training_pipeline()
+                logger.info(f"✅ [AUTO-FINE-TUNING] Laya recalibrada com sucesso com base em {count} trades reais!")
+        except Exception as _e_ft:
+            logger.debug(f"[AUTO-FINE-TUNING] Falha silenciosa: {_e_ft}")
 
 
 sandbox_service = SandboxService()

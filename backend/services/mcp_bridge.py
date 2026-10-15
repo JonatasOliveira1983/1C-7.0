@@ -151,6 +151,50 @@ async def _tool_get_system_snapshot() -> Dict[str, Any]:
         return {"status": "error", "message": f"Snapshot failed: {str(e)}"}
 
 
+async def _tool_quarantine_symbol(symbol: str, duration_seconds: int = 7200) -> Dict[str, Any]:
+    """Coloca um par em quarentena forçada impedindo novas ordens pela Laya."""
+    try:
+        from app.services.laya_router_service import laya_router_service
+        clean = symbol.upper().replace("-USDT-SWAP", "").replace("USDT", "")
+        laya_router_service.record_stop_loss(clean, direction="ALL", cooldown_seconds=duration_seconds)
+        return {
+            "status": "success",
+            "symbol": clean,
+            "action": "QUARANTINE_APPLIED",
+            "duration_seconds": duration_seconds,
+            "message": f"{clean} colocado em quarentena soberana por {duration_seconds} segundos (2h)."
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Falha ao colocar em quarentena: {str(e)}"}
+
+
+async def _tool_get_quarantines() -> Dict[str, Any]:
+    """Lista todos os ativos atualmente em quarentena e tempo restante."""
+    try:
+        from app.services.laya_router_service import laya_router_service
+        now = asyncio.get_event_loop().time() if hasattr(asyncio, "get_event_loop") else time.time()
+        import time as _t
+        now_t = _t.time()
+        quarantines = {}
+        for sym, expire in laya_router_service._symbol_cooldowns.items():
+            remaining = max(0, int(expire - now_t))
+            if remaining > 0:
+                quarantines[sym] = {"remaining_seconds": remaining, "remaining_minutes": round(remaining / 60, 1)}
+        return {"status": "success", "total_quarantined": len(quarantines), "quarantines": quarantines}
+    except Exception as e:
+        return {"status": "error", "message": f"Falha ao listar quarentenas: {str(e)}"}
+
+
+async def _tool_query_rag(query: str, top_k: int = 4) -> Dict[str, Any]:
+    """Consulta a inteligência semântica unificada do RAG (MASTER_ARCHITECTURE, vault_galaxy, docs)."""
+    try:
+        from services.rag_service import rag_service
+        results = rag_service.search(query, top_k=top_k)
+        return {"status": "success", "query": query, "total_matches": len(results), "matches": results}
+    except Exception as e:
+        return {"status": "error", "message": f"Falha na consulta RAG: {str(e)}"}
+
+
 # Register tools on MCP server if active
 if mcp is not None:
     try:
@@ -178,8 +222,23 @@ if mcp is not None:
         async def get_system_snapshot() -> Dict[str, Any]:
             """Fetches a high-level system telemetry snapshot."""
             return await _tool_get_system_snapshot()
+
+        @mcp.tool()
+        async def quarantine_symbol(symbol: str, duration_seconds: int = 7200) -> Dict[str, Any]:
+            """Coloca um par em quarentena forçada na Laya por N segundos (padrão: 7200s / 2 horas)."""
+            return await _tool_quarantine_symbol(symbol, duration_seconds)
+
+        @mcp.tool()
+        async def get_quarantines() -> Dict[str, Any]:
+            """Lista todos os ativos atualmente em quarentena e o tempo restante."""
+            return await _tool_get_quarantines()
+
+        @mcp.tool()
+        async def query_rag_intelligence(query: str, top_k: int = 4) -> Dict[str, Any]:
+            """Consulta a inteligência semântica do RAG (arquitetura, regras, journal e histórico de trades)."""
+            return await _tool_query_rag(query, top_k)
             
-        logger.info("✅ [MCP] 5 ferramentas oficiais do 1Crypten registradas no MCP Server.")
+        logger.info("✅ [MCP] 8 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo RAG e Quarentena).")
     except Exception as _e_reg:
         logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
 
@@ -204,7 +263,10 @@ def get_asgi_app():
                             {"name": "get_positions", "description": "Lists all active trading positions with real-time entry, stop loss, take profit and PnL."},
                             {"name": "get_radar_signals", "description": "Fetches real-time whale & retail order flow signals from OKX Rubik."},
                             {"name": "evaluate_asset", "description": "Evaluates candidate asset entry with dual-engine Laya + Kronos."},
-                            {"name": "get_system_snapshot", "description": "Returns high-level system telemetry, active slots, and risk state."}
+                            {"name": "get_system_snapshot", "description": "Returns high-level system telemetry, active slots, and risk state."},
+                            {"name": "quarantine_symbol", "description": "Forces an asset into sovereign quarantine for N seconds (default 7200s)."},
+                            {"name": "get_quarantines", "description": "Lists all quarantined assets with remaining cooldown time."},
+                            {"name": "query_rag_intelligence", "description": "Performs semantic search across MASTER_ARCHITECTURE, vault_galaxy, rules and docs."}
                         ]
                     })
                 _mcp_asgi_app.routes.append(Route("/tools", _list_tools_endpoint, methods=["GET"]))

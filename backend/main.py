@@ -686,19 +686,6 @@ async def lifespan(app: FastAPI):
     # Start worker
     asyncio.create_task(start_services())
 
-    # [V126.1] Pre-aquecer Whisper em background (não bloqueia o startup).
-    # Usado pelo endpoint /api/memory/upload-audio quando o device não tem Web Speech (ex.: iOS).
-    async def _warm_whisper():
-        try:
-            from services.whisper_service import whisper_service
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, whisper_service.initialize)
-            logger.info("✅ [WHISPER] Modelo pré-carregado e pronto para STT server-side.")
-        except Exception as e:
-            logger.warning(f"⚠️ [WHISPER] Falha ao pré-carregar modelo (lazy ainda funciona): {e}")
-
-    asyncio.create_task(_warm_whisper())
-
     yield
     
     # 🛑 [V110.176] CLEAN SHUTDOWN PROTOCOL
@@ -814,6 +801,26 @@ try:
         logger.info("🔌 [MCP] Bridge montado nativamente em /mcp")
 except Exception as mcp_err:
     logger.warning(f"⚠️ [MCP] Erro ao montar MCP Bridge: {mcp_err}")
+
+@app.get("/api/v1/mcp/tools", tags=["MCP Tools"])
+async def list_mcp_tools():
+    """Catálogo oficial de ferramentas do 1Crypten expostas no protocolo MCP 2.x."""
+    return {
+        "status": "online",
+        "protocol": "MCP 2.x (Model Context Protocol)",
+        "mount_point": "/mcp",
+        "total_tools": 8,
+        "tools": [
+            {"name": "get_balance", "type": "READ", "description": "Saldo unificado Sandbox / OKX Real."},
+            {"name": "get_positions", "type": "READ", "description": "Posições ativas com SL, TP e PnL."},
+            {"name": "get_radar_signals", "type": "READ", "description": "Sinais de fluxo institucional OKX Rubik."},
+            {"name": "evaluate_asset", "type": "READ", "description": "Avaliação dual-engine Laya + Kronos."},
+            {"name": "get_system_snapshot", "type": "READ", "description": "Telemetria soberana, ADX e regime."},
+            {"name": "quarantine_symbol", "type": "WRITE_RISK", "description": "Quarentena forçada anti-reincidência (2h)."},
+            {"name": "get_quarantines", "type": "READ", "description": "Lista de ativos em quarentena ativa."},
+            {"name": "query_rag_intelligence", "type": "READ", "description": "Busca semântica no RAG unificado."}
+        ]
+    }
 
 if settings.SERVE_STATIC_FRONTEND:
     # [V5.0] Intel Map (Graphify)

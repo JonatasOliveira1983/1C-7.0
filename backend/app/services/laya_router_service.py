@@ -908,6 +908,16 @@ class LayaRouterService:
                     "target_dist": 0.0,
                     "rationale": f"[FAROL MACRO VETO]: Setup SHORT ({setup_res.get('strategy')}) vetado pois o Bitcoin está em alta ({btc_trend_bias:+.2f}%). Operando estritamente LONG a favor da tendência."
                 }
+
+            # [RAG KNOWLEDGE INSIGHT]: Consulta lições de risco e histórico do par no RAG
+            try:
+                from services.rag_service import rag_service
+                rag_lesson = rag_service.query_risk_lessons(symbol)
+                if rag_lesson:
+                    setup_res["rag_insight"] = rag_lesson
+            except Exception:
+                pass
+
             return setup_res
 
         # CAMADA 4: DIAGNÓSTICO INTEGRADO QUANDO NENHUM QUALIFICA

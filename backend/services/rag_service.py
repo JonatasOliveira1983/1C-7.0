@@ -88,11 +88,12 @@ class RAGService:
             for md_file in rules_dir.glob("*.md"):
                 new_chunks.extend(self._chunk_markdown(md_file, category="RULES"))
 
-        # 4. Index docs/ directory (Audits, blueprints, technical specs)
-        docs_dir = self.root_dir / "docs"
-        if docs_dir.exists():
-            for md_file in docs_dir.glob("**/*.md"):
-                new_chunks.extend(self._chunk_markdown(md_file, category="DOCS"))
+        # 5. Index backend/data/knowledge/ if exists
+        knowledge_dir = self.root_dir / "backend" / "data" / "knowledge"
+        if knowledge_dir.exists():
+            for doc_file in knowledge_dir.glob("**/*"):
+                if doc_file.suffix.lower() in [".md", ".txt"]:
+                    new_chunks.extend(self._chunk_markdown(doc_file, category="KNOWLEDGE"))
 
         self.chunks = new_chunks
         self.total_docs = len(self.chunks)
@@ -199,13 +200,29 @@ class RAGService:
 
         return results
 
+    def get_relevant_context(self, query: str, max_chars: int = 1500) -> str:
+        """Alias compatível com Hermes Orchestrator para injeção rápida de contexto documental."""
+        return self.format_context_for_prompt(query, top_k=3, max_chars=max_chars)
+
+    def query_risk_lessons(self, symbol: str, max_chars: int = 1200) -> str:
+        """Busca lições de risco e aprendizados específicos para um ativo no vault_galaxy."""
+        clean = symbol.upper().replace("-USDT-SWAP", "").replace("USDT", "")
+        results = self.search(f"{clean} stop loss risco journal trade", top_k=3)
+        if not results:
+            return ""
+        lessons = [f"Lições RAG para {clean}:"]
+        for r in results:
+            if "GALAXY" in r["category"] or "DOCS" in r["category"]:
+                lessons.append(f"• [{r['title']}]: {r['snippet'][:250]}...")
+        return "\n".join(lessons) if len(lessons) > 1 else ""
+
     def format_context_for_prompt(self, query: str, top_k: int = 3, max_chars: int = 3000) -> str:
         """Retrieves and formats context snippets ready to be injected into LLM/Hermes prompt."""
         results = self.search(query, top_k=top_k)
         if not results:
             return ""
 
-        context_lines = ["\n[SEGUNDO CEREBRO — CONTEXTO RAG RELEVANTE]"]
+        context_lines = ["\n[SEGUNDO CÉREBRO — CONTEXTO RAG RELEVANTE]"]
         total_len = 0
         for r in results:
             entry = f"\n--- [{r['category']}] {r['title']} ({r['source']}) ---\n{r['snippet']}\n"
