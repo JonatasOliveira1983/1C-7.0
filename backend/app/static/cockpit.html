@@ -107,15 +107,18 @@
         max-height: 100% !important;
         overflow: hidden !important;
       }
-      .cockpit-col-middle #pane-laya-thoughts,
-      .cockpit-col-middle #pane-laya-whales,
-      .cockpit-col-middle #pane-laya-candidates {
+      .cockpit-col-middle .laya-tab-pane {
         flex: 1 1 0 !important;
-        display: flex !important;
         flex-direction: column !important;
         min-height: 0 !important;
         height: 100% !important;
         overflow: hidden !important;
+      }
+      .cockpit-col-middle .laya-tab-pane.active-tab {
+        display: flex !important;
+      }
+      .cockpit-col-middle .laya-tab-pane:not(.active-tab) {
+        display: none !important;
       }
       .cockpit-col-middle #laya-thought-stream,
       .cockpit-col-middle #laya-whale-radar-container,
@@ -945,7 +948,7 @@
           </div>
 
           <!-- Pane 1: Stream de Consciência Terminal (ZERO-SCROLL FILL) -->
-          <div id="pane-laya-thoughts" style="display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+          <div id="pane-laya-thoughts" class="laya-tab-pane active-tab" style="display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
               <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FEED NEURAL AO VIVO:</span>
               <span style="font-size: 7.5px; color: var(--cyan-pulse); font-family: var(--font-mono);">LIVE TELEMETRY (3S)</span>
@@ -956,7 +959,7 @@
           </div>
 
           <!-- Pane 2: Radar Baleias vs Sardinhas (Rubik) -->
-          <div id="pane-laya-whales" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+          <div id="pane-laya-whales" class="laya-tab-pane" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
               <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FLUXO INSTITUCIONAL RUBIK:</span>
               <span style="font-size: 7.5px; color: #FCD535; font-family: var(--font-mono);">14 PARES MONITORADOS</span>
@@ -967,7 +970,7 @@
           </div>
 
           <!-- Pane 3: Setups Candidatos -->
-          <div id="pane-laya-candidates" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+          <div id="pane-laya-candidates" class="laya-tab-pane" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
               <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">OPORTUNIDADES IDENTIFICADAS:</span>
               <span style="font-size: 7.5px; color: #0ECB81; font-family: var(--font-mono);">PRONTAS PARA DISPARO</span>
@@ -2505,13 +2508,46 @@
       const wPane = document.getElementById("pane-laya-whales");
       const cPane = document.getElementById("pane-laya-candidates");
 
-      if (tBtn) tBtn.className = tab === 'thoughts' ? 'btn-gold' : 'btn-ghost';
-      if (wBtn) wBtn.className = tab === 'whales' ? 'btn-gold' : 'btn-ghost';
-      if (cBtn) cBtn.className = tab === 'candidates' ? 'btn-gold' : 'btn-ghost';
+      if (tBtn) {
+        tBtn.className = tab === 'thoughts' ? 'btn-gold' : 'btn-ghost';
+        tBtn.style.fontWeight = tab === 'thoughts' ? '700' : '400';
+      }
+      if (wBtn) {
+        wBtn.className = tab === 'whales' ? 'btn-gold' : 'btn-ghost';
+        wBtn.style.fontWeight = tab === 'whales' ? '700' : '400';
+      }
+      if (cBtn) {
+        cBtn.className = tab === 'candidates' ? 'btn-gold' : 'btn-ghost';
+        cBtn.style.fontWeight = tab === 'candidates' ? '700' : '400';
+      }
 
-      if (tPane) tPane.style.display = tab === 'thoughts' ? 'flex' : 'none';
-      if (wPane) wPane.style.display = tab === 'whales' ? 'flex' : 'none';
-      if (cPane) cPane.style.display = tab === 'candidates' ? 'flex' : 'none';
+      if (tPane) {
+        if (tab === 'thoughts') {
+          tPane.classList.add('active-tab');
+          tPane.style.setProperty('display', 'flex', 'important');
+        } else {
+          tPane.classList.remove('active-tab');
+          tPane.style.setProperty('display', 'none', 'important');
+        }
+      }
+      if (wPane) {
+        if (tab === 'whales') {
+          wPane.classList.add('active-tab');
+          wPane.style.setProperty('display', 'flex', 'important');
+        } else {
+          wPane.classList.remove('active-tab');
+          wPane.style.setProperty('display', 'none', 'important');
+        }
+      }
+      if (cPane) {
+        if (tab === 'candidates') {
+          cPane.classList.add('active-tab');
+          cPane.style.setProperty('display', 'flex', 'important');
+        } else {
+          cPane.classList.remove('active-tab');
+          cPane.style.setProperty('display', 'none', 'important');
+        }
+      }
     }
     window.switchLayaTab = switchLayaTab;
 
