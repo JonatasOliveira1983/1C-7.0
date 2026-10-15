@@ -11,150 +11,154 @@
     /* ==========================================================================
        ULTRAWIDE & PANORAMIC SCREEN OPTIMIZATION (ZERO VERTICAL SCROLL)
        ========================================================================== */
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    .app-header {
+      height: 38px !important;
+      flex-shrink: 0 !important;
+    }
     .cockpit-panoramic-main {
-      max-width: 1780px;
-      margin: 0 auto;
-      padding: 16px 14px;
-    }
-    .cockpit-panoramic-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 390px;
-      gap: 16px;
-      align-items: start;
-      margin-bottom: 20px;
-    }
-    .cockpit-col-tables {
+      width: 100%;
+      height: calc(100vh - 38px);
+      max-height: calc(100vh - 38px);
+      margin: 0;
+      padding: 4px 8px;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 4px;
+      overflow: hidden;
     }
 
-    @media (min-width: 1700px) {
+    @media (min-width: 1200px) {
       html, body {
-        min-height: 100vh !important;
-        height: auto !important;
-        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
       }
       .app-header {
         height: 38px !important;
         padding: 0 14px !important;
+        flex-shrink: 0 !important;
       }
       .cockpit-panoramic-main {
         max-width: 100% !important;
         width: 100% !important;
-        min-height: calc(100vh - 40px) !important;
-        height: auto !important;
-        padding: 6px 12px !important;
+        height: calc(100vh - 38px) !important;
+        max-height: calc(100vh - 38px) !important;
+        min-height: 0 !important;
+        padding: 4px 8px 6px 8px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
         flex-direction: column !important;
-        gap: 6px !important;
-        overflow: visible !important;
+        gap: 4px !important;
+        overflow: hidden !important;
       }
       .cockpit-banner-row {
         margin-bottom: 0 !important;
-        padding: 4px 10px !important;
-        font-size: 10px !important;
+        padding: 3px 10px !important;
+        font-size: 9.5px !important;
         flex-shrink: 0 !important;
-      }
-      .cockpit-kpis-row {
-        display: grid !important;
-        grid-template-columns: repeat(3, 1fr) !important;
-        gap: 8px !important;
-        margin-bottom: 0 !important;
-        flex-shrink: 0 !important;
-      }
-      .cockpit-kpis-row .card-lamborghini {
-        padding: 6px 10px !important;
-        margin-bottom: 0 !important;
-      }
-      .cockpit-kpis-row .metric-value {
-        font-size: 17px !important;
-        margin: 2px 0 !important;
-      }
-      .cockpit-kpis-row .card-lamborghini-header {
-        margin-bottom: 3px !important;
-      }
-      .cockpit-kpis-row .card-title {
-        font-size: 10px !important;
       }
 
       /* 3-Column Panoramic Dashboard: Left Controls + Center Charts + Right Tables */
       .cockpit-panoramic-grid {
         display: grid !important;
-        grid-template-columns: minmax(300px, 0.75fr) minmax(420px, 1.45fr) minmax(340px, 0.85fr) !important;
-        gap: 8px !important;
-        flex: 1 1 auto !important;
-        min-height: calc(100vh - 65px) !important;
+        grid-template-columns: minmax(280px, 0.72fr) minmax(440px, 1.55fr) minmax(320px, 0.85fr) !important;
+        gap: 6px !important;
+        flex: 1 1 0 !important;
+        height: calc(100% - 36px) !important;
+        max-height: calc(100% - 36px) !important;
+        min-height: 0 !important;
         margin-bottom: 0 !important;
-        overflow: visible !important;
+        overflow: hidden !important;
         align-items: stretch !important;
       }
+
+      /* Col 1: Mesa Tática (Banca & Laya) */
       .cockpit-col-middle {
         order: 1 !important;
         height: 100% !important;
+        max-height: 100% !important;
         min-height: 0 !important;
         display: flex !important;
         flex-direction: column !important;
-        gap: 8px !important;
+        gap: 4px !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-middle .card-lamborghini {
+        padding: 6px 8px !important;
+        margin-bottom: 0 !important;
       }
       .cockpit-col-middle #card-laya-sovereign {
-        flex: 1 1 auto !important;
+        flex: 1 1 0 !important;
         display: flex !important;
         flex-direction: column !important;
-        min-height: 520px !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
       }
       .cockpit-col-middle #pane-laya-thoughts,
       .cockpit-col-middle #pane-laya-whales,
       .cockpit-col-middle #pane-laya-candidates {
-        flex: 1 1 auto !important;
+        flex: 1 1 0 !important;
         display: flex !important;
         flex-direction: column !important;
         min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
       }
       .cockpit-col-middle #laya-thought-stream,
       .cockpit-col-middle #laya-whale-radar-container,
       .cockpit-col-middle #laya-candidates-container {
-        flex: 1 1 auto !important;
+        flex: 1 1 0 !important;
         height: 100% !important;
-        min-height: 480px !important;
+        min-height: 0 !important;
         max-height: none !important;
+        overflow-y: auto !important;
       }
+
+      /* Col 2: Flash Map (Gráficos) */
       .cockpit-col-charts {
         order: 2 !important;
-      }
-      .cockpit-col-tables {
-        order: 3 !important;
-      }
-      
-      /* Col 1: Flash Map */
-      .cockpit-col-charts {
         height: 100% !important;
-        min-height: 540px !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        overflow: hidden !important;
       }
       .cockpit-col-charts > .card-lamborghini {
         height: 100% !important;
-        min-height: 540px !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 8px !important;
+        padding: 4px 6px !important;
         margin-bottom: 0 !important;
+        overflow: hidden !important;
       }
       .cockpit-col-charts #charts-grid-container {
-        flex: 1 !important;
-        min-height: 480px !important;
+        flex: 1 1 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
         display: grid !important;
-        gap: 6px !important;
+        gap: 4px !important;
+        overflow: hidden !important;
       }
       .charts-grid-quad {
         grid-template-columns: 1fr 1fr !important;
-        grid-template-rows: minmax(230px, 1fr) minmax(230px, 1fr) !important;
+        grid-template-rows: 1fr 1fr !important;
       }
       .charts-grid-dual {
         grid-template-columns: 1fr 1fr !important;
@@ -195,101 +199,80 @@
 
       .chart-card-wrapper {
         height: 100% !important;
-        min-height: 220px !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 6px !important;
+        padding: 4px !important;
         margin-bottom: 0 !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
       }
       .chart-card-wrapper > div:last-child {
-        flex: 1 1 0% !important;
-        min-height: 180px !important;
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
         width: 100% !important;
         height: 100% !important;
         position: relative !important;
         display: block !important;
+        overflow: hidden !important;
       }
       .lw-frame-wrap {
         width: 100% !important;
         height: 100% !important;
-        min-height: 180px !important;
+        min-height: 0 !important;
         position: absolute !important;
         top: 0; left: 0; right: 0; bottom: 0;
         display: block !important;
       }
 
-      /* Breakpoint Tela Dividida e Telas Médias (992px a 1699px) */
-      @media (max-width: 1699px) {
-        html, body {
-          overflow-y: auto !important;
-          min-height: 100vh !important;
-        }
-        .cockpit-panoramic-main {
-          height: auto !important;
-          min-height: 100vh !important;
-          overflow-y: visible !important;
-          padding: 8px !important;
-        }
-        .cockpit-panoramic-grid {
-          display: grid !important;
-          grid-template-columns: 1fr 1fr !important;
-          gap: 10px !important;
-          height: auto !important;
-          overflow: visible !important;
-        }
-        /* GRÁFICO TOMA LARGURA TOTAL NO TOPO COM ALTURA GARANTIDA */
-        .cockpit-col-charts {
-          grid-column: 1 / -1 !important;
-          order: 1 !important;
-          width: 100% !important;
-          min-height: 560px !important;
-          height: auto !important;
-        }
-        .cockpit-col-charts > .card-lamborghini {
-          min-height: 560px !important;
-        }
-        .cockpit-col-charts #charts-grid-container {
-          min-height: 500px !important;
-        }
-        .charts-grid-quad {
-          grid-template-columns: 1fr 1fr !important;
-          grid-template-rows: minmax(240px, 1fr) minmax(240px, 1fr) !important;
-        }
-        .charts-grid-dual {
-          grid-template-columns: 1fr 1fr !important;
-          grid-template-rows: minmax(360px, 1fr) !important;
-        }
-        .charts-grid-solo {
-          grid-template-columns: 1fr !important;
-          grid-template-rows: minmax(460px, 1fr) !important;
-        }
-        .chart-card-wrapper {
-          min-height: 240px !important;
-        }
-        .chart-card-wrapper > div:last-child {
-          min-height: 200px !important;
-        }
-        .lw-frame-wrap {
-          min-height: 200px !important;
-        }
-        .cockpit-col-middle {
-          grid-column: 1 / 2 !important;
-          order: 2 !important;
-          max-height: none !important;
-          height: auto !important;
-        }
-        .cockpit-col-tables {
-          grid-column: 2 / 3 !important;
-          order: 3 !important;
-          max-height: none !important;
-          height: auto !important;
-        }
+      /* Col 3: Custódia & Histórico */
+      .cockpit-col-tables {
+        order: 3 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        overflow: hidden !important;
       }
+      .cockpit-col-tables .card-lamborghini {
+        padding: 6px 8px !important;
+        margin-bottom: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-tables .card-lamborghini:first-child {
+        flex: 1.1 1 0 !important;
+        height: 52% !important;
+        max-height: 52% !important;
+      }
+      .cockpit-col-tables .card-lamborghini:last-child {
+        flex: 0.9 1 0 !important;
+        height: 48% !important;
+        max-height: 48% !important;
+      }
+      .cockpit-col-tables .table-responsive-wrap {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        max-height: none !important;
+      }
+      .cockpit-col-tables #recent-trades-list {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        max-height: none !important;
+      }
+    }
 
-      /* Breakpoint Tablet & Mobile (< 992px) */
-      @media (max-width: 991px) {
+      /* Breakpoint Tablet & Mobile (< 1200px) */
+      @media (max-width: 1199px) {
         html, body {
           overflow-y: auto !important;
         }
@@ -392,75 +375,7 @@
         }
       }
 
-      /* Col 2: Mesa Tática */
-      .cockpit-col-middle {
-        height: 100% !important;
-        min-height: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 6px !important;
-        overflow-y: auto !important;
-        padding-right: 3px !important;
-      }
-      .cockpit-col-middle .card-lamborghini {
-        padding: 6px 10px !important;
-        margin-bottom: 0 !important;
-      }
-      .cockpit-col-middle #card-laya-sovereign {
-        flex: 1 1 auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-        min-height: 520px !important;
-      }
-      .cockpit-col-middle #pane-laya-thoughts,
-      .cockpit-col-middle #pane-laya-whales,
-      .cockpit-col-middle #pane-laya-candidates {
-        flex: 1 1 auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-        min-height: 0 !important;
-      }
-      .cockpit-col-middle #laya-thought-stream,
-      .cockpit-col-middle #laya-whale-radar-container,
-      .cockpit-col-middle #laya-candidates-container {
-        flex: 1 1 auto !important;
-        height: 100% !important;
-        min-height: 480px !important;
-        max-height: none !important;
-      }
 
-      /* Col 3: Custódia & Histórico */
-      .cockpit-col-tables {
-        height: 100% !important;
-        min-height: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 6px !important;
-        overflow-y: auto !important;
-        padding-right: 3px !important;
-        margin-bottom: 0 !important;
-      }
-      .cockpit-col-tables .card-lamborghini {
-        padding: 6px 10px !important;
-        margin-bottom: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        min-height: 0 !important;
-        flex: 1 !important;
-      }
-      .cockpit-col-tables .table-responsive-wrap {
-        flex: 1 !important;
-        min-height: 0 !important;
-        overflow-y: auto !important;
-        max-height: 320px !important;
-      }
-      .cockpit-col-tables #recent-trades-list {
-        flex: 1 !important;
-        min-height: 0 !important;
-        overflow-y: auto !important;
-        max-height: 280px !important;
-      }
-    }
 
     .clickable-row {
       cursor: pointer;
@@ -754,8 +669,8 @@
                   <button id="btn-tf-0-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(0, '60')">1H</button>
                 </div>
               </div>
-              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
-                <div id="lw-frame-wrap-0" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1 1 0; min-height: 0;">
+                <div id="lw-frame-wrap-0" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 0; background: #050505;"></div>
                 <div id="tv-frame-wrap-0" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
                   <iframe id="tv-frame-0" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
@@ -797,8 +712,8 @@
                   <button id="btn-tf-1-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(1, '60')">1H</button>
                 </div>
               </div>
-              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
-                <div id="lw-frame-wrap-1" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1 1 0; min-height: 0;">
+                <div id="lw-frame-wrap-1" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 0; background: #050505;"></div>
                 <div id="tv-frame-wrap-1" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
                   <iframe id="tv-frame-1" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
@@ -840,8 +755,8 @@
                   <button id="btn-tf-2-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(2, '60')">1H</button>
                 </div>
               </div>
-              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
-                <div id="lw-frame-wrap-2" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1 1 0; min-height: 0;">
+                <div id="lw-frame-wrap-2" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 0; background: #050505;"></div>
                 <div id="tv-frame-wrap-2" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
                   <iframe id="tv-frame-2" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
@@ -883,8 +798,8 @@
                   <button id="btn-tf-3-60" class="btn-gold btn-tf" data-tf="60" style="padding: 1px 4px; font-size: 8.5px;" onclick="setChartInterval(3, '60')">1H</button>
                 </div>
               </div>
-              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1; min-height: 180px;">
-                <div id="lw-frame-wrap-3" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 180px; background: #050505;"></div>
+              <div style="position: relative; width: 100%; overflow: hidden; height: 100%; flex: 1 1 0; min-height: 0;">
+                <div id="lw-frame-wrap-3" class="lw-frame-wrap" style="width: 100%; height: 100%; min-height: 0; background: #050505;"></div>
                 <div id="tv-frame-wrap-3" class="tv-frame-wrap" style="display: none; height: 100%; width: 100%; background: #000;">
                   <iframe id="tv-frame-3" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
@@ -915,155 +830,155 @@
       <div class="cockpit-col-middle" style="min-width: 0; display: flex; flex-direction: column; gap: 8px;">
 
         <!-- MASTER CARD: BANCA SOBERANA & GESTÃO DE RISCO (100% UNIFICADA) -->
-        <div class="card-lamborghini" style="border-left: 3px solid var(--accent-gold); background: linear-gradient(180deg, #181A20 0%, #121418 100%); flex-shrink: 0; padding: 10px 12px; margin-bottom: 0;">
-          <div class="card-lamborghini-header" style="margin-bottom: 6px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <canvas class="thinking-orb-canvas" data-state="breathing" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas>
-              <span class="card-title" style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: #EAECEF;">BANCA SOBERANA & GESTÃO DE RISCO</span>
+        <div class="card-lamborghini" style="border-left: 3px solid var(--accent-gold); background: linear-gradient(180deg, #181A20 0%, #121418 100%); flex-shrink: 0; padding: 6px 10px; margin-bottom: 0;">
+          <div class="card-lamborghini-header" style="margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <canvas class="thinking-orb-canvas" data-state="breathing" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+              <span class="card-title" style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; color: #EAECEF;">BANCA SOBERANA & GESTÃO DE RISCO</span>
             </div>
-            <div style="display: flex; gap: 5px; align-items: center;">
-              <span class="badge-cyan" style="font-size: 8.5px; padding: 2px 6px;">15X ISOLADA</span>
-              <span id="side-defense-badge" class="badge-gold" style="font-size: 8.5px; padding: 2px 6px;">DEFESA L0</span>
+            <div style="display: flex; gap: 4px; align-items: center;">
+              <span class="badge-cyan" style="font-size: 8px; padding: 1px 5px;">15X ISOLADA</span>
+              <span id="side-defense-badge" class="badge-gold" style="font-size: 8px; padding: 1px 5px;">DEFESA L0</span>
             </div>
           </div>
 
           <!-- Main Equity Value (Monumental Typography) -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; padding: 2px 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; padding: 1px 2px;">
             <div>
-              <span style="display: block; font-size: 8.5px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
-              <span id="side-balance" class="metric-value font-mono" style="font-size: 32px; font-weight: 900; color: #FCD535; line-height: 1.1; letter-spacing: -0.02em; text-shadow: 0 0 16px rgba(252, 213, 53, 0.3);">$10,000.00</span>
+              <span style="display: block; font-size: 8px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
+              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$10,000.00</span>
             </div>
             <div style="text-align: right;">
-              <span style="display: block; font-size: 8px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">PERFORMANCE</span>
-              <span id="side-pnl" class="badge-up" style="font-size: 13px; font-weight: 800; padding: 3px 8px;">+0.00%</span>
+              <span style="display: block; font-size: 7.5px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 1px;">PERFORMANCE</span>
+              <span id="side-pnl" class="badge-up" style="font-size: 11px; font-weight: 800; padding: 2px 6px;">+0.00%</span>
             </div>
           </div>
 
           <!-- Grid Unificado da Banca & Risco (8 Métricas Essenciais Consolidando Topo e Lado) -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #0B0E11; padding: 8px 10px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
-              <b id="side-base-balance" style="color: #EAECEF; font-size: 12.5px;">$10,000.00</b>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
+              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$10,000.00</b>
             </div>
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO</span>
-              <b id="side-realized-pnl" style="color: #0ECB81; font-size: 12.5px;">+$0.00</b>
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO</span>
+              <b id="side-realized-pnl" style="color: #0ECB81; font-size: 11.5px;">+$0.00</b>
             </div>
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
-              <b id="kpi-peak" style="color: #FFF; font-size: 12.5px;">$10,000.00</b>
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
+              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$10,000.00</b>
             </div>
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
-              <b id="kpi-floor" style="color: #FCD535; font-size: 12.5px;">$10,000.00</b>
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
+              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$10,000.00</b>
             </div>
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
-              <b id="side-floating-pnl" style="color: #aaa; font-size: 12.5px;">$0.00</b>
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
+              <b id="side-floating-pnl" style="color: #aaa; font-size: 11.5px;">$0.00</b>
             </div>
-            <div style="border-bottom: 1px solid #1c2128; padding-bottom: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">MARGEM EM RISCO</span>
-              <b id="side-margin-allocated" style="color: #29ABE2; font-size: 12.5px;">$0.00 (0%)</b>
+            <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">MARGEM EM RISCO</span>
+              <b id="side-margin-allocated" style="color: #29ABE2; font-size: 11.5px;">$0.00 (0%)</b>
             </div>
-            <div style="padding-top: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">SLOTS EM OPERAÇÃO</span>
+            <div style="padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SLOTS EM OPERAÇÃO</span>
               <div style="display: flex; align-items: baseline; gap: 4px;">
-                <b id="kpi-slots" style="color: #FFF; font-size: 12.5px;">0 / 20</b>
-                <span style="font-size: 8px; color: #848E9C;">(S: <b id="kpi-scalp-slots" style="color:#FFF;">0/5</b> | W: <b id="kpi-swing-slots" style="color:#FFF;">0/15</b>)</span>
+                <b id="kpi-slots" style="color: #FFF; font-size: 11.5px;">0 / 20</b>
+                <span style="font-size: 7.5px; color: #848E9C;">(S: <b id="kpi-scalp-slots" style="color:#FFF;">0/5</b> | W: <b id="kpi-swing-slots" style="color:#FFF;">0/15</b>)</span>
               </div>
             </div>
-            <div style="padding-top: 4px;">
-              <span style="color: #848E9C; display: block; font-size: 8.5px; font-weight: 600; text-transform: uppercase;">TETO DE RISCO MESA</span>
-              <span id="kpi-risk-cap" class="badge-gold" style="font-size: 9.5px; padding: 2px 6px;">RISK: 0% / 40%</span>
+            <div style="padding: 2px 0;">
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">TETO DE RISCO MESA</span>
+              <span id="kpi-risk-cap" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">RISK: 0% / 40%</span>
             </div>
           </div>
         </div>
 
         <!-- ORDENS ATIVAS (SLOTS EM CUSTÓDIA) — ACCORDION TÁTICO COMPACTO -->
-        <details id="side-slots-details" class="card-lamborghini" style="padding: 6px 10px; margin-bottom: 0; flex-shrink: 0;">
-          <summary style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 700; color: #848E9C; font-family: var(--font-mono); list-style: none;">
+        <details id="side-slots-details" class="card-lamborghini" style="padding: 4px 8px; margin-bottom: 0; flex-shrink: 0;">
+          <summary style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; font-weight: 700; color: #848E9C; font-family: var(--font-mono); list-style: none;">
             <div style="display: flex; align-items: center; gap: 6px;">
-              <canvas class="thinking-orb-canvas" data-state="working" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;"></canvas>
+              <canvas class="thinking-orb-canvas" data-state="working" data-size="12" data-color="#0ECB81" width="12" height="12" style="width:12px;height:12px;"></canvas>
               <span style="color: #EAECEF;">ORDENS ABERTAS</span>
-              <span id="side-slots-count" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">0 ATIVAS</span>
+              <span id="side-slots-count" class="badge-gold" style="font-size: 8px; padding: 1px 4px;">0 ATIVAS</span>
             </div>
-            <span style="font-size: 8.5px; color: #666;">VER SLOTS ▾</span>
+            <span style="font-size: 8px; color: #666;">VER SLOTS ▾</span>
           </summary>
-          <div id="side-slots-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; padding-top: 6px;">
-            <div style="text-align: center; color: var(--text-muted); padding: 8px 10px; font-size: 10px;">
+          <div id="side-slots-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding-top: 4px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 6px 8px; font-size: 9.5px;">
               NENHUMA ORDEM ABERTA • AGUARDANDO GATILHOS DA FROTA
             </div>
           </div>
         </details>
 
-        <!-- CARD: LAYA SOBERANA • CONSCIÊNCIA SUPREMA (100% EXPANDIDA VERTICAL) -->
-        <div id="card-laya-sovereign" class="card-lamborghini" style="background: #181A20; border-left: 3px solid var(--accent-gold); display: flex; flex-direction: column; flex: 1 1 auto; min-height: 520px; margin-bottom: 0;">
-          <div class="card-lamborghini-header" style="padding-bottom: 6px; margin-bottom: 6px; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas>
-              <span class="card-title" style="color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;">LAYA SOBERANA • CONSCIÊNCIA SUPREMA</span>
+        <!-- CARD: LAYA SOBERANA • CONSCIÊNCIA SUPREMA (100% EXPANDIDA VERTICAL ZERO-SCROLL) -->
+        <div id="card-laya-sovereign" class="card-lamborghini" style="background: #181A20; border-left: 3px solid var(--accent-gold); display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; margin-bottom: 0; padding: 6px 8px;">
+          <div class="card-lamborghini-header" style="padding-bottom: 4px; margin-bottom: 4px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <canvas class="thinking-orb-canvas" data-state="solving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
+              <span class="card-title" style="color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;">LAYA SOBERANA • CONSCIÊNCIA SUPREMA</span>
             </div>
-            <span id="laya-status-badge" class="badge-gold" style="font-size: 9px; padding: 2px 6px;">SOBERANA • ONLINE</span>
+            <span id="laya-status-badge" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">SOBERANA • ONLINE</span>
           </div>
 
           <!-- Telemetria do Regime & Farol Macro -->
-          <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 6px 10px; font-family: var(--font-mono); font-size: 9.5px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; border-radius: 2px; flex-shrink: 0;">
+          <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; border-radius: 2px; flex-shrink: 0;">
             <div>
-              <span style="color: #848E9C; font-size: 8px; display: block; text-transform: uppercase; font-weight: 700;">MODO ATIVO</span>
-              <b id="laya-regime-mode" style="color: #0ECB81; font-size: 10.5px;">MEAN-REVERSION</b>
+              <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">MODO ATIVO</span>
+              <b id="laya-regime-mode" style="color: #0ECB81; font-size: 10px;">MEAN-REVERSION</b>
             </div>
             <div>
-              <span style="color: #848E9C; font-size: 8px; display: block; text-transform: uppercase; font-weight: 700;">ADX ORÁCULO</span>
-              <b id="laya-master-adx" style="color: #EAECEF; font-size: 10.5px;">14.5</b>
+              <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">ADX ORÁCULO</span>
+              <b id="laya-master-adx" style="color: #EAECEF; font-size: 10px;">14.5</b>
             </div>
             <div>
-              <span style="color: #848E9C; font-size: 8px; display: block; text-transform: uppercase; font-weight: 700;">STATUS FLASH</span>
-              <b style="color: #29ABE2; font-size: 10.5px;">GUARD ARMADO</b>
+              <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">STATUS FLASH</span>
+              <b style="color: #29ABE2; font-size: 10px;">GUARD ARMADO</b>
             </div>
           </div>
 
           <!-- Sub-abas Táticas da Laya -->
-          <div style="display: flex; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid #2B3139; padding-bottom: 6px; flex-shrink: 0;">
-            <button id="tab-laya-thoughts" onclick="switchLayaTab('thoughts')" class="btn-gold" style="padding: 4px 8px; font-size: 9.5px; font-weight: 700;">STREAM DE CONSCIÊNCIA</button>
-            <button id="tab-laya-whales" onclick="switchLayaTab('whales')" class="btn-ghost" style="padding: 4px 8px; font-size: 9.5px;">RADAR BALEIAS (RUBIK)</button>
-            <button id="tab-laya-candidates" onclick="switchLayaTab('candidates')" class="btn-ghost" style="padding: 4px 8px; font-size: 9.5px;">SETUPS CANDIDATOS</button>
+          <div style="display: flex; gap: 3px; margin-bottom: 6px; border-bottom: 1px solid #2B3139; padding-bottom: 4px; flex-shrink: 0;">
+            <button id="tab-laya-thoughts" onclick="switchLayaTab('thoughts')" class="btn-gold" style="padding: 3px 6px; font-size: 9px; font-weight: 700;">STREAM DE CONSCIÊNCIA</button>
+            <button id="tab-laya-whales" onclick="switchLayaTab('whales')" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;">RADAR BALEIAS (RUBIK)</button>
+            <button id="tab-laya-candidates" onclick="switchLayaTab('candidates')" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;">SETUPS CANDIDATOS</button>
           </div>
 
-          <!-- Pane 1: Stream de Consciência Terminal (FILL 100% VERTICAL) -->
-          <div id="pane-laya-thoughts" style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0;">
-              <span style="font-size: 8.5px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FEED NEURAL AO VIVO:</span>
-              <span style="font-size: 8px; color: var(--cyan-pulse); font-family: var(--font-mono);">LIVE TELEMETRY (3S)</span>
+          <!-- Pane 1: Stream de Consciência Terminal (ZERO-SCROLL FILL) -->
+          <div id="pane-laya-thoughts" style="display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
+              <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FEED NEURAL AO VIVO:</span>
+              <span style="font-size: 7.5px; color: var(--cyan-pulse); font-family: var(--font-mono);">LIVE TELEMETRY (3S)</span>
             </div>
-            <div id="laya-thought-stream" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 8px 10px; font-family: var(--font-mono); font-size: 10px; flex: 1 1 auto; height: 100%; min-height: 480px; overflow-y: auto; color: #a0aec0; display: flex; flex-direction: column; gap: 5px;">
-              <div style="color: #555; text-align: center; padding: 50px 0;">SINCRONIZANDO SINAL DE VIDA DA LAYA...</div>
+            <div id="laya-thought-stream" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 6px 8px; font-family: var(--font-mono); font-size: 9.5px; flex: 1 1 0; height: 100%; min-height: 0; max-height: none; overflow-y: auto; color: #a0aec0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="color: #555; text-align: center; padding: 30px 0;">SINCRONIZANDO SINAL DE VIDA DA LAYA...</div>
             </div>
           </div>
 
           <!-- Pane 2: Radar Baleias vs Sardinhas (Rubik) -->
-          <div id="pane-laya-whales" style="display: none; flex-direction: column; flex: 1 1 auto; min-height: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0;">
-              <span style="font-size: 8.5px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FLUXO INSTITUCIONAL RUBIK:</span>
-              <span style="font-size: 8px; color: #FCD535; font-family: var(--font-mono);">14 PARES MONITORADOS</span>
+          <div id="pane-laya-whales" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
+              <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">FLUXO INSTITUCIONAL RUBIK:</span>
+              <span style="font-size: 7.5px; color: #FCD535; font-family: var(--font-mono);">14 PARES MONITORADOS</span>
             </div>
-            <div id="laya-whale-radar-container" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 6px; font-family: var(--font-mono); font-size: 9.5px; flex: 1 1 auto; height: 100%; min-height: 480px; overflow-y: auto;">
-              <div style="color: #555; text-align: center; padding: 50px 0;">CARREGANDO DADOS DE FLUXO DA OKX...</div>
+            <div id="laya-whale-radar-container" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 6px; font-family: var(--font-mono); font-size: 9.5px; flex: 1 1 0; height: 100%; min-height: 0; max-height: none; overflow-y: auto;">
+              <div style="color: #555; text-align: center; padding: 30px 0;">CARREGANDO DADOS DE FLUXO DA OKX...</div>
             </div>
           </div>
 
           <!-- Pane 3: Setups Candidatos -->
-          <div id="pane-laya-candidates" style="display: none; flex-direction: column; flex: 1 1 auto; min-height: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0;">
-              <span style="font-size: 8.5px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">OPORTUNIDADES IDENTIFICADAS:</span>
-              <span style="font-size: 8px; color: #0ECB81; font-family: var(--font-mono);">PRONTAS PARA DISPARO</span>
+          <div id="pane-laya-candidates" style="display: none; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
+              <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">OPORTUNIDADES IDENTIFICADAS:</span>
+              <span style="font-size: 7.5px; color: #0ECB81; font-family: var(--font-mono);">PRONTAS PARA DISPARO</span>
             </div>
-            <div id="laya-candidates-container" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 6px; font-family: var(--font-mono); font-size: 9.5px; flex: 1 1 auto; height: 100%; min-height: 480px; overflow-y: auto;">
-              <div style="color: #555; text-align: center; padding: 50px 0;">VARRENDO ESTRUTURAS INSTITUCIONAIS...</div>
+            <div id="laya-candidates-container" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 6px; font-family: var(--font-mono); font-size: 9.5px; flex: 1 1 0; height: 100%; min-height: 0; max-height: none; overflow-y: auto;">
+              <div style="color: #555; text-align: center; padding: 30px 0;">VARRENDO ESTRUTURAS INSTITUCIONAIS...</div>
             </div>
           </div>
 
           <!-- Resumo de Decisão Tática Atual -->
-          <div id="laya-latest-decision" style="background: #090d12; border: 1px solid #16202a; padding: 6px 10px; font-family: var(--font-mono); font-size: 9.5px; display: flex; flex-direction: column; gap: 3px; margin-top: 8px; border-radius: 2px; flex-shrink: 0;">
+          <div id="laya-latest-decision" style="background: #090d12; border: 1px solid #16202a; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; border-radius: 2px; flex-shrink: 0;">
             <div style="display: flex; justify-content: space-between;">
               <span style="color: #848E9C;">DECISÃO ENTRADA (G1):</span>
               <span id="laya-entry-decision" style="color: #0ECB81; font-weight: 800;">BUY • AUTORIZADO</span>
