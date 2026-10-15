@@ -897,18 +897,18 @@
           </div>
         </div>
 
-        <!-- ORDENS ATIVAS (SLOTS EM CUSTÓDIA) — ACCORDION TÁTICO COMPACTO -->
-        <details id="side-slots-details" class="card-lamborghini" style="padding: 4px 8px; margin-bottom: 0; flex-shrink: 0;">
-          <summary style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; font-weight: 700; color: #848E9C; font-family: var(--font-mono); list-style: none;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <canvas class="thinking-orb-canvas" data-state="working" data-size="12" data-color="#0ECB81" width="12" height="12" style="width:12px;height:12px;"></canvas>
-              <span style="color: #EAECEF;">ORDENS ABERTAS</span>
-              <span id="side-slots-count" class="badge-gold" style="font-size: 8px; padding: 1px 4px;">0 ATIVAS</span>
+        <!-- ORDENS ATIVAS (SLOTS EM CUSTÓDIA) — ACCORDION TÁTICO DESTACADO -->
+        <details id="side-slots-details" class="card-lamborghini" style="padding: 6px 10px; margin-bottom: 0; flex-shrink: 0;" open>
+          <summary style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; color: #FFFFFF; font-family: var(--font-mono); list-style: none;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <canvas class="thinking-orb-canvas" data-state="working" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;"></canvas>
+              <span style="color: #FFFFFF; font-size: 11.5px; letter-spacing: 0.05em;">ORDENS ATIVAS EM CUSTÓDIA</span>
+              <span id="side-slots-count" class="badge-gold" style="font-size: 9.5px; font-weight: 800; padding: 2px 6px;">0 ATIVAS</span>
             </div>
-            <span style="font-size: 8px; color: #666;">VER SLOTS ▾</span>
+            <span style="font-size: 9px; color: var(--accent-gold); font-weight: 700;">EXPANDIR ▾</span>
           </summary>
-          <div id="side-slots-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding-top: 4px;">
-            <div style="text-align: center; color: var(--text-muted); padding: 6px 8px; font-size: 9.5px;">
+          <div id="side-slots-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-top: 6px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 8px 10px; font-size: 10.5px;">
               NENHUMA ORDEM ABERTA • AGUARDANDO GATILHOS DA FROTA
             </div>
           </div>
@@ -1564,16 +1564,24 @@
       const kronosConv = Number(meta.kronos_conviction || slot.kronos_conviction || 0);
       const kronosPct = Number(meta.kronos_change_pct || slot.kronos_change_pct || 0);
 
-      // Atualiza badge de Laya para ORDEM ATIVA
+      // Atualiza badge de Laya para ORDEM ATIVA em destaque monumental
       const layaBadge = document.getElementById(`chart-laya-badge-${i}`);
       if (layaBadge) {
         layaBadge.className = isLong ? 'badge-up' : 'badge-down';
-        layaBadge.textContent = `LAYA: ${isLong ? 'BUY' : 'SELL'} (ORDEM ATIVA)`;
+        layaBadge.style.fontSize = "11px";
+        layaBadge.style.fontWeight = "900";
+        layaBadge.style.padding = "2px 8px";
+        layaBadge.style.letterSpacing = "0.05em";
+        layaBadge.style.border = `1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}`;
+        layaBadge.textContent = `${isLong ? '▲ LONG' : '▼ SHORT'} (ORDEM ATIVA)`;
       }
       const hudBadge = document.getElementById(`hud-laya-badge-${i}`);
       if (hudBadge) {
         hudBadge.className = isLong ? 'badge-up' : 'badge-down';
-        hudBadge.textContent = `${isLong ? 'BUY' : 'SELL'} (ATIVA)`;
+        hudBadge.style.fontSize = "11.5px";
+        hudBadge.style.fontWeight = "900";
+        hudBadge.style.padding = "2px 8px";
+        hudBadge.textContent = `${isLong ? '▲ LONG' : '▼ SHORT'} (ATIVA)`;
       }
 
       // Atualiza badge de Kronos no cabeçalho do gráfico
@@ -2087,33 +2095,45 @@
           }
         }
 
-        // Render Table (Full Audit)
+        // Render Table (Full Audit) com Moeda e Direção Monumentais
         if (tbody && activeSlots.length > 0) {
           tbody.innerHTML = activeSlots.map((s, idx) => {
             const isUp = (s.pnl_percent || 0) >= 0;
             const pnlClass = isUp ? "badge-up" : "badge-down";
             const pnlSign = isUp ? "+" : "";
+            const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
             const isSelected = selectedSlotSymbol === s.symbol;
+            const cleanCoin = (s.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
             return `
-              <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.08);' : ''}">
-                <td><b style="color: #FFFFFF;">${s.symbol}</b> <span style="font-size: 9px; color: var(--accent-gold);">➔ G1 (LINHAS)</span></td>
-                <td><span class="badge-gold">${s.slot_type || 'SCALP'}</span></td>
-                <td><span class="${s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy' ? 'badge-up' : 'badge-down'}">${s.side}</span></td>
-                <td class="font-mono">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</td>
-                <td class="font-mono">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</td>
-                <td class="font-mono" style="color: var(--accent-gold);">${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</td>
-                <td><span class="${pnlClass}">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
-                <td><span class="badge-cyan">${s.status_risco || 'LIVRE'}</span></td>
-                <td style="color: #888;">${s.strategy || 'VWAP SNIPER'}</td>
+              <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.12);' : ''}">
+                <td style="padding: 10px 8px;">
+                  <div style="display: flex; align-items: baseline; gap: 5px;">
+                    <b style="color: #FFFFFF; font-size: 16px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
+                    <span style="font-size: 10px; color: #848E9C; font-family: var(--font-mono);">SWAP</span>
+                  </div>
+                  <span style="font-size: 8.5px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR GRÁFICO)</span>
+                </td>
+                <td><span class="badge-gold" style="font-size: 11px; font-weight: 700; padding: 3px 7px;">${s.slot_type || 'SCALP'}</span></td>
                 <td>
-                  <button class="btn-ghost" style="padding: 2px 6px; font-size: 10px; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR</button>
+                  <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 900; padding: 5px 12px; border-radius: 4px; letter-spacing: 0.06em; background: ${isLong ? 'rgba(14, 203, 129, 0.22)' : 'rgba(246, 70, 93, 0.22)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'}; text-shadow: 0 0 8px ${isLong ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'};">
+                    ${isLong ? '▲ LONG' : '▼ SHORT'} ${s.leverage || 15}X
+                  </span>
+                </td>
+                <td class="font-mono" style="font-size: 12px; font-weight: 600; color: #DDD;">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</td>
+                <td class="font-mono" style="font-size: 12px; font-weight: 800; color: #FFF;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</td>
+                <td class="font-mono" style="color: var(--accent-gold); font-size: 12px; font-weight: 700;">${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</td>
+                <td><span class="${pnlClass}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
+                <td><span class="badge-cyan" style="font-size: 10px; font-weight: 700;">${s.status_risco || 'LIVRE'}</span></td>
+                <td style="color: #848E9C; font-size: 10.5px; font-weight: 600;">${s.strategy || 'LAYA_RANGE_REVERSAL'}</td>
+                <td>
+                  <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; font-weight: 700; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR</button>
                 </td>
               </tr>
             `;
           }).join("");
         }
 
-        // Render Dedicated Right Panel Cards
+        // Render Dedicated Right/Left Panel Cards com Destaque Monumental
         if (sideList && activeSlots.length > 0) {
           sideList.innerHTML = activeSlots.map((s, idx) => {
             const isUp = (s.pnl_percent || 0) >= 0;
@@ -2121,26 +2141,41 @@
             const pnlSign = isUp ? "+" : "";
             const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
             const isSelected = selectedSlotSymbol === s.symbol;
+            const cleanCoin = (s.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
             return `
-              <div class="side-slot-card" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" style="background: #0f0f0f; border: 1px solid ${isSelected ? 'var(--accent-gold)' : '#222'}; ${isSelected ? 'box-shadow: 0 0 10px rgba(255, 192, 0, 0.35);' : ''} padding: 10px; cursor: pointer; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#FFC000'" onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.borderColor='#222'" data-active="${isSelected ? 'true' : 'false'}" title="Clique para focar no G1 com Linhas de Alvo/Stop">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <b style="color: #FFF; font-size: 13px;">${s.symbol}</b>
-                    <span style="font-size: 8px; color: var(--accent-gold); font-family: var(--font-mono);">➔ G1 (LINHAS)</span>
+              <div class="side-slot-card" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" style="background: #14171d; border: 1.5px solid ${isSelected ? 'var(--accent-gold)' : (isLong ? '#0ECB81' : '#F6465D')}; ${isSelected ? 'box-shadow: 0 0 14px rgba(255, 192, 0, 0.45);' : ''} border-left: 5px solid ${isLong ? '#0ECB81' : '#F6465D'}; padding: 10px 12px; cursor: pointer; transition: all 0.15s ease; border-radius: 4px; margin-bottom: 6px;" onmouseover="this.style.borderColor='var(--accent-gold)'" onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.borderColor='${isLong ? '#0ECB81' : '#F6465D'}'" data-active="${isSelected ? 'true' : 'false'}" title="Clique para focar no G1 com Linhas de Alvo/Stop">
+                
+                <!-- CABEÇALHO DO CARD: MOEDA EM DESTAQUE GIGANTE + BADGE DIREÇÃO ULTRA-VISÍVEL -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #23272e; padding-bottom: 6px;">
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="display: flex; align-items: baseline; gap: 6px;">
+                      <b style="color: #FFFFFF; font-size: 18px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
+                      <span style="font-size: 10px; color: #848E9C; font-family: var(--font-mono);">USDT-SWAP</span>
+                    </div>
+                    <span style="font-size: 8.5px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR GRÁFICO)</span>
                   </div>
-                  <span class="${isLong ? 'badge-up' : 'badge-down'}" style="font-size: 9px;">${isLong ? 'LONG' : 'SHORT'} ${s.leverage || 15}X</span>
+                  <div>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 13.5px; font-weight: 900; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.06em; background: ${isLong ? 'rgba(14, 203, 129, 0.22)' : 'rgba(246, 70, 93, 0.22)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'}; text-shadow: 0 0 8px ${isLong ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'};">
+                      ${isLong ? '▲ LONG' : '▼ SHORT'} ${s.leverage || 15}X
+                    </span>
+                  </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; margin-bottom: 4px;">
-                  <span style="color: #777;">ENT: <b style="color: #DDD;">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
-                  <span style="color: #777;">ATUAL: <b style="color: #FFF;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
+
+                <!-- PREÇOS & MÉTRICAS -->
+                <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 12px; margin-bottom: 5px;">
+                  <span style="color: #848E9C;">ENT: <b style="color: #EAECEF; font-size: 12.5px;">$${Number(s.entry_price || 0).toFixed(Number(s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
+                  <span style="color: #848E9C;">ATUAL: <b style="color: #FFFFFF; font-size: 12.5px;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; margin-bottom: 8px;">
-                  <span style="color: var(--accent-gold); font-size: 10px;">DEFESA: ${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</span>
-                  <span class="${pnlClass}" style="font-weight: 800;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 12px; margin-bottom: 8px;">
+                  <span style="color: var(--accent-gold); font-size: 11px; font-weight: 700;">DEFESA: ${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</span>
+                  <span class="${pnlClass}" style="font-size: 14px; font-weight: 900; padding: 3px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1a1a1a; padding-top: 6px;">
-                  <span style="font-size: 9px; color: #666; text-transform: uppercase;">${s.strategy || 'LAYA_SNIPER'}</span>
-                  <button class="btn-ghost" style="padding: 2px 8px; font-size: 9px; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR ORDEM</button>
+
+                <!-- RODAPÉ: ESTRATÉGIA & BOTÃO FECHAR -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1f242c; padding-top: 6px;">
+                  <span style="font-size: 9.5px; color: #848E9C; font-weight: 700; text-transform: uppercase;">${s.strategy || 'LAYA_RANGE_REVERSAL'}</span>
+                  <button class="btn-ghost" style="padding: 3px 10px; font-size: 10px; font-weight: 700; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR ORDEM</button>
                 </div>
               </div>
             `;
@@ -2760,22 +2795,30 @@
           const pnlUsd = meta.net_pnl_usd !== undefined ? Number(meta.net_pnl_usd) : ((pnl / 100.0) * margin);
           const pnlUsdFormatted = (pnlUsd >= 0 ? '+$' : '-$') + Math.abs(pnlUsd).toFixed(2);
           
+          const cleanCoin = (t.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
           return `
-            <div class="clickable-row" onclick="openTradeAuditModal(${idx})" title="Clique para abrir Dossiê Forense Completo da Ordem" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; border: 1px solid #222; border-radius: 4px; transition: all 0.15s ease;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 8px; color: var(--accent-gold); border: 1px solid rgba(255,192,0,0.3); padding: 2px 4px; border-radius: 2px;">AUDITORIA</span>
+            <div class="clickable-row" onclick="openTradeAuditModal(${idx})" title="Clique para abrir Dossiê Forense Completo da Ordem" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #14171d; border: 1.5px solid #23272e; border-left: 4px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; border-radius: 4px; transition: all 0.15s ease; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 8.5px; color: var(--accent-gold); border: 1px solid rgba(255,192,0,0.3); padding: 2px 5px; border-radius: 2px; font-weight: 800;">AUDITORIA</span>
                 <div>
-                  <b style="color: #fff; font-size: 12px;">${t.symbol}</b> 
-                  <span style="color: ${direction === 'LONG' ? '#00E676' : '#FF1744'}; font-size: 10px; font-weight: bold; margin-left: 4px;">${direction} 15X</span>
-                  <span style="color: #666; font-size: 10px; margin-left: 4px;">• ${t.strategy || 'AUTO'}</span>
+                  <div style="display: flex; align-items: baseline; gap: 6px;">
+                    <b style="color: #FFFFFF; font-size: 15px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
+                    <span style="font-size: 9.5px; color: #848E9C; font-family: var(--font-mono);">USDT-SWAP</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                    <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 3px; background: ${direction === 'LONG' ? 'rgba(14,203,129,0.22)' : 'rgba(246,70,93,0.22)'}; border: 1px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; color: ${direction === 'LONG' ? '#0ECB81' : '#F6465D'};">
+                      ${direction === 'LONG' ? '▲ LONG' : '▼ SHORT'} ${t.contract_meta?.leverage || 15}X
+                    </span>
+                    <span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">• ${t.strategy || 'AUTO'}</span>
+                  </div>
                 </div>
               </div>
               <div style="text-align: right;">
                 <div>
-                  <span class="${isWin ? 'badge-up' : 'badge-down'}" style="font-size: 11px;">${isWin ? '+' : ''}${pnl.toFixed(2)}%</span>
-                  <span style="font-size: 10px; color: ${isWin ? '#00E676' : '#FF1744'}; font-weight: 600; margin-left: 4px;">(${pnlUsdFormatted})</span>
+                  <span class="${isWin ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 3px 8px; border-radius: 3px;">${isWin ? '+' : ''}${pnl.toFixed(2)}%</span>
+                  <span style="font-size: 12px; color: ${isWin ? '#0ECB81' : '#F6465D'}; font-weight: 800; margin-left: 6px;">(${pnlUsdFormatted})</span>
                 </div>
-                <span style="display: block; font-size: 9px; color: #777;">${t.status || 'CLOSED'} • Clique para Dossiê ❖</span>
+                <span style="display: block; font-size: 9.5px; color: #848E9C; margin-top: 3px;">${t.status || 'CLOSED'} • Clique para Dossiê ❖</span>
               </div>
             </div>
           `;
