@@ -151,6 +151,13 @@ flowchart TD
    - Distância de Stop Loss ancorada em `max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))`.
    - Stops calibrados para 2.8% a 4.5% fora da acumulação, eliminando violinadas de 15 segundos causadas por micro-ruído de spread.
    - `stop_roi` calibrado proporcionalmente à alavancagem (`calculate_roi`), eliminando o bug de capping a -3.5% ROI que correspondia a -0.23% de preço.
+6. **Hierarquia Integrada de 4 Setups Soberanos da Laya (V161)**:
+   - **Camada 1: Saída de Acumulação H1 (`LAYA_SMART_MONEY_H1`)**: Rompimento com volume e expansão para fora da faixa de consolidação de 1H, confirmado por capital novo (`OI Delta > +0.5%`) e proporção favorável de baleias (`LSR <= 1.15` em LONG ou `>= 1.25` em SHORT).
+   - **Camada 2: Reversão nos Extremos da Faixa (`LAYA_RANGE_REVERSAL`)**: Atua diretamente nos regimes de `CONSOLIDATION_CHOP` / `MEAN_REVERSION` (ADX < 25). Quando o preço testa o piso (`pos <= 25%` ou a menos de 1.5% do suporte H1), dispara **LONG** de absorção com Stop Loss estrutural abaixo do suporte. Quando o preço testa o teto (`pos >= 75%` ou a menos de 1.5% da resistência H1), dispara **SHORT** de exaustão contra o varejo em FOMO.
+   - **Camada 3: Momento Mola 15M (`LAYA_MOMENTO_MOLA`)**: Detecta compressão extrema de volatilidade das Bandas de Bollinger (`bb_width_pct <= 6.5%`) nos extremos de canal de 15 minutos, armando disparos elásticos direcionais com proteção contra fundos falsos.
+   - **Camada 4: DVWAP Reversion 5M (`LAYA_DVWAP_REVERSION`)**: Opera desvios elásticos contra a VWAP intradiária (`diff_pct >= 1.5%`), ancorada no preço típico ponderado por volume `(High + Low + Close) / 3`, vetando compras contra quedas do Bitcoin e protegendo contra taxas adversas via Funding Shield.
+7. **Motor de Projeção & Singleton SSOT**:
+   - `order_projection_service.py` padronizado como singleton único (`order_projection_service`) com alias canônico `proj_service`, unificando a projeção de ROI, cálculo de Stops escalonados (Never Give Back) e metadados de execução para o Sandbox e Cockpit.
 
 **Status Operacional Atual [V146-PROFITABILITY-PIVOT & SWING GATE]**:
 - **Scalping Lab (Laya Soberana)**: 100% ativo com alavancagem de **15x**, stops de -7.5% ROI e trailing stop Never Give Back (50% do pico de lucro).
