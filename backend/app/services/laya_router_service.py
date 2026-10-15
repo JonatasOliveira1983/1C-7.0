@@ -1116,6 +1116,15 @@ class LayaRouterService:
             if wp > 0:
                 prices[a["pair"]] = float(wp)
 
+        # Garante leitura do BTC no WebSocket (Farol Macro)
+        btc_ws = (
+            okx_ws_public_service.get_current_price("BTCUSDT") 
+            or okx_ws_public_service.get_current_price("BTC-USDT-SWAP")
+            or okx_ws_public_service.get_current_price("BTC-USDT")
+        )
+        if btc_ws > 0:
+            prices["BTCUSDT"] = float(btc_ws)
+
         # 2. Tenta cache do OKX REST
         try:
             cached = getattr(okx_rest_service, "_cached_price_map", {}) or {}
@@ -1124,17 +1133,20 @@ class LayaRouterService:
                     cp = float(cached.get(a["pair"], 0) or cached.get(a["symbol"], 0) or 0)
                     if cp > 0:
                         prices[a["pair"]] = cp
+            if "BTCUSDT" not in prices or prices["BTCUSDT"] <= 0:
+                btc_c = float(cached.get("BTCUSDT", 0) or cached.get("BTC-USDT-SWAP", 0) or cached.get("BTC-USDT", 0) or 0)
+                if btc_c > 0:
+                    prices["BTCUSDT"] = btc_c
         except Exception:
             pass
 
         # 3. Busca em lote (batch) na OKX tickers para todos os ativos (mid_prices e variação 24h)
         for url in ["https://www.okx.com/api/v5/market/tickers?instType=SWAP", "https://aws.okx.com/api/v5/market/tickers?instType=SWAP"]:
             try:
-                async with httpx.AsyncClient(timeout=4.0) as client:
+                async with httpx.AsyncClient(timeout=3.5) as client:
                     resp = await client.get(url)
                     if resp.status_code == 200:
                         data = resp.json().get("data", [])
-                        # Garante que BTCUSDT sempre esteja no pair_set para orientar o Farol Macro
                         pair_set = {a["pair"] for a in assets} | {"BTCUSDT", "BTC-USDT-SWAP"}
                         for item in data:
                             i_id = item.get("instId", "")
@@ -1157,15 +1169,29 @@ class LayaRouterService:
             except Exception as _e_bt:
                 logger.debug(f"[LAYA-TICKERS] Erro ao obter lote tickers: {_e_bt}")
 
-        # [FAROL MACRO BITCOIN & LEAD-LAG ENCRYPTOS]: Inteligência institucional completa
+        # [FALLBACK BTC PRICE ANTI-ZERO]: Se ainda for 0, consulta fonte pública ultra-rápida
         btc_clean = "BTCUSDT"
         btc_px = prices.get(btc_clean, 0.0)
+        if btc_px <= 0:
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    r_b = await client.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT")
+                    if r_b.status_code == 200:
+                        btc_px = float(r_b.json().get("price", 0.0) or 0.0)
+                        prices[btc_clean] = btc_px
+            except Exception:
+                pass
+        if btc_px <= 0:
+            btc_px = float(getattr(self, "_last_valid_btc_price", 68000.0) or 68000.0)
+            prices[btc_clean] = btc_px
+        else:
+            self._last_valid_btc_price = btc_px
+
         btc_chg = change_24h_map.get(btc_clean, 0.0)
         btc_mid = mid_prices.get(btc_clean, btc_px)
         btc_trend_bias = btc_chg
         if btc_mid > 0 and btc_px > 0:
             mid_diff = ((btc_px - btc_mid) / btc_mid) * 100.0
-            # Dá peso predominante (70%) para a variação real de 24h e 30% para a posição intradiária do midpoint
             btc_trend_bias = round((btc_chg * 0.7) + (mid_diff * 0.3), 2)
 
         btc_intel = {}
@@ -1178,42 +1204,67 @@ class LayaRouterService:
         except Exception as _e_btcsp:
             logger.debug(f"[LAYA-BTC-SPECIALIST] Falha ao coletar inteligência BTC: {_e_btcsp}")
 
-        btcd_val = btc_intel.get("btc_dominance", 0.0)
+        btcd_val = btc_intel.get("btc_dominance", 58.0)
         spread_val = btc_intel.get("spot_vs_futures_spread_pct", 0.0)
-        lead_lag_tag = btc_intel.get("lead_lag_signal", "EQUILIBRIUM")
+        lead_lag_tag = btc_intel.get("lead_lag_signal", "SPOT_FUTURES_PARITY")
         climate_tag = btc_intel.get("altcoin_climate", "CONSOLIDATION_CHOP")
 
         self.log_thought(
             "BTC-ORACLE",
-            f"Farol BTC: ${btc_px:.0f} ({btc_chg:+.2f}%) | BTC.D: {btcd_val:.2f}% | Spread Spot x Futuros: {spread_val:+.3f}% ({lead_lag_tag}) | Clima Altcoins: {climate_tag}",
+            f"Farol BTC: ${btc_px:,.0f} ({btc_chg:+.2f}%) | BTC.D: {btcd_val:.2f}% | Spread Spot x Futuros: {spread_val:+.3f}% ({lead_lag_tag}) | Clima Altcoins: {climate_tag}",
             action="ORACULO",
             confidence=96
         )
 
-        # Na Whitelist dos 10 Titãs, avaliamos todos os 10 ativos com profundidade MTF
-        deep_dive_assets = assets
+        # [TRIAGEM INSTITUCIONAL EM 2 NÍVEIS]:
+        # Para evitar gargalo de 429 na OKX com 30 ativos, filtramos em memória os TOP 6 mais quentes
+        # (maior volatilidade 24h e fora de quarentena) para análise MTF e fluxo profundo a cada ciclo.
+        valid_candidates = []
+        for a in assets:
+            clean = a["pair"]
+            if self.is_symbol_in_cooldown(clean):
+                continue
+            p = prices.get(clean, 0.0)
+            if p <= 0:
+                continue
+            momentum_score = abs(change_24h_map.get(clean, 0.0))
+            valid_candidates.append((momentum_score, a))
 
-        # Coleta concorrente com semáforo de alta vazão para os top ativos
-        sem_flow = asyncio.Semaphore(10)
+        valid_candidates.sort(key=lambda x: x[0], reverse=True)
+        deep_dive_assets = [item[1] for item in valid_candidates[:6]]
+        if not deep_dive_assets:
+            deep_dive_assets = assets[:4]
+
+        # Coleta concorrente com semáforo restrito para evitar 429
+        sem_flow = asyncio.Semaphore(6)
         async def _safe_flow(p):
             async with sem_flow:
-                return await laya_flow_service.get_flow_radar(p)
+                try:
+                    return await asyncio.wait_for(laya_flow_service.get_flow_radar(p), timeout=2.5)
+                except Exception:
+                    return {}
 
-        sem_kline = asyncio.Semaphore(10)
+        sem_kline = asyncio.Semaphore(6)
         async def _safe_kline(p):
             async with sem_kline:
-                return await okx_rest_service.get_klines(p, interval="60", limit=16)
+                try:
+                    return await asyncio.wait_for(okx_rest_service.get_klines(p, interval="60", limit=16), timeout=2.5)
+                except Exception:
+                    return []
 
-        sem_fund = asyncio.Semaphore(10)
+        sem_fund = asyncio.Semaphore(6)
         async def _safe_fund(p):
             async with sem_fund:
-                return await okx_rest_service.get_funding_rate(p)
+                try:
+                    return await asyncio.wait_for(okx_rest_service.get_funding_rate(p), timeout=2.0)
+                except Exception:
+                    return 0.0
 
-        # Executa em lote controlado com semáforo
+        # Executa em lote controlado com semáforo rápido
         flow_tasks = [_safe_flow(a["pair"]) for a in deep_dive_assets]
         flow_resps = await asyncio.gather(*flow_tasks, return_exceptions=True)
         for a, flow in zip(deep_dive_assets, flow_resps):
-            if not isinstance(flow, BaseException):
+            if not isinstance(flow, BaseException) and isinstance(flow, dict):
                 self.whale_flow_cache[a["pair"]] = flow
 
         kline_tasks = [_safe_kline(a["pair"]) for a in deep_dive_assets]
@@ -1230,7 +1281,7 @@ class LayaRouterService:
             if not isinstance(f_data, BaseException):
                 funding_rate_map[a["pair"]] = float(f_data or 0.0)
 
-        for a in deep_dive_assets:
+        for a in assets:
             sym = a["symbol"]
             clean_sym = a["pair"]
 

@@ -136,7 +136,7 @@ class LayaBTCSpecialistService:
         spot_px = 0.0
         swap_px = 0.0
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=2.5) as client:
                 res_spot = await client.get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT")
                 if res_spot.status_code == 200:
                     d_s = res_spot.json().get("data", [{}])[0]
@@ -147,15 +147,39 @@ class LayaBTCSpecialistService:
                     d_sw = res_swap.json().get("data", [{}])[0]
                     swap_px = float(d_sw.get("last", 0.0) or 0.0)
         except Exception as _e_spr:
-            logger.debug(f"[BTC-SPREAD] Erro ao obter spread Spot vs Swap: {_e_spr}")
+            logger.debug(f"[BTC-SPREAD] OKX indisponível para spread: {_e_spr}")
 
+        # Fallback de alta disponibilidade: Binance Spot + Futures pública (sem rate limit)
         if spot_px <= 0 or swap_px <= 0:
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    r_s = await client.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT")
+                    if r_s.status_code == 200:
+                        spot_px = float(r_s.json().get("price", 0.0) or spot_px)
+                    r_f = await client.get("https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT")
+                    if r_f.status_code == 200:
+                        swap_px = float(r_f.json().get("price", 0.0) or swap_px)
+            except Exception:
+                pass
+
+        # Fallback de memória anterior
+        if spot_px <= 0 or swap_px <= 0:
+            prev = getattr(self, "_last_spot_vs_swap", {})
+            if prev.get("spot_price", 0) > 0:
+                spot_px = prev.get("spot_price", spot_px)
+                swap_px = prev.get("swap_price", swap_px or spot_px)
+            elif spot_px > 0 and swap_px <= 0:
+                swap_px = spot_px
+            elif swap_px > 0 and spot_px <= 0:
+                spot_px = swap_px
+
+        if spot_px <= 0:
             return getattr(self, "_last_spot_vs_swap", {
                 "spot_price": spot_px,
                 "swap_price": swap_px,
                 "basis_spread_usd": 0.0,
                 "basis_spread_pct": 0.0,
-                "lead_lag_signal": "NEUTRAL"
+                "lead_lag_signal": "SPOT_FUTURES_PARITY"
             })
 
         spread_usd = round(swap_px - spot_px, 2)
