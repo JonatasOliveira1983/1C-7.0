@@ -277,8 +277,10 @@ class DatabaseService:
         
         # Fallback local para desenvolvimento
         if not db_url:
-            db_url = "sqlite+aiosqlite:///local_sniper.db"
-            logger.warning("DATABASE_URL not found or invalid. Using local SQLite.")
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sqlite_path = os.path.join(backend_dir, "local_sniper.db").replace("\\", "/")
+            db_url = f"sqlite+aiosqlite:///{sqlite_path}"
+            logger.warning(f"DATABASE_URL not found or invalid. Using absolute local SQLite: {db_url}")
 
         # Pool para PostgreSQL com pre-ping + recycle para evitar dead connections
         # Railway Postgres Hobby permite ~15 conexões simultâneas.
@@ -1183,6 +1185,19 @@ class DatabaseService:
                         meta["laya_decision"] = trade_data["laya_decision"]
                         filtered_data["contract_meta"] = meta
                 if not obj:
+                    # Trava Anti-Duplicidade Rígida: Nunca permitir duas ordens ATIVAS simultâneas no mesmo símbolo/moeda
+                    if filtered_data.get("status") == "ACTIVE":
+                        sym_raw = str(filtered_data.get("symbol", "")).upper()
+                        base_coin = sym_raw.replace("-USDT-SWAP", "").replace("-", "").replace("USDT", "")
+                        existing_active = await session.execute(
+                            select(SandboxTrade).where(SandboxTrade.status == "ACTIVE")
+                        )
+                        for existing_t in existing_active.scalars().all():
+                            e_base = str(existing_t.symbol or "").upper().replace("-USDT-SWAP", "").replace("-", "").replace("USDT", "")
+                            if e_base == base_coin:
+                                logger.warning(f"⚠️ [ANTI-DUPLICIDADE] Ordem ativa para {sym_raw} (ou ativo {existing_t.symbol}) já existe no banco. Inserção bloqueada.")
+                                return False
+
                     obj = SandboxTrade(**filtered_data)
                     session.add(obj)
                     await session.commit()

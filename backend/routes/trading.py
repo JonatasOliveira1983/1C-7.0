@@ -184,6 +184,22 @@ async def get_slots():
             except Exception as e:
                 logger.error(f"[PAPER] Erro ao mesclar ordens do Sandbox nos slots: {e}")
 
+        # [V157] Trava de Deduplicação Rígida para Slots do Cockpit
+        deduped_slots = []
+        seen_slot_keys = set()
+        for s in slots:
+            raw_sym = str(s.get("symbol") or "").upper().strip()
+            if not raw_sym:
+                continue
+            base = raw_sym.split("-")[0].replace("USDT", "").replace("USDC", "")
+            if base in seen_slot_keys or raw_sym in seen_slot_keys:
+                logger.warning(f"[DEDUP-SLOT] Ignorando slot duplicado para {raw_sym} (base: {base})")
+                continue
+            seen_slot_keys.add(base)
+            seen_slot_keys.add(raw_sym)
+            deduped_slots.append(s)
+        slots = deduped_slots
+
         if slots:
             global _cached_price_map, _last_price_map_ts
             now_ts = time.time()

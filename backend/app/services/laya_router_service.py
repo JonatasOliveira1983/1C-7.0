@@ -167,6 +167,7 @@ class LayaRouterService:
         self._direction_stops: List[Dict[str, Any]] = []
         self._direction_cooldowns: Dict[str, float] = {}
         self._last_symbol_thought: Dict[str, str] = {}
+        self._scan_lock: Optional[asyncio.Lock] = None
         self.calibrated_weights = self._load_calibrated_weights()
         self._seed_initial_thoughts()
 
@@ -1280,7 +1281,13 @@ class LayaRouterService:
         active_symbols = set()
         for t in active_trades:
             s = t.symbol if hasattr(t, "symbol") else (t.get("symbol") if isinstance(t, dict) else None)
-            if s: active_symbols.add(s)
+            if s:
+                s_str = str(s).upper()
+                base_coin = s_str.replace("-USDT-SWAP", "").replace("-", "").replace("USDT", "")
+                active_symbols.add(s_str)
+                active_symbols.add(base_coin)
+                active_symbols.add(f"{base_coin}USDT")
+                active_symbols.add(f"{base_coin}-USDT-SWAP")
 
         # [V154-CAPITAL-PRESERVATION]: Consulta saldo para evitar overtrading após meta diária
         try:
@@ -1309,6 +1316,8 @@ class LayaRouterService:
             eligible = [
                 cand for cand in self.candidate_setups.values()
                 if cand["symbol"] not in active_symbols
+                and cand.get("clean_sym") not in active_symbols
+                and cand.get("clean_sym", "").replace("USDT", "") not in active_symbols
                 and cand.get("direction") in ("LONG", "SHORT")
                 and not self.is_symbol_in_cooldown(cand.get("clean_sym", ""))
                 and not self.is_direction_in_cooldown(cand.get("direction", ""))

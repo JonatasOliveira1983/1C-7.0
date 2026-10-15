@@ -836,6 +836,21 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * **4. Abertura Autônoma e Gestão Validada no Sandbox**:
           - Execução validada em tempo real com abertura de ordens e stops posicionados rigorosamente abaixo da entrada em LONG.
 
+41. **[V157-ANTI-DUPLICATION-IDEMPOTENCY-SHIELD] Trava Anti-Duplicidade Rígida, Idempotência de Ordens e Concorrência de Execução** (2026-10-15):
+    - **Diagnóstico da Duplicação Concorrente**:
+        * Ordens duplicadas podiam ocorrer quando comandos manuais ou assíncronos disparavam a varredura (`scan_and_execute_autonomous`) no mesmo instante em que o loop do backend (`laya_autonomous_loop`) executava seu ciclo periódico.
+        * Ambos consultavam `active_trades == 0` antes do commit de persistência, abrindo ordens duplicadas simultâneas para o mesmo par no SQLite e refletindo múltiplos cards no Cockpit.
+    - **As 4 Camadas de Proteção Implementadas**:
+        * **1. Trava Anti-Duplicidade Atômica no Banco de Dados (`backend/services/database_service.py`)**:
+          - Antes de qualquer inserção com status `ACTIVE`, o método `save_sandbox_trade` consulta as ordens ativas existentes e rejeita qualquer inserção cujo símbolo ou moeda base (`base_coin`) já possua uma ordem aberta.
+        * **2. Lock Assíncrono de Varredura e Filtragem de Ativos Ativos (`backend/app/services/laya_router_service.py`)**:
+          - Inicializado `self._scan_lock = asyncio.Lock()` garantindo que nenhuma execução paralela de varredura ocorra simultaneamente.
+          - Normalização de `active_symbols` para contemplar tanto o ID canônico (`FET-USDT-SWAP`), par compacto (`FETUSDT`) quanto a moeda base (`FET`), eliminando candidatos ativos da lista de elegíveis.
+        * **3. Deduplicação Rígida na Rota de Slots do Cockpit (`backend/routes/trading.py`)**:
+          - No endpoint `GET /api/slots`, filtro `seen_slot_keys` garante defesa em profundidade, impedindo que a UI exiba mais de 1 slot por moeda base mesmo sob qualquer resquício histórico.
+        * **4. Blindagem de Caminho Absoluto do SQLite Local**:
+          - O fallback do SQLite agora resolve o caminho absoluto do arquivo `backend/local_sniper.db` a partir de `__file__`, eliminando a criação acidental de bancos paralelos na raiz.
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*
