@@ -985,47 +985,18 @@ class LayaRouterService:
         t0 = time.time()
         self.last_scan_time = t0
         
-        # [V155-OKX-UNIVERSE] Catálogo universal dinâmico de contratos da OKX
+        # [V158-OKX-UNIVERSE] Catálogo universal de 50 ativos de elite institucional da OKX
         try:
             from app.services.okx_universe_service import okx_universe_service
-            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=12)
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=50)
             if dynamic_assets:
                 assets = dynamic_assets
             else:
-                assets = [
-                    {"symbol": "SOL-USDT-SWAP", "pair": "SOLUSDT"},
-                    {"symbol": "AVAX-USDT-SWAP", "pair": "AVAXUSDT"},
-                    {"symbol": "NEAR-USDT-SWAP", "pair": "NEARUSDT"},
-                    {"symbol": "LINK-USDT-SWAP", "pair": "LINKUSDT"},
-                    {"symbol": "ETH-USDT-SWAP", "pair": "ETHUSDT"},
-                    {"symbol": "SUI-USDT-SWAP", "pair": "SUIUSDT"},
-                    {"symbol": "XRP-USDT-SWAP", "pair": "XRPUSDT"},
-                    {"symbol": "ADA-USDT-SWAP", "pair": "ADAUSDT"},
-                    {"symbol": "DOT-USDT-SWAP", "pair": "DOTUSDT"},
-                    {"symbol": "APT-USDT-SWAP", "pair": "APTUSDT"},
-                    {"symbol": "ARB-USDT-SWAP", "pair": "ARBUSDT"},
-                    {"symbol": "OP-USDT-SWAP", "pair": "OPUSDT"},
-                    {"symbol": "INJ-USDT-SWAP", "pair": "INJUSDT"},
-                    {"symbol": "RENDER-USDT-SWAP", "pair": "RENDERUSDT"}
-                ]
+                assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._core_assets]
         except Exception as _e_uni:
-            logger.debug(f"[LAYA-UNIVERSE] Fallback para ativos estáticos: {_e_uni}")
-            assets = [
-                {"symbol": "SOL-USDT-SWAP", "pair": "SOLUSDT"},
-                {"symbol": "AVAX-USDT-SWAP", "pair": "AVAXUSDT"},
-                {"symbol": "NEAR-USDT-SWAP", "pair": "NEARUSDT"},
-                {"symbol": "LINK-USDT-SWAP", "pair": "LINKUSDT"},
-                {"symbol": "ETH-USDT-SWAP", "pair": "ETHUSDT"},
-                {"symbol": "SUI-USDT-SWAP", "pair": "SUIUSDT"},
-                {"symbol": "XRP-USDT-SWAP", "pair": "XRPUSDT"},
-                {"symbol": "ADA-USDT-SWAP", "pair": "ADAUSDT"},
-                {"symbol": "DOT-USDT-SWAP", "pair": "DOTUSDT"},
-                {"symbol": "APT-USDT-SWAP", "pair": "APTUSDT"},
-                {"symbol": "ARB-USDT-SWAP", "pair": "ARBUSDT"},
-                {"symbol": "OP-USDT-SWAP", "pair": "OPUSDT"},
-                {"symbol": "INJ-USDT-SWAP", "pair": "INJUSDT"},
-                {"symbol": "RENDER-USDT-SWAP", "pair": "RENDERUSDT"}
-            ]
+            logger.debug(f"[LAYA-UNIVERSE] Fallback para ativos core: {_e_uni}")
+            from app.services.okx_universe_service import okx_universe_service
+            assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._core_assets]
 
         self.log_thought("SISTEMA", f"Iniciando varredura soberana autônoma ({len(assets)} ativos da OKX). Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
 
@@ -1065,7 +1036,8 @@ class LayaRouterService:
                     resp = await client.get(url)
                     if resp.status_code == 200:
                         data = resp.json().get("data", [])
-                        pair_set = {a["pair"] for a in assets}
+                        # Garante que BTCUSDT sempre esteja no pair_set para orientar o Farol Macro
+                        pair_set = {a["pair"] for a in assets} | {"BTCUSDT", "BTC-USDT-SWAP"}
                         for item in data:
                             i_id = item.get("instId", "")
                             l_px = float(item.get("last", 0.0) or 0.0)
@@ -1073,7 +1045,7 @@ class LayaRouterService:
                             low_24 = float(item.get("low24h", 0.0) or l_px)
                             open_24 = float(item.get("open24h", 0.0) or item.get("sodUtc0", 0.0) or l_px)
                             clean = i_id.replace("-USDT-SWAP", "USDT")
-                            if clean in pair_set:
+                            if clean in pair_set or i_id in pair_set:
                                 if clean not in prices or prices[clean] <= 0:
                                     if l_px > 0:
                                         prices[clean] = l_px
@@ -1087,30 +1059,7 @@ class LayaRouterService:
             except Exception as _e_bt:
                 logger.debug(f"[LAYA-TICKERS] Erro ao obter lote tickers: {_e_bt}")
 
-        # Busca Flow Radars (LSR e OI Delta da OKX Rubik)
-        flow_tasks = [laya_flow_service.get_flow_radar(a["pair"]) for a in assets]
-        flow_resps = await asyncio.gather(*flow_tasks, return_exceptions=True)
-        for a, flow in zip(assets, flow_resps):
-            if not isinstance(flow, BaseException):
-                self.whale_flow_cache[a["pair"]] = flow
-
-        # [ENCRYPTOS METHODOLOGY] Busca Klines de 1H para detecção de acumulação e rompimento
-        kline_tasks = [okx_rest_service.get_klines(a["pair"], interval="60", limit=16) for a in assets]
-        kline_resps = await asyncio.gather(*kline_tasks, return_exceptions=True)
-        klines_h1_map = {}
-        for a, k_data in zip(assets, kline_resps):
-            if not isinstance(k_data, BaseException) and k_data:
-                klines_h1_map[a["pair"]] = k_data
-
-        # [V154-FUNDING] Busca Funding Rates concorrentemente da OKX pública
-        funding_tasks = [okx_rest_service.get_funding_rate(a["pair"]) for a in assets]
-        funding_resps = await asyncio.gather(*funding_tasks, return_exceptions=True)
-        funding_rate_map = {}
-        for a, f_data in zip(assets, funding_resps):
-            if not isinstance(f_data, BaseException):
-                funding_rate_map[a["pair"]] = float(f_data or 0.0)
-
-        # [FAROL MACRO BITCOIN]: Monitora a saúde do BTC para evitar compras em queda livre
+        # [FAROL MACRO BITCOIN]: Monitora a saúde do BTC em tempo real antes de avaliar altcoins
         btc_clean = "BTCUSDT"
         btc_px = prices.get(btc_clean, 0.0)
         btc_chg = change_24h_map.get(btc_clean, 0.0)
@@ -1119,6 +1068,43 @@ class LayaRouterService:
         if btc_mid > 0 and btc_px > 0:
             mid_diff = ((btc_px - btc_mid) / btc_mid) * 100.0
             btc_trend_bias = round((btc_chg * 0.5) + (mid_diff * 0.5), 2)
+
+        # [FUNIL ESTÁGIO 2]: Coleta concorrente com semáforo de alta vazão para os 50 pares
+        sem_flow = asyncio.Semaphore(10)
+        async def _safe_flow(p):
+            async with sem_flow:
+                return await laya_flow_service.get_flow_radar(p)
+
+        sem_kline = asyncio.Semaphore(10)
+        async def _safe_kline(p):
+            async with sem_kline:
+                return await okx_rest_service.get_klines(p, interval="60", limit=16)
+
+        sem_fund = asyncio.Semaphore(10)
+        async def _safe_fund(p):
+            async with sem_fund:
+                return await okx_rest_service.get_funding_rate(p)
+
+        # Executa em lote controlado com semáforo
+        flow_tasks = [_safe_flow(a["pair"]) for a in assets]
+        flow_resps = await asyncio.gather(*flow_tasks, return_exceptions=True)
+        for a, flow in zip(assets, flow_resps):
+            if not isinstance(flow, BaseException):
+                self.whale_flow_cache[a["pair"]] = flow
+
+        kline_tasks = [_safe_kline(a["pair"]) for a in assets]
+        kline_resps = await asyncio.gather(*kline_tasks, return_exceptions=True)
+        klines_h1_map = {}
+        for a, k_data in zip(assets, kline_resps):
+            if not isinstance(k_data, BaseException) and k_data:
+                klines_h1_map[a["pair"]] = k_data
+
+        funding_tasks = [_safe_fund(a["pair"]) for a in assets]
+        funding_resps = await asyncio.gather(*funding_tasks, return_exceptions=True)
+        funding_rate_map = {}
+        for a, f_data in zip(assets, funding_resps):
+            if not isinstance(f_data, BaseException):
+                funding_rate_map[a["pair"]] = float(f_data or 0.0)
 
         for a in assets:
             sym = a["symbol"]

@@ -103,14 +103,20 @@ class DatasetGenerator:
         }
 
     def _generate_bootstrap_laya_samples(self, count: int) -> List[Dict[str, Any]]:
-        """Gera amostras institucionais canônicas baseadas nas regras de Liquidez Baleia vs Sardinha."""
+        """Gera amostras institucionais canônicas baseadas nas regras de Liquidez Baleia vs Sardinha e Farol Macro."""
         import random
-        symbols = ["SOLUSDT", "ETHUSDT", "AVAXUSDT", "NEARUSDT", "LINKUSDT", "SUIUSDT", "BTCUSDT", "ADAUSDT", "DOTUSDT"]
+        symbols = [
+            "SOLUSDT", "ETHUSDT", "AVAXUSDT", "NEARUSDT", "LINKUSDT", "SUIUSDT", "ADAUSDT", "DOTUSDT",
+            "ARBUSDT", "OPUSDT", "INJUSDT", "RENDERUSDT", "FETUSDT", "TIAUSDT", "STRKUSDT", "PYTHUSDT"
+        ]
         samples = []
 
         for i in range(count):
             sym = random.choice(symbols)
-            scenario = random.choice(["ARMADILHA_SARDINHA", "ABSORCAO_BALEIA", "ROMPIMENTO_INSTITUCIONAL", "CONSOLIDACAO"])
+            scenario = random.choice([
+                "ARMADILHA_SARDINHA", "ABSORCAO_BALEIA", "ROMPIMENTO_INSTITUCIONAL", "CONSOLIDACAO",
+                "BTC_DUMP_VETO_LONG", "TREND_ALIGNMENT_SHORT"
+            ])
 
             if scenario == "ARMADILHA_SARDINHA":
                 lsr = round(random.uniform(1.36, 1.85), 2)
@@ -120,6 +126,22 @@ class DatasetGenerator:
                 conf = 0.92
                 pnl = round(random.uniform(2.0, 6.5), 2)
                 rationale = "Varejo eufórico no topo. Venda a favor da absorção das baleias."
+            elif scenario == "BTC_DUMP_VETO_LONG":
+                lsr = round(random.uniform(0.80, 1.20), 2)
+                oi_delta = round(random.uniform(-1.0, 0.2), 2)
+                decision = "HOLD"
+                regime = "BTC_MACRO_DUMP"
+                conf = 0.95
+                pnl = 0.0
+                rationale = "Preço esticado abaixo da VWAP mas Bitcoin em forte queda livre. Compra na faca caindo estritamente vetada."
+            elif scenario == "TREND_ALIGNMENT_SHORT":
+                lsr = round(random.uniform(1.15, 1.50), 2)
+                oi_delta = round(random.uniform(0.3, 1.8), 2)
+                decision = "SELL"
+                regime = "BEAR_TREND_ALIGNMENT"
+                conf = 0.93
+                pnl = round(random.uniform(3.0, 8.5), 2)
+                rationale = "Operação de venda (SHORT) alinhada à sangria macro do Bitcoin e fluxo institucional vendedor."
             elif scenario == "ABSORCAO_BALEIA":
                 lsr = round(random.uniform(0.75, 1.10), 2)
                 oi_delta = round(random.uniform(-1.5, -0.2), 2)
@@ -127,7 +149,7 @@ class DatasetGenerator:
                 regime = "LONG_LIQUIDATION_BOTTOM"
                 conf = 0.94
                 pnl = round(random.uniform(2.5, 8.0), 2)
-                rationale = "Stops de sardinhas limpos em fundo. Compra na absorção institucional."
+                rationale = "Stops de sardinhas limpos em fundo com BTC estável. Compra na absorção institucional."
             elif scenario == "ROMPIMENTO_INSTITUCIONAL":
                 lsr = round(random.uniform(0.95, 1.15), 2)
                 oi_delta = round(random.uniform(0.4, 2.2), 2)

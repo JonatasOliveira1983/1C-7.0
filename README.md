@@ -129,6 +129,24 @@ KRONOS_TIMEOUT=5.0
 
 ---
 
+## 🏛️ Universo de 50 Ativos de Elite & Funil de Alta Vazão (V158)
+
+O 1Crypten 7.0 opera exclusivamente sobre uma cesta canônica de **50 ativos de elite institucional** da OKX, eliminando memecoins (`DOGE`, `PEPE`, `PENGU`, `TRUTH`, `WAL`, etc.), derivativos sintéticos e tokens de pó (`< $0.05`).
+
+### As 5 Categorias Institucionais:
+1. **Layer 1 Consagradas & Bluechips (15)**: `ETH`, `SOL`, `AVAX`, `SUI`, `NEAR`, `ADA`, `XRP`, `DOT`, `APT`, `SEI`, `HBAR`, `ALGO`, `TON`, `ATOM`, `LTC`
+2. **Layer 2 & Escalabilidade (8)**: `ARB`, `OP`, `POL` (MATIC), `STRK`, `MNT`, `METIS`, `BLAST`, `ZK`
+3. **DeFi, Oráculos & Liquidez (12)**: `LINK`, `UNI`, `AAVE`, `MKR`, `SNX`, `CRV`, `LDO`, `PYTH`, `ONDO`, `INJ`, `PENDLE`, `DYDX`
+4. **Inteligência Artificial, DePIN & Big Data (10)**: `RENDER`, `FET`, `GRASS`, `FIL`, `TIA`, `ICP`, `AR`, `THETA`, `JASMY`, `AKT`
+5. **Gaming, Metaverso & Web3 Institucional (5)**: `SAND`, `MANA`, `AXS`, `GALA`, `CHZ`
+
+### Arquitetura do Funil em 3 Estágios:
+- **Estágio 1 (Batch Tickers)**: 1 única requisição `GET /api/v5/market/tickers` captura preço, volume e variação de todos os 50 pares e do Bitcoin em 100ms.
+- **Estágio 2 (Métricas MTF & Semáforo)**: Coleta controlada de Klines H1 e fluxo Rubik via `asyncio.Semaphore(10)`.
+- **Estágio 3 (Deep Dive & Farol Macro)**: Convicção Kronos nos top 4 candidatos. Se o Bitcoin estiver em queda macro (`btc_trend_bias < -0.3%`), compras (LONG) de contra-tendência são vetadas, autorizando apenas operações vendidas (SHORT) a favor do fluxo.
+
+---
+
 ## Testes
 
 ```bash

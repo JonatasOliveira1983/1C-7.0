@@ -851,6 +851,26 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * **4. Blindagem de Caminho Absoluto do SQLite Local**:
           - O fallback do SQLite agora resolve o caminho absoluto do arquivo `backend/local_sniper.db` a partir de `__file__`, eliminando a criação acidental de bancos paralelos na raiz.
 
+42. **[V158-ELITE-50-UNIVERSE-AND-HIGH-THROUGHPUT-FUNNEL] Cesta Oficial de 50 Ativos de Elite Institucional, Funil em 3 Estágios e Farol Macro do Bitcoin** (2026-10-15):
+    - **Diagnóstico do Afunilamento e Infiltração de Memecoins**:
+        * Embora o sistema possuísse o mapeamento de 489 contratos USDT-SWAP da OKX, a Laya operava com uma trava de `limit=12`, mantendo a frota restrita a poucas moedas repetitivas.
+        * A ordenação pura por volume inseria memecoins e tokens microscópicos (`FARTCOIN`, `PENGU`, `TRUTH`, `WAL`, `RSR`), que violam o perfil de trading institucional do sistema.
+        * A telemetria do Bitcoin ficava com variação zerada (`0.0%`) porque `BTCUSDT` não estava na lista de pares processados do batch de tickers, permitindo que a Laya comprasse faca caindo (`NEAR`, `FET`) em dias de sangria de mercado.
+    - **As 4 Soluções Estruturais Implementadas**:
+        * **1. Cesta Canônica de 50 Ativos de Elite Institucional (`backend/app/services/okx_universe_service.py`)**:
+          - 50 ativos distribuídos estrategicamente: L1s (15), L2s (8), DeFi & Oráculos (12), IA & Big Data (10), Gaming & Web3 (5).
+          - Bloqueio rígido de memecoins, tokens de zoeira, derivativos sintéticos e ativos com preço $< $0.05.
+          - Requisito de volume diário $> $3M USD.
+        * **2. Funil de Alta Vazão em 3 Estágios (`backend/app/services/laya_router_service.py`)**:
+          - *Estágio 1*: 1 única requisição HTTP em batch (`GET /api/v5/market/tickers`) captura preços e variações dos 50 ativos e do Bitcoin simultaneamente (100ms).
+          - *Estágio 2*: Coleta de métricas profundas (Klines H1, Flow Radar e Funding) com semáforo de concorrência (`asyncio.Semaphore(10)`).
+          - *Estágio 3*: Deep dive com o modelo neural Kronos focado apenas nos top candidatos qualificados.
+        * **3. Farol Macro do Bitcoin (Trend Alignment Shield)**:
+          - Inclusão mandatória de `BTCUSDT` no lote de tickers.
+          - Quando o BTC estiver em tendência baixista (`btc_trend_bias < -0.3%`), compras (LONG) de reversão à média (`LAYA_DVWAP_REVERSION`) são vetadas, autorizando apenas operações vendidas (SHORT) a favor do fluxo.
+        * **4. Persistência no Segundo Cérebro (RAG)**:
+          - Documentado em `vault_galaxy/strategies/elite_50_universe_and_funnel.md` para indexação em tempo real pelo RAG e memória soberana.
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*

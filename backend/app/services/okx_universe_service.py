@@ -37,12 +37,24 @@ class OKXUniverseService:
         self._last_tickers_ts: float = 0.0
         self._lock = asyncio.Lock()
         
-        # Fallback de segurança para os principais ativos de liquidez máxima (sem BTC que é benchmark)
+        # [V158] Cesta Canônica de 50 Ativos de Elite Institucional da OKX (Zero Memecoins, Zero Pó)
         self._core_assets = [
-            "SOL-USDT-SWAP", "ETH-USDT-SWAP", "NEAR-USDT-SWAP", "AVAX-USDT-SWAP",
-            "LINK-USDT-SWAP", "SUI-USDT-SWAP", "XRP-USDT-SWAP", "ADA-USDT-SWAP",
-            "DOT-USDT-SWAP", "APT-USDT-SWAP", "ARB-USDT-SWAP", "OP-USDT-SWAP",
-            "INJ-USDT-SWAP", "RENDER-USDT-SWAP", "FET-USDT-SWAP", "TIA-USDT-SWAP"
+            # 1. Layer 1 Consagradas & Bluechips (15)
+            "ETH-USDT-SWAP", "SOL-USDT-SWAP", "AVAX-USDT-SWAP", "SUI-USDT-SWAP", "NEAR-USDT-SWAP",
+            "ADA-USDT-SWAP", "XRP-USDT-SWAP", "DOT-USDT-SWAP", "APT-USDT-SWAP", "SEI-USDT-SWAP",
+            "HBAR-USDT-SWAP", "ALGO-USDT-SWAP", "TON-USDT-SWAP", "ATOM-USDT-SWAP", "LTC-USDT-SWAP",
+            # 2. Layer 2 & Infraestrutura de Execução (8)
+            "ARB-USDT-SWAP", "OP-USDT-SWAP", "POL-USDT-SWAP", "STRK-USDT-SWAP", "MNT-USDT-SWAP",
+            "METIS-USDT-SWAP", "BLAST-USDT-SWAP", "ZK-USDT-SWAP",
+            # 3. DeFi, Oráculos & Liquidez (12)
+            "LINK-USDT-SWAP", "UNI-USDT-SWAP", "AAVE-USDT-SWAP", "MKR-USDT-SWAP", "SNX-USDT-SWAP",
+            "CRV-USDT-SWAP", "LDO-USDT-SWAP", "PYTH-USDT-SWAP", "ONDO-USDT-SWAP", "INJ-USDT-SWAP",
+            "PENDLE-USDT-SWAP", "DYDX-USDT-SWAP",
+            # 4. Inteligência Artificial, DePIN & Big Data (10)
+            "RENDER-USDT-SWAP", "FET-USDT-SWAP", "GRASS-USDT-SWAP", "FIL-USDT-SWAP", "TIA-USDT-SWAP",
+            "ICP-USDT-SWAP", "AR-USDT-SWAP", "THETA-USDT-SWAP", "JASMY-USDT-SWAP", "AKT-USDT-SWAP",
+            # 5. Gaming, Metaverso & Web3 Institucional (5)
+            "SAND-USDT-SWAP", "MANA-USDT-SWAP", "AXS-USDT-SWAP", "GALA-USDT-SWAP", "CHZ-USDT-SWAP"
         ]
 
     @staticmethod
@@ -232,10 +244,10 @@ class OKXUniverseService:
             "updated_at": 0
         }
 
-    async def get_tradable_universe(self, limit: int = 24, min_volume_usd: float = 1_000_000.0) -> List[Dict[str, Any]]:
+    async def get_tradable_universe(self, limit: int = 50, min_volume_usd: float = 3_000_000.0) -> List[Dict[str, Any]]:
         """
-        Retorna a lista ranqueada de ativos negociáveis mais líquidos da OKX.
-        Combina o catálogo oficial com os preços em tempo real.
+        [V158] Retorna a cesta oficial de 50 ativos de elite institucional da OKX.
+        Combina o catálogo oficial com os preços em tempo real, filtrando 100% das memecoins e tokens de pó.
         """
         await self.sync_instruments()
         await self.sync_tickers()
@@ -265,16 +277,18 @@ class OKXUniverseService:
                         "is_core": True
                     })
 
-        # Adiciona os demais ativos com maior volume 24h
+        # Adiciona os demais ativos com maior volume 24h apenas se forem institucionais
         other_tickers = [
             t for inst_id, t in self._tickers_cache.items()
             if inst_id not in seen and inst_id in self._instruments_cache and t.get("last", 0.0) > 0
         ]
         other_tickers.sort(key=lambda x: x.get("volume_24h_usd", 0.0), reverse=True)
 
-        # Governança: Filtra Memecoins, BTC benchmark e derivativos de ações/commodities
+        # Governança: Filtra Memecoins, BTC benchmark, tokens de pó e derivativos de ações/commodities
         FORBIDDEN_BASE = {
             "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
+            "PENGU", "TRUTH", "WAL", "TURBO", "BRETT", "POPCAT", "MOG", "CAT", "FARTCOIN", "USELESS", "CASHCAT",
+            "MUBARAK", "TRUMP", "WLFI", "RSR", "ONE", "RVN",
             "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"
         }
 
@@ -283,11 +297,11 @@ class OKXUniverseService:
                 break
             inst_id = t["instId"]
             base_coin = inst_id.split("-")[0].upper()
-            if base_coin in FORBIDDEN_BASE or "SATS" in base_coin or t.get("last", 0.0) < 0.001:
+            if base_coin in FORBIDDEN_BASE or "SATS" in base_coin or t.get("last", 0.0) < 0.05:
                 continue
 
             s = self._instruments_cache[inst_id]
-            if t.get("volume_24h_usd", 0.0) < min_volume_usd and len(universe) >= 12:
+            if t.get("volume_24h_usd", 0.0) < min_volume_usd:
                 continue
             universe.append({
                 "symbol": inst_id,
@@ -305,7 +319,9 @@ class OKXUniverseService:
                 "is_core": False
             })
 
-        return universe
+        # Ordena a cesta de ativos por volume e relevância de mercado
+        universe.sort(key=lambda x: x.get("volume_24h_usd", 0.0), reverse=True)
+        return universe[:limit]
 
 
 okx_universe_service = OKXUniverseService()
