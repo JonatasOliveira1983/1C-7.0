@@ -44,7 +44,7 @@ class OKXUniverseService:
             "ADA-USDT-SWAP", "XRP-USDT-SWAP", "DOT-USDT-SWAP", "APT-USDT-SWAP", "SEI-USDT-SWAP",
             "HBAR-USDT-SWAP", "ALGO-USDT-SWAP", "TON-USDT-SWAP", "ATOM-USDT-SWAP", "LTC-USDT-SWAP",
             # 2. Layer 2 & Infraestrutura de Execução (8)
-            "ARB-USDT-SWAP", "OP-USDT-SWAP", "POL-USDT-SWAP", "STRK-USDT-SWAP", "MNT-USDT-SWAP",
+            "ARB-USDT-SWAP", "OP-USDT-SWAP", "POL-USDT-SWAP", "XPL-USDT-SWAP", "MNT-USDT-SWAP",
             "METIS-USDT-SWAP", "BLAST-USDT-SWAP", "ZK-USDT-SWAP",
             # 3. DeFi, Oráculos & Liquidez (12)
             "LINK-USDT-SWAP", "UNI-USDT-SWAP", "AAVE-USDT-SWAP", "MKR-USDT-SWAP", "SNX-USDT-SWAP",
@@ -288,7 +288,7 @@ class OKXUniverseService:
         FORBIDDEN_BASE = {
             "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
             "PENGU", "TRUTH", "WAL", "TURBO", "BRETT", "POPCAT", "MOG", "CAT", "FARTCOIN", "USELESS", "CASHCAT",
-            "MUBARAK", "TRUMP", "WLFI", "RSR", "ONE", "RVN",
+            "MUBARAK", "TRUMP", "WLFI", "RSR", "ONE", "RVN", "STRK",
             "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"
         }
 

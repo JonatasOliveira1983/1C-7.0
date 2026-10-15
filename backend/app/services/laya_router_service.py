@@ -779,6 +779,7 @@ class LayaRouterService:
         4. Neutro: Diagnóstico integrado das 3 camadas.
         """
         # CAMADA 1: AVALIA ROMPIMENTO DE 1H (PRIORIDADE MÁXIMA)
+        setup_res = None
         h1_eval = self.evaluate_h1_breakout(
             symbol=symbol,
             current_price=current_price,
@@ -791,10 +792,10 @@ class LayaRouterService:
         )
         if h1_eval.get("qualifies"):
             h1_eval["strategy"] = "LAYA_SMART_MONEY_H1"
-            return h1_eval
+            setup_res = h1_eval
 
         # CAMADA 2: SE ESTIVER NA ACUMULAÇÃO, AVALIA MOMENTO MOLA (15M)
-        if bb_width_pct <= 1.8:
+        if not setup_res and bb_width_pct <= 1.8:
             mola_eval = self.evaluate_momento_mola(
                 symbol=symbol,
                 current_price=current_price,
@@ -807,10 +808,10 @@ class LayaRouterService:
                 atr_pct=atr_pct
             )
             if mola_eval.get("qualifies"):
-                return mola_eval
+                setup_res = mola_eval
 
         # CAMADA 3: SE NÃO HOUVER MOLA, AVALIA DESVIO DA VWAP (5M)
-        if vwap > 0:
+        if not setup_res and vwap > 0:
             dvwap_eval = self.evaluate_dvwap_reversion(
                 symbol=symbol,
                 current_price=current_price,
@@ -822,7 +823,38 @@ class LayaRouterService:
                 atr_pct=atr_pct
             )
             if dvwap_eval.get("qualifies"):
-                return dvwap_eval
+                setup_res = dvwap_eval
+
+        if setup_res:
+            cand_dir = setup_res.get("direction")
+            # [FAROL MACRO BTC SOVEREIGN VETO]:
+            # Se Bitcoin caindo (btc_trend_bias < -1.0%), VETO TOTAL de LONGs (apenas SHORT permitido)
+            # Se Bitcoin subindo forte (btc_trend_bias > +1.0%), VETO TOTAL de SHORTs (apenas LONG permitido)
+            if btc_trend_bias < -1.0 and cand_dir == "LONG":
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 60,
+                    "strategy": setup_res.get("strategy", "LAYA_VETO"),
+                    "stop_loss": 0.0,
+                    "target": 0.0,
+                    "stop_dist": 0.0,
+                    "target_dist": 0.0,
+                    "rationale": f"[FAROL MACRO VETO]: Setup LONG ({setup_res.get('strategy')}) vetado pois o Bitcoin está em queda ({btc_trend_bias:+.2f}%). Operando estritamente SHORT com as baleias."
+                }
+            if btc_trend_bias > 1.0 and cand_dir == "SHORT":
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 60,
+                    "strategy": setup_res.get("strategy", "LAYA_VETO"),
+                    "stop_loss": 0.0,
+                    "target": 0.0,
+                    "stop_dist": 0.0,
+                    "target_dist": 0.0,
+                    "rationale": f"[FAROL MACRO VETO]: Setup SHORT ({setup_res.get('strategy')}) vetado pois o Bitcoin está em alta ({btc_trend_bias:+.2f}%). Operando estritamente LONG a favor da tendência."
+                }
+            return setup_res
 
         # CAMADA 4: DIAGNÓSTICO INTEGRADO QUANDO NENHUM QUALIFICA
         sup_h1 = acc_range.get("support_h1", 0.0)
@@ -831,6 +863,10 @@ class LayaRouterService:
 
         if sup_h1 <= 0 or res_h1 <= 0:
             diag_text = f"SINCRONIZANDO H1 (Faixa Dinâmica) | DVWAP: {vwap_diff:+.1f}% | MOLA: BBW {bb_width_pct:.1f}%. Aguardando confirmação institucional."
+        elif vwap_diff <= -2.0 and btc_trend_bias < -1.0:
+            diag_text = f"[FAROL MACRO VETO]: Preço esticado {vwap_diff:+.1f}% abaixo da VWAP, mas BTC em queda ({btc_trend_bias:+.1f}%). Proibido comprar faca caindo."
+        elif vwap_diff >= 2.0 and btc_trend_bias > 1.0:
+            diag_text = f"[FAROL MACRO VETO]: Preço esticado {vwap_diff:+.1f}% acima da VWAP, mas BTC em forte alta ({btc_trend_bias:+.1f}%). Proibido shortar contra rali."
         else:
             diag_text = f"CONSOLIDAÇÃO H1 (${sup_h1:.4f}-${res_h1:.4f}) | DVWAP: {vwap_diff:+.1f}% | MOLA: BBW {bb_width_pct:.1f}% | BTC: {btc_trend_bias:+.1f}%. Aguardando gatilho de borda."
 
@@ -1065,7 +1101,8 @@ class LayaRouterService:
         btc_trend_bias = btc_chg
         if btc_mid > 0 and btc_px > 0:
             mid_diff = ((btc_px - btc_mid) / btc_mid) * 100.0
-            btc_trend_bias = round((btc_chg * 0.5) + (mid_diff * 0.5), 2)
+            # Dá peso predominante (70%) para a variação real de 24h e 30% para a posição intradiária do midpoint
+            btc_trend_bias = round((btc_chg * 0.7) + (mid_diff * 0.3), 2)
 
         # Atualiza pensamento do Farol Macro em tempo real
         self.log_thought(
@@ -1078,8 +1115,11 @@ class LayaRouterService:
         # [FUNIL ESTÁGIO 2]: Ranqueamento rápido dos 50 ativos a partir do batch de tickers
         # Seleciona os 14 ativos com maior atividade e volatilidade para deep dive MTF (executa em <2s)
         ranked_assets = []
+        FORBIDDEN_ALTCOINS = {"STRK", "STRKUSDT", "STRK-USDT-SWAP"}
         for a in assets:
             clean = a["pair"]
+            if clean in FORBIDDEN_ALTCOINS or a.get("symbol") in FORBIDDEN_ALTCOINS:
+                continue
             px = prices.get(clean, 0.0)
             if px <= 0:
                 continue
@@ -1338,6 +1378,9 @@ class LayaRouterService:
                 and not self.is_symbol_in_cooldown(cand.get("clean_sym", ""))
                 and not self.is_direction_in_cooldown(cand.get("direction", ""))
                 and cand["score"] >= effective_min_score
+                # [FAROL MACRO VETO NO DISPARO]: Veta compras se BTC caindo e veta vendas se BTC subindo
+                and not (btc_trend_bias < -1.0 and cand.get("direction") == "LONG")
+                and not (btc_trend_bias > 1.0 and cand.get("direction") == "SHORT")
             ]
             # [DIVERSITY & ROTATION] Evita repetição excessiva do mesmo par consecutivo (ex: SOL toda hora)
             last_traded = getattr(self, "_last_traded_pair", None)
