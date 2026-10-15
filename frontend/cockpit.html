@@ -4529,8 +4529,14 @@
             const chartContainerRef = useRef(null);
             const chartInstance = useRef(null);
             const candlestickSeries = useRef(null);
-            const [localSymbol, setLocalSymbol] = useState(symbol || "BTCUSDT");
+            const [localSymbol, setLocalSymbol] = useState(symbol || "SOLUSDT");
             const [localTimeframe, setLocalTimeframe] = useState("120");
+
+            useEffect(() => {
+                if (symbol && symbol !== localSymbol) {
+                    setLocalSymbol(symbol);
+                }
+            }, [symbol]);
             const [historicalData, setHistoricalData] = useState({ candles: [], volumes: [] });
             const [studyData, setStudyData] = useState(null);
             const extraLinesRef = useRef([]);
@@ -5935,7 +5941,7 @@
             const isRangingMode = unifiedRegime === 'LATERAL';
             const [selectedSlotId, setSelectedSlotId] = useState(null);
             const [gridMode, setGridMode] = useState('4'); // Default to 4 charts
-            const [gridSymbols, setGridSymbols] = useState(["BTCUSDT", "BTCUSDT", "BTCUSDT", "BTCUSDT"]);
+            const [gridSymbols, setGridSymbols] = useState(["SOLUSDT", "ETHUSDT", "NEARUSDT", "SUIUSDT"]);
             const [focusedAsset, setFocusedAsset] = useState(null); // Refatoração Glassmorphism Sci-Fi
             
             // Sync charts with slots
@@ -5953,8 +5959,8 @@
                             uniqueSymbols.push(sym);
                         }
                     }
-                    // Defaults para preencher caso haja menos de 4 ordens ativas
-                    const defaults = ["SOLUSDT", "BTCUSDT", "ETHUSDT", "LINKUSDT", "ADAUSDT", "INJUSDT"];
+                    // Defaults dos Titãs para preencher caso haja menos de 4 ordens ativas
+                    const defaults = ["SOLUSDT", "ETHUSDT", "NEARUSDT", "SUIUSDT", "LINKUSDT", "ZKUSDT", "XPLUSDT"];
                     for (const d of defaults) {
                         if (!uniqueSymbols.includes(d)) uniqueSymbols.push(d);
                     }
