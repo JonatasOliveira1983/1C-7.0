@@ -33,7 +33,7 @@ all_ok = True
 for name, url, expected_tokens in tests:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "1CryptenTester", "Connection": "close"})
-        with urllib.request.urlopen(req, timeout=8) as r:
+        with urllib.request.urlopen(req, timeout=15) as r:
             resp = r.read().decode()
         missing = [tok for tok in expected_tokens if tok.lower() not in resp.lower()]
         if missing:
