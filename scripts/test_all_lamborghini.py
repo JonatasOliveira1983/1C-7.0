@@ -8,7 +8,7 @@ tests = [
     ("Root (/)", "http://127.0.0.1:8085/", ["Cockpit Lamborghini", "FLASH MAP", "charts-grid-container", "tv-frame-0", "tv-frame-3"]),
     ("Sandbox (/sandbox)", "http://127.0.0.1:8085/sandbox", ["Cockpit", "viewport-fit=cover"]),
     ("Hermes (/hermes)", "http://127.0.0.1:8085/hermes", ["HERMES ORCHESTRATOR", "grid-mobile-stack", "chat-viewport-card"]),
-    ("Market (/mercado)", "http://127.0.0.1:8085/mercado", ["RADAR TÁTICO", "grid-mobile-stack", "tv-frame"]),
+    ("Market (/mercado -> Redirect Cockpit)", "http://127.0.0.1:8085/mercado", ["Cockpit", "viewport-fit=cover"]),
     
     # Assets & Responsividade
     ("CSS (/static/css/lamborghini.css)", "http://127.0.0.1:8085/static/css/lamborghini.css", ["charts-grid-quad", "charts-grid-solo", "charts-grid-dual", "table-responsive-wrap", "grid-mobile-stack"]),

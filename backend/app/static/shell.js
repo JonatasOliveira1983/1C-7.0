@@ -99,10 +99,6 @@
             <span>HERMES ORCHESTRATOR</span>
             <span class="sh-badge-gold">AI</span>
           </a>
-          <a href="/mercado" class="sh-link ${activePage === 'market' ? 'active' : ''}">
-            ${ICONS.radar}
-            <span>RADAR & MERCADO</span>
-          </a>
           <a href="/plutus" class="sh-link ${activePage === 'plutus' ? 'active' : ''}">
             ${ICONS.plutus}
             <span>PLUTUS (VIVER DE RENDA)</span>
@@ -137,7 +133,7 @@
             <span>FLASH · ESCADINHA 1s</span>
             <span class="sh-status-pill standby">STANDBY</span>
           </div>
-          <a href="/mercado" class="sh-link">
+          <a href="/" class="sh-link">
             ${ICONS.oracle}
             <span>ORACLE · REGIME ADX</span>
             <span class="sh-status-pill ok">ON</span>
@@ -229,9 +225,6 @@
           </a>
           <a href="/hermes" class="nav-item ${activePage === 'hermes' ? 'active' : ''}">
             ${ICONS.hermes} <span>HERMES</span>
-          </a>
-          <a href="/mercado" class="nav-item ${activePage === 'market' ? 'active' : ''}">
-            ${ICONS.radar} <span>RADAR</span>
           </a>
           <a href="/docs" target="_blank" class="nav-item">
             ${ICONS.docs} <span>DOCS</span>
@@ -537,10 +530,6 @@
         <a href="/plutus" class="bbar-item ${page === 'plutus' ? 'active' : ''}">
           ${ICONS.plutus}
           <span>Plutus</span>
-        </a>
-        <a href="/mercado" class="bbar-item ${page === 'market' ? 'active' : ''}">
-          ${ICONS.radar}
-          <span>Radar</span>
         </a>
         <a href="/hermes" class="bbar-item ${page === 'hermes' ? 'active' : ''}">
           ${ICONS.hermes}

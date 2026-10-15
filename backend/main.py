@@ -1142,16 +1142,7 @@ if settings.SERVE_STATIC_FRONTEND:
     @app.get("/mercado.html")
     @app.get("/radar")
     async def serve_market_page():
-        path = os.path.join(APP_STATIC_DIR, "market.html")
-        with open(path, "r", encoding="utf-8") as f:
-            html_content = f.read()
-            return HTMLResponse(
-                content=html_content,
-                headers={
-                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-market-{time.time()}"
-                }
-            )
+        return RedirectResponse(url="/cockpit")
 
     @app.get("/memory")
     @app.get("/memory.html")
