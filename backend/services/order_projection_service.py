@@ -463,3 +463,4 @@ class OrderProjectionService:
 
 
 order_projection_service = OrderProjectionService()
+proj_service = order_projection_service

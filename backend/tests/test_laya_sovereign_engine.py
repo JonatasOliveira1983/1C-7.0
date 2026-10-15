@@ -159,6 +159,59 @@ def test_altcoin_climate_veto_in_multi_setup():
     assert "VETO BTC.D CLIMA" in eval_res["rationale"]
 
 
+def test_range_boundary_reversal_in_mean_reversion_mode():
+    """
+    Test institutional Range Boundary Reversal setup in Mean-Reversion regime:
+    - In lateral chop (ADX < 25), when price tests resistance ceiling (pos >= 75%), generates SHORT with score >= 85%.
+    - When price tests support floor (pos <= 25%), generates LONG with score >= 85%.
+    - Validates structural Stop Loss >= 2.8% and asymmetric targets.
+    """
+    acc_range = {
+        "is_consolidating": True,
+        "resistance_h1": 100.0,
+        "support_h1": 90.0,
+        "range_pct": 10.0
+    }
+
+    # Caso 1: Teste de Resistência (Preço em 98.0, 80% do canal) -> Reversão SHORT
+    short_eval = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="SOLUSDT",
+        current_price=98.0,
+        acc_range=acc_range,
+        lsr=1.20,
+        oi_delta_pct=0.5,
+        btc_trend_bias=0.0,
+        funding_rate=0.0001,
+        atr_pct=2.0
+    )
+    assert short_eval["qualifies"] is True
+    assert short_eval["direction"] == "SHORT"
+    assert short_eval["strategy"] == "LAYA_RANGE_REVERSAL"
+    assert short_eval["score"] >= 85
+    assert short_eval["stop_dist"] >= 0.028
+    assert short_eval["stop_loss"] > 98.0
+    assert short_eval["target"] < 98.0
+
+    # Caso 2: Teste de Suporte (Preço em 91.5, 15% do canal) -> Reversão LONG
+    long_eval = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="NEARUSDT",
+        current_price=91.5,
+        acc_range=acc_range,
+        lsr=1.05,
+        oi_delta_pct=0.4,
+        btc_trend_bias=0.1,
+        funding_rate=0.0001,
+        atr_pct=2.0
+    )
+    assert long_eval["qualifies"] is True
+    assert long_eval["direction"] == "LONG"
+    assert long_eval["strategy"] == "LAYA_RANGE_REVERSAL"
+    assert long_eval["score"] >= 85
+    assert long_eval["stop_dist"] >= 0.028
+    assert long_eval["stop_loss"] < 91.5
+    assert long_eval["target"] > 91.5
+
+
 @pytest.mark.asyncio
 async def test_unified_rag_and_mcp_quarantine():
     from services.rag_service import rag_service
@@ -207,10 +260,14 @@ if __name__ == "__main__":
         test_altcoin_climate_veto_in_multi_setup()
         print("[PASS] test_altcoin_climate_veto_in_multi_setup")
 
+        print("[TEST] Running test_range_boundary_reversal_in_mean_reversion_mode...")
+        test_range_boundary_reversal_in_mean_reversion_mode()
+        print("[PASS] test_range_boundary_reversal_in_mean_reversion_mode")
+
         print("[TEST] Running test_unified_rag_and_mcp_quarantine...")
         await test_unified_rag_and_mcp_quarantine()
         print("[PASS] test_unified_rag_and_mcp_quarantine")
 
-        print("\n>>> ALL 6 SOVEREIGN TESTS PASSED SUCCESSFULLY! <<<")
+        print("\n>>> ALL 7 SOVEREIGN TESTS PASSED SUCCESSFULLY! <<<")
 
     asyncio.run(run_all())

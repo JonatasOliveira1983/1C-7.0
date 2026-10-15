@@ -759,6 +759,174 @@ class LayaRouterService:
             "rationale": f"MOLA COMPRIMIDA (BBW {bb_width_pct:.1f}%), mas no miolo do range. Aguardando toque no extremo."
         }
 
+    def evaluate_range_boundary_reversal(
+        self,
+        symbol: str,
+        current_price: float,
+        acc_range: Dict[str, Any],
+        lsr: float = 1.0,
+        oi_delta_pct: float = 0.0,
+        btc_trend_bias: float = 0.0,
+        funding_rate: float = 0.0,
+        atr_pct: float = 1.5,
+        boundary_threshold: float = 0.25
+    ) -> Dict[str, Any]:
+        """
+        [SETUP: RANGE BOUNDARY REVERSAL (MEAN REVERSION / EXAUSTÃO NAS BORDAS DO RANGE)]
+        Identifica setups institucionais de reversão à média nas extremidades da consolidação H1.
+        - Quando o preço testa o teto do range (pos >= 75% ou dist_to_res <= 1.5%):
+          * Se BTC não estiver em rali descontrolado e sem short squeeze, projeta SHORT na exaustão.
+          * Stop Loss estrutural acima da resistência H1 (res_h1 * 1.008 ou min 2.8% de stop ATR).
+          * Alvo assimétrico no miolo / suporte do canal.
+        - Quando o preço testa o piso do range (pos <= 25% ou dist_to_sup <= 1.5%):
+          * Se BTC não estiver em queda livre e sem varejo excessivamente comprado, projeta LONG no suporte.
+          * Stop Loss estrutural abaixo do suporte H1 (sup_h1 * 0.992 ou min 2.8% de stop ATR).
+          * Alvo assimétrico no miolo / resistência do canal.
+        """
+        sup_h1 = acc_range.get("support_h1", 0.0)
+        res_h1 = acc_range.get("resistance_h1", 0.0)
+
+        if sup_h1 <= 0 or res_h1 <= 0 or res_h1 <= sup_h1 or current_price <= 0:
+            return {"qualifies": False, "direction": "HOLD", "score": 60, "rationale": "Faixa H1 inválida."}
+
+        range_width = res_h1 - sup_h1
+        range_pos = (current_price - sup_h1) / range_width if range_width > 0 else 0.5
+        dist_to_res_pct = ((res_h1 - current_price) / current_price) * 100.0
+        dist_to_sup_pct = ((current_price - sup_h1) / current_price) * 100.0
+
+        # CASO 1: TESTE DO TETO / RESISTÊNCIA DO CANAL (EXAUSTÃO VENDEDORA -> SHORT)
+        if range_pos >= (1.0 - boundary_threshold) or dist_to_res_pct <= 1.5:
+            # FAROL MACRO DO BTC: Veto se o Bitcoin estiver subindo forte (> +1.0%)
+            if btc_trend_bias > 1.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[FAROL MACRO VETO]: Preço em {range_pos*100:.1f}% do range (teste de resistência ${res_h1:.4f}), mas Bitcoin em forte alta ({btc_trend_bias:+.1f}%)."
+                }
+
+            # FUNDING SHIELD: Veta se funding fortemente negativo (< -0.03%)
+            if funding_rate < -0.0003:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 60,
+                    "rationale": f"[VETO FUNDING]: Funding negativo ({funding_rate*100:.3f}%). Risco de short squeeze nas sardinhas."
+                }
+
+            # Varejo muito vendido em topo de canal é sinal de perigo
+            if lsr < 0.75:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[VETO LSR]: Preço em topo de canal, mas sardinhas já estão vendidas (LSR {lsr:.2f})."
+                }
+
+            # Stop Loss Dinâmico ATR (mínimo 2.8%, nunca menor!)
+            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
+            stop_loss = round(max(res_h1 * 1.008, current_price * (1.0 + stop_dist)), 4)
+            if stop_loss <= current_price:
+                stop_loss = round(current_price * (1.0 + stop_dist), 4)
+            stop_dist = max(0.028, (stop_loss - current_price) / current_price)
+
+            # Alvo no suporte do canal ou no miolo
+            target = round(sup_h1 * 1.010, 4)
+            if target >= current_price:
+                target = round(current_price * (1.0 - max(0.035, stop_dist * 1.6)), 4)
+            target_dist = max(0.025, (current_price - target) / current_price)
+
+            # Score institucional calibrado (mínimo 86)
+            score = 86
+            if lsr >= 1.15:
+                score += 3  # Varejo comprando no topo = liquidez para as baleias venderem
+            if oi_delta_pct >= 0.2:
+                score += 2  # Absorção institucional no topo
+            if btc_trend_bias <= 0.2:
+                score += 1  # BTC lateral ou fraco favorece short em altcoin
+
+            return {
+                "qualifies": True,
+                "direction": "SHORT",
+                "strategy": "LAYA_RANGE_REVERSAL",
+                "score": min(95, score),
+                "stop_loss": stop_loss,
+                "target": target,
+                "stop_dist": stop_dist,
+                "target_dist": target_dist,
+                "rationale": f"EXAUSTÃO NA RESISTÊNCIA H1 (SHORT): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${res_h1:.4f}). Varejo fomo (LSR {lsr:.2f}). Stop ATR blindado em ${stop_loss:.4f} (+{stop_dist*100:.1f}%)."
+            }
+
+        # CASO 2: TESTE DO PISO / SUPORTE DO CANAL (ABSORÇÃO COMPRADORA -> LONG)
+        elif range_pos <= boundary_threshold or dist_to_sup_pct <= 1.5:
+            # FAROL MACRO DO BTC: Veto se o Bitcoin estiver despencando (< -1.0%)
+            if btc_trend_bias < -1.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[FAROL MACRO VETO]: Preço em {range_pos*100:.1f}% do range (teste de suporte ${sup_h1:.4f}), mas Bitcoin em queda livre ({btc_trend_bias:+.1f}%)."
+                }
+
+            # FUNDING SHIELD: Veta se funding excessivamente positivo (> +0.03%)
+            if funding_rate > 0.0003:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 60,
+                    "rationale": f"[VETO FUNDING]: Funding rate alto (+{funding_rate*100:.3f}%). Compradores pagam taxa pesada."
+                }
+
+            # Varejo muito comprado no fundo é faca caindo
+            if lsr > 1.40:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[VETO LSR]: Preço em suporte, mas sardinhas entupidas na compra (LSR {lsr:.2f})."
+                }
+
+            # Stop Loss Dinâmico ATR (mínimo 2.8%, nunca menor!)
+            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
+            stop_loss = round(min(sup_h1 * 0.992, current_price * (1.0 - stop_dist)), 4)
+            if stop_loss >= current_price:
+                stop_loss = round(current_price * (1.0 - stop_dist), 4)
+            stop_dist = max(0.028, (current_price - stop_loss) / current_price)
+
+            # Alvo na resistência do canal ou no miolo
+            target = round(res_h1 * 0.990, 4)
+            if target <= current_price:
+                target = round(current_price * (1.0 + max(0.035, stop_dist * 1.6)), 4)
+            target_dist = max(0.025, (target - current_price) / current_price)
+
+            # Score institucional calibrado (mínimo 86)
+            score = 86
+            if lsr <= 1.10:
+                score += 3  # Varejo com medo ou vendendo no suporte = baleias absorvendo
+            if oi_delta_pct >= 0.2:
+                score += 2  # Absorção institucional no suporte
+            if btc_trend_bias >= -0.2:
+                score += 1  # BTC estável
+
+            return {
+                "qualifies": True,
+                "direction": "LONG",
+                "strategy": "LAYA_RANGE_REVERSAL",
+                "score": min(95, score),
+                "stop_loss": stop_loss,
+                "target": target,
+                "stop_dist": stop_dist,
+                "target_dist": target_dist,
+                "rationale": f"ABSORÇÃO NO SUPORTE H1 (LONG): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${sup_h1:.4f}). Varejo cauteloso (LSR {lsr:.2f}). Stop ATR blindado em ${stop_loss:.4f} (-{stop_dist*100:.1f}%)."
+            }
+
+        return {
+            "qualifies": False,
+            "direction": "HOLD",
+            "score": 65,
+            "rationale": f"MEIO DE CANAL H1 ({range_pos*100:.1f}%): Preço no miolo (${sup_h1:.4f} - ${res_h1:.4f}). Aguardando aproximação dos extremos institucionais."
+        }
+
     def evaluate_multi_setup_opportunity(
         self,
         symbol: str,
@@ -777,10 +945,11 @@ class LayaRouterService:
         """
         [MAESTRO MULTI-TIMEFRAME & MULTI-SETUP COM FAROL MACRO, FUNDING SHIELD, BTC.D & STOP ATR]
         Hierarquia de Decisão Soberana da Laya:
-        1. Prioridade 1: Saída de Acumulação H1 (Smart Money Breakout alinhado com fluxo macro e stop ATR).
-        2. Prioridade 2: Momento Mola 15M (Compressão extrema no canal, vetando compras se BTC caindo ou funding alto).
-        3. Prioridade 3: DVWAP Reversion 5M (Preço esticado >= 2.0% da VWAP com BTC neutro/favorável).
-        4. Neutro: Diagnóstico integrado das 3 camadas.
+        1. Prioridade 1: Saída de Acumulação H1 (Smart Money Breakout com volume e stop ATR).
+        2. Prioridade 2: Range Boundary Reversal (No regime Mean Reversion / Consolidação, opera exaustão nas bordas).
+        3. Prioridade 3: Momento Mola 15M (Compressão extrema no canal, BBW <= 6.5%).
+        4. Prioridade 4: DVWAP Reversion 5M (Preço esticado da VWAP com BTC favorável).
+        5. Neutro: Diagnóstico integrado das camadas.
         """
         # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordens de trade nele
         sym_clean = symbol.upper().replace("-", "").replace("_", "")
@@ -797,7 +966,7 @@ class LayaRouterService:
                 "rationale": "[ORÁCULO MACRO]: BTC é utilizado exclusivamente como bússola de dominância e fluxo. Proibido abrir ordens de trade no BTC."
             }
 
-        # CAMADA 1: AVALIA ROMPIMENTO DE 1H (PRIORIDADE MÁXIMA)
+        # CAMADA 1: AVALIA ROMPIMENTO DE 1H (PRIORIDADE MÁXIMA SE HOUVER BREAKOUT)
         setup_res = None
         h1_eval = self.evaluate_h1_breakout(
             symbol=symbol,
@@ -813,8 +982,23 @@ class LayaRouterService:
             h1_eval["strategy"] = "LAYA_SMART_MONEY_H1"
             setup_res = h1_eval
 
-        # CAMADA 2: SE ESTIVER NA ACUMULAÇÃO, AVALIA MOMENTO MOLA (15M)
-        if not setup_res and bb_width_pct <= 1.8:
+        # CAMADA 2: SE ESTIVER NO RANGE, AVALIA REVERSÃO DE BORDA (MEAN REVERSION INSTITUCIONAL)
+        if not setup_res:
+            range_eval = self.evaluate_range_boundary_reversal(
+                symbol=symbol,
+                current_price=current_price,
+                acc_range=acc_range,
+                lsr=lsr,
+                oi_delta_pct=oi_delta_pct,
+                btc_trend_bias=btc_trend_bias,
+                funding_rate=funding_rate,
+                atr_pct=atr_pct
+            )
+            if range_eval.get("qualifies"):
+                setup_res = range_eval
+
+        # CAMADA 3: SE NÃO HOUVER REVERSÃO DE BORDA, AVALIA MOMENTO MOLA (15M)
+        if not setup_res and bb_width_pct <= 6.5:
             mola_eval = self.evaluate_momento_mola(
                 symbol=symbol,
                 current_price=current_price,
@@ -829,7 +1013,7 @@ class LayaRouterService:
             if mola_eval.get("qualifies"):
                 setup_res = mola_eval
 
-        # CAMADA 3: SE NÃO HOUVER MOLA, AVALIA DESVIO DA VWAP (5M)
+        # CAMADA 4: AVALIA DESVIO DA VWAP (5M)
         if not setup_res and vwap > 0:
             dvwap_eval = self.evaluate_dvwap_reversion(
                 symbol=symbol,
@@ -1231,12 +1415,12 @@ class LayaRouterService:
             valid_candidates.append((momentum_score, a))
 
         valid_candidates.sort(key=lambda x: x[0], reverse=True)
-        deep_dive_assets = [item[1] for item in valid_candidates[:6]]
+        deep_dive_assets = [item[1] for item in valid_candidates[:12]]
         if not deep_dive_assets:
-            deep_dive_assets = assets[:4]
+            deep_dive_assets = assets[:6]
 
-        # Coleta concorrente com semáforo restrito para evitar 429
-        sem_flow = asyncio.Semaphore(6)
+        # Coleta concorrente com semáforo controlado para evitar 429
+        sem_flow = asyncio.Semaphore(8)
         async def _safe_flow(p):
             async with sem_flow:
                 try:
@@ -1244,15 +1428,28 @@ class LayaRouterService:
                 except Exception:
                     return {}
 
-        sem_kline = asyncio.Semaphore(6)
+        sem_kline = asyncio.Semaphore(10)
         async def _safe_kline(p):
             async with sem_kline:
                 try:
-                    return await asyncio.wait_for(okx_rest_service.get_klines(p, interval="60", limit=16), timeout=2.5)
+                    res = await asyncio.wait_for(okx_rest_service.get_klines(p, interval="60", limit=16), timeout=2.5)
+                    if res:
+                        return res
                 except Exception:
-                    return []
+                    pass
+                # Fallback instantâneo para klines da Binance pública se OKX demorar
+                try:
+                    clean = p.replace("-USDT-SWAP", "USDT")
+                    async with httpx.AsyncClient(timeout=2.0) as client:
+                        r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=1h&limit=16")
+                        if r_b.status_code == 200:
+                            raw = r_b.json()
+                            return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                except Exception:
+                    pass
+                return []
 
-        sem_fund = asyncio.Semaphore(6)
+        sem_fund = asyncio.Semaphore(8)
         async def _safe_fund(p):
             async with sem_fund:
                 try:
@@ -1323,15 +1520,16 @@ class LayaRouterService:
 
             vwap_res = self.calculate_vwap_and_deviation(h1_candles, price)
             vwap = vwap_res.get("vwap", price)
-            if vwap <= 0:
-                vwap = mid_prices.get(clean_sym, price)
+            if vwap <= 0 or not h1_candles:
+                # VWAP estimada a partir da faixa típica (High + Low + Close) / 3
+                vwap = round((acc_range["resistance_h1"] + acc_range["support_h1"] + price) / 3.0, 4)
 
             # Cálculo de Bollinger Width a partir do desvio da faixa H1
             bb_width_pct = acc_range.get("range_pct", 3.0)
             if bb_width_pct <= 0:
                 bb_width_pct = 2.5
 
-            # Avaliação Multi-Setup Integrada (Hierarquia: 1. H1 Breakout -> 2. Mola 15M -> 3. DVWAP 5M)
+            # Avaliação Multi-Setup Integrada (Hierarquia: 1. H1 Breakout -> 2. Range Reversal -> 3. Mola 15M -> 4. DVWAP 5M)
             multi_eval = self.evaluate_multi_setup_opportunity(
                 symbol=clean_sym,
                 current_price=price,
@@ -1356,7 +1554,15 @@ class LayaRouterService:
                 target = multi_eval["target"]
                 stop_dist = multi_eval["stop_dist"]
                 target_dist = multi_eval["target_dist"]
-                action_badge = "SMART_MONEY_GATILHO" if strat_name == "LAYA_SMART_MONEY_H1" else ("MOLA_GATILHO" if strat_name == "LAYA_MOMENTO_MOLA" else "DVWAP_GATILHO")
+                if strat_name == "LAYA_SMART_MONEY_H1":
+                    action_badge = "SMART_MONEY_GATILHO"
+                elif strat_name == "LAYA_RANGE_REVERSAL":
+                    action_badge = "RANGE_REVERSAL_GATILHO"
+                elif strat_name == "LAYA_MOMENTO_MOLA":
+                    action_badge = "MOLA_GATILHO"
+                else:
+                    action_badge = "DVWAP_GATILHO"
+
                 self.log_thought(
                     clean_sym,
                     f"GATILHO {strat_name}: {rationale} | SL: ${stop_loss:.4f} | TP: ${target:.4f}",
