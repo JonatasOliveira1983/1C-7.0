@@ -284,7 +284,25 @@ async def get_slots():
                     slot["sl_phase"] = "IDLE"
                     slot["sl_phase_icon"] = "IDLE"
                     slot["sl_phase_color"] = "gray"
-        
+
+        # [V162-FUNDING] Enriquecimento das ordens com taxas de financiamento da OKX
+        try:
+            from app.services.funding_service import funding_service
+            unique_syms = list({s["symbol"] for s in slots if s.get("symbol")})
+            if unique_syms:
+                await asyncio.gather(*[funding_service.get_funding_rate_details(sym) for sym in unique_syms], return_exceptions=True)
+            for slot in slots:
+                if slot.get("symbol"):
+                    f_calc = funding_service.calculate_position_funding(
+                        symbol=slot["symbol"],
+                        side=slot.get("direction") or slot.get("side") or "LONG",
+                        margin=float(slot.get("entry_margin") or (slot.get("contract_meta") or {}).get("margin") or 200.0),
+                        leverage=float(slot.get("leverage") or (slot.get("contract_meta") or {}).get("leverage") or 15.0)
+                    )
+                    slot["funding"] = f_calc
+        except Exception as _f_err:
+            logger.debug(f"[FUNDING-SLOTS] Erro ao enriquecer taxas: {_f_err}")
+
         _last_slots_cache = slots
         _last_slots_ts = now
         return slots
@@ -292,6 +310,15 @@ async def get_slots():
         logger.error(f"Error fetching slots: {e}")
     
     return []  # [V111.0] Ultra-Diversification: sem slots fantasma fixos, retorna vazio se não houver posições
+
+
+@router.get("/funding/summary")
+async def get_funding_summary():
+    """[V162] Retorna resumo financeiro consolidado de taxas de financiamento da frota de slots ativos."""
+    from app.services.funding_service import funding_service
+    slots = await get_slots()
+    active = [s for s in slots if s.get("symbol")]
+    return funding_service.calculate_fleet_funding_summary(active)
 
 @router.get("/signals")
 async def get_signals(min_score: int = 0, limit: int = 20):

@@ -895,6 +895,34 @@
               <span id="kpi-risk-cap" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">RISK: 0% / 40%</span>
             </div>
           </div>
+
+          <!-- PAINEL TAXA DE FINANCIAMENTO OKX (CUSTO / RECEITA PASSIVA) -->
+          <div style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #FCD535;"></span>
+                <span style="color: #EAECEF; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">TAXA DE FINANCIAMENTO OKX</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 7.5px; color: #848E9C;">SETTLEMENT:</span>
+                <span id="funding-countdown-badge" class="badge-gold" style="font-size: 8px; padding: 1px 4px; font-weight: 700;">--:--:--</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <div>
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">PRÓXIMO CICLO (8H)</span>
+                <b id="kpi-funding-8h" style="color: #0ECB81; font-size: 11px;">$0.00</b>
+              </div>
+              <div>
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">PROJEÇÃO DIÁRIA (24H)</span>
+                <b id="kpi-funding-24h" style="color: #0ECB81; font-size: 11px;">$0.00</b>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px dashed #1c2128; font-size: 8px;">
+              <span id="kpi-funding-detail" style="color: #848E9C;">0 POSIÇÕES RECEBENDO / 0 PAGANDO</span>
+              <span id="kpi-funding-status" style="color: #0ECB81; font-weight: 700;">FLUXO NEUTRO</span>
+            </div>
+          </div>
         </div>
 
 
@@ -1004,6 +1032,7 @@
                   <th>ATUAL</th>
                   <th>STOP ATUAL</th>
                   <th>PNL (%)</th>
+                  <th>FUNDING (8H / 24H)</th>
                   <th>STATUS ESCADINHA</th>
                   <th>ESTRATÉGIA</th>
                   <th>AÇÕES</th>
@@ -1011,7 +1040,7 @@
               </thead>
               <tbody id="slots-tbody">
                 <tr>
-                  <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
+                  <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
                     NENHUMA POSIÇÃO EM ABERTO NO MOMENTO (SISTEMA EM AGUARDO DE GATILHOS)
                   </td>
                 </tr>
@@ -1959,7 +1988,7 @@
           if (tbody) {
             tbody.innerHTML = `
               <tr>
-                <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
+                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px 0;">
                   NENHUMA POSIÇÃO EM ABERTO NO MOMENTO (SISTEMA EM AGUARDO DE GATILHOS)
                 </td>
               </tr>`;
@@ -2079,7 +2108,7 @@
           }
         }
 
-        // Render Table (Full Audit) com Moeda e Direção Monumentais
+        // Render Table (Full Audit) com Moeda, Direção e Taxa de Financiamento OKX
         if (tbody && activeSlots.length > 0) {
           tbody.innerHTML = activeSlots.map((s, idx) => {
             const isUp = (s.pnl_percent || 0) >= 0;
@@ -2088,6 +2117,19 @@
             const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
             const isSelected = selectedSlotSymbol === s.symbol;
             const cleanCoin = (s.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
+
+            const f = s.funding || {};
+            const fRate = f.funding_rate_pct !== undefined ? (f.funding_rate_pct > 0 ? `+${f.funding_rate_pct.toFixed(4)}%` : `${f.funding_rate_pct.toFixed(4)}%`) : '--';
+            const fAction = f.action || 'NEUTRO';
+            const isReceiving = fAction === 'RECEBE';
+            const fBadgeStyle = isReceiving 
+              ? 'background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; color: #0ECB81;' 
+              : (fAction === 'PAGA' ? 'background: rgba(246, 70, 93, 0.15); border: 1px solid #F6465D; color: #F6465D;' : 'background: #202020; color: #848E9C;');
+            const f8hVal = f.cost_per_cycle_usd !== undefined ? f.cost_per_cycle_usd : f.funding_usd_8h;
+            const f24hVal = f.cost_24h_usd !== undefined ? f.cost_24h_usd : f.projected_daily_usd;
+            const f8h = f8hVal !== undefined ? `${isReceiving ? '+' : (fAction === 'PAGA' ? '-' : '')}$${Math.abs(f8hVal).toFixed(2)}` : '$0.00';
+            const f24h = f24hVal !== undefined ? `${isReceiving ? '+' : (fAction === 'PAGA' ? '-' : '')}$${Math.abs(f24hVal).toFixed(2)}` : '$0.00';
+
             return `
               <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.12);' : ''}">
                 <td style="padding: 10px 8px;">
@@ -2107,6 +2149,16 @@
                 <td class="font-mono" style="font-size: 12px; font-weight: 800; color: #FFF;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</td>
                 <td class="font-mono" style="color: var(--accent-gold); font-size: 12px; font-weight: 700;">${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</td>
                 <td><span class="${pnlClass}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
+                <td>
+                  <div style="font-family: var(--font-mono); font-size: 11px;">
+                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+                      <span style="font-size: 8.5px; font-weight: 800; padding: 1px 4px; border-radius: 2px; ${fBadgeStyle}">${fAction}</span>
+                      <b style="color: #FFF;">${fRate}</b>
+                    </div>
+                    <span style="font-size: 9px; color: ${isReceiving ? '#0ECB81' : '#F6465D'}; font-weight: 700;">8h: ${f8h}</span>
+                    <span style="font-size: 8px; color: #848E9C; margin-left: 3px;">(24h: ${f24h})</span>
+                  </div>
+                </td>
                 <td><span class="badge-cyan" style="font-size: 10px; font-weight: 700;">${s.status_risco || 'LIVRE'}</span></td>
                 <td style="color: #848E9C; font-size: 10.5px; font-weight: 600;">${s.strategy || 'LAYA_RANGE_REVERSAL'}</td>
                 <td>
@@ -2126,6 +2178,17 @@
             const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
             const isSelected = selectedSlotSymbol === s.symbol;
             const cleanCoin = (s.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
+
+            const f = s.funding || {};
+            const fRate = f.funding_rate_pct !== undefined ? (f.funding_rate_pct > 0 ? `+${f.funding_rate_pct.toFixed(4)}%` : `${f.funding_rate_pct.toFixed(4)}%`) : '--';
+            const fAction = f.action || 'NEUTRO';
+            const isReceiving = fAction === 'RECEBE';
+            const fBadgeStyle = isReceiving 
+              ? 'background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; color: #0ECB81;' 
+              : (fAction === 'PAGA' ? 'background: rgba(246, 70, 93, 0.15); border: 1px solid #F6465D; color: #F6465D;' : 'background: #202020; color: #848E9C;');
+            const f8hVal = f.cost_per_cycle_usd !== undefined ? f.cost_per_cycle_usd : f.funding_usd_8h;
+            const f8h = f8hVal !== undefined ? `${isReceiving ? '+' : (fAction === 'PAGA' ? '-' : '')}$${Math.abs(f8hVal).toFixed(2)}` : '$0.00';
+
             return `
               <div class="side-slot-card" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" style="background: #14171d; border: 1.5px solid ${isSelected ? 'var(--accent-gold)' : (isLong ? '#0ECB81' : '#F6465D')}; ${isSelected ? 'box-shadow: 0 0 14px rgba(255, 192, 0, 0.45);' : ''} border-left: 5px solid ${isLong ? '#0ECB81' : '#F6465D'}; padding: 10px 12px; cursor: pointer; transition: all 0.15s ease; border-radius: 4px; margin-bottom: 6px;" onmouseover="this.style.borderColor='var(--accent-gold)'" onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.borderColor='${isLong ? '#0ECB81' : '#F6465D'}'" data-active="${isSelected ? 'true' : 'false'}" title="Clique para focar no G1 com Linhas de Alvo/Stop">
                 
@@ -2151,9 +2214,19 @@
                   <span style="color: #848E9C;">ATUAL: <b style="color: #FFFFFF; font-size: 12.5px;">$${Number(s.current_price || s.entry_price || 0).toFixed(Number(s.current_price || s.entry_price || 0) < 1 ? 6 : 4)}</b></span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 12px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px;">
                   <span style="color: var(--accent-gold); font-size: 11px; font-weight: 700;">DEFESA: ${Number(s.current_stop || 0) > 0 ? ('$' + Number(s.current_stop).toFixed(Number(s.current_stop) < 1 ? 6 : 4)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</span>
                   <span class="${pnlClass}" style="font-size: 14px; font-weight: 900; padding: 3px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span>
+                </div>
+
+                <!-- TAXA DE FINANCIAMENTO OKX -->
+                <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 10px; background: #0B0E11; padding: 4px 6px; border-radius: 3px; margin-bottom: 8px; border: 1px solid #23272e;">
+                  <span style="color: #848E9C; font-size: 9px;">FUNDING OKX:</span>
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 2px; ${fBadgeStyle}">${fAction}</span>
+                    <b style="color: #FFF; font-size: 10px;">${fRate}</b>
+                    <span style="color: ${isReceiving ? '#0ECB81' : '#F6465D'}; font-weight: 800; font-size: 10px;">(${f8h}/8h)</span>
+                  </div>
                 </div>
 
                 <!-- RODAPÉ: ESTRATÉGIA & BOTÃO FECHAR -->
@@ -2169,6 +2242,83 @@
         console.error("Erro ao carregar slots:", err);
       }
     }
+
+    /* ==========================================================================
+       TAXA DE FINANCIAMENTO OKX (FUNDING RATE) TELEMETRY
+       ========================================================================== */
+    let _fundingCountdownSeconds = 0;
+
+    async function fetchFundingSummary() {
+      try {
+        const res = await fetch("/api/funding/summary");
+        if (!res.ok) return;
+        const d = await res.json();
+        
+        const el8h = document.getElementById("kpi-funding-8h");
+        const el24h = document.getElementById("kpi-funding-24h");
+        const elDetail = document.getElementById("kpi-funding-detail");
+        const elStatus = document.getElementById("kpi-funding-status");
+
+        const total8h = d.total_cost_per_cycle_usd !== undefined ? d.total_cost_per_cycle_usd : (d.total_funding_usd_8h || 0);
+        const total24h = d.total_cost_24h_usd !== undefined ? d.total_cost_24h_usd : (d.projected_daily_funding_usd || 0);
+        const slotsRec = d.receiving_slots_count !== undefined ? d.receiving_slots_count : (d.slots_receiving || 0);
+        const slotsPay = d.paying_slots_count !== undefined ? d.paying_slots_count : (d.slots_paying || 0);
+        const activeCount = d.active_positions_count !== undefined ? d.active_positions_count : (d.active_slots || 0);
+        const secs = d.next_funding_in_s !== undefined ? d.next_funding_in_s : (d.seconds_to_funding || 0);
+
+        const isPositive = total8h >= 0;
+        const sign = isPositive ? "+" : "-";
+        const color = isPositive ? "#0ECB81" : "#F6465D";
+
+        if (el8h) {
+          el8h.textContent = `${sign}$${Math.abs(total8h).toFixed(2)}`;
+          el8h.style.color = color;
+        }
+        if (el24h) {
+          el24h.textContent = `${sign}$${Math.abs(total24h).toFixed(2)}`;
+          el24h.style.color = color;
+        }
+        if (elDetail) {
+          elDetail.textContent = `${slotsRec} RECEBENDO / ${slotsPay} PAGANDO`;
+        }
+        if (elStatus) {
+          if (activeCount === 0) {
+            elStatus.textContent = "SEM ORDENS ATIVAS";
+            elStatus.style.color = "#848E9C";
+          } else if (isPositive) {
+            elStatus.textContent = "RECEITA PASSIVA LIQ.";
+            elStatus.style.color = "#0ECB81";
+          } else {
+            elStatus.textContent = "CUSTO OPERACIONAL LIQ.";
+            elStatus.style.color = "#F6465D";
+          }
+        }
+
+        if (secs > 0) {
+          _fundingCountdownSeconds = Math.max(0, Math.floor(secs));
+          updateFundingCountdownUI();
+        }
+      } catch (e) {
+        console.warn("[FUNDING] Erro ao carregar resumo de funding:", e);
+      }
+    }
+
+    function updateFundingCountdownUI() {
+      const elBadge = document.getElementById("funding-countdown-badge");
+      if (!elBadge) return;
+      const h = String(Math.floor(_fundingCountdownSeconds / 3600)).padStart(2, '0');
+      const m = String(Math.floor((_fundingCountdownSeconds % 3600) / 60)).padStart(2, '0');
+      const s = String(_fundingCountdownSeconds % 60).padStart(2, '0');
+      elBadge.textContent = `${h}:${m}:${s}`;
+    }
+
+    // Timer de 1 segundo para o relógio regressivo do próximo ciclo OKX
+    setInterval(() => {
+      if (_fundingCountdownSeconds > 0) {
+        _fundingCountdownSeconds--;
+        updateFundingCountdownUI();
+      }
+    }, 1000);
 
     async function fetchUnifiedState() {
       try {
@@ -3143,6 +3293,7 @@
     updateCockpitClock();
     fetchLayaPulse();
     fetchSlots();
+    fetchFundingSummary();
     fetchUnifiedState();
     fetchRecentHistory();
     setChartGridMode('quad');
@@ -3158,6 +3309,7 @@
       try {
         await Promise.allSettled([
           fetchSlots(),
+          fetchFundingSummary(),
           fetchUnifiedState(),
           fetchLayaPulse()
         ]);
