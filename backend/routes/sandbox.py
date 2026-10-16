@@ -39,20 +39,42 @@ async def get_unified_sandbox_state():
         realized_pnl_usd = round(realized_balance - BANCA_BASE, 2)
         floating_pnl_usd = 0.0
         allocated_margin = 0.0
+        long_count = 0
+        short_count = 0
+        long_margin = 0.0
+        short_margin = 0.0
         
         for t in scalp_trades:
             margin = float((t.contract_meta or {}).get("margin", 200.0))
             allocated_margin += margin
             floating_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * margin
+            d = str(t.direction or "LONG").upper()
+            if d in ("LONG", "BUY"):
+                long_count += 1
+                long_margin += margin
+            else:
+                short_count += 1
+                short_margin += margin
                 
         for t in swing_trades:
             margin = float((t.contract_meta or {}).get("margin", 200.0))
             allocated_margin += margin
             floating_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * margin
+            d = str(t.direction or "LONG").upper()
+            if d in ("LONG", "BUY"):
+                long_count += 1
+                long_margin += margin
+            else:
+                short_count += 1
+                short_margin += margin
                 
         total_pnl_usd = realized_pnl_usd + floating_pnl_usd
         current_balance = BANCA_BASE + total_pnl_usd
         
+        total_active = active_scalp + active_swing
+        long_pct = round((long_count / total_active * 100.0), 1) if total_active > 0 else 50.0
+        short_pct = round((short_count / total_active * 100.0), 1) if total_active > 0 else 50.0
+
         # 5. Margem Alocada %
         allocation_pct = (allocated_margin / (current_balance * 0.40)) * 100.0 if current_balance > 0 else 0.0
         
@@ -70,6 +92,15 @@ async def get_unified_sandbox_state():
             "allocation_percent": round(allocation_pct, 1),
             "max_margin_usd": round(BANCA_BASE * 0.40, 2),
             "max_slots": 20,
+            # [V163] Delta Direcional e Transparência de Custos OKX
+            "total_fees_paid_usd": round(getattr(sandbox_service, "total_fees_paid_cache", 0.0), 2),
+            "total_gross_pnl_usd": round(getattr(sandbox_service, "total_gross_pnl_cache", 0.0), 2),
+            "delta_long_pct": long_pct,
+            "delta_short_pct": short_pct,
+            "delta_long_count": long_count,
+            "delta_short_count": short_count,
+            "delta_long_margin": round(long_margin, 2),
+            "delta_short_margin": round(short_margin, 2),
             # [V126-LOCK-IN] Telemetria do Protocolo Lock-In
             "lock_in_active": getattr(database_service, "lock_in_active", False),
             "lock_in_trigger_balance": getattr(database_service, "lock_in_trigger_balance", 11000.0),
@@ -786,7 +817,7 @@ async def close_sandbox_trade(payload: CloseTradePayload):
         except Exception:
             leverage = 15.0
 
-        from services.projection_service import proj_service
+        from services.order_projection_service import order_projection_service as proj_service
         exit_roi = proj_service.calculate_roi(entry_price, price, side, leverage)
         
         # Dedução estrita de taxas OKX: 0.10% Taker round-trip + 0.03% Slippage = 0.13% * 15 = 1.95% ROI
@@ -845,6 +876,107 @@ async def close_sandbox_trade(payload: CloseTradePayload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fechar trade: {str(e)}")
 
+
+@router.post("/emergency-close-all", summary="[V163] Fecha todas as posições ativas da frota (Scalp e Swing) a mercado imediatamente")
+async def emergency_close_all():
+    """Fecha todas as ordens abertas a mercado, aplicando deduções de taxas OKX e atualizando o caixa soberano."""
+    try:
+        from services.order_projection_service import order_projection_service as proj_service
+        now = time.time()
+        scalp_trades = await database_service.get_sandbox_trades(active_only=True)
+        swing_trades = await database_service.get_swing_trades(active_only=True)
+        
+        closed_count = 0
+        total_realized_usd = 0.0
+        closed_details = []
+
+        all_active = [(t, "SCALP") for t in scalp_trades] + [(t, "SWING") for t in swing_trades]
+
+        for trade, lab_type in all_active:
+            try:
+                symbol = trade.symbol
+                price = 0.0
+                try:
+                    price = await sandbox_service._get_current_price(symbol)
+                except Exception:
+                    pass
+                if price <= 0:
+                    price = float(trade.current_price or trade.entry_price or 0.0)
+
+                entry_price = float(trade.entry_price or price)
+                side = "Buy" if str(trade.direction).upper() in ("LONG", "BUY") else "Sell"
+                meta = dict(trade.contract_meta or {})
+                leverage = float(meta.get("leverage") or getattr(trade, "leverage", 15.0) or 15.0)
+                margin = float(meta.get("margin") or getattr(trade, "entry_margin", 200.0) or 200.0)
+
+                exit_roi = proj_service.calculate_roi(entry_price, price, side, leverage)
+                operational_cost_roi = 0.0013 * leverage * 100.0
+                final_pnl_pct = round(exit_roi - operational_cost_roi, 4)
+
+                notional = round(margin * leverage, 2)
+                fee_open = round(notional * 0.0005, 2)
+                fee_close = round(notional * 0.0005, 2)
+                slippage_usd = round(notional * 0.0003, 2)
+                total_fees = round(fee_open + fee_close + slippage_usd, 2)
+                net_usd = round((final_pnl_pct / 100.0) * margin, 2)
+                gross_usd = round((exit_roi / 100.0) * margin, 2)
+
+                meta.update({
+                    "margin": margin,
+                    "leverage": leverage,
+                    "notional_usd": notional,
+                    "gross_roi": round(exit_roi, 2),
+                    "net_roi": round(final_pnl_pct, 2),
+                    "gross_pnl_usd": gross_usd,
+                    "net_pnl_usd": net_usd,
+                    "fee_open_usd": fee_open,
+                    "fee_close_usd": fee_close,
+                    "slippage_usd": slippage_usd,
+                    "total_fees_usd": total_fees
+                })
+
+                flash_state = dict(trade.flash_state or {}) if hasattr(trade, "flash_state") and trade.flash_state else {}
+                history = list(flash_state.get("history") or [])
+                history.append(f"EMERGENCY FLATTEN executado a ${price} | ROI Bruto: {exit_roi:+.2f}% | Custos OKX: -{operational_cost_roi:.2f}% | ROI Líquido: {final_pnl_pct:+.2f}% (PnL: ${net_usd:+.2f})")
+                flash_state["history"] = history
+                flash_state["phase"] = "EMERGENCY_CLOSED"
+
+                update_payload = {
+                    "current_price": price,
+                    "current_roi": final_pnl_pct,
+                    "pnl_pct": final_pnl_pct,
+                    "status": "CLOSED_EMERGENCY",
+                    "closed_at": now,
+                    "contract_meta": meta
+                }
+                if lab_type == "SCALP":
+                    update_payload["flash_state"] = flash_state
+                    await database_service.update_sandbox_trade(trade.id, update_payload)
+                else:
+                    await database_service.update_swing_trade(trade.id, update_payload)
+
+                closed_count += 1
+                total_realized_usd += net_usd
+                closed_details.append({
+                    "symbol": symbol,
+                    "lab": lab_type,
+                    "pnl_pct": final_pnl_pct,
+                    "pnl_usd": net_usd
+                })
+            except Exception as item_err:
+                logger.error(f"[EMERGENCY-CLOSE] Erro ao fechar {trade.symbol}: {item_err}")
+
+        sandbox_service.reset_balance_cache()
+
+        return {
+            "success": True,
+            "closed_count": closed_count,
+            "total_realized_usd": round(total_realized_usd, 2),
+            "trades": closed_details,
+            "message": f"{closed_count} ordens fechadas com sucesso no modo de emergência. PnL Líquido total: ${total_realized_usd:+.2f}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no fechamento de emergência: {str(e)}")
 
 
 # =============================================================================

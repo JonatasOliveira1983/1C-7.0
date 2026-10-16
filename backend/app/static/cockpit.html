@@ -923,6 +923,27 @@
               <span id="kpi-funding-status" style="color: #0ECB81; font-weight: 700;">FLUXO NEUTRO</span>
             </div>
           </div>
+
+          <!-- PAINEL DELTA DIRECIONAL & COMISSÕES OKX -->
+          <div style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #29ABE2;"></span>
+                <span style="color: #EAECEF; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">DELTA DIRECIONAL & COMISSÕES</span>
+              </div>
+              <span id="kpi-delta-warning" class="badge-gold" style="font-size: 8px; padding: 1px 4px; font-weight: 700;">EQUILIBRADO</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <div>
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">EXPOSIÇÃO DA FROTA</span>
+                <b id="kpi-fleet-delta" style="color: #FFF; font-size: 10.5px;">50% L / 50% S</b>
+              </div>
+              <div>
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">COMISSÕES OKX PAGAS</span>
+                <b id="kpi-total-fees" style="color: #F6465D; font-size: 10.5px;">-$0.00</b>
+              </div>
+            </div>
+          </div>
         </div>
 
 
@@ -1012,12 +1033,17 @@
 
         <!-- Active Positions / Custódia Full Table (Auditoria Ampla) -->
         <div class="card-lamborghini">
-          <div class="card-lamborghini-header">
+          <div class="card-lamborghini-header" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
               <span class="card-title">
                 <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> PAINEL DE CUSTÓDIA GERAL — AUDITORIA DE ORDENS ATIVAS
               </span>
               <span id="active-slots-count" class="badge-gold">0 ATIVAS</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button onclick="emergencyCloseAll()" class="btn-ghost" style="padding: 3px 10px; font-size: 9.5px; font-weight: 800; border-color: #f6465d; color: #f6465d; background: rgba(246, 70, 93, 0.12); letter-spacing: 0.04em;" title="Fecha todas as ordens abertas a mercado imediatamente em caso de emergência">
+                ZERAR TODAS AS ORDENS (FLATTEN)
+              </button>
             </div>
           </div>
 
@@ -2393,6 +2419,39 @@
           document.getElementById("kpi-scalp-slots").textContent = `${d.active_scalping_slots || 0} / 5`;
           document.getElementById("kpi-swing-slots").textContent = `${d.active_swing_slots || 0} / 15`;
         }
+
+        // Atualização de Delta Direcional e Comissões OKX
+        const deltaLong = d.delta_long_pct !== undefined ? d.delta_long_pct : 50.0;
+        const deltaShort = d.delta_short_pct !== undefined ? d.delta_short_pct : 50.0;
+        const longCount = d.delta_long_count || 0;
+        const shortCount = d.delta_short_count || 0;
+        const totalFees = d.total_fees_paid_usd || 0.0;
+
+        const deltaEl = document.getElementById("kpi-fleet-delta");
+        const warnEl = document.getElementById("kpi-delta-warning");
+        const feesEl = document.getElementById("kpi-total-fees");
+
+        if (deltaEl) {
+          deltaEl.textContent = `${deltaLong.toFixed(0)}% L (${longCount}) | ${deltaShort.toFixed(0)}% S (${shortCount})`;
+        }
+        if (warnEl) {
+          if (longCount === 0 && shortCount === 0) {
+            warnEl.textContent = "NEUTRO";
+            warnEl.className = "badge-gold";
+          } else if (deltaShort >= 75.0) {
+            warnEl.textContent = "EXPOSIÇÃO SHORT ALTA";
+            warnEl.className = "badge-down";
+          } else if (deltaLong >= 75.0) {
+            warnEl.textContent = "EXPOSIÇÃO LONG ALTA";
+            warnEl.className = "badge-up";
+          } else {
+            warnEl.textContent = "EQUILIBRADO";
+            warnEl.className = "badge-gold";
+          }
+        }
+        if (feesEl) {
+          feesEl.textContent = `-$${totalFees.toFixed(2)}`;
+        }
       } catch (e) {}
     }
 
@@ -3259,6 +3318,37 @@
         fetchRecentHistory();
       } catch (e) {
         alert("Erro ao fechar: " + e.message);
+      }
+    }
+
+    async function emergencyCloseAll() {
+      const activeCount = window._activeSlotsData ? window._activeSlotsData.length : 0;
+      if (activeCount === 0) {
+        alert("Nenhuma ordem ativa para encerrar.");
+        return;
+      }
+      const confirmed = window.confirm ? confirm(
+        `ATENÇÃO INSTITUCIONAL:\n\nDeseja realmente fechar TODAS as ${activeCount} ordens ativas a mercado imediatamente?\n\nTodas as posições serão encerradas com taxas OKX deduzidas e o caixa soberano será consolidado.`
+      ) : true;
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch("/api/sandbox/emergency-close-all", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          alert(`FLATTEN GERAL CONCLUÍDO:\n${data.message}`);
+        } else {
+          alert("Aviso: " + (data.message || "Erro ao processar fechamento geral."));
+        }
+        for (let i = 0; i < 4; i++) {
+          clearOrderLinesForChart(i);
+        }
+        fetchSlots();
+        fetchUnifiedState();
+        fetchFundingSummary();
+        fetchRecentHistory();
+      } catch (err) {
+        alert("Erro no fechamento de emergência: " + err.message);
       }
     }
 

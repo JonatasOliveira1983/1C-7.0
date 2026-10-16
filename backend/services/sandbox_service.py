@@ -23,6 +23,8 @@ class SandboxService:
 
         # [V126-LOCK-IN] Variáveis para controle local e cache de saldo consolidado
         self.base_balance_cache = 10000.0
+        self.total_fees_paid_cache = 0.0
+        self.total_gross_pnl_cache = 0.0
         self.last_balance_recalc = 0.0
 
         # Cache de preco (fallback quando WS falha) — espelha FlashAgent
@@ -1340,16 +1342,33 @@ class SandboxService:
                         all_swings = await database_service.get_swing_trades(active_only=False)
                         
                         closed_pnl_usd = 0.0
+                        total_fees_usd = 0.0
                         for t in all_scalps:
                             if t.status != "ACTIVE":
-                                _m = float((t.contract_meta or {}).get("margin", 200.0))
-                                closed_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * _m
+                                meta = t.contract_meta or {}
+                                _m = float(meta.get("margin", 200.0))
+                                net_trade = (float(t.pnl_pct or 0.0) / 100.0) * _m
+                                closed_pnl_usd += net_trade
+                                fee = float(meta.get("total_fees_usd") or 0.0)
+                                if fee <= 0:
+                                    lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
+                                    fee = round(_m * lev * 0.0013, 2)
+                                total_fees_usd += fee
                         for t in all_swings:
                             if t.status != "ACTIVE":
-                                _m = float((t.contract_meta or {}).get("margin", 200.0))
-                                closed_pnl_usd += (float(t.pnl_pct or 0.0) / 100.0) * _m
+                                meta = t.contract_meta or {}
+                                _m = float(meta.get("margin", 200.0))
+                                net_trade = (float(t.pnl_pct or 0.0) / 100.0) * _m
+                                closed_pnl_usd += net_trade
+                                fee = float(meta.get("total_fees_usd") or 0.0)
+                                if fee <= 0:
+                                    lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
+                                    fee = round(_m * lev * 0.0013, 2)
+                                total_fees_usd += fee
                                 
                         self.base_balance_cache = 10000.0 + closed_pnl_usd
+                        self.total_fees_paid_cache = round(total_fees_usd, 2)
+                        self.total_gross_pnl_cache = round(closed_pnl_usd + total_fees_usd, 2)
                         self.last_balance_recalc = now_ts
                     except Exception as e:
                         logger.error(f"[LOCK-IN] Erro ao recalcular saldo fechado base: {e}")
