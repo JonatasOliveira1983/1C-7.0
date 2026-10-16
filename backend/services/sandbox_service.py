@@ -339,10 +339,10 @@ class SandboxService:
         leverage = 15.0
         if isinstance(contract_meta, dict):
             leverage = float(contract_meta.get("leverage") or contract_meta.get("maxLeverage") or 15.0)
-        # [V159-ENCRYPTOS] Stop estrutural ancorado na volatilidade real e alavancagem:
-        # Folga de preço de 3.0% a 4.0% -> ROI = -3.0% * leverage (ex: -45.0% em 15x)
-        fallback_roi = -3.0 * leverage
-        limit_roi = -4.2 * leverage
+        # [V160-RISK-CAP] Stop calibrado e blindado contra stops gigantes:
+        # Teto máximo de 1.2% no preço (= -18.0% ROI em 15x), fallback de 1.0% (= -15.0% ROI)
+        fallback_roi = -1.0 * leverage
+        limit_roi = -1.2 * leverage
         tick_size = 0.0
         if isinstance(contract_meta, dict):
             tick_size = float(contract_meta.get("tickSize", 0) or 0)
@@ -354,29 +354,29 @@ class SandboxService:
             # Verificar se o ROI resultante é razoável
             stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
             
-            # [V159-ENCRYPTOS] Capping estrito de segurança de risco fora do ruído:
+            # [V160-RISK-CAP] Capping estrito de segurança de risco:
             if stop_roi < limit_roi:
                 logger.info(
-                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o teto. "
+                    f"🧪 [SANDBOX-V160] {symbol} stop estrutural de {stop_roi:.1f}% excedeu o teto. "
                     f"Ajustando para o teto rígido de {limit_roi:.1f}% ROI"
                 )
                 stop_roi = limit_roi
                 stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                 
-            # [V159-ENCRYPTOS] Aceita stops estruturais entre o teto e -15% ROI (-1.0% a -4.2% de preço)
-            if limit_roi <= stop_roi <= -15.0:
+            # [V160-RISK-CAP] Aceita stops estruturais entre o teto (-18% ROI) e -5.0% ROI
+            if limit_roi <= stop_roi <= -5.0:
                 source = "structural_30m"
                 if tick_size > 0:
                     stop_price = self._round_stop_to_tick(stop_price, tick_size, side, stop_roi)
                 logger.info(
-                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural 30M aprovado: "
+                    f"🧪 [SANDBOX-V160] {symbol} stop estrutural 30M aprovado: "
                     f"{stop_price:.4f} (ROI={stop_roi:.1f}%, source={source})"
                 )
                 return {"stop_price": stop_price, "stop_roi": stop_roi, "source": source}
             else:
                 logger.info(
-                    f"🧪 [SANDBOX-V159] {symbol} stop estrutural 30M rejeitado: "
-                    f"ROI={stop_roi:.1f}% fora do range [{limit_roi:.1f}%, -15.0%] — usando fallback"
+                    f"🧪 [SANDBOX-V160] {symbol} stop estrutural 30M rejeitado: "
+                    f"ROI={stop_roi:.1f}% fora do range [{limit_roi:.1f}%, -5.0%] — usando fallback"
                 )
 
         # 2. [V119] Tentar fallback dinâmico por volatilidade ATR de 30M em mercado lateral
@@ -407,12 +407,12 @@ class SandboxService:
                             
                         stop_roi = proj_service.calculate_roi(entry_price, stop_price, side, leverage)
                         
-                        # Trava o ROI de stop: teto limit_roi (-4.2 * leverage) e piso -20% ROI
+                        # Trava o ROI de stop entre limit_roi e -8% ROI
                         if stop_roi < limit_roi:
                             stop_roi = limit_roi
                             stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
-                        elif stop_roi > -20.0:
-                            stop_roi = -20.0
+                        elif stop_roi > -8.0:
+                            stop_roi = -8.0
                             stop_price = proj_service.raw_price_from_roi(entry_price, stop_roi, side, leverage)
                             
                         source = "volatility_atr"
@@ -900,7 +900,8 @@ class SandboxService:
                 if mkt_price <= 0:
                     mkt_price = await self._get_rest_price(symbol)
                 if mkt_price > 0 and entry_price > 0:
-                    immediate_roi = proj_service.calculate_roi(entry_price, mkt_price, side, 50.0)
+                    entry_lev = float(contract_meta.get("leverage") or 15.0)
+                    immediate_roi = proj_service.calculate_roi(entry_price, mkt_price, side, entry_lev)
                     stale_threshold = max(initial_stop_roi * 0.7, -10.0)  # [V113.2] Floor -10% p/ evitar descartes por ruído de tick (com -5% stop, 70% = -3.5% = 0.07% price move — muito apertado)
                     if immediate_roi <= stale_threshold:
                         logger.warning(

@@ -575,6 +575,9 @@ async def reset_sandbox_all():
         success = await database_service.reset_system_data()
         if not success:
             raise HTTPException(status_code=500, detail="Falha ao resetar sistema no banco de dados.")
+        sandbox_service.reset_balance_cache()
+        if hasattr(sandbox_service, "_stop_cooldown"):
+            sandbox_service._stop_cooldown.clear()
         return {
             "success": True,
             "message": "Banca unificada resetada para $10,000.00 pristine. Histórico, defesas e posições limpos com sucesso."

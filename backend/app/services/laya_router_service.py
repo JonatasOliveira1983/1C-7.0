@@ -329,15 +329,18 @@ class LayaRouterService:
                     "rationale": f"[VETO ENCRYPTOS - FAKEOUT]: Rompimento sem entrada de capital novo (OI caiu {oi_delta_pct:.2f}%). Sem força para sustentação no H1."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR e estrutura H1 (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(min(res_h1 * 0.995, current_price * (1.0 - stop_dist)), 4)
-            if stop_loss >= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = res_h1 * 0.998 if res_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
-            stop_dist = max(0.028, (current_price - stop_loss) / current_price)
 
-            # Alvo assimétrico no H1 (+3.5% a +7.0%)
-            target_dist = max(0.035, stop_dist * 2.2)
+            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+
+            # Alvo assimétrico no H1 (+1.8% a +3.0%)
+            target_dist = max(0.018, stop_dist * 2.0)
             target = round(current_price * (1.0 + target_dist), 4)
 
             score = 92 if (oi_delta_pct >= 0.5 and lsr <= 1.15) else 88
@@ -390,14 +393,17 @@ class LayaRouterService:
                     "rationale": f"[VETO ENCRYPTOS - FAKEOUT]: Perda de suporte sem volume vendedor novo (OI caiu {oi_delta_pct:.2f}%)."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR e estrutura H1 (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(max(sup_h1 * 1.005, current_price * (1.0 + stop_dist)), 4)
-            if stop_loss <= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = sup_h1 * 1.002 if sup_h1 > 0 else 0.0
+            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
-            stop_dist = max(0.028, (stop_loss - current_price) / current_price)
 
-            target_dist = max(0.035, stop_dist * 2.2)
+            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+
+            target_dist = max(0.018, stop_dist * 2.0)
             target = round(current_price * (1.0 - target_dist), 4)
 
             score = 92 if (oi_delta_pct >= 0.5 and lsr >= 1.25) else 88
@@ -559,14 +565,19 @@ class LayaRouterService:
                     "rationale": f"[DVWAP VETO]: Preço esticado abaixo da VWAP ({diff_pct:.1f}%), mas varejo já está muito comprado (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(min(sup_h1 * 0.990, current_price * (1.0 - stop_dist)), 4) if sup_h1 > 0 else round(current_price * (1.0 - stop_dist), 4)
-            if stop_loss >= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
-            stop_dist = max(0.028, (current_price - stop_loss) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
             target = round(vwap, 4)
-            target_dist = max(0.020, (target - current_price) / current_price)
+            if target <= current_price:
+                target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
+            target_dist = max(0.015, (target - current_price) / current_price)
             score = 90 if lsr <= 1.10 else 86
 
             return {
@@ -609,14 +620,19 @@ class LayaRouterService:
                     "rationale": f"[DVWAP VETO]: Preço esticado acima da VWAP (+{diff_pct:.1f}%), mas varejo está muito vendido (LSR {lsr:.2f}). Risco de short squeeze."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(max(res_h1 * 1.010, current_price * (1.0 + stop_dist)), 4) if res_h1 > 0 else round(current_price * (1.0 + stop_dist), 4)
-            if stop_loss <= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
+            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
-            stop_dist = max(0.028, (stop_loss - current_price) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
             target = round(vwap, 4)
-            target_dist = max(0.020, (current_price - target) / current_price)
+            if target >= current_price:
+                target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
+            target_dist = max(0.015, (current_price - target) / current_price)
             score = 90 if lsr >= 1.25 else 86
 
             return {
@@ -688,14 +704,19 @@ class LayaRouterService:
                     "rationale": f"[VETO FUNDING RATE]: Funding rate excessivo (+{funding_rate*100:.3f}%). Compradores pagam taxa às baleias."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(min(sup_h1 * 0.990, current_price * (1.0 - stop_dist)), 4) if sup_h1 > 0 else round(current_price * (1.0 - stop_dist), 4)
-            if stop_loss >= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
-            stop_dist = max(0.028, (current_price - stop_loss) / current_price)
-            target = round(res_h1 * 0.995 if res_h1 > 0 else current_price * 1.035, 4)
-            target_dist = max(0.025, (target - current_price) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+            target = round(res_h1 * 0.995 if res_h1 > 0 else current_price * 1.025, 4)
+            if target <= current_price:
+                target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
+            target_dist = max(0.015, (target - current_price) / current_price)
             score = 90 if lsr <= 1.15 else 86
 
             return {
@@ -730,14 +751,19 @@ class LayaRouterService:
                     "rationale": f"[VETO FUNDING RATE]: Funding rate fortemente negativo ({funding_rate*100:.3f}%). Vendedores pagam taxa às baleias."
                 }
 
-            # Stop Loss Dinâmico ancorado no ATR (mínimo 2.8%, máximo 4.5% de folga)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(max(res_h1 * 1.010, current_price * (1.0 + stop_dist)), 4) if res_h1 > 0 else round(current_price * (1.0 + stop_dist), 4)
-            if stop_loss <= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
+            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
-            stop_dist = max(0.028, (stop_loss - current_price) / current_price)
-            target = round(sup_h1 * 1.005 if sup_h1 > 0 else current_price * 0.965, 4)
-            target_dist = max(0.025, (current_price - target) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+            target = round(sup_h1 * 1.005 if sup_h1 > 0 else current_price * 0.975, 4)
+            if target >= current_price:
+                target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
+            target_dist = max(0.015, (current_price - target) / current_price)
             score = 90 if lsr >= 1.20 else 86
 
             return {
@@ -823,18 +849,21 @@ class LayaRouterService:
                     "rationale": f"[VETO LSR]: Preço em topo de canal, mas sardinhas já estão vendidas (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ATR (mínimo 2.8%, nunca menor!)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(max(res_h1 * 1.008, current_price * (1.0 + stop_dist)), 4)
-            if stop_loss <= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
+            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
-            stop_dist = max(0.028, (stop_loss - current_price) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
 
             # Alvo no suporte do canal ou no miolo
-            target = round(sup_h1 * 1.010, 4)
+            target = round(sup_h1 * 1.005, 4) if sup_h1 > 0 else round(current_price * (1.0 - stop_dist * 1.8), 4)
             if target >= current_price:
-                target = round(current_price * (1.0 - max(0.035, stop_dist * 1.6)), 4)
-            target_dist = max(0.025, (current_price - target) / current_price)
+                target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
+            target_dist = max(0.015, (current_price - target) / current_price)
 
             # Score institucional calibrado (mínimo 86)
             score = 86
@@ -886,17 +915,20 @@ class LayaRouterService:
                     "rationale": f"[VETO LSR]: Preço em suporte, mas sardinhas entupidas na compra (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ATR (mínimo 2.8%, nunca menor!)
-            stop_dist = max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))
-            stop_loss = round(min(sup_h1 * 0.992, current_price * (1.0 - stop_dist)), 4)
-            if stop_loss >= current_price:
+            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
+            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
+            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+                stop_loss = round(candidate_sl, 4)
+            else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
-            stop_dist = max(0.028, (current_price - stop_loss) / current_price)
+
+            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
 
             # Alvo na resistência do canal ou no miolo
-            target = round(res_h1 * 0.990, 4)
+            target = round(res_h1 * 0.995, 4) if res_h1 > 0 else round(current_price * (1.0 + stop_dist * 1.8), 4)
             if target <= current_price:
-                target = round(current_price * (1.0 + max(0.035, stop_dist * 1.6)), 4)
+                target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.025, (target - current_price) / current_price)
 
             # Score institucional calibrado (mínimo 86)
@@ -1761,17 +1793,20 @@ class LayaRouterService:
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                # [SANITY GATE INVIOLÁVEL: NUNCA PERMITIR STOP LOSS INVERTIDO OU ALVO INVÁLIDO]
+                # [SANITY GATE INVIOLÁVEL: NUNCA PERMITIR STOP LOSS INVERTIDO, DESPROPORCIONAL OU ALVO INVÁLIDO]
+                # Teto estrito de 1.2% de distância no preço (= -18% ROI com 15x)
+                max_stop_dist = 0.012
+                default_stop_dist = 0.010
                 if d == "LONG":
-                    if not stop_loss or stop_loss >= p:
-                        stop_loss = round(p * 0.970, 4)
+                    if not stop_loss or stop_loss >= p or ((p - stop_loss) / p) > max_stop_dist or ((p - stop_loss) / p) < 0.005:
+                        stop_loss = round(p * (1.0 - default_stop_dist), 4)
                     if not target or target <= p:
-                        target = round(p * 1.045, 4)
+                        target = round(p * 1.025, 4)
                 elif d == "SHORT":
-                    if not stop_loss or stop_loss <= p:
-                        stop_loss = round(p * 1.030, 4)
+                    if not stop_loss or stop_loss <= p or ((stop_loss - p) / p) > max_stop_dist or ((stop_loss - p) / p) < 0.005:
+                        stop_loss = round(p * (1.0 + default_stop_dist), 4)
                     if not target or target >= p:
-                        target = round(p * 0.955, 4)
+                        target = round(p * 0.975, 4)
 
                 # [DOSSIÊ CANÔNICO DOS 10 TITÃS DA OKX]
                 from services.order_projection_service import proj_service
@@ -1793,6 +1828,10 @@ class LayaRouterService:
 
                 # Stop ROI estrutural exato ancorado no preço de Stop Loss e alavancagem calibrada
                 init_stop_roi = round(proj_service.calculate_roi(p, stop_loss, d, leverage), 2)
+                # Hard limit inviolável de -18.0% ROI
+                if init_stop_roi < -18.0:
+                    init_stop_roi = -18.0
+                    stop_loss = round(proj_service.raw_price_from_roi(p, -18.0, d, leverage), 4)
                 be_trigger_roi = 8.0
 
                 decision_label = f"BUY ({chosen['score']}%)" if d == "LONG" else f"SELL ({chosen['score']}%)"
