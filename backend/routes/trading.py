@@ -41,13 +41,16 @@ def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
     if opened and hasattr(opened, "isoformat"):
         opened = opened.isoformat()
     meta = trade.get("contract_meta") if isinstance(trade.get("contract_meta"), dict) else {}
-    ep = float(trade.get("entry_price") or trade.get("current_price") or 0.0)
+    ep = float(trade.get("entry_price") or 0.0)
+    cp = float(trade.get("current_price") or ep)
     sl = float(trade.get("stop_loss") or trade.get("current_stop") or 0.0)
     tp = float(trade.get("target") or trade.get("target_price") or 0.0)
     if sl <= 0 and ep > 0:
         sl = round(ep * (0.975 if direction in ("LONG", "BUY") else 1.025), 4)
     if tp <= 0 and ep > 0:
         tp = round(ep * (1.050 if direction in ("LONG", "BUY") else 0.950), 4)
+    raw_pnl = trade.get("pnl_pct") if trade.get("pnl_pct") is not None else trade.get("current_roi")
+    pnl = float(raw_pnl or 0.0)
 
     return {
         "id": trade.get("id"),
@@ -55,7 +58,7 @@ def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
         "side": side,
         "qty": trade.get("qty") or 0,
         "entry_price": ep,
-        "current_price": ep,
+        "current_price": cp,
         "entry_margin": trade.get("entry_margin") or meta.get("margin") or 200.0,
         "current_stop": sl,
         "initial_stop": sl,
@@ -65,7 +68,7 @@ def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
         "contract_meta": meta,
         "slot_type": lab_type,
         "status_risco": trade.get("status"),
-        "pnl_percent": trade.get("pnl_pct") or 0,
+        "pnl_percent": round(pnl, 2),
         "strategy": trade.get("strategy"),
         "strategy_label": trade.get("strategy"),
         "opened_at": opened or 0,
@@ -205,15 +208,20 @@ async def get_slots():
             now_ts = time.time()
             price_map = dict(_cached_price_map) if _cached_price_map else {}
             
-            # Atualiza preços a partir dos próprios dados dos slots e cache
+            # Atualiza preços a partir de WebSocket em tempo real, dados dos slots e cache
+            from services.okx_ws_public import okx_ws_public_service
             for s in slots:
                 sym = s.get("symbol")
                 if sym:
                     clean = okx_rest_service._strip_p(sym).upper() if hasattr(okx_rest_service, "_strip_p") else sym.replace("-SWAP", "").replace("-", "").upper()
-                    cur_p = float(s.get("current_price") or s.get("entry_price") or 0.0)
+                    ws_p = okx_ws_public_service.get_current_price(sym) or okx_ws_public_service.get_current_price(clean)
+                    db_p = float(s.get("current_price") or 0.0)
+                    ep = float(s.get("entry_price") or 0.0)
+                    cur_p = float(ws_p or db_p or ep)
                     if cur_p > 0:
                         price_map[clean] = cur_p
                         price_map[sym] = cur_p
+                        s["current_price"] = cur_p
             
             _cached_price_map = price_map
             _last_price_map_ts = now_ts
@@ -243,7 +251,9 @@ async def get_slots():
                     entry = float(slot.get("entry_price", 0))
                     side = slot.get("side", "Buy")
                     sym_clean = okx_rest_service._strip_p(slot["symbol"])
-                    live_price = price_map.get(sym_clean, 0)
+                    live_price = price_map.get(sym_clean, 0) or price_map.get(slot["symbol"], 0) or float(slot.get("current_price") or 0)
+                    if live_price > 0:
+                        slot["current_price"] = live_price
                     
                     if live_price > 0 and entry > 0:
                         projection = await order_projection_service.build_projection(
@@ -252,9 +262,14 @@ async def get_slots():
                             phase_hint="SLOT",
                             fetch_contract=False,
                         )
-                        roi = max(-500, min(5000, float(projection.get("roi_percent") or 0)))
-                        projection["roi_percent"] = roi
-                        slot["pnl_percent"] = round(roi, 1)
+                        if abs(live_price - entry) > 1e-8:
+                            roi = max(-500, min(5000, float(projection.get("roi_percent") or 0)))
+                            projection["roi_percent"] = roi
+                            slot["pnl_percent"] = round(roi, 2)
+                        elif slot.get("pnl_percent") is not None and abs(float(slot.get("pnl_percent") or 0)) > 1e-6:
+                            slot["pnl_percent"] = round(float(slot["pnl_percent"]), 2)
+                        else:
+                            slot["pnl_percent"] = 0.0
                         slot["projection"] = projection
                         if "liq_price" in projection:
                             slot["liq_price"] = projection["liq_price"]
