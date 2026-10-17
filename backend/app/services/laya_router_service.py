@@ -150,7 +150,7 @@ class LayaRouterService:
     - Telemetria de Consciência em Tempo Real (Thought Stream para a UI).
     """
 
-    MIN_ENTRY_SCORE: int = 84
+    MIN_ENTRY_SCORE: int = 90
 
     def __init__(self):
         self.thought_stream: List[Dict[str, Any]] = []
@@ -1818,7 +1818,7 @@ class LayaRouterService:
                 min_sz = float(dossier.get("minSz", 1.0))
                 leverage = int(dossier.get("leverage", 15))
 
-                margin = 150.0
+                margin = 100.0
                 notional_usd = round(margin * leverage, 2)
                 num_contracts = round(notional_usd / (p * ct_val), 4) if (p * ct_val) > 0 else 1.0
                 fee_open = round(notional_usd * 0.0005, 2)
@@ -1832,7 +1832,7 @@ class LayaRouterService:
                 if init_stop_roi < -18.0:
                     init_stop_roi = -18.0
                     stop_loss = round(proj_service.raw_price_from_roi(p, -18.0, d, leverage), 4)
-                be_trigger_roi = 8.0
+                be_trigger_roi = 10.0
 
                 decision_label = f"BUY ({chosen['score']}%)" if d == "LONG" else f"SELL ({chosen['score']}%)"
                 trade_id = f"laya_{int(time.time() * 1000)}"

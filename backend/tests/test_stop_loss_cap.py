@@ -139,3 +139,18 @@ async def test_sandbox_adaptive_stop_limits():
     # Fallback deve ser exatamente -15.0% ROI (1.0% de preço)
     assert -18.5 <= res["stop_roi"] <= -14.5
     assert res["stop_price"] < 10.0
+
+
+def test_laya_min_entry_score_sniper():
+    """Garante que a régua de entrada mínima está em 90 para eliminar overtrading e taxas."""
+    assert laya_router_service.MIN_ENTRY_SCORE == 90
+
+
+def test_quarantine_blocks_reentry():
+    """Garante que um ativo com stop loss fica em quarentena canônica de 2 horas (7200s)."""
+    import time
+    sym = "TESTLINK"
+    laya_router_service.record_stop_loss(sym, direction="LONG", cooldown_seconds=7200)
+    assert laya_router_service.is_symbol_in_cooldown(sym) is True
+    assert laya_router_service.is_symbol_in_cooldown("TESTLINK-USDT-SWAP") is True
+

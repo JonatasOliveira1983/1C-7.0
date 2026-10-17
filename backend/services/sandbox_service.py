@@ -752,20 +752,23 @@ class SandboxService:
                 )
                 continue
 
-            # [V123.1] Cooldown pós stop-out POR DIREÇÃO (symbol+direction)
-            # Calibrado: 1800s (30min) no 1º stop, 3600s (1h) em stops consecutivos (>= 2)
-            # Motivo: 3600s era excessivo — bloqueava o ativo por 1h inteira no 1º erro,
-            # impedindo o sistema de reentrar mesmo após mudança de regime de mercado.
-            cooldown_key = (symbol, direction)
-            consecutive = self._consecutive_stops.get(cooldown_key, 0)
-            COOLDOWN_SECS = 3600.0 if consecutive >= 2 else 1800.0  # 30min no 1º stop, 1h em stops seguidos
-            last_sl_ts = self._stop_cooldown.get(cooldown_key, 0.0)
-            elapsed = time.time() - last_sl_ts
+            # [V162-COOLDOWN-FIX] Quarentena institucional canônica de 2 horas (7200s) pós-Stop Loss
+            clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+            now = time.time()
+            last_sl_ts = max(
+                self._stop_cooldown.get((clean_sym, direction), 0.0),
+                self._stop_cooldown.get((clean_sym, "ANY"), 0.0),
+                self._stop_cooldown.get((symbol, direction), 0.0),
+                self._stop_cooldown.get((symbol, "ANY"), 0.0),
+                self._stop_cooldown.get(clean_sym, 0.0),
+                self._stop_cooldown.get(symbol, 0.0)
+            )
+            elapsed = now - last_sl_ts
+            COOLDOWN_SECS = 7200.0  # 2 horas obrigatórias para evitar revenge trading e churn de taxas
             if elapsed < COOLDOWN_SECS:
                 remaining = int(COOLDOWN_SECS - elapsed)
                 logger.info(
-                    f"🧪 [SANDBOX-COOLDOWN] {symbol} {direction} em cooldown: {remaining}s restantes "
-                    f"(stops consecutivos: {consecutive}, cooldown: {int(COOLDOWN_SECS)}s)"
+                    f"🛡️ [SANDBOX-COOLDOWN] {symbol} ({clean_sym}) em quarentena pós-SL: {remaining}s restantes (2h)"
                 )
                 continue
 
@@ -1610,42 +1613,15 @@ class SandboxService:
         slot_type = getattr(trade, 'slot_type', '') or ''
         is_swing = (slot_type == 'SWING' or strat_class in ('VELOCITY FLOW', 'ALPHA SHIELD', 'DECOR SHADOW', 'LAYA_SMART_MONEY_H1'))
 
-        # [V138-PROFITABILITY] Breakeven calibrado:
-        # Smart Money H1: +5.0% ROI -> stop +0.5% ROI (blindagem contra falso rompimento na saída H1)
-        # Reversão à Média (Laya): +6% ROI (protege reversões rápidas antes de devolverem)
-        # Swing: +18% ROI (espaço técnico para trade de 15m/2h se desenvolver)
-        # Scalping: +14% ROI (folga no preço para evitar estopar no ruído de spread)
-        if is_smart_money:
-            breakeven_trigger = 5.0
-            breakeven_target_stop = 0.5
-        elif is_laya_reversion:
-            breakeven_trigger = 6.0
-            breakeven_target_stop = 1.5
-        elif is_swing:
-            breakeven_trigger = 18.0
-            breakeven_target_stop = 0.0
-        else:
-            breakeven_trigger = 14.0
-            breakeven_target_stop = 0.0
-
-        # [V147-WINRATE] Early Shield: se o trade andou +4.0% ROI a favor, puxa stop de -7.5% para -2.0%
-        # Corta 73% do risco inicial antes mesmo de atingir o break-even (+6.0%).
-        if is_smart_money and max_roi >= 3.5 and current_stop_roi < 0.0:
-            updated_stop_roi = 0.0
-            updated_level_name = "EARLY_SHIELD_SMART_MONEY"
-            updated_phase = "ESCADINHA"
-            history.append(f"Smart Money Shield ativado: max_roi={max_roi:.1f}% -> stop subiu para 0.0% ROI (Risco Zero)")
-            logger.info(f"🛡️ [SANDBOX-SMART-MONEY] {symbol} Shield: stop movido para 0.0% ROI")
-        elif is_laya_reversion and max_roi >= 4.0 and current_stop_roi < -2.0:
-            updated_stop_roi = -2.0
-            updated_level_name = "EARLY_SHIELD_LAYA"
-            updated_phase = "ESCADINHA"
-            history.append(f"Early Shield ativado: max_roi={max_roi:.1f}% -> stop subiu para -2.0% ROI")
-            logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Early Shield: stop movido para -2.0% ROI")
+        # [V162-SNIPER-UNSTRANGLE] Breakeven profissional calibrado:
+        # Só ativa Risco Zero quando o trade tiver se desenvolvido (> +10.0% ROI = +0.67% a favor)
+        # Trava o stop em +2.5% ROI (cobre integralmente taxas de abertura, fechamento e slippage da OKX com lucro líquido)
+        breakeven_trigger = 10.0
+        breakeven_target_stop = 2.5
 
         if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
             updated_stop_roi = breakeven_target_stop
-            updated_level_name = "GARANTIA_TAXAS_LAYA" if is_laya_reversion else "RISCO_ZERO"
+            updated_level_name = "GARANTIA_LUCRO_TAXAS"
             updated_phase = "ESCADINHA"
             history.append(f"Garantia {breakeven_trigger:.0f} ({updated_level_name}) ativada: max_roi={max_roi:.1f}% -> stop subiu para {breakeven_target_stop:.1f}% ROI")
             logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Garantia {breakeven_trigger:.0f}: stop movido para {breakeven_target_stop:.1f}% ROI")
@@ -1653,20 +1629,11 @@ class SandboxService:
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
 
-        # [V138-PROFITABILITY] GARANTIA_TRAIL institucional — calibração por regime
-        if max_roi >= breakeven_trigger:
-            if is_laya_reversion:
-                # Reversão: trailing firme para capturar topos/fundos — 50% do pico, mínimo +3%
-                trail_stop_roi = max(3.0, round(max_roi * 0.50, 1))
-                trail_pct_label = "50%"
-            elif is_swing:
-                # Swing: trailing suave — 50% do pico, mínimo +5%
-                trail_stop_roi = max(5.0, round(max_roi * 0.50, 1))
-                trail_pct_label = "50%"
-            else:
-                # Scalping: trailing inteligente — 60% do pico, mínimo +4%
-                trail_stop_roi = max(4.0, round(max_roi * 0.60, 1))
-                trail_pct_label = "60%"
+        # [V162-SNIPER-UNSTRANGLE] GARANTIA_TRAIL institucional — só aciona acima de +14.0% ROI
+        # Dá espaço técnico para a operação respirar e buscar alvos de +25%, +35%, +50% ROI sem ser sufocada no ruído
+        if max_roi >= 14.0:
+            trail_stop_roi = max(5.0, round(max_roi * 0.65, 1))
+            trail_pct_label = "65%"
 
             if trail_stop_roi > updated_stop_roi:
                 updated_stop_roi = trail_stop_roi
@@ -1931,27 +1898,27 @@ class SandboxService:
                 history.append(f"[TRAILING] Stop atingido em {exit_price} — fechado lucrativo com +{final_pnl:.1f}% ROI")
             else:
                 history.append(f"Stop atingido em {exit_price} (SL configurado em {stop_price})")
-                # [V117] Cooldown por DIREÇÃO (symbol+direction)
-                # 2+ stops consecutivos mesma direção → 10min; 1 stop → 5min
-                clean_sym = symbol.replace(".P", "").upper()
+                # [V162-COOLDOWN-FIX] Quarentena canônica rigorosa de 2 horas (7200s) pós-Stop Loss
+                clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
                 trade_dir = trade.direction  # "LONG" ou "SHORT"
-                cooldown_key = (clean_sym, trade_dir)
-                prev_consec = self._consecutive_stops.get(cooldown_key, 0)
-                self._consecutive_stops[cooldown_key] = prev_consec + 1
-                # Zera o contador da direção oposta (se era SHORT, limpa LONG e vice-versa)
-                opposite_dir = "LONG" if trade_dir == "SHORT" else "SHORT"
-                self._consecutive_stops[(clean_sym, opposite_dir)] = 0
-                self._stop_cooldown[cooldown_key] = time.time()
-                # [V159-TITANS] Quarentena canônica de 2 horas (7200s) pós-Stop Loss para blindar contra reincidência
-                cooldown_applied = 7200
+                now = time.time()
+                cooldown_applied = 7200.0
+
+                self._stop_cooldown[(clean_sym, trade_dir)] = now
+                self._stop_cooldown[(clean_sym, "ANY")] = now
+                self._stop_cooldown[(symbol, trade_dir)] = now
+                self._stop_cooldown[(symbol, "ANY")] = now
+                self._stop_cooldown[clean_sym] = now
+                self._stop_cooldown[symbol] = now
+
                 logger.info(
-                    f"🧪 [SANDBOX-COOLDOWN-SET] {clean_sym} {trade_dir} quarentena institucional de {cooldown_applied}s (2 horas)"
+                    f"🛡️ [SANDBOX-COOLDOWN-SET] {clean_sym} ({symbol}) quarentena institucional de {int(cooldown_applied)}s (2 horas)"
                 )
                 try:
                     from app.services.laya_router_service import laya_router_service
-                    laya_router_service.record_stop_loss(clean_sym, direction=trade_dir, cooldown_seconds=cooldown_applied)
-                except Exception:
-                    pass
+                    laya_router_service.record_stop_loss(clean_sym, direction=trade_dir, cooldown_seconds=int(cooldown_applied))
+                except Exception as rec_err:
+                    logger.debug(f"[SANDBOX] Erro ao registrar quarentena na Laya: {rec_err}")
                 logger.warning(
                     f"📊 [SANDBOX-LOSS] {symbol} | Strategy={trade.strategy} | "
                     f"Dir={trade.direction} | Entry={entry_price:.4f} | "
