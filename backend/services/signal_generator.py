@@ -2790,7 +2790,7 @@ class SignalGenerator:
                 # [V71.0] HYBRID FUNNEL: Global Radar (600) -> Focused WS (90) OR Elite 30
                 all_liquid_symbols = await okx_rest_service.get_elite_50x_pairs() # Now returns 600
                 
-                # [V75.2] Elite 50 — Almirante's Selection (Expanded for Variety)
+                # [V75.2] Elite 50 — Canonical Active OKX USDT Perpetuals (Verified Clean)
                 ELITE_50_PAIRS = [
                     # Original Elite 30
                     "ADAUSDT.P", "DOGEUSDT.P", "AAVEUSDT.P", "POLUSDT.P", "GALAUSDT.P",
@@ -2798,12 +2798,12 @@ class SignalGenerator:
                     "DOTUSDT.P", "INJUSDT.P", "LTCUSDT.P", "BCHUSDT.P", "ICPUSDT.P",
                     "LDOUSDT.P", "RENDERUSDT.P", "ENAUSDT.P", "OPUSDT.P", "ARBUSDT.P",
                     "TIAUSDT.P", "SEIUSDT.P", "AXSUSDT.P", "FETUSDT.P", "TAOUSDT.P",
-                    "IMXUSDT.P", "FTMUSDT.P", "STXUSDT.P", "BEAMUSDT.P", "PYTHUSDT.P",
+                    "IMXUSDT.P", "UNIUSDT.P", "STXUSDT.P", "PENDLEUSDT.P", "PYTHUSDT.P",
                     # Expanded Elite +20
                     "SOLUSDT.P", "ETHUSDT.P", "XRPUSDT.P", "PEPEUSDT.P", "WIFUSDT.P",
-                    "BONKUSDT.P", "SHIB1000USDT.P", "ATOMUSDT.P", "FILUSDT.P", "STMXUSDT.P",
+                    "BONKUSDT.P", "ZKUSDT.P", "ATOMUSDT.P", "FILUSDT.P", "ONDOUSDT.P",
                     "JUPUSDT.P", "STRKUSDT.P", "DYDXUSDT.P", "GMXUSDT.P", "CRVUSDT.P",
-                    "LUNA2USDT.P", "EGLDUSDT.P", "GRTUSDT.P", "THETAUSDT.P", "VETUSDT.P"
+                    "ARUSDT.P", "EGLDUSDT.P", "GRTUSDT.P", "THETAUSDT.P", "SANDUSDT.P"
                 ]
 
                 # Periodic rebalance of WebSocket (every 60s)

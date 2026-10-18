@@ -58,6 +58,10 @@ class OKXRest:
         self._public_next_request_at = 0.0
         self._public_cooldown_until = 0.0
         self._public_429_streak = 0
+        self._default_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
         self._paper_save_lock = asyncio.Lock() # [V110.23.2] Concurrency Shield for Paper Persistence
         self.is_ready = False # [V110.25.0] Ready flag for sync loop
         
@@ -83,7 +87,7 @@ class OKXRest:
                 interval = max(self._public_min_interval, min_interval or 0.0)
                 self._public_next_request_at = time.time() + interval
 
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout, headers=self._default_headers) as client:
                 response = await client.get(url)
 
             if response.status_code == 429:
@@ -1618,9 +1622,9 @@ class OKXRest:
                     return formatted
 
         except Exception as e:
-            logger.error(f"Error fetching klines from OKX public API for {symbol}: {e}")
+            logger.debug(f"OKX klines unavailable for {symbol} ({interval}): {e}")
 
-        logger.warning(f"⚠️ [OKX-REST KLINES FALLBACK] Ativando contingencia de candles para {symbol} (Intervalo: {interval})")
+        logger.debug(f"Activating fallback candles for {symbol} (Interval: {interval})")
         try:
             gate_interval_map = {
                 "1": "1m", "3": "1m", "5": "5m", "15": "15m", "30": "30m",
@@ -1761,10 +1765,10 @@ class OKXRest:
                         break # Status != 429 e != 200 (ex: 500, 404), quebra o retry.
                         
         except Exception as e:
-            logger.error(f"Error fetching klines from OKX public API for {symbol}: {e}")
+            logger.debug(f"OKX klines unavailable for {symbol} ({interval}): {e}")
 
         # 5. FALLBACK DE ALTA DISPONIBILIDADE: Gate.io API
-        logger.warning(f"⚠️ [OKX-REST KLINES FALLBACK] Ativando contingência de candles para {symbol} (Intervalo: {interval})")
+        logger.debug(f"Activating fallback candles for {symbol} (Interval: {interval})")
         
         # A. Tentar via Gate.io (Livre de Geoblock de IPs americanos do Railway)
         try:
@@ -1844,7 +1848,7 @@ class OKXRest:
                     }
                     return oi
         except Exception as e:
-            logger.error(f"Error fetching Open Interest from OKX for {symbol}: {e}")
+            logger.debug(f"Open Interest unavailable on OKX for {symbol}: {e}")
         return 0.0
 
     async def get_open_interest_history(self, symbol: str, interval: str = "5min", limit: int = 5) -> List[Dict[str, Any]]:
@@ -1863,16 +1867,20 @@ class OKXRest:
             from services.okx_service import okx_service
             inst_id = okx_service.to_okx_inst_id(symbol)
             url = f"https://www.okx.com/api/v5/public/open-interest?instId={inst_id}"
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("code") == "0" and data.get("data"):
-                        oi_val = data["data"][0].get("oi", "0")
-                        ts = data["data"][0].get("ts", str(int(time.time() * 1000)))
-                        return [{"openInterest": oi_val, "timestamp": ts}]
+            response = await self._public_rate_limited_get(url, timeout=4.0, label=f"open-interest-hist:{symbol}")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == "0" and data.get("data"):
+                    oi_val = data["data"][0].get("oi", "0")
+                    ts = data["data"][0].get("ts", str(int(time.time() * 1000)))
+                    self._open_interest_cache[cache_key] = {
+                        "oi": float(oi_val),
+                        "ts": time.time(),
+                        "raw_ts": ts,
+                    }
+                    return [{"openInterest": oi_val, "timestamp": ts}]
         except Exception as e:
-            logger.error(f"Error fetching OI history from OKX for {symbol}: {e}")
+            logger.debug(f"OI history unavailable on OKX for {symbol}: {e}")
         return []
 
     async def get_account_ratio(self, symbol: str, period: str = "5min") -> float:
@@ -1978,18 +1986,17 @@ class OKXRest:
                 inst_id = okx_service.to_okx_inst_id(symbol)
                 url = f"https://www.okx.com/api/v5/public/funding-rate?instId={inst_id}"
                 
-                async with httpx.AsyncClient(timeout=4.0) as client:
-                    response = await client.get(url)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get("code") == "0" and data.get("data"):
-                            rate = float(data["data"][0].get("fundingRate", 0))
-                            # Cache result
-                            self._funding_cache[api_symbol] = {"rate": rate, "ts": time.time()}
-                            return rate
+                response = await self._public_rate_limited_get(url, timeout=4.0, label=f"funding-rate:{symbol}")
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == "0" and data.get("data"):
+                        rate = float(data["data"][0].get("fundingRate", 0))
+                        # Cache result
+                        self._funding_cache[api_symbol] = {"rate": rate, "ts": time.time()}
+                        return rate
                 return 0.0
             except Exception as e:
-                logger.warning(f"Error fetching funding rate from OKX for {symbol}: {e}")
+                logger.debug(f"Funding rate unavailable on OKX for {symbol}: {e}")
                 return 0.0
 
     async def get_funding_rate_history(self, symbol: str, limit: int = 100) -> List[Dict[str, Any]]:
