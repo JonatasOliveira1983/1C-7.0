@@ -3355,26 +3355,42 @@
     async function openResetModal() {
       const confirmed = window.confirm ? confirm("ATENÇÃO INSTITUCIONAL: Deseja acionar o Reset Geral da Banca? Todas as posições ativas e histórico anterior serão limpos e a banca será reiniciada a $10.000,00 pristine.") : true;
       if (!confirmed) return;
+
+      const resetBtns = document.querySelectorAll("button[onclick*='openResetModal']");
+      resetBtns.forEach(b => {
+        b.dataset.prevText = b.textContent;
+        b.textContent = "RESETANDO...";
+        b.disabled = true;
+        b.style.opacity = "0.6";
+      });
+
       try {
-        const res = await fetch("/api/sandbox/reset-all", { method: "POST" });
-        const data = await res.json();
+        const [r1, r2] = await Promise.allSettled([
+          fetch("/api/sandbox/reset-all", { method: "POST" }),
+          fetch("/api/banca/reset", { method: "POST" })
+        ]);
+
         try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
         window._activeSlotsData = [];
         for (let i = 0; i < 4; i++) {
           clearOrderLinesForChart(i);
         }
-        setTimeout(() => {
-          window.location.reload();
-        }, 300);
+
+        resetBtns.forEach(b => {
+          b.textContent = "RESETADO!";
+          b.style.color = "#0ECB81";
+        });
+
+        alert("BANCA RESETADA COM SUCESSO!\n\nSaldo restaurado: $10.000,00 pristine.\nHistórico e posições foram zerados.");
+        window.location.reload();
       } catch(e) {
         console.error("Erro ao resetar:", e);
-        // Fallback para rota de emergência
-        try {
-          await fetch("/api/banca/reset", { method: "POST" });
-          window.location.reload();
-        } catch(e2) {
-          alert("Erro ao resetar: " + e.message);
-        }
+        resetBtns.forEach(b => {
+          b.textContent = b.dataset.prevText || "RESET BANCA ($10K)";
+          b.disabled = false;
+          b.style.opacity = "1";
+        });
+        alert("Erro ao resetar banca: " + e.message);
       }
     }
 

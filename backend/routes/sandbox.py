@@ -569,18 +569,20 @@ async def clear_sandbox():
         raise HTTPException(status_code=500, detail=f"Erro ao limpar sandbox: {str(e)}")
 
 
-@router.post("/reset-all", summary="Reseta integralmente a banca para $10.000, limpa histórico e posições ativas")
+@router.api_route("/reset-all", methods=["GET", "POST"], summary="Reseta integralmente a banca para $10.000, limpa histórico e posições ativas")
 async def reset_sandbox_all():
     try:
-        success = await database_service.reset_system_data()
-        if not success:
-            raise HTTPException(status_code=500, detail="Falha ao resetar sistema no banco de dados.")
+        from routes.system import reset_banca_endpoint
+        sys_res = await reset_banca_endpoint()
         sandbox_service.reset_balance_cache()
         if hasattr(sandbox_service, "_stop_cooldown"):
             sandbox_service._stop_cooldown.clear()
+        if hasattr(sandbox_service, "active_trades"):
+            sandbox_service.active_trades.clear()
         return {
             "success": True,
-            "message": "Banca unificada resetada para $10,000.00 pristine. Histórico, defesas e posições limpos com sucesso."
+            "message": "Banca unificada resetada para $10,000.00 pristine. Histórico, defesas e posições limpos com sucesso.",
+            "data": sys_res
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao resetar banca Sandbox: {str(e)}")
