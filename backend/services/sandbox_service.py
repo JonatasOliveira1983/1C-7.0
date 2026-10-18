@@ -1569,39 +1569,11 @@ class SandboxService:
         updated_level_name = active_level_name
         updated_phase = flash_state.get("phase", "ESCADINHA")
 
-        # [V148-PROFIT-LOCK] TP1 Inteligente: Saída parcial de 50% em +8.0% ROI.
-        # Trava metade do lucro e protege os 50% restantes para buscar expansão (+20%, +30%).
-        PARTIAL_TP_THRESHOLD = 8.0
-        PARTIAL_TP_PERCENT = 0.50  # 50% da margem realizada
-        if not has_taken_partial and max_roi >= PARTIAL_TP_THRESHOLD:
-            has_taken_partial = True
-            partial_roi = PARTIAL_TP_THRESHOLD
-            flash_state["has_taken_partial"] = True
-            flash_state["partial_roi"] = partial_roi
-            flash_state["partial_taken_at"] = time.time()
-            _trade_margin = 150.0
-            if isinstance(trade.contract_meta, dict):
-                try:
-                    _trade_margin = float(trade.contract_meta.get("margin", 150.0) or 150.0)
-                except (ValueError, TypeError):
-                    _trade_margin = 150.0
-            history.append(
-                f"[V148-TP1] Saída parcial de {PARTIAL_TP_PERCENT*100:.0f}% executada a {PARTIAL_TP_THRESHOLD:.0f}% ROI "
-                f"(lucro travado: ${(PARTIAL_TP_THRESHOLD/100.0)*PARTIAL_TP_PERCENT*_trade_margin:.2f})"
-            )
-            logger.info(
-                f"🧪 [V148-TP1] {symbol} parcial de {PARTIAL_TP_PERCENT*100:.0f}% a {PARTIAL_TP_THRESHOLD:.0f}% ROI — lucro travado"
-            )
-            # Eleva o stop da metade restante para +2.5% ROI (lucro garantido em ambos os lados)
-            if updated_stop_roi < 2.5:
-                updated_stop_roi = 2.5
-                updated_level_name = "TP1_PROTECAO_LUCRO"
-                updated_phase = "ESCADINHA"
-                history.append(f"[TP1-DEFESA] Stop da metade restante elevado para +2.5% ROI")
-
-        # [V130-FIX] PnL com partial TP: 50% do lucro travado no threshold + 50% corrente.
+        # [V162-UNSTRANGLE] Saída parcial precoce de 8% removida.
+        # 100% da posição corre com a garantia de Breakeven em +10.0% ROI e Trailing Stop a partir de +14.0% ROI.
+        # Mantém compatibilidade reversa para trades históricos que já registraram parcial.
         if has_taken_partial and partial_roi > 0:
-            pnl_pct = (partial_roi * PARTIAL_TP_PERCENT) + (current_roi * (1.0 - PARTIAL_TP_PERCENT))
+            pnl_pct = (partial_roi * 0.50) + (current_roi * 0.50)
         else:
             pnl_pct = current_roi
 

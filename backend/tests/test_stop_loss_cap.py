@@ -154,3 +154,58 @@ def test_quarantine_blocks_reentry():
     assert laya_router_service.is_symbol_in_cooldown(sym) is True
     assert laya_router_service.is_symbol_in_cooldown("TESTLINK-USDT-SWAP") is True
 
+
+def test_range_boundary_does_not_trigger_on_channel_middle():
+    """
+    Testa que o miolo do canal (ex: range_pos 50%) NUNCA qualifica como
+    absorção no suporte ou exaustão na resistência.
+    """
+    # Canal de 3% (100.0 vs 98.5 a 101.5): preço exatamente no meio (100.0)
+    current_price = 100.0
+    acc_range = {
+        "is_consolidating": True,
+        "support_h1": 98.5,
+        "resistance_h1": 101.5
+    }
+    res = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="TEST-USDT-SWAP",
+        current_price=current_price,
+        acc_range=acc_range,
+        lsr=1.0,
+        oi_delta_pct=0.0,
+        btc_trend_bias=0.0,
+        funding_rate=0.0,
+        atr_pct=1.5
+    )
+    assert res["qualifies"] is False
+    assert res["direction"] == "HOLD"
+    assert "MEIO DE CANAL" in res["rationale"] or "MIOLO" in res["rationale"]
+
+
+def test_short_symmetry_at_resistance():
+    """
+    Garante que setups de SHORT na resistência H1 conseguem atingir score >= 90
+    em condições neutras/favoráveis (LSR neutro 1.0 e BTC estável/fraco),
+    eliminando a assimetria que forçava 100% dos trades a serem LONG.
+    """
+    current_price = 101.6
+    acc_range = {
+        "is_consolidating": True,
+        "support_h1": 98.0,
+        "resistance_h1": 102.0
+    }
+    res = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="TEST-USDT-SWAP",
+        current_price=current_price,
+        acc_range=acc_range,
+        lsr=1.0,
+        oi_delta_pct=0.2,
+        btc_trend_bias=-0.1,
+        funding_rate=0.0,
+        atr_pct=1.5
+    )
+    assert res["qualifies"] is True
+    assert res["direction"] == "SHORT"
+    assert res["score"] >= 90
+
+

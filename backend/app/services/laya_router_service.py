@@ -177,8 +177,15 @@ class LayaRouterService:
         Filtro de Tendência Protetivo: Nunca abrir SHORT se o ativo está em forte momentum de alta.
         """
         if diff_pct <= -0.30:
-            # Suporte real com desconto — EXCELENTE OPORTUNIDADE DE LONG
-            score = 92 if (lsr <= 1.25 or flow_regime == "LONG_LIQUIDATION_BOTTOM") else 86
+            # Filtro protetivo: Nunca abrir LONG se o ativo estiver em queda livre
+            if change_24h_pct <= -2.5:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 60,
+                    "rationale": f"MOMENTUM DE BAIXA ATIVO (24h {change_24h_pct:+.1f}%): Long bloqueado contra queda livre."
+                }
+            score = 92 if (lsr <= 1.15 or flow_regime == "LONG_LIQUIDATION_BOTTOM") else 86
             return {
                 "qualifies": True,
                 "direction": "LONG",
@@ -186,15 +193,15 @@ class LayaRouterService:
                 "rationale": f"REVERSÃO NO SUPORTE: Preço em zona de desconto (diff {diff_pct:.1f}%). LSR {lsr:.2f} favorável para acumulação."
             }
         elif diff_pct >= 0.35:
-            # Resistência real com exaustão — MAS COM FILTRO PROTETIVO DE MOMENTUM
-            if change_24h_pct >= 1.8 or lsr < 1.10:
+            # Filtro protetivo: Nunca abrir SHORT se o ativo estiver em forte rali
+            if change_24h_pct >= 2.5:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
                     "score": 60,
-                    "rationale": f"MOMENTUM DE ALTA ATIVO (24h {change_24h_pct:+.1f}%, LSR {lsr:.2f}): Short bloqueado contra fluxo comprador."
+                    "rationale": f"MOMENTUM DE ALTA ATIVO (24h {change_24h_pct:+.1f}%): Short bloqueado contra fluxo comprador."
                 }
-            score = 90 if (lsr >= 1.35 or flow_regime == "SHORT_LIQUIDATION_TOP") else 84
+            score = 92 if (lsr >= 1.15 or flow_regime == "SHORT_LIQUIDATION_TOP") else 86
             return {
                 "qualifies": True,
                 "direction": "SHORT",
@@ -578,7 +585,7 @@ class LayaRouterService:
             if target <= current_price:
                 target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.015, (target - current_price) / current_price)
-            score = 90 if lsr <= 1.10 else 86
+            score = 90 if (lsr <= 1.10 or btc_trend_bias >= 0.1) else 86
 
             return {
                 "qualifies": True,
@@ -633,7 +640,7 @@ class LayaRouterService:
             if target >= current_price:
                 target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.015, (current_price - target) / current_price)
-            score = 90 if lsr >= 1.25 else 86
+            score = 90 if (lsr >= 1.15 or btc_trend_bias <= -0.1) else 86
 
             return {
                 "qualifies": True,
@@ -717,7 +724,7 @@ class LayaRouterService:
             if target <= current_price:
                 target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.015, (target - current_price) / current_price)
-            score = 90 if lsr <= 1.15 else 86
+            score = 90 if (lsr <= 1.10 or btc_trend_bias >= 0.1) else 86
 
             return {
                 "qualifies": True,
@@ -764,7 +771,7 @@ class LayaRouterService:
             if target >= current_price:
                 target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.015, (current_price - target) / current_price)
-            score = 90 if lsr >= 1.20 else 86
+            score = 90 if (lsr >= 1.15 or btc_trend_bias <= -0.1) else 86
 
             return {
                 "qualifies": True,
@@ -816,12 +823,17 @@ class LayaRouterService:
             return {"qualifies": False, "direction": "HOLD", "score": 60, "rationale": "Faixa H1 inválida."}
 
         range_width = res_h1 - sup_h1
+        # Requer largura mínima de canal de 1.2% para ser uma consolidação operável
+        if (range_width / sup_h1) < 0.012:
+            return {"qualifies": False, "direction": "HOLD", "score": 60, "rationale": "Canal H1 muito estreito para reversão de borda."}
+
         range_pos = (current_price - sup_h1) / range_width if range_width > 0 else 0.5
         dist_to_res_pct = ((res_h1 - current_price) / current_price) * 100.0
         dist_to_sup_pct = ((current_price - sup_h1) / current_price) * 100.0
 
         # CASO 1: TESTE DO TETO / RESISTÊNCIA DO CANAL (EXAUSTÃO VENDEDORA -> SHORT)
-        if range_pos >= (1.0 - boundary_threshold) or dist_to_res_pct <= 1.5:
+        # O preço deve estar estritamente no topo do canal (pos >= 75%) e próximo da resistência
+        if range_pos >= (1.0 - boundary_threshold) and dist_to_res_pct <= 2.0:
             # FAROL MACRO DO BTC: Veto se o Bitcoin estiver subindo forte (> +1.0%)
             if btc_trend_bias > 1.0:
                 return {
@@ -865,14 +877,16 @@ class LayaRouterService:
                 target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.015, (current_price - target) / current_price)
 
-            # Score institucional calibrado (mínimo 86)
+            # Score institucional calibrado e simétrico (mínimo 86)
             score = 86
             if lsr >= 1.15:
                 score += 3  # Varejo comprando no topo = liquidez para as baleias venderem
+            elif lsr >= 0.95:
+                score += 2  # LSR neutro a levemente comprador favorece short no topo
             if oi_delta_pct >= 0.2:
                 score += 2  # Absorção institucional no topo
-            if btc_trend_bias <= 0.2:
-                score += 1  # BTC lateral ou fraco favorece short em altcoin
+            if btc_trend_bias <= 0.1:
+                score += 2  # BTC lateral ou em queda favorece short em altcoins
 
             return {
                 "qualifies": True,
@@ -883,13 +897,14 @@ class LayaRouterService:
                 "target": target,
                 "stop_dist": stop_dist,
                 "target_dist": target_dist,
-                "rationale": f"EXAUSTÃO NA RESISTÊNCIA H1 (SHORT): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${res_h1:.4f}). Varejo fomo (LSR {lsr:.2f}). Stop ATR blindado em ${stop_loss:.4f} (+{stop_dist*100:.1f}%)."
+                "rationale": f"EXAUSTÃO NA RESISTÊNCIA H1 (SHORT): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${res_h1:.4f}). LSR {lsr:.2f}. Stop ATR em ${stop_loss:.4f} (+{stop_dist*100:.1f}%)."
             }
 
         # CASO 2: TESTE DO PISO / SUPORTE DO CANAL (ABSORÇÃO COMPRADORA -> LONG)
-        elif range_pos <= boundary_threshold or dist_to_sup_pct <= 1.5:
-            # FAROL MACRO DO BTC: Veto se o Bitcoin estiver despencando (< -1.0%)
-            if btc_trend_bias < -1.0:
+        # O preço deve estar estritamente no fundo do canal (pos <= 25%) e próximo do suporte
+        elif range_pos <= boundary_threshold and dist_to_sup_pct <= 2.0:
+            # FAROL MACRO DO BTC: Veto se o Bitcoin estiver despencando (< -0.8%)
+            if btc_trend_bias < -0.8:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
@@ -907,7 +922,7 @@ class LayaRouterService:
                 }
 
             # Varejo muito comprado no fundo é faca caindo
-            if lsr > 1.40:
+            if lsr > 1.35:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
@@ -931,14 +946,16 @@ class LayaRouterService:
                 target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
             target_dist = max(0.025, (target - current_price) / current_price)
 
-            # Score institucional calibrado (mínimo 86)
+            # Score institucional calibrado e simétrico (mínimo 86)
             score = 86
-            if lsr <= 1.10:
+            if lsr <= 0.95:
                 score += 3  # Varejo com medo ou vendendo no suporte = baleias absorvendo
+            elif lsr <= 1.10:
+                score += 2  # LSR neutro a levemente vendedor favorece long no suporte
             if oi_delta_pct >= 0.2:
                 score += 2  # Absorção institucional no suporte
-            if btc_trend_bias >= -0.2:
-                score += 1  # BTC estável
+            if btc_trend_bias >= -0.1:
+                score += 2  # BTC estável favorece long no suporte
 
             return {
                 "qualifies": True,
@@ -949,7 +966,7 @@ class LayaRouterService:
                 "target": target,
                 "stop_dist": stop_dist,
                 "target_dist": target_dist,
-                "rationale": f"ABSORÇÃO NO SUPORTE H1 (LONG): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${sup_h1:.4f}). Varejo cauteloso (LSR {lsr:.2f}). Stop ATR blindado em ${stop_loss:.4f} (-{stop_dist*100:.1f}%)."
+                "rationale": f"ABSORÇÃO NO SUPORTE H1 (LONG): Preço em {range_pos*100:.1f}% do range (${current_price:.4f} vs ${sup_h1:.4f}). LSR {lsr:.2f}. Stop ATR em ${stop_loss:.4f} (-{stop_dist*100:.1f}%)."
             }
 
         return {
