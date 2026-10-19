@@ -246,21 +246,28 @@ class LayaBTCSpecialistService:
                 "rationale": f"EXPANSÃO DE ALTCOINS: Dominância em queda ({btc_dominance:.1f}% {dominance_trend}) com BTC estável ({btc_trend_bias:+.1f}%). Compras liberadas com 15x. Proibido shortar altcoins em expansão."
             }
 
-        # 3. DRENAGEM DE LIQUIDEZ: Bitcoin em forte rali (> +2.5%) com dominância subindo ou elevada (>= 60.0%)
-        if btc_change_24h >= 2.5 and (dominance_trend == "RISING" or btc_dominance >= 60.0):
+        # 3. DRENAGEM DE LIQUIDEZ: Bitcoin positivo (>= +0.3% ou trend bias positivo) com dominância elevada (>= 59.0%) ou em alta (RISING)
+        # Quando o BTC sobe com dominância alta/crescente, ele atua como um buraco negro de liquidez:
+        # shortar altcoins é suicídio técnico (rompimentos falsos de resistência para cima).
+        if (btc_change_24h >= 0.3 or btc_trend_bias >= 0.3) and (dominance_trend == "RISING" or btc_dominance >= 59.0):
             return {
                 "climate": "BTC_DRAINAGE",
                 "altcoin_long_allowed": False,
                 "altcoin_short_allowed": False,
                 "focus": "BTC_ETH_ONLY",
-                "rationale": f"DRENAGEM PELO BTC: Bitcoin em forte rali (+{btc_change_24h:.1f}%) drenando capital ({btc_dominance:.1f}% {dominance_trend}). Altcoins vulneráveis."
+                "rationale": f"DRENAGEM PELO BTC: Bitcoin em alta ({btc_change_24h:+.1f}%) com Dominância elevada ({btc_dominance:.1f}% {dominance_trend}). Proibido shortar altcoins sob sucção de liquidez."
             }
 
         # 4. CHOP LATERAL / CONSOLIDAÇÃO: Padrão neutro para reversões de liquidez
+        # Veto assimétrico: se a Dominância estiver >= 58.0% e o BTC estiver em alta (> 0.2%), veta SHORT em altcoins
+        short_allowed = btc_trend_bias <= 1.0
+        if (btc_dominance >= 58.0 or dominance_trend == "RISING") and (btc_trend_bias > 0.2 or btc_change_24h > 0.2):
+            short_allowed = False
+
         return {
             "climate": "CONSOLIDATION_CHOP",
             "altcoin_long_allowed": btc_trend_bias >= -1.0,
-            "altcoin_short_allowed": btc_trend_bias <= 1.0,
+            "altcoin_short_allowed": short_allowed,
             "focus": "LIQUIDITY_EDGE_REVERSAL",
             "rationale": f"LATERALIDADE GERAL: BTC ({btc_trend_bias:+.1f}%) e Dominância ({btc_dominance:.1f}% {dominance_trend}) em consolidação. Operando caça de liquidez em bordas."
         }

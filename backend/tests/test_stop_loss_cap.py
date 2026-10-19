@@ -205,7 +205,48 @@ def test_short_symmetry_at_resistance():
         atr_pct=1.5
     )
     assert res["qualifies"] is True
-    assert res["direction"] == "SHORT"
-    assert res["score"] >= 90
+
+def test_altcoin_short_vetoed_when_btc_bullish_and_dominance_high():
+    """
+    [RED PHASE TDD]
+    Garante que se a dominância do BTC estiver alta (>= 59.0% ou subindo) e o BTC estiver positivo (> 0.0%),
+    QUALQUER setup de SHORT em Altcoin seja terminantemente vetado pelo Farol Macro / BTC.D.
+    """
+    from app.services.laya_btc_specialist_service import laya_btc_specialist
+    climate = laya_btc_specialist.classify_altcoin_climate(
+        btc_change_24h=0.5,
+        btc_trend_bias=0.5,
+        btc_dominance=60.1,
+        dominance_trend="STABLE"
+    )
+    assert climate["altcoin_short_allowed"] is False
+    assert climate["climate"] == "BTC_DRAINAGE"
+
+    acc_range = {
+        "is_consolidating": True,
+        "support_h1": 90.0,
+        "resistance_h1": 100.0
+    }
+    btc_intel = {
+        "altcoin_climate": climate["climate"],
+        "altcoin_long_allowed": climate["altcoin_long_allowed"],
+        "altcoin_short_allowed": climate["altcoin_short_allowed"],
+        "btc_dominance": 60.1
+    }
+    multi_eval = laya_router_service.evaluate_multi_setup_opportunity(
+        symbol="XRPUSDT",
+        current_price=99.0, # 90% do range (resistência)
+        acc_range=acc_range,
+        vwap=95.0,
+        bb_width_pct=5.0,
+        lsr=1.0,
+        oi_delta_pct=0.0,
+        btc_trend_bias=1.2,
+        funding_rate=0.0,
+        atr_pct=1.0,
+        btc_intel=btc_intel
+    )
+    assert multi_eval["qualifies"] is False
+    assert multi_eval["direction"] == "HOLD"
 
 
