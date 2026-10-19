@@ -250,3 +250,93 @@ def test_altcoin_short_vetoed_when_btc_bullish_and_dominance_high():
     assert multi_eval["direction"] == "HOLD"
 
 
+def test_global_circuit_breaker():
+    """
+    [RED PHASE TDD]
+    Garante que se ocorrerem 3 stops consecutivos em <= 90 minutos (5400s),
+    o Circuit Breaker Global seja ativado e congele todas as novas entradas por 45 minutos (2700s).
+    """
+    import time
+    now = time.time()
+    laya_router_service._global_stop_history = []
+    laya_router_service._global_circuit_breaker_until = 0.0
+
+    # 1. Registra 2 stops: ainda não deve travar o sistema globalmente
+    laya_router_service.record_stop_loss("SEIUSDT", direction="LONG", cooldown_seconds=7200)
+    laya_router_service.record_stop_loss("TIAUSDT", direction="LONG", cooldown_seconds=7200)
+    assert laya_router_service.is_global_circuit_breaker_active() is False
+
+    # 2. Registra o 3º stop no intervalo de 90 min: DEVE ATIVAR O CIRCUIT BREAKER GLOBAL
+    laya_router_service.record_stop_loss("POLUSDT", direction="SHORT", cooldown_seconds=7200)
+    assert laya_router_service.is_global_circuit_breaker_active() is True
+    assert laya_router_service._global_circuit_breaker_until >= now + 2600
+
+    # 3. Limpeza para não afetar testes subsequentes
+    laya_router_service._global_stop_history = []
+    laya_router_service._global_circuit_breaker_until = 0.0
+
+
+def test_cluster_correlation_cap():
+    """
+    [RED PHASE TDD - TAREFA 2]
+    Garante que a Laya descorrelacione a carteira entre os 4 slots:
+    1. Máximo de 2 ativos simultâneos do mesmo cluster setorial (ex: L1_BLUECHIP).
+    2. Se 2 ativos do mesmo cluster já estiverem ativos (ex: ETH e SOL), o 3º (ex: AVAX) é vetado.
+    """
+    active_symbols = ["ETH-USDT-SWAP", "SOL-USDT-SWAP"]
+    # get_symbol_sector_cluster deve identificar o cluster correto
+    assert laya_router_service.get_symbol_sector_cluster("ETHUSDT") == "L1_BLUECHIP"
+    assert laya_router_service.get_symbol_sector_cluster("SOLUSDT") == "L1_BLUECHIP"
+    assert laya_router_service.get_symbol_sector_cluster("AVAXUSDT") == "L1_BLUECHIP"
+    assert laya_router_service.get_symbol_sector_cluster("RENDERUSDT") == "AI_DEPIN"
+
+    # Se ETH e SOL já estão ativos, AVAX deve violar o teto de cluster (máximo 2 por setor)
+    assert laya_router_service.is_cluster_limit_reached("AVAXUSDT", active_symbols) is True
+    # RENDER é de outro cluster (AI_DEPIN), logo deve ser permitido
+    assert laya_router_service.is_cluster_limit_reached("RENDERUSDT", active_symbols) is False
+
+
+def test_cvd_absorption_veto():
+    """
+    [RED PHASE TDD - TAREFA 3]
+    Garante que se o candle recente de 5m apresentar agressão vendedora desbalanceada
+    (ex: taker_sell_ratio >= 1.40 — faca caindo sem absorção), o trade de LONG no suporte seja vetado.
+    Da mesma forma, se o topo apresentar agressão compradora forte (taker_buy_ratio >= 1.40), o SHORT seja vetado.
+    """
+    acc_range = {
+        "is_consolidating": True,
+        "support_h1": 100.0,
+        "resistance_h1": 110.0
+    }
+    # Caso 1: Preço no suporte (101.0), mas com agressão vendedora violenta (taker_sell_ratio = 1.6)
+    res_long_vetoed = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="DOTUSDT",
+        current_price=101.0,
+        acc_range=acc_range,
+        lsr=1.0,
+        oi_delta_pct=0.2,
+        btc_trend_bias=0.0,
+        funding_rate=0.0,
+        atr_pct=1.5,
+        taker_sell_ratio=1.6 # Faca caindo
+    )
+    assert res_long_vetoed["qualifies"] is False
+    assert res_long_vetoed["direction"] == "HOLD"
+    assert "FACA CAINDO" in res_long_vetoed["rationale"] or "AGRESSÃO VENDEDORA" in res_long_vetoed["rationale"]
+
+    # Caso 2: Preço no suporte (101.0), com absorção real (taker_sell_ratio equilibrado/baixo <= 1.2)
+    res_long_ok = laya_router_service.evaluate_range_boundary_reversal(
+        symbol="DOTUSDT",
+        current_price=101.0,
+        acc_range=acc_range,
+        lsr=1.0,
+        oi_delta_pct=0.2,
+        btc_trend_bias=0.0,
+        funding_rate=0.0,
+        atr_pct=1.5,
+        taker_sell_ratio=1.0 # Absorção equilibrada
+    )
+    assert res_long_ok["qualifies"] is True
+    assert res_long_ok["direction"] == "LONG"
+
+

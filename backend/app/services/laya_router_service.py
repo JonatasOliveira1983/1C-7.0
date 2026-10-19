@@ -166,6 +166,8 @@ class LayaRouterService:
         self._symbol_cooldowns: Dict[str, float] = {}
         self._direction_stops: List[Dict[str, Any]] = []
         self._direction_cooldowns: Dict[str, float] = {}
+        self._global_stop_history: List[float] = []
+        self._global_circuit_breaker_until: float = 0.0
         self._last_symbol_thought: Dict[str, str] = {}
         self._scan_lock: Optional[asyncio.Lock] = None
         self.calibrated_weights = self._load_calibrated_weights()
@@ -802,7 +804,9 @@ class LayaRouterService:
         btc_trend_bias: float = 0.0,
         funding_rate: float = 0.0,
         atr_pct: float = 1.5,
-        boundary_threshold: float = 0.25
+        boundary_threshold: float = 0.25,
+        taker_sell_ratio: float = 1.0,
+        taker_buy_ratio: float = 1.0
     ) -> Dict[str, Any]:
         """
         [SETUP: RANGE BOUNDARY REVERSAL (MEAN REVERSION / EXAUSTÃO NAS BORDAS DO RANGE)]
@@ -841,6 +845,15 @@ class LayaRouterService:
                     "direction": "HOLD",
                     "score": 62,
                     "rationale": f"[FAROL MACRO VETO]: Preço em {range_pos*100:.1f}% do range (teste de resistência ${res_h1:.4f}), mas Bitcoin em forte alta ({btc_trend_bias:+.1f}%)."
+                }
+
+            # [CVD / AGRESSÃO DE COMPRA NO TOPO]: Veto se o book recente tiver agressão compradora acelerando (falso topo)
+            if taker_buy_ratio >= 1.40:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[VETO CVD - AGRESSÃO COMPRADORA NO TOPO]: Taker buy ratio em {taker_buy_ratio:.2f}x. Pressão compradora ativa rompendo resistência."
                 }
 
             # FUNDING SHIELD: Veta se funding fortemente negativo (< -0.03%)
@@ -910,6 +923,15 @@ class LayaRouterService:
                     "direction": "HOLD",
                     "score": 62,
                     "rationale": f"[FAROL MACRO VETO]: Preço em {range_pos*100:.1f}% do range (teste de suporte ${sup_h1:.4f}), mas Bitcoin em queda livre ({btc_trend_bias:+.1f}%)."
+                }
+
+            # [CVD / AGRESSÃO DE VENDA NO SUPORTE - FACA CAINDO]: Veto se o book tiver dump agressivo a mercado
+            if taker_sell_ratio >= 1.40:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 62,
+                    "rationale": f"[VETO CVD - AGRESSÃO VENDEDORA NO SUPORTE]: Taker sell ratio em {taker_sell_ratio:.2f}x (faca caindo). Ausência de absorção institucional de compra."
                 }
 
             # FUNDING SHIELD: Veta se funding excessivamente positivo (> +0.03%)
@@ -1197,6 +1219,25 @@ class LayaRouterService:
         # Mantém stops da última hora (3600s)
         self._direction_stops = [s for s in self._direction_stops if now - s["time"] <= 3600]
 
+        # Circuit Breaker Global Anti-Tilt (3 stops quaisquer em <= 90min (5400s) congelam novas entradas por 45min (2700s))
+        if not hasattr(self, "_global_stop_history"):
+            self._global_stop_history = []
+        if not hasattr(self, "_global_circuit_breaker_until"):
+            self._global_circuit_breaker_until = 0.0
+
+        self._global_stop_history.append(now)
+        # Mantém histórico de stops dos últimos 90 minutos (5400s)
+        self._global_stop_history = [t for t in self._global_stop_history if now - t <= 5400]
+        if len(self._global_stop_history) >= 3:
+            self._global_circuit_breaker_until = max(self._global_circuit_breaker_until, now + 2700)
+            logger.warning(f"🚨 [LAYA-GLOBAL-CIRCUIT-BREAKER] 3 stops recentes no mercado! Resfriamento global ativado por 45 minutos (2700s).")
+            self.log_thought(
+                "CIRCUIT_BREAKER",
+                f"DEFESA ANTI-TILT ATIVADA: 3 stops recentes no mercado em <90min. Novas entradas congeladas por 45min para resfriamento de banca.",
+                action="GLOBAL_FREEZE",
+                confidence=99
+            )
+
         consec_dir_stops = [s for s in self._direction_stops if s["direction"] == dir_clean]
         if len(consec_dir_stops) >= 2:
             self._direction_cooldowns[dir_clean] = now + 3600
@@ -1207,6 +1248,45 @@ class LayaRouterService:
                 action="DEFESA_LOCK",
                 confidence=99
             )
+
+    # [V161-DESCORRELATION] Mapeamento Setorial de Clusters para Diversificação de Carteira
+    SECTOR_CLUSTERS = {
+        "L1_BLUECHIP": {"BTC", "ETH", "SOL", "NEAR", "SUI", "AVAX", "ADA", "DOT", "ATOM", "LTC", "BCH", "ETC", "XRP", "TRX"},
+        "L2_ROLLUPS": {"ARB", "OP", "ZK", "POL", "STRK", "XPL"},
+        "DEFI_ORACLE": {"UNI", "AAVE", "MKR", "PYTH", "PENDLE", "ONDO", "INJ", "CRV", "DYDX", "GMX"},
+        "AI_DEPIN": {"RENDER", "FET", "TIA", "AR", "TAO", "ICP"},
+        "MEME_SPEC": {"DOGE", "PEPE", "WIF", "BONK", "GALA", "AXS", "SAND", "CHZ"}
+    }
+
+    def get_symbol_sector_cluster(self, symbol: str) -> str:
+        """Identifica o cluster setorial de um ativo."""
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+        for cluster_name, coins in self.SECTOR_CLUSTERS.items():
+            if clean in coins:
+                return cluster_name
+        return "GENERAL_ALT"
+
+    def is_cluster_limit_reached(self, symbol: str, active_symbols: List[str], max_per_cluster: int = 2) -> bool:
+        """
+        Verifica se o limite de exposição ao mesmo cluster setorial foi atingido.
+        Impede que mais de 2 ativos do mesmo setor (ex: 3 L1s) operem simultaneamente.
+        """
+        target_cluster = self.get_symbol_sector_cluster(symbol)
+        if target_cluster == "GENERAL_ALT":
+            return False
+
+        same_cluster_count = 0
+        for act in active_symbols:
+            act_cluster = self.get_symbol_sector_cluster(act)
+            if act_cluster == target_cluster:
+                same_cluster_count += 1
+
+        return same_cluster_count >= max_per_cluster
+
+    def is_global_circuit_breaker_active(self) -> bool:
+        """Verifica se o Circuit Breaker Global Anti-Tilt está ativo."""
+        expiry = getattr(self, "_global_circuit_breaker_until", 0.0)
+        return time.time() < expiry
 
     def is_direction_in_cooldown(self, direction: str) -> bool:
         """Verifica se uma direção (LONG ou SHORT) está sob Circuit Breaker."""
@@ -1760,6 +1840,12 @@ class LayaRouterService:
             self.log_thought("SISTEMA", f"🛡️ [PRESERVAÇÃO ATIVA]: Lucro do dia {daily_profit_pct:+.2f}%. Modo Sniper Seletivo ativo (Max 2 slots, Score >= 92%).", action="CAPITAL_SHIELD", confidence=95)
 
         order_opened = None
+        # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
+        if self.is_global_circuit_breaker_active():
+            rem_freeze = int(getattr(self, "_global_circuit_breaker_until", 0.0) - time.time())
+            self.log_thought("CIRCUIT_BREAKER", f"🛡️ [ANTI-TILT ATIVO]: Resfriamento global de banca ativo ({rem_freeze}s restantes). Novas ordens congeladas.", action="GLOBAL_FREEZE", confidence=99)
+            force_open_if_empty = False
+
         # Permite ate max_allowed_slots ordens ativas simultaneas respeitando a blindagem diária
         if force_open_if_empty and len(active_trades) < max_allowed_slots:
             eligible = [
@@ -1787,6 +1873,8 @@ class LayaRouterService:
                     and not btc_intel.get("altcoin_short_allowed", True)
                     and cand.get("direction") == "SHORT"
                 )
+                # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 2 posições ativas do mesmo cluster
+                and not self.is_cluster_limit_reached(cand.get("clean_sym", cand["symbol"]), active_symbols, max_per_cluster=2)
             ]
             # [DIVERSITY & ROTATION] Evita repetição excessiva do mesmo par consecutivo (ex: SOL toda hora)
             last_traded = getattr(self, "_last_traded_pair", None)
