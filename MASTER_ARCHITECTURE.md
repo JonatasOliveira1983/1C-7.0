@@ -140,14 +140,18 @@ flowchart TD
 2. **BTC como Oráculo Macro Exclusivo (Zero Trades no BTC)**:
    - Monitoramento contínuo de `BTC-USDT` (Spot) vs `BTC-USDT-SWAP` (Perpétuo) para capturar o *Lead-Lag* institucional.
    - O BTC atua como a bússola/farol de tendência e dominância, sendo estritamente vetado para abertura de posições de trade para concentrar o capital e os 15x de alavancagem na assimetria elástica das altcoins.
-3. **Matriz de Clima por Dominância do Bitcoin (BTC.D)**:
-   - `ALTCOIN_EXPANSION`: BTC.D em queda + BTC estável/alta -> Compras agressivas (LONG) em 15x liberadas; Vendas (SHORT) vetadas.
-   - `ALTCOIN_BLOODBATH`: BTC.D subindo + BTC caindo -> Veto total de compras (LONG); Apenas SHORTS autorizados.
-   - `BTC_DRAINAGE`: BTC rali forte (> +2.5%) com dominância >= 60% -> Foco estrito em BTC/ETH.
-   - `CONSOLIDATION_CHOP`: Mercado lateral -> Caça de liquidez em extremidades de canal.
-4. **Quarentena Rígida Anti-Reincidência (2 Horas)**:
+3. **Matriz de Clima por Dominância do Bitcoin (BTC.D) e Farol Macro**:
+   - `ALTCOIN_EXPANSION`: BTC.D em queda (< 56.5% ou FALLING) + BTC estável/positivo -> Compras agressivas (LONG) em 15x liberadas; Vendas (SHORT) vetadas.
+   - `ALTCOIN_BLOODBATH`: BTC.D subindo (>= 58.5% ou RISING) + BTC em queda (< -1.0%) -> Veto total de compras (LONG); Apenas SHORTS autorizados a favor da sangria.
+   - `BTC_DRAINAGE`: BTC positivo (>= +0.3% ou trend bias positivo) com Dominância elevada (>= 59.0% ou RISING) -> O Bitcoin atua como sucção de liquidez: VETO TOTAL DE SHORTS EM ALTCOINS (proibido shortar altcoins no rali do BTC).
+   - `CONSOLIDATION_CHOP`: Mercado lateral -> Caça de liquidez em extremidades. Se BTC.D >= 58.0% e BTC > +0.2%, SHORTs em altcoins também são preventivamente vetados.
+4. **Tríade de Blindagem Institucional da Laya (V162)**:
+   - **Circuit Breaker Global Anti-Tilt**: Se 3 stops quaisquer ocorrerem em janela de <= 90 minutos (5.400s), todas as novas aberturas são congeladas por 45 minutos (2.700s), resfriando a banca contra liquidações de mercado.
+   - **Descorrelação Setorial entre os 4 Slots**: Carteira dividida em 5 clusters (`L1_BLUECHIP`, `L2_ROLLUPS`, `DEFI_ORACLE`, `AI_DEPIN`, `MEME_SPEC`). Limite rígido de no máximo 2 posições simultâneas do mesmo cluster para evitar drawdown de ativos correlacionados.
+   - **Confirmação de Agressão / CVD no Suporte/Resistência**: Toques em suportes H1 com agressão vendedora violenta (`taker_sell_ratio >= 1.40x`) são vetados por *Faca Caindo*. Toques em resistências com agressão compradora (`taker_buy_ratio >= 1.40x`) são vetados por *Pressão Compradora Ativa*.
+5. **Quarentena Rígida Anti-Reincidência (2 Horas)**:
    - Todo ativo que sofrer Stop Loss entra em quarentena inegociável de 7200 segundos (2h), impedindo perdas repetidas no mesmo par.
-5. **Stops Estruturais de Borda H1 (Eliminação de Ruído)**:
+6. **Stops Estruturais de Borda H1 (Eliminação de Ruído)**:
    - Distância de Stop Loss ancorada em `max(0.028, min(0.045, (atr_pct * 1.8) / 100.0))`.
    - Stops calibrados para 2.8% a 4.5% fora da acumulação, eliminando violinadas de 15 segundos causadas por micro-ruído de spread.
    - `stop_roi` calibrado proporcionalmente à alavancagem (`calculate_roi`), eliminando o bug de capping a -3.5% ROI que correspondia a -0.23% de preço.
@@ -910,9 +914,23 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * **4. Persistência no Segundo Cérebro (RAG)**:
           - Documentado em `vault_galaxy/strategies/elite_50_universe_and_funnel.md` para indexação em tempo real pelo RAG e memória soberana.
 
+43. **[V161-UNSTRANGLED-ASYMMETRIC-PAYOFF-AND-UNIFIED-RESET] Trailing Stop Desestrangulado, Simetria Direcional e Unificação Atômica de Reset** (2026-10-18):
+    - **Eliminação do [V148-TP1] Estrangulador**: Removida a liquidação de 50% a +8% ROI que travava posições vitoriosas em míseros +$3.30. Posição agora corre 100% com Breakeven a +10% e Trailing de 65% do pico a partir de +14% ROI, permitindo capturas assimétricas de +60% a +73% (ex: PENDLE, FET, TIA).
+    - **Reset Atômico da Banca (SSOT)**: Unificação dos endpoints `/api/sandbox/reset-all` e `/api/banca/reset` com purga síncrona do SQLite, memória RAM do broker OKX e instâncias de cache. Botão da UI com feedback instantâneo de processamento.
+
+44. **[V162-TRIAD-SHIELDING-AND-BTCD-DRAINAGE-VETO] Tríade de Blindagem Institucional e Veto Soberano por Dominância do BTC** (2026-10-19):
+    - **Veto Implacável por Dominância do BTC (BTC.D)**:
+        * Quando o BTC estiver no verde (>= +0.3%) com dominância elevada (>= 59.0% ou subindo), o regime `BTC_DRAINAGE` veta 100% dos SHORTs em altcoins, impedindo que o motor seja estopado no vácuo de alta do Bitcoin.
+        * Se a dominância for >= 58.0% em mercado lateral, SHORTs também são vetados preventivamente caso o BTC esteja positivo (> 0.2%).
+    - **Circuit Breaker Global Anti-Tilt**:
+        * Rastreador rolante de perdas. 3 stops consecutivos em <= 90 minutos ativam congelamento geral de novas entradas por 45 minutos (2.700s), protegendo a banca contra drawdowns em cascata.
+    - **Descorrelação Setorial entre os 4 Slots**:
+        * Divisão dos ativos em 5 clusters canônicos (`L1_BLUECHIP`, `L2_ROLLUPS`, `DEFI_ORACLE`, `AI_DEPIN`, `MEME_SPEC`). Teto estrito de no máximo 2 posições ativas do mesmo cluster.
+    - **Confirmação de Agressão / CVD no Suporte e Resistência**:
+        * Toques em suportes H1 com agressão vendedora violenta (`taker_sell_ratio >= 1.40x`) são vetados por faca caindo. Toques em resistências com agressão compradora (`taker_buy_ratio >= 1.40x`) são vetados por pressão compradora de topo.
+    - **Validação Empírica**:
+        * 100% de aprovação na suíte de testes `pytest backend/tests/test_stop_loss_cap.py` (12 testes passando).
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*
-
-
-
