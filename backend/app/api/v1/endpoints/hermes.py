@@ -288,4 +288,95 @@ async def reindex_rag_knowledge():
     return rag_service.index_all()
 
 
+# ── Rotas OpenViking Context Database (viking://) ──
+
+class VikingSearchPayload(BaseModel):
+    query: str
+    level: Optional[int] = 1
+    namespace_filter: Optional[str] = None
+    limit: Optional[int] = 5
+
+
+class VikingLessonPayload(BaseModel):
+    category: str = "patterns"
+    title: str
+    content: str
+    tags: Optional[list[str]] = None
+
+
+@router.get("/viking/tree", summary="[V168-OPENVIKING] Retorna a árvore hierárquica do sistema de arquivos virtual viking://")
+def viking_tree_endpoint(path: str = "viking://"):
+    from services.openviking_context_service import openviking_context_service
+    return {
+        "status": "success",
+        "path": path,
+        "tree": openviking_context_service.tree(path)
+    }
+
+
+@router.get("/viking/ls", summary="[V168-OPENVIKING] Lista os filhos diretos de um caminho virtual viking://")
+def viking_ls_endpoint(path: str = "viking://"):
+    from services.openviking_context_service import openviking_context_service
+    return {
+        "status": "success",
+        "path": path,
+        "children": openviking_context_service.ls(path)
+    }
+
+
+@router.get("/viking/read", summary="[V168-OPENVIKING] Lê nó virtual com progressive disclosure (0=L0 Abstract, 1=L1 Overview, 2=L2 Detail)")
+def viking_read_endpoint(uri: str, level: int = 1):
+    from services.openviking_context_service import openviking_context_service, ContextLevel
+    lvl = ContextLevel(level) if level in (0, 1, 2) else ContextLevel.OVERVIEW
+    content = openviking_context_service.read(uri, level=lvl)
+    return {
+        "status": "success" if content is not None else "not_found",
+        "uri": uri,
+        "level": int(lvl),
+        "content": content
+    }
+
+
+@router.post("/viking/search", summary="[V168-OPENVIKING] Busca estruturada no banco de dados de contexto OpenViking")
+def viking_search_endpoint(payload: VikingSearchPayload):
+    from services.openviking_context_service import openviking_context_service, ContextLevel
+    lvl = ContextLevel(payload.level) if payload.level in (0, 1, 2) else ContextLevel.OVERVIEW
+    matches = openviking_context_service.search(
+        query=payload.query,
+        level=lvl,
+        namespace_filter=payload.namespace_filter,
+        limit=payload.limit or 5
+    )
+    return {
+        "status": "success",
+        "query": payload.query,
+        "total_matches": len(matches),
+        "matches": matches
+    }
+
+
+@router.post("/viking/sync", summary="[V168-OPENVIKING] Sincroniza o grafo virtual viking:// com o repositório local")
+def viking_sync_endpoint():
+    from services.openviking_context_service import openviking_context_service
+    return openviking_context_service.sync_all()
+
+
+@router.post("/viking/commit-lesson", summary="[V168-OPENVIKING] Grava uma memória persistente de aprendizado episódico")
+def viking_commit_lesson_endpoint(payload: VikingLessonPayload):
+    from services.openviking_context_service import openviking_context_service
+    node = openviking_context_service.commit_lesson(
+        category=payload.category,
+        title=payload.title,
+        content=payload.content,
+        tags=payload.tags
+    )
+    return {
+        "status": "success",
+        "uri": node.uri,
+        "title": node.title,
+        "abstract": node.l0_abstract
+    }
+
+
+
 

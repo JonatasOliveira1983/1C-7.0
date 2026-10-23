@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.6.0
+# MASTER_ARCHITECTURE.md — 1Crypten 7.7.0
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V167-SOVEREIGN-UNIFIED-ANTI-KNIFE" / DEPLOYMENT_ID="V167_ANTI_KNIFE_ENGINE". Atualizacao com Motor Unificado Laya Soberana: Blindagem Anti-Faca (Veto de SHORT em DVWAP Reversion e Range Reversal quando 1C-EXP >= 70 ou esticamento >= 5%), Promocao Soberana de Alt Pump Ignition (Triplice Confluencia com Pearson Real OKX BTC-USDT-SWAP, sempre operando LONG), Travamento de Badges no Cockpit (ordens ativas refletem estritamente a direcao da custodia), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado) e Stop Loss Estrutural com Hard Limit de -18% ROI.*
+*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V168-SOVEREIGN-OPENVIKING-MEMORY" / DEPLOYMENT_ID="V168_OPENVIKING_CONTEXT_ENGINE". Integracao Nativa do OpenViking Context Database (Sistema de Arquivos Virtual viking:// com Progressive Disclosure L0/L1/L2 e Memoria Episodica Auto-Evolutiva em Fechamento de Trades), Blindagem Anti-Faca (Veto de SHORT em DVWAP Reversion e Range Reversal quando 1C-EXP >= 70 ou esticamento >= 5%), Promocao Soberana de Alt Pump Ignition (Triplice Confluencia com Pearson Real OKX BTC-USDT-SWAP, sempre operando LONG), Travamento de Badges no Cockpit (ordens ativas refletem estritamente a direcao da custodia), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado) e Stop Loss Estrutural com Hard Limit de -18% ROI.*
 
 ---
 
@@ -18,7 +18,9 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 - **[V127/V145/V165/V166] Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas do Scalping Lab / Day Trade). Em **REAL**, a OKX recebe as ordens scalping/swing do Sandbox (via `SWING_MIRROR_MODE`/espelhamento) e o Cockpit representa a banca real da OKX. Ver Secao 8.6.
 - **Plataforma**: Railway + Docker
 - **Persistencia & Memória Unificada**: PostgreSQL (SSOT) + Firebase (Firestore/RTDB) + SQLite WAL (`local_sniper.db`) + Obsidian Vault (`vault_galaxy/` para voz, chat e diários).
-- **Protocolos de IA & RAG**: RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 10 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
+- **[V168] Banco de Dados de Contexto OpenViking (`viking://`)**: Sistema de arquivos virtual cognitivo com Progressive Disclosure em 3 camadas: L0 (Abstract executivo ~100 tokens), L1 (Overview operacional ~1.5k tokens) e L2 (Detail completo). O Hermes e os agentes de desenvolvimento navegam deterministicamente pelas raízes `viking://resources/`, `viking://user/memories/` e `viking://agent/skills/`.
+- **Memória Auto-Evolutiva de Trading**: Ao fechar qualquer trade (Stop, TP, Trailing Stop ou Emergência), o sistema sintetiza automaticamente o caso em `viking://user/memories/cases/` e persiste no Obsidian Vault (`vault_galaxy/journal/`), eliminando a necessidade de o operador humano lembrar o sistema de regras ou erros passados.
+- **Protocolos de IA & RAG**: OpenViking Context Engine + RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 14 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
 - **Precisão & Quantização Inviolável**: Motor `OKXUniverseService` com suporte a 507 pares perpétuos da OKX, garantindo tick size exato (`format_price_by_tick`), lot size e quantização correta de contratos (`quantize_order_contracts`).
 - **Tríplice Confluência Alt Pump Ignition**: Motor institucional que detecta rotação do BTC para Altcoins (`evaluate_alt_pump_ignition`), cruzando queda de BTC.D, correlação Pearson < 0.45 e expansão algorítmica `1c_exp >= 70.0`.
 
@@ -38,6 +40,7 @@ flowchart TD
         R_State["/api/sandbox/unified-state (Equity & Net Worth)"]
         R_Pulse["/api/radar/pulse & /api/v1/hermes/laya/pulse"]
         R_Kronos["/api/v1/hermes/laya/kronos-projection"]
+        R_Viking["/api/v1/hermes/viking/tree, /read, /search, /sync & /commit-lesson"]
         R_RAG["/api/v1/hermes/rag/search & /status & /reindex"]
         R_ML["/api/v1/ml/status & /dataset-stats & /generate-dataset"]
         R_Intel["/api/v1/market/screener-matrix & /ai-context (1C-EXP & 1C-RANGE)"]
@@ -45,7 +48,8 @@ flowchart TD
     end
 
     subgraph Protocol_Bridges["Protocol & AI Bridges"]
-        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 10 Ferramentas)"]
+        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 14 Ferramentas)"]
+        OpenViking_Engine["OpenViking Context Engine (viking:// Virtual FS - L0/L1/L2 Progressive Disclosure)"]
         RAG_Engine["RAGService (BM25 / TF-IDF Second Brain: Blueprints + Vault)"]
     end
 

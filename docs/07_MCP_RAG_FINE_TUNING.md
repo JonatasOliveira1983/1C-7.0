@@ -1,9 +1,9 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.6.0 (V167-SOVEREIGN-UNIFIED-ANTI-KNIFE)  
+> **Versão**: 7.7.0 (V168-SOVEREIGN-OPENVIKING-MEMORY)  
 > **Data de Atualização**: 23/10/2026  
-> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
+> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
 
@@ -200,6 +200,31 @@ A partir da versão **V167**, a matriz de decisão da Laya Soberana e o RAG inco
    - Altcoins com descolamento (`corr < 0.40`) e robôs institucionais ligados (`1C-EXP >= 70`) são promovidas com prioridade máxima com viés estritamente `LONG`.
 4. **Travamento de Ordem Ativa no Cockpit**:
    - A badge de monitoramento nos 4 gráficos do Flash Map permanece travada na direção real da custódia (`▲ LONG 15X` ou `▼ SHORT 15X`), impedindo que oscilações transitórias de velas menores sobrescrevam a posição em andamento.
+
+### 3.6. [V168] Banco de Dados de Contexto OpenViking (Sistema de Arquivos Virtual `viking://`)
+
+A partir da versão **V168**, o 1Crypten supera as limitações de vetores planos do RAG tradicional integrando o **OpenViking** (`openviking` e `openviking-sdk`):
+
+1. **Paradigma de Sistema de Arquivos Virtual (`viking://`)**:
+   - `viking://resources/`: Documentações canônicas (`MASTER_ARCHITECTURE.md`, `docs/`).
+   - `viking://user/memories/`: Diretivas do Almirante Jonatas (`preferences/`), regras de risco (`patterns/`), pós-mortes de trades (`cases/`).
+   - `viking://agent/skills/`: Skills executáveis padronizadas (`.agents/skills/`).
+
+2. **Progressive Disclosure em Três Níveis (L0 / L1 / L2)**:
+   - **L0 (Abstract)**: Resumo conciso de ~100 tokens para escaneamento rápido de regras sem inchaço de contexto.
+   - **L1 (Overview)**: Parâmetros operacionais e invariantes de risco injetados no prompt do Hermes (~1.5k tokens).
+   - **L2 (Detail)**: Código-fonte completo, fórmulas e logs brutos carregados sob demanda.
+
+3. **Memória Auto-Evolutiva de Trading**:
+   - Ao encerrar qualquer posição (Stop ATR, Trailing Stop, Take Profit ou Flatten emergencial), o evento dispara `openviking_context_service.record_trade_closure()`.
+   - Um novo caso episódico é sintetizado em `viking://user/memories/cases/` e persistido fisicamente no diário do Obsidian Vault (`vault_galaxy/journal/`).
+   - O Hermes e os agentes de IA passam a carregar esse aprendizado em todas as sessões futuras, liberando o usuário de ter que lembrar o sistema de regras e erros passados.
+
+4. **Ferramentas MCP OpenViking Expandidas (14 Ferramentas no Total)**:
+   - `viking_tree`: Navegação na árvore do sistema de arquivos virtual.
+   - `viking_read`: Leitura de nós com Progressive Disclosure (L0/L1/L2).
+   - `viking_search`: Busca estruturada multi-nível por padrões e casos.
+   - `viking_commit_lesson`: Gravação de memórias permanentes com persistência no Vault.
 
 ---
 

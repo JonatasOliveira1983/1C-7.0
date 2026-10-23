@@ -234,6 +234,66 @@ async def _tool_get_contract_precision_audit(symbol: str) -> Dict[str, Any]:
         return {"status": "error", "message": f"Falha na auditoria de contrato: {str(e)}"}
 
 
+async def _tool_viking_tree(path: str = "viking://") -> Dict[str, Any]:
+    """Retorna a árvore do sistema de arquivos virtual OpenViking (resources, user/memories, agent/skills)."""
+    try:
+        from services.openviking_context_service import openviking_context_service
+        return {
+            "status": "success",
+            "path": path,
+            "tree": openviking_context_service.tree(path)
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro OpenViking tree: {str(e)}"}
+
+
+async def _tool_viking_read(uri: str, level: int = 1) -> Dict[str, Any]:
+    """Lê um nó virtual OpenViking com Progressive Disclosure (0=Abstract L0, 1=Overview L1, 2=Detail L2)."""
+    try:
+        from services.openviking_context_service import openviking_context_service, ContextLevel
+        lvl = ContextLevel(level) if level in (0, 1, 2) else ContextLevel.OVERVIEW
+        content = openviking_context_service.read(uri, level=lvl)
+        return {
+            "status": "success" if content is not None else "not_found",
+            "uri": uri,
+            "level": int(lvl),
+            "content": content
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro OpenViking read: {str(e)}"}
+
+
+async def _tool_viking_search(query: str, level: int = 1, limit: int = 5) -> Dict[str, Any]:
+    """Busca estruturada no banco de dados de contexto OpenViking por regras, padrões ou casos."""
+    try:
+        from services.openviking_context_service import openviking_context_service, ContextLevel
+        lvl = ContextLevel(level) if level in (0, 1, 2) else ContextLevel.OVERVIEW
+        matches = openviking_context_service.search(query=query, level=lvl, limit=limit)
+        return {
+            "status": "success",
+            "query": query,
+            "total_matches": len(matches),
+            "matches": matches
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro OpenViking search: {str(e)}"}
+
+
+async def _tool_viking_commit_lesson(category: str, title: str, content: str) -> Dict[str, Any]:
+    """Grava um aprendizado permanente no grafo OpenViking e persiste no Obsidian Vault."""
+    try:
+        from services.openviking_context_service import openviking_context_service
+        node = openviking_context_service.commit_lesson(category=category, title=title, content=content)
+        return {
+            "status": "success",
+            "uri": node.uri,
+            "title": node.title,
+            "abstract": node.l0_abstract
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro OpenViking commit: {str(e)}"}
+
+
 # Register tools on MCP server if active
 if mcp is not None:
     try:
@@ -286,8 +346,28 @@ if mcp is not None:
         async def get_contract_precision_audit(symbol: str) -> Dict[str, Any]:
             """Audita especificações exatas de contrato OKX (ctVal, tickSize, lotSize, minSz e quantização)."""
             return await _tool_get_contract_precision_audit(symbol)
+
+        @mcp.tool()
+        async def viking_tree(path: str = "viking://") -> Dict[str, Any]:
+            """Retorna a árvore do sistema de arquivos virtual OpenViking (resources, user/memories, agent/skills)."""
+            return await _tool_viking_tree(path)
+
+        @mcp.tool()
+        async def viking_read(uri: str, level: int = 1) -> Dict[str, Any]:
+            """Lê um nó virtual OpenViking com Progressive Disclosure (0=Abstract L0, 1=Overview L1, 2=Detail L2)."""
+            return await _tool_viking_read(uri, level)
+
+        @mcp.tool()
+        async def viking_search(query: str, level: int = 1, limit: int = 5) -> Dict[str, Any]:
+            """Busca estruturada no banco de dados de contexto OpenViking por regras, padrões ou casos."""
+            return await _tool_viking_search(query, level, limit)
+
+        @mcp.tool()
+        async def viking_commit_lesson(category: str, title: str, content: str) -> Dict[str, Any]:
+            """Grava um aprendizado permanente no grafo OpenViking e persiste no Obsidian Vault."""
+            return await _tool_viking_commit_lesson(category, title, content)
             
-        logger.info("✅ [MCP] 10 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo RAG, Screener e Precisão de Contratos).")
+        logger.info("✅ [MCP] 14 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo OpenViking Context Database).")
     except Exception as _e_reg:
         logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
 
@@ -315,7 +395,11 @@ def get_asgi_app():
                             {"name": "get_system_snapshot", "description": "Returns high-level system telemetry, active slots, and risk state."},
                             {"name": "quarantine_symbol", "description": "Forces an asset into sovereign quarantine for N seconds (default 7200s)."},
                             {"name": "get_quarantines", "description": "Lists all quarantined assets with remaining cooldown time."},
-                            {"name": "query_rag_intelligence", "description": "Performs semantic search across MASTER_ARCHITECTURE, vault_galaxy, rules and docs."}
+                            {"name": "query_rag_intelligence", "description": "Performs semantic search across MASTER_ARCHITECTURE, vault_galaxy, rules and docs."},
+                            {"name": "viking_tree", "description": "Navigates OpenViking virtual filesystem tree (viking://)."},
+                            {"name": "viking_read", "description": "Reads OpenViking node with progressive disclosure (L0 abstract, L1 overview, L2 detail)."},
+                            {"name": "viking_search", "description": "Searches rules, cases and patterns in OpenViking context database."},
+                            {"name": "viking_commit_lesson", "description": "Persists an episodic memory lesson to OpenViking and Obsidian Vault."}
                         ]
                     })
                 _mcp_asgi_app.routes.append(Route("/tools", _list_tools_endpoint, methods=["GET"]))

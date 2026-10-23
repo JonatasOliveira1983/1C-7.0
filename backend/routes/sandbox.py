@@ -871,6 +871,23 @@ async def close_sandbox_trade(payload: CloseTradePayload):
         await database_service.update_sandbox_trade(target_trade.id, update_payload)
         sandbox_service.reset_balance_cache()
 
+        # [OPENVIKING] Memória Auto-Evolutiva: registrar aprendizado episódico do trade
+        try:
+            from services.openviking_context_service import openviking_context_service
+            openviking_context_service.record_trade_closure({
+                "id": target_trade.id,
+                "symbol": target_trade.symbol,
+                "strategy": getattr(target_trade, "strategy", "UNKNOWN"),
+                "direction": target_trade.direction,
+                "entry_price": entry_price,
+                "exit_price": price,
+                "pnl_pct": final_pnl_pct,
+                "exit_reason": payload.reason or ("CLOSED_TRAILING" if final_pnl_pct > 0 else "CLOSED_MANUAL"),
+                "contract_meta": meta
+            })
+        except Exception:
+            pass
+
         return {
             "success": True,
             "message": f"Ordem {symbol} encerrada a ${price} com ROI Líquido de {final_pnl_pct:+.2f}% (${net_usd:+.2f} USD)",
@@ -968,6 +985,23 @@ async def emergency_close_all():
                     "pnl_pct": final_pnl_pct,
                     "pnl_usd": net_usd
                 })
+
+                # [OPENVIKING] Memória Auto-Evolutiva: registrar fechamento emergencial
+                try:
+                    from services.openviking_context_service import openviking_context_service
+                    openviking_context_service.record_trade_closure({
+                        "id": trade.id,
+                        "symbol": symbol,
+                        "strategy": getattr(trade, "strategy", "UNKNOWN"),
+                        "direction": getattr(trade, "direction", "UNKNOWN"),
+                        "entry_price": entry_price,
+                        "exit_price": price,
+                        "pnl_pct": final_pnl_pct,
+                        "exit_reason": "EMERGENCY_FLATTEN",
+                        "contract_meta": meta
+                    })
+                except Exception:
+                    pass
             except Exception as item_err:
                 logger.error(f"[EMERGENCY-CLOSE] Erro ao fechar {trade.symbol}: {item_err}")
 

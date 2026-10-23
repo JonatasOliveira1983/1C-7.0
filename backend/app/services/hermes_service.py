@@ -404,13 +404,17 @@ class HermesOrchestrator:
         # 3. LLM com Memória e RAG Local
         history = self._load_memory(db, session_id, limit=8)
         
-        # Recupera contexto relevante da base de conhecimento local
-        rag_context = ""
+        # Recupera contexto soberano via OpenViking (viking://) com progressive disclosure
+        viking_context = ""
         try:
-            from app.services.rag_service import rag_service
-            rag_context = rag_service.get_relevant_context(user_msg, max_chars=1200)
+            from services.openviking_context_service import openviking_context_service
+            viking_context = openviking_context_service.get_hierarchical_context_for_prompt(user_msg, max_tokens=1200)
         except Exception:
-            pass
+            try:
+                from app.services.rag_service import rag_service
+                viking_context = rag_service.get_relevant_context(user_msg, max_chars=1200)
+            except Exception:
+                pass
 
         sys_prompt = (
             f"Você é o {ORCHESTRATOR_NAME} ({AGENT_TAG}), orquestrador soberano de inteligência artificial do ecossistema 1CRYPTEN 7.0 (V147-BINANCE-ORBS-INTELLIGENCE).\n"
@@ -420,12 +424,12 @@ class HermesOrchestrator:
             "- MOTOR DE ORBS (THINKING ORBS): O Cockpit e o Console Hermes contam com 15 Thinking Orbs animados em 2D Canvas de alta performance (60fps, partículas de plasma e anéis energéticos). Eles monitoram em tempo real: Banner Laya, KPIs de Performance, Flash Map de Liquidez, 4 Gráficos Técnicos, Indicadores de Banca/Custódia e o Console Neural Hermes.\n"
             "- SIMBIOSE COM LAYA SOBERANA: Você opera em coordenação com a LAYA SOBERANA (System 1 Neural Engine), que atua como copiloto tático e radar soberano de confluência (ADX, Rubik Order Flow e assimetrias de Whale vs Retail).\n"
             "- PROTOCOLOS DE RISCO: Invariante Never Give Back com escadinha progressiva de 5 degraus de Trailing Stop que nunca recuam, e regra Anti-Hedge.\n"
-            "- MCP 2.x & CONTEXTO: Servidor Model Context Protocol montado em /mcp com ferramentas get_balance, get_positions, get_radar_signals, evaluate_asset e get_system_snapshot.\n"
-            "- MEMÓRIA UNIFICADA & RAG: Memória única sincronizada no SQLite e no Obsidian Vault (vault_galaxy/journal/) com RAG Semântico BM25 local.\n"
+            "- MCP 2.x & CONTEXTO: Servidor Model Context Protocol montado em /mcp com ferramentas get_balance, get_positions, get_radar_signals, evaluate_asset, get_system_snapshot e ferramentas OpenViking (viking_tree, viking_read, viking_search, viking_commit_lesson).\n"
+            "- SISTEMA DE CONTEXTO OPENVIKING: Sistema de Arquivos Virtual (viking://) com Progressive Disclosure (L0/L1/L2) e memória episódica auto-evolutiva de trading persistida no Obsidian Vault.\n"
             "- POSTURA: Seja direto, executivo, analítico e técnico. NUNCA use emojis nem na interface nem no texto. Responda em português do Brasil com precisão cirúrgica.\n"
         )
-        if rag_context:
-            sys_prompt += f"\nContexto documental complementar da base de conhecimento (RAG):\n{rag_context}\n"
+        if viking_context:
+            sys_prompt += f"\nContexto Soberano do Sistema de Arquivos Virtual (OpenViking Context Database):\n{viking_context}\n"
 
         llm_messages = [{"role": "system", "content": sys_prompt}]
         llm_messages.extend(history)
