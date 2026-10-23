@@ -322,6 +322,24 @@ class OKXService:
         except Exception as e:
             logger.debug(f"[OKX REST] Fallback para especificações oficiais locais de {inst_id}: {e}")
 
+        # Fallback SSOT: Consulta o catálogo universal de 507 pares do okx_universe_service
+        try:
+            from app.services.okx_universe_service import okx_universe_service
+            specs = okx_universe_service.get_specs(inst_id)
+            if specs and specs.get("instId"):
+                detail = {
+                    "instId": specs.get("instId", inst_id),
+                    "lotSize": str(specs.get("lotSize", "1.0")),
+                    "tickSize": str(specs.get("tickSize", "0.001")),
+                    "minSz": str(specs.get("minSz", "1.0")),
+                    "ctVal": str(specs.get("ctVal", "1.0")),
+                    "ctValCcy": str(specs.get("ctValCcy", ""))
+                }
+                self._instrument_cache[inst_id] = detail
+                return detail
+        except Exception as _e_uni:
+            logger.debug(f"[OKX REST] Erro ao consultar universo: {_e_uni}")
+
         # Fallback para especificações oficiais verificadas da OKX
         fallback_spec = self.OFFICIAL_OKX_SWAP_SPECS.get(inst_id)
         if fallback_spec:

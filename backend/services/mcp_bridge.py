@@ -195,6 +195,45 @@ async def _tool_query_rag(query: str, top_k: int = 4) -> Dict[str, Any]:
         return {"status": "error", "message": f"Falha na consulta RAG: {str(e)}"}
 
 
+async def _tool_get_market_intel_screener(universe: str = "all") -> Dict[str, Any]:
+    """Varre o universo de 507 pares da OKX ou os 30 Titãs calculando 1C-EXP, 1C-RANGE e aceleração de robôs."""
+    try:
+        from app.services.market_intel_engine import market_intel_engine
+        from app.services.okx_universe_service import okx_universe_service
+        tickers = await okx_universe_service.sync_tickers()
+        min_vol = 500_000.0 if universe == "all" else 3_000_000.0
+        results = market_intel_engine.scan_universal_market(tickers, min_volume_usd=min_vol, exclude_btc=True)
+        if universe == "titans":
+            results = [r for r in results if r["symbol"] in okx_universe_service._titans_30_altcoins]
+        ignited_count = sum(1 for r in results if r.get("bot_ignition"))
+        return {
+            "status": "success",
+            "universe": universe,
+            "total_scanned": len(results),
+            "ignited_count": ignited_count,
+            "top_ignitions": [r for r in results if r.get("bot_ignition")][:10],
+            "assets": results[:25]
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Falha no screener de mercado: {str(e)}"}
+
+
+async def _tool_get_contract_precision_audit(symbol: str) -> Dict[str, Any]:
+    """Audita especificações exatas de contrato OKX (ctVal, tickSize, lotSize, minSz e quantização)."""
+    try:
+        from app.services.okx_universe_service import okx_universe_service
+        specs = okx_universe_service.get_specs(symbol)
+        quant = okx_universe_service.quantize_order_contracts(symbol, margin_usd=100.0, leverage=15.0, price=10.0)
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "specs": specs,
+            "simulation_100usd_15x": quant
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Falha na auditoria de contrato: {str(e)}"}
+
+
 # Register tools on MCP server if active
 if mcp is not None:
     try:
@@ -237,8 +276,18 @@ if mcp is not None:
         async def query_rag_intelligence(query: str, top_k: int = 4) -> Dict[str, Any]:
             """Consulta a inteligência semântica do RAG (arquitetura, regras, journal e histórico de trades)."""
             return await _tool_query_rag(query, top_k)
+
+        @mcp.tool()
+        async def get_market_intel_screener(universe: str = "all") -> Dict[str, Any]:
+            """Varre o mercado OKX (507 pares ou Titãs) calculando 1C-EXP, 1C-RANGE e robôs ativados."""
+            return await _tool_get_market_intel_screener(universe)
+
+        @mcp.tool()
+        async def get_contract_precision_audit(symbol: str) -> Dict[str, Any]:
+            """Audita especificações exatas de contrato OKX (ctVal, tickSize, lotSize, minSz e quantização)."""
+            return await _tool_get_contract_precision_audit(symbol)
             
-        logger.info("✅ [MCP] 8 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo RAG e Quarentena).")
+        logger.info("✅ [MCP] 10 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo RAG, Screener e Precisão de Contratos).")
     except Exception as _e_reg:
         logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
 

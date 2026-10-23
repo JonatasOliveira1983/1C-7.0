@@ -58,6 +58,14 @@
                                 React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px' } }, 'settings'),
                                 React.createElement('span', null, 'Config')
                             ),
+                            React.createElement('button', {
+                                onClick: () => { setAdmOpen(false); if (window.openScreenerMatrix) window.openScreenerMatrix(); },
+                                className: 'adm-item',
+                                style: { color: '#fcd535', width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', background: 'rgba(252,213,53,0.08)', fontFamily: 'inherit' }
+                            },
+                                React.createElement('span', { className: 'material-icons-round', style: { fontSize: '18px', color: '#fcd535' } }, 'grid_view'),
+                                React.createElement('span', null, 'Screener Matrix')
+                            ),
                             React.createElement('div', { style: { borderTop: '1px solid rgba(255,255,255,0.08)', margin: '6px 0' } }),
                             React.createElement('button', {
                                 onClick: () => { setAdmOpen(false); onLogout(); },
@@ -92,11 +100,13 @@
             return saved && saved !== 'classic' ? saved : 'gemini';
         });
         const [selectedAnalysisSymbol, setSelectedAnalysisSymbol] = useState(null);
+        const [isScreenerOpen, setIsScreenerOpen] = useState(false);
         const [hermesNotifications, setHermesNotifications] = useState([]);
         const [hermesCompliance, setHermesCompliance] = useState(null);
 
         useEffect(() => {
             window.openDeepAnalysis = (sym) => setSelectedAnalysisSymbol(sym);
+            window.openScreenerMatrix = () => setIsScreenerOpen(true);
         }, []);
 
         useEffect(() => {
@@ -200,6 +210,7 @@
         const SettingsPageComponent = window.SettingsPage || (() => null);
         const AdminUsersPageComponent = window.AdminUsersPage || (() => null);
         const DeepAnalysisModalComponent = window.DeepAnalysisModal || (() => null);
+        const ScreenerMatrixModalComponent = window.ScreenerMatrixModal || (() => null);
 
         return (
             <ReactRouterDOM.HashRouter>
@@ -274,6 +285,11 @@
                 <DeepAnalysisModalComponent 
                     symbol={selectedAnalysisSymbol} 
                     onClose={() => setSelectedAnalysisSymbol(null)} 
+                />
+
+                <ScreenerMatrixModalComponent 
+                    isOpen={isScreenerOpen} 
+                    onClose={() => setIsScreenerOpen(false)} 
                 />
             </ReactRouterDOM.HashRouter>
         );

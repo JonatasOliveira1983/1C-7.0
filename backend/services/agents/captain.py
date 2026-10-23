@@ -20,7 +20,10 @@ from services.okx_rest import okx_rest_service as okx_rest_service
 from services.okx_ws_public import okx_ws_public_service
 from services.database_service import database_service
 from services.execution_protocol import execution_protocol
-from services.google_calendar_service import google_calendar_service
+try:
+    from services.calendar_service import calendar_service as google_calendar_service
+except Exception:
+    google_calendar_service = None
 from config import settings
 from services.agents.librarian import librarian_agent # [V2.0] Librarian DNA Profile Engine
 from services.agents.quartermaster import quartermaster_agent # [V110.135]

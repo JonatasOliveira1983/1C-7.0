@@ -694,9 +694,9 @@ class SandboxService:
             entry_price = sanitized["entry_price"]
 
             active_trades = await database_service.get_sandbox_trades(active_only=True)
-            # [V131-FIX] Limite corrigido: de 10 para 5 (consistente com _MAX_SLOTS do VWAP SNIPER)
-            if len(active_trades) >= 5:
-                logger.debug(f"🧪 [SANDBOX-SLOTS-FULL] Já existem {len(active_trades)} trades de Scalping ativos. Ignorando novos sinais.")
+            # [V165-SLOTS-EXPANSION] 8 Slots de Scalping Laya ($100 cada = $800 alocados para máxima diversificação)
+            if len(active_trades) >= 8:
+                logger.debug(f"🧪 [SANDBOX-SLOTS-FULL] Já existem {len(active_trades)} trades de Scalping ativos (limite 8 slots / $800 alocado). Ignorando novos sinais.")
                 continue
 
 

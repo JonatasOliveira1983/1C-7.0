@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.0
+# MASTER_ARCHITECTURE.md — 1Crypten 7.6.0
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-05. VERSION no codigo: `backend/main.py` VERSION="V146-PROFITABILITY-PIVOT" / DEPLOYMENT_ID="V146_POSITIVE_EXPECTANCY_PIVOT". Otimizacoes V146 aplicadas sobre o V145/V144 — ver Secao 14, item 30.*
+*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V166-UNIVERSAL-ALT-PUMP-CALIBRATION" / DEPLOYMENT_ID="V166_ALT_PUMP_ENGINE". Atualizacao com Sensor Institucional de Alt Pump Ignition (Triplice Confluencia: BTC.D em queda + Descolamento Pearson < 0.45 + Robos Ligados 1C-EXP >= 70), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado), Stop Loss Estrutural Anti-Violinada (respiro de 1.8% a 2.8% alem do canal H1) e Filtro de Rejeicao de Agressao de Fluxo.*
 
 ---
 
@@ -15,53 +15,61 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 - **Backend**: FastAPI (Python 3.12-slim)
 - **Frontend & Design System**: HTML/JS standalone no padrão **Binance Design System** (`#0B0E11` Deep Canvas, `#1E2329` Cards, `#2B3139` Borders, `#FCD535` Iconic Yellow, `#0ECB81` Green, `#F6465D` Red) integrado com o motor matemático de **Thinking Orbs** em 15 pontos estratégicos da UI (`backend/app/static/cockpit.html`, `frontend/cockpit.html`, `hermes.html`, `market.html`, `mobile_app.html`).
 - **Exchange**: OKX (SWAP / Portfolio Margin). Modo `PAPER` (simulado) ou `REAL`, via `OKX_EXECUTION_MODE`.
-- **[V127/V145] Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas do Scalping Lab + Swing Lab). Em **REAL**, a OKX recebe as ordens scalping/swing do Sandbox (via `SWING_MIRROR_MODE`/espelhamento) e o Cockpit representa a banca real da OKX. Ver Secao 8.6.
+- **[V127/V145/V165/V166] Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas do Scalping Lab / Day Trade). Em **REAL**, a OKX recebe as ordens scalping/swing do Sandbox (via `SWING_MIRROR_MODE`/espelhamento) e o Cockpit representa a banca real da OKX. Ver Secao 8.6.
 - **Plataforma**: Railway + Docker
 - **Persistencia & Memória Unificada**: PostgreSQL (SSOT) + Firebase (Firestore/RTDB) + SQLite WAL (`local_sniper.db`) + Obsidian Vault (`vault_galaxy/` para voz, chat e diários).
-- **Protocolos de IA & RAG**: RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
+- **Protocolos de IA & RAG**: RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 10 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
+- **Precisão & Quantização Inviolável**: Motor `OKXUniverseService` com suporte a 507 pares perpétuos da OKX, garantindo tick size exato (`format_price_by_tick`), lot size e quantização correta de contratos (`quantize_order_contracts`).
+- **Tríplice Confluência Alt Pump Ignition**: Motor institucional que detecta rotação do BTC para Altcoins (`evaluate_alt_pump_ignition`), cruzando queda de BTC.D, correlação Pearson < 0.45 e expansão algorítmica `1c_exp >= 70.0`.
 
 ### 1.1 Diagrama de Arquitetura do Sistema
 
 ```mermaid
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
-        UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs)"]
+        UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs + 8 Slots Day Trade)"]
         UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
         UI_LayaHUD["Laya Sovereign Mind Stream & Solving Orbs"]
+        UI_Screener["Screener Modal (Universal 507 Pares / 30 Titãs)"]
     end
 
     subgraph API_Routers["FastAPI Routers (backend.main:app:8085)"]
-        R_Slots["/api/slots (Active Trades Mirror)"]
+        R_Slots["/api/slots (Active Trades Mirror - 8 Slots Cap)"]
         R_State["/api/sandbox/unified-state (Equity & Net Worth)"]
         R_Pulse["/api/radar/pulse & /api/v1/hermes/laya/pulse"]
         R_Kronos["/api/v1/hermes/laya/kronos-projection"]
-        R_RAG["/api/v1/hermes/rag/search & /status"]
-        R_ML["/api/v1/ml/status & /dataset-stats"]
+        R_RAG["/api/v1/hermes/rag/search & /status & /reindex"]
+        R_ML["/api/v1/ml/status & /dataset-stats & /generate-dataset"]
+        R_Intel["/api/v1/market/screener-matrix & /ai-context (1C-EXP & 1C-RANGE)"]
+        R_Precision["/api/v1/market/contract-specs (TickSz & LotSz Audit)"]
     end
 
     subgraph Protocol_Bridges["Protocol & AI Bridges"]
-        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools)"]
-        RAG_Engine["RAGService (BM25 / TF-IDF Second Brain)"]
+        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 10 Ferramentas)"]
+        RAG_Engine["RAGService (BM25 / TF-IDF Second Brain: Blueprints + Vault)"]
     end
 
     subgraph Decision_Engines["Tactical & Decision Engines"]
         LayaRouter["LayaRouterService (Sovereign Whale/Retail Hunter + Calibrated Weights)"]
+        AltPump["AltPumpIgnition Engine (Triple Confluence: BTC.D Drop + Pearson < 0.45 + 1C-EXP >= 70)"]
         BTCSpecialist["LayaBTCSpecialist (BTC.D Matrix, Lead-Lag Spot x Swap, Macro Climate)"]
+        SignalGen["SignalGenerator (Pearson 15h/4h Return Correlation & Decorrelation Hunter)"]
         Kronos["KronosScorer (AAAI 2026 Temporal Trajectory)"]
         LayaFlow["LayaFlowService (OKX Rubik LSR & OI Delta)"]
-        Titans10["OKXUniverseService (Canonical 10 Titans Whitelist & Asset Dossier)"]
+        OKXUniverse["OKXUniverseService (507 Pares OKX + TickSz/LotSz/CtVal Engine)"]
+        MarketIntel["MarketIntelEngine (Universal Screener 507 Pares, 1C-EXP, 1C-RANGE)"]
         StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
-        SanityGate["Price Sanity & Structural ATR Stop Gate (2.8% - 4.5%)"]
+        SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.5%)"]
     end
 
     subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
-        ScalpLab["SandboxService (Scalping Lab - 100% Active Primary Focus)"]
+        ScalpLab["SandboxService (Day Trade H1 / 8 Slots - $100 Margin Each)"]
         SwingLab["SandboxSwingService (Swing Lab - Paused / SWING_SCAN_ENABLED=False)"]
     end
 
     subgraph Ingestion_Layer["Market Ingestion Layer"]
         OKX_WS["OKXWSPublic (Live WS Tickers, Extreme Low/High 120s)"]
-        OKX_REST["OKXRest (Batch SWAP Tickers & Contingency)"]
+        OKX_REST["OKXRest (Batch 507 SWAP Tickers & Contract Instruments)"]
         CoinGecko["CoinGecko/CoinCap API (Global BTC.D Live Oracle)"]
     end
 
@@ -70,25 +78,39 @@ flowchart TD
         DB_Postgres["PostgreSQL (Production SSOT)"]
         DB_Firebase["Firebase RTDB / Firestore (Mirroring)"]
         DB_Galaxy["Obsidian Vault (vault_galaxy)"]
+        Docs_Blueprints["Blueprints (docs/blueprint/ 01 a 09)"]
     end
 
     UI_Cockpit --> R_Slots
     UI_Cockpit --> R_State
     UI_Cockpit --> R_Pulse
+    UI_Cockpit --> UI_Screener
     UI_Charts --> R_Kronos
+    UI_Screener --> R_Intel
 
     MCP_Bridge --> ScalpLab
     MCP_Bridge --> DB_SQLite
     MCP_Bridge --> RAG_Engine
+    MCP_Bridge --> MarketIntel
+    MCP_Bridge --> OKXUniverse
     R_RAG --> RAG_Engine
     RAG_Engine --> DB_Galaxy
+    RAG_Engine --> Docs_Blueprints
 
     R_Slots --> ScalpLab
     R_State --> DB_SQLite
     R_Pulse --> LayaRouter
+    R_Intel --> MarketIntel
+    R_Precision --> OKXUniverse
 
+    LayaRouter --> AltPump
     LayaRouter --> BTCSpecialist
-    LayaRouter --> Titans30
+    LayaRouter --> SignalGen
+    LayaRouter --> OKXUniverse
+    LayaRouter --> MarketIntel
+    AltPump --> BTCSpecialist
+    AltPump --> SignalGen
+    AltPump --> MarketIntel
     LayaRouter --> LayaFlow
     LayaRouter --> Kronos
     LayaRouter --> RAG_Engine
@@ -98,11 +120,11 @@ flowchart TD
     CoinGecko --> BTCSpecialist
     OKX_WS --> ScalpLab
     OKX_WS --> LayaRouter
-    OKX_REST --> LayaRouter
+    OKX_REST --> OKXUniverse
+    OKX_REST --> MarketIntel
 
     ScalpLab --> StopLadder
-    ScalpLab --> AutoFineTune
-    AutoFineTune --> ML_Calibration
+    ScalpLab --> OKXUniverse
     ScalpLab --> DB_SQLite
     DB_SQLite -.-> DB_Postgres
 ```
@@ -118,9 +140,10 @@ flowchart TD
 | `MAX_SLOTS` (cap global) | 20 | `config.py:124` |
 | `MAX_SLOTS_LATERAL` | 16 | `config.py:125` |
 | `MAX_SLOTS_TRENDING` | 16 | `config.py:126` |
-| `MARGIN_PER_TRADE` (Laya) | $150.00 a $200.00 | `sandbox_service.py` / V159 |
-| `RISK_CAP_PERCENT` | 0.40 (40% da banca) | `config.py:132` |
-| `STRUCTURAL_STOP_DIST` | 2.8% a 4.5% ATR (fora do H1) | `laya_router_service.py:333` / V159 |
+| `MARGIN_PER_TRADE` (Laya) | $100.00 (8 slots = $800 alocado / 8.0% banca) | `sandbox_service.py` / V165 |
+| `RISK_CAP_PERCENT` | 0.08 (8.0% da banca em 8 slots de $100) | `config.py:132` / V165 |
+| `STRUCTURAL_STOP_DIST` | 1.8% a 3.5% de preço (Buffer anti-sweep H1) | `laya_router_service.py` / V165 |
+| `MAX_SCALP_SLOTS` | 8 Slots Simultâneos | `sandbox_service.py` / V165 |
 | `STOP_LOSS_QUARANTINE` | 7200s (2 Horas Anti-Reincidência) | `laya_router_service.py:885` / V159 |
 | `WHITELIST_TITANS_30` | Top 30 Altcoins de Elite Institucional (Sem BTC para trade) | `okx_universe_service.py:42` / V160 |
 | `BTC_ROLE` | Oráculo Macro Exclusivo (Zero trades em BTC) | `laya_router_service.py:785` / V160 |
@@ -163,10 +186,38 @@ flowchart TD
 7. **Motor de Projeção & Singleton SSOT**:
    - `order_projection_service.py` padronizado como singleton único (`order_projection_service`) com alias canônico `proj_service`, unificando a projeção de ROI, cálculo de Stops escalonados (Never Give Back) e metadados de execução para o Sandbox e Cockpit.
 
-**Status Operacional Atual [V146-PROFITABILITY-PIVOT & SWING GATE]**:
+### 2.2 Radar Universal Encryptos V163 (507 Contratos OKX & Detecção de Ignição de Robôs)
+1. **Varredura Universal dos 507 Pares OKX (`market_intel_engine.py`)**:
+   - Ingestão atômica de 100% dos contratos perpétuos USDT-SWAP da OKX em única requisição (<300ms).
+   - Filtro de higiene institucional: descarta contratos zumbis (volume 24h < $500k USD).
+2. **Algoritmo de Aceleração Smart Money (`1C-EXP` & `bot_ignition`)**:
+   - Detecta a ativação repentina de robôs institucionais/Market Makers (volume spike 5m, compressão de volatilidade e delta de OI).
+   - Ativos com `1C-EXP >= 70` recebem a chancela `bot_ignition = True`.
+3. **Controle Integrado por Laya e Hermes**:
+   - **Laya**: Injeta automaticamente as altcoins em ignição institucional na esteira autônoma de execução (`scan_and_execute_autonomous`), validando contra a tríade de blindagem, stops de 2.8% a 4.5% ATR e Never Give Back.
+   - **Hermes**: Comando operacional direto no chat para auditar quais robôs estão ligados no mercado hoje, gerando relatórios executivos em tempo real.
+4. **UI Cockpit**:
+   - Modal do Screener com alternância em 1 clique entre **Universal (507 Pares)** e **Titãs (30)**.
+
+### 2.3 Motor de Precisão e Quantização Inviolável de Contratos OKX (V165)
+1. **Dicionário Dinâmico de 507 Especificações Canônicas (`okx_universe_service.py`)**:
+   - Carregado na inicialização via `/api/v5/public/instruments?instType=SWAP`.
+   - Indexa `tickSz`, `lotSz`, `minSz`, `ctVal` e `ctMult` para cada par.
+2. **Quantização Matemática de Preço por Tick Size**:
+   - `format_price_by_tick(price, symbol)`: Converte o preço float para o múltiplo exato do `tickSz` do par (ex: BTC com `0.1` -> `82450.1`, PEPE com `0.00000001` -> `0.00000985`).
+   - Elimina rejeições de ordem OKX por `Invalid price precision`.
+3. **Quantização de Lotes e Contratos por `lotSz` e `ctVal`**:
+   - `quantize_order_contracts(notional_usd, mark_price, symbol)`: Converte o valor nocional em dólares para a quantidade exata de contratos inteiros ou fracionários permitidos.
+   - Trata automaticamente memecoins com `ctVal = 10.000.000` (ex: PEPE) e pesos-pesados com `ctVal = 0.01` (ex: BTC).
+4. **Governança Hermes e MCP 2.x**:
+   - Ferramenta MCP `get_contract_precision_audit(symbol)` disponível para agentes externos e Claude Desktop.
+   - Comando `auditar contrato <SIMBOLO>` no Hermes para inspeção operacional instantânea pelo trader.
+
+**Status Operacional Atual [V165-UNIVERSAL-ENCRYPTOS-PRECISION]**:
 - **Scalping Lab (Laya Soberana)**: 100% ativo com alavancagem de **15x**, stops de -7.5% ROI e trailing stop Never Give Back (50% do pico de lucro).
 - **Swing Lab**: Pausado soberanamente (`SWING_SCAN_ENABLED=False`) para estancar drawdown e concentrar 100% dos slots e capital no Scalping.
-- **RAG & MCP**: RAG conectado ao prompt do Hermes e MCP 2.x montado nativamente em `/mcp`.
+- **RAG & MCP**: RAG indexando blueprints 01 a 09 e cofre Obsidian; MCP 2.x montado nativamente em `/mcp` com 10 ferramentas registradas.
+- **Precisão OKX**: 100% dos 507 pares quantizados e formatados matematicamente.
 
 > **[V127] Saldo exibido em PAPER**: `OKX_SIMULATED_BALANCE` e a base do Guardiao/sizing em PAPER, mas o *Net Worth* do Cockpit em PAPER NAO e `OKX_SIMULATED_BALANCE` — e a **Banca Simulada Consolidada do Sandbox** (`get_sandbox_unified_balance`, `database_service.py`: `BANCA_BASE` $10.000 + Σ(pnl_pct/100 × $200) sobre TODOS os trades Scalp+Swing). Ver Secao 8.6.
 
@@ -498,6 +549,7 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
 | `/api/sandbox` | `sandbox.py` | `/unified-state` (Banca Simulada Consolidada — fonte do espelho PAPER), `/trades`, `/stats`, `/patterns`, `/analytics`, `/clear`, `/swing/trades`, `/swing/stats`, `/swing/patterns`, `/swing/analytics`, `/swing/clear`, `/swing/mirror-status`, `/swing/mirror-toggle` |
 | `/api/vault` | `vault.py` | `/save`, `/status` |
 | `/api/sentinel` | `sentinel.py` | Auditoria de execucao |
+| `/api/v1/market` | `market_intel.py` | `/screener-matrix` (Matriz 30 Titãs com 1C-EXP e 1C-RANGE), `/ai-context` (Exportação Semântica para IA) |
 | `/api/memory` | `memory_routes.py` | Memory Galaxy |
 | `/api/account` | `tokens.py` | Credenciais OKX por usuario |
 | `/api` | `market.py` | `/elite-pairs`, `/btc/regime`, `/radar/pulse`, `/radar/grid`, `/radar/librarian`, `/radar/regimes`, `/captain/tocaias`, `/trend/{symbol}`, `/market/klines`, `/system/state`, `/market/study` |
@@ -930,6 +982,29 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * Toques em suportes H1 com agressão vendedora violenta (`taker_sell_ratio >= 1.40x`) são vetados por faca caindo. Toques em resistências com agressão compradora (`taker_buy_ratio >= 1.40x`) são vetados por pressão compradora de topo.
     - **Validação Empírica**:
         * 100% de aprovação na suíte de testes `pytest backend/tests/test_stop_loss_cap.py` (12 testes passando).
+
+45. **[V165-UNIVERSAL-ENCRYPTOS-PRECISION] Screener Universal de 507 Pares OKX, Motor de Precisão de Contratos, RAG Semântico Blueprints 01-09 e MCP 2.x Bridge** (2026-10-23):
+    - **Screener Universal de 507 Pares Perpétuos OKX**:
+        * Expansão da frota analisada de 50 para os 507 contratos ativos da OKX, calculando `1c_exp` (explosão algorítmica) e `1c_range` (canal H1).
+    - **Motor de Precisão & Quantização Inviolável (`OKXUniverseService`)**:
+        * Resolução exata de `tickSize` e `lotSize` da OKX via `format_price_by_tick` e `quantize_order_contracts`, eliminando ordens rejeitadas por granularidade.
+    - **Segundo Cérebro RAG Indexando Blueprints 01-09**:
+        * Indexação semântica completa de todos os blueprints arquiteturais em `docs/blueprint/` para consulta via RAG e assistentes inteligentes.
+    - **Bridge Nativa MCP 2.x com 10 Ferramentas Registradas**:
+        * Integração Starlette em `/mcp/sse` e `/mcp/tools` para interoperabilidade total de IA.
+
+46. **[V166-UNIVERSAL-ALT-PUMP-CALIBRATION] Tríplice Confluência Alt Pump Ignition, 8 Slots Day Trade (1H) e Buffer Estrutural Anti-Violinada** (2026-10-23):
+    - **Sensor Institucional de Alt Pump Ignition (`evaluate_alt_pump_ignition`)**:
+        * Disparo de prioridade máxima quando confluem: Queda da Dominância do BTC (`dominance_trend == "FALLING"`, `altcoin_climate == "ALTCOIN_EXPANSION"` ou `btc_dominance < 56.5%`), Descolamento Estatístico Pearson com BTC (`correlation < 0.45` em 15h) e Robôs de Market Maker Ativados (`1C-EXP >= 70.0` e `bot_ignition == True`).
+        * Bônus tático de +25 pontos na esteira de triagem e prioridade primária de slot em `eligible.sort()`.
+    - **Expansão para 8 Slots Day Trade (1H) com Margem de $100 ($800 Alocado)**:
+        * 8 slots simultâneos permitindo ampla diversificação de fluxo nos 507 pares, com limite de 3 slots por cluster setorial.
+    - **Buffer Estrutural Anti-Violinada (Stop Loss H1)**:
+        * Respiro mínimo de 1.8% a 2.8% além das bordas de resistência e suporte H1, com Sanity Gate ajustado para mínimo de 1.8% e máximo de 3.5% de preço.
+    - **Filtro de Rejeição de Fluxo (Anti-Entrada Prematura)**:
+        * Veto de shorts se houver pressão compradora persistente no topo (`taker_buy_ratio >= 1.25x`) e veto de longs se houver absorção vendedora no fundo (`taker_sell_ratio >= 1.25x`).
+    - **Interface Cockpit Atualizada**:
+        * Badge dourado de precisão vetorial `ALT IGNITION` exibido em tempo real nas posições disparadas pela tríplice confluência.
 
 ---
 

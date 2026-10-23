@@ -88,6 +88,12 @@ class RAGService:
             for md_file in rules_dir.glob("*.md"):
                 new_chunks.extend(self._chunk_markdown(md_file, category="RULES"))
 
+        # 4. Index docs/ and docs/blueprint/
+        docs_dir = self.root_dir / "docs"
+        if docs_dir.exists():
+            for md_file in docs_dir.glob("**/*.md"):
+                new_chunks.extend(self._chunk_markdown(md_file, category="DOCS"))
+
         # 5. Index backend/data/knowledge/ if exists
         knowledge_dir = self.root_dir / "backend" / "data" / "knowledge"
         if knowledge_dir.exists():

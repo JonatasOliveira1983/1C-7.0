@@ -170,6 +170,13 @@ class LayaRouterService:
         self._global_circuit_breaker_until: float = 0.0
         self._last_symbol_thought: Dict[str, str] = {}
         self._scan_lock: Optional[asyncio.Lock] = None
+        self.btc_climate_cache: Dict[str, Any] = {"regime": "ALTCOIN_EXPANSION"}
+        self.universal_market_stats: Dict[str, Any] = {
+            "total_pairs": 507,
+            "liquid_pairs": 0,
+            "ignited_count": 0,
+            "last_scan_ts": 0.0
+        }
         self.calibrated_weights = self._load_calibrated_weights()
         self._seed_initial_thoughts()
 
@@ -848,12 +855,13 @@ class LayaRouterService:
                 }
 
             # [CVD / AGRESSÃO DE COMPRA NO TOPO]: Veto se o book recente tiver agressão compradora acelerando (falso topo)
-            if taker_buy_ratio >= 1.40:
+            # Calibração anti-entrada prematura: exige exaustão (taker_buy_ratio < 1.25)
+            if taker_buy_ratio >= 1.25:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
                     "score": 62,
-                    "rationale": f"[VETO CVD - AGRESSÃO COMPRADORA NO TOPO]: Taker buy ratio em {taker_buy_ratio:.2f}x. Pressão compradora ativa rompendo resistência."
+                    "rationale": f"[VETO CVD - AGRESSÃO COMPRADORA NO TOPO]: Taker buy ratio em {taker_buy_ratio:.2f}x. Pressão compradora acelerando (aguardar exaustão do movimento antes de vender)."
                 }
 
             # FUNDING SHIELD: Veta se funding fortemente negativo (< -0.03%)
@@ -874,21 +882,22 @@ class LayaRouterService:
                     "rationale": f"[VETO LSR]: Preço em topo de canal, mas sardinhas já estão vendidas (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
-            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+            # [V165-RESPIRO ESTRUTURAL ANTI-VIOLINADA]: Stop Loss posicionado além da resistência H1 com buffer de liquidez
+            # Evita violinadas em falsos rompimentos (liquidity sweeps) de 0.5% a 1.0% além do topo
+            res_buffer = max(0.018, min(0.028, (atr_pct * 1.5) / 100.0))
+            candidate_sl = res_h1 * (1.0 + res_buffer) if res_h1 > 0 else current_price * 1.025
+            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) >= 0.018:
                 stop_loss = round(candidate_sl, 4)
             else:
-                stop_loss = round(current_price * (1.0 + stop_dist), 4)
+                stop_loss = round(current_price * (1.0 + max(0.022, res_buffer)), 4)
 
-            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+            stop_dist = max(0.018, min(0.035, (stop_loss - current_price) / current_price))
 
             # Alvo no suporte do canal ou no miolo
             target = round(sup_h1 * 1.005, 4) if sup_h1 > 0 else round(current_price * (1.0 - stop_dist * 1.8), 4)
             if target >= current_price:
-                target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
-            target_dist = max(0.015, (current_price - target) / current_price)
+                target = round(current_price * (1.0 - max(0.025, stop_dist * 1.8)), 4)
+            target_dist = max(0.020, (current_price - target) / current_price)
 
             # Score institucional calibrado e simétrico (mínimo 86)
             score = 86
@@ -926,12 +935,13 @@ class LayaRouterService:
                 }
 
             # [CVD / AGRESSÃO DE VENDA NO SUPORTE - FACA CAINDO]: Veto se o book tiver dump agressivo a mercado
-            if taker_sell_ratio >= 1.40:
+            # Calibração anti-entrada prematura: exige exaustão (taker_sell_ratio < 1.25)
+            if taker_sell_ratio >= 1.25:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
                     "score": 62,
-                    "rationale": f"[VETO CVD - AGRESSÃO VENDEDORA NO SUPORTE]: Taker sell ratio em {taker_sell_ratio:.2f}x (faca caindo). Ausência de absorção institucional de compra."
+                    "rationale": f"[VETO CVD - AGRESSÃO VENDEDORA NO SUPORTE]: Taker sell ratio em {taker_sell_ratio:.2f}x (faca caindo). Aguardar desaceleração da pressão vendedora."
                 }
 
             # FUNDING SHIELD: Veta se funding excessivamente positivo (> +0.03%)
@@ -952,21 +962,21 @@ class LayaRouterService:
                     "rationale": f"[VETO LSR]: Preço em suporte, mas sardinhas entupidas na compra (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
-            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+            # [V165-RESPIRO ESTRUTURAL ANTI-VIOLINADA]: Stop Loss posicionado abaixo do suporte H1 com buffer de liquidez
+            sup_buffer = max(0.018, min(0.028, (atr_pct * 1.5) / 100.0))
+            candidate_sl = sup_h1 * (1.0 - sup_buffer) if sup_h1 > 0 else current_price * 0.975
+            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) >= 0.018:
                 stop_loss = round(candidate_sl, 4)
             else:
-                stop_loss = round(current_price * (1.0 - stop_dist), 4)
+                stop_loss = round(current_price * (1.0 - max(0.022, sup_buffer)), 4)
 
-            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+            stop_dist = max(0.018, min(0.035, (current_price - stop_loss) / current_price))
 
             # Alvo na resistência do canal ou no miolo
             target = round(res_h1 * 0.995, 4) if res_h1 > 0 else round(current_price * (1.0 + stop_dist * 1.8), 4)
             if target <= current_price:
-                target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
-            target_dist = max(0.025, (target - current_price) / current_price)
+                target = round(current_price * (1.0 + max(0.025, stop_dist * 1.8)), 4)
+            target_dist = max(0.020, (target - current_price) / current_price)
 
             # Score institucional calibrado e simétrico (mínimo 86)
             score = 86
@@ -1201,6 +1211,72 @@ class LayaRouterService:
             "rationale": diag_text
         }
 
+    def evaluate_alt_pump_ignition(
+        self,
+        btc_intel: Dict[str, Any],
+        decorrelation_data: Dict[str, Any],
+        candidate: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        [TRÍPLICE CONFLUÊNCIA: ALT PUMP IGNITION / DESCOLAMENTO INSTITUCIONAL]
+        Identifica quando uma altcoin se desgarra do Bitcoin em momento de rotação de capital:
+        1. Macro Dominance: BTC.D em queda (FALLING) ou delta_1h < 0 ou altcoin_climate == ALTCOIN_EXPANSION ou btcd < 56.5%
+        2. Statistical Independence: Correlação Pearson < 0.45 ou is_decorrelated == True
+        3. Bot Expansion: 1C-EXP >= 70.0 ou bot_ignition == True
+        
+        Retorna dicionário com:
+        - is_ignition: bool
+        - bonus_score: int (+25 pts se ativado)
+        - tag: str
+        - correlation: float
+        """
+        if not candidate or not btc_intel or not decorrelation_data:
+            return {"is_ignition": False, "bonus_score": 0, "tag": "", "correlation": 1.0}
+
+        # Não aplica ignição ao próprio Bitcoin
+        clean_sym = candidate.get("clean_sym", "").upper()
+        if "BTC" in clean_sym:
+            return {"is_ignition": False, "bonus_score": 0, "tag": "", "correlation": 1.0}
+
+        # 1. Macro Dominance Factor
+        dom_trend = str(btc_intel.get("dominance_trend", "")).upper()
+        dom_delta = float(btc_intel.get("dominance_delta_1h", 0.0) or 0.0)
+        dom_val = float(btc_intel.get("btc_dominance", 58.0) or 58.0)
+        climate = str(btc_intel.get("altcoin_climate", "")).upper()
+        
+        is_macro_favorable = (
+            dom_trend == "FALLING"
+            or climate == "ALTCOIN_EXPANSION"
+            or dom_delta < 0.0
+            or dom_val < 56.5
+        ) and climate != "ALTCOIN_BLOODBATH"
+
+        if not is_macro_favorable:
+            return {"is_ignition": False, "bonus_score": 0, "tag": "MACRO_VETO", "correlation": 1.0}
+
+        # 2. Descolamento Estatístico do BTC (Pearson)
+        corr = float(decorrelation_data.get("correlation", 1.0))
+        is_decorrelated = decorrelation_data.get("is_decorrelated", False) or (corr < 0.45)
+        
+        if not is_decorrelated:
+            return {"is_ignition": False, "bonus_score": 0, "tag": f"CORRELATED_BTC({corr:.2f})", "correlation": corr}
+
+        # 3. Ignição dos Robôs Algorítmicos (1C-EXP & Bot Ignition)
+        c_exp = float(candidate.get("1c_exp", 0.0) or 0.0)
+        bot_on = candidate.get("bot_ignition", False) or (c_exp >= 70.0)
+
+        if not bot_on:
+            return {"is_ignition": False, "bonus_score": 0, "tag": f"ROBOTS_OFF(1C-EXP:{c_exp:.0f})", "correlation": corr}
+
+        # TRÍPLICE CONFLUÊNCIA CONFIRMADA
+        tag = f"[ALT PUMP IGNITION: Descolamento BTC (Corr: {corr:.2f}) + BTC.D Queda + Robôs On (1C-EXP: {c_exp:.0f})]"
+        return {
+            "is_ignition": True,
+            "bonus_score": 25,
+            "tag": tag,
+            "correlation": corr
+        }
+
     def record_stop_loss(self, symbol: str, direction: str = "LONG", cooldown_seconds: int = 7200) -> None:
         """[V159-TITANS] Registra stop loss para impor quarentena institucional de 2 horas (7200s) no símbolo e Circuit Breaker Direcional."""
         clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper()
@@ -1326,9 +1402,9 @@ class LayaRouterService:
         """Inicializa pensamentos táticos para exibir sinal de vida na UI imediatamente."""
         now = time.time()
         seeds = [
-            ("SISTEMA", "Laya Sovereign Brain inicializado. Carregando catálogo de 50 ativos de alta liquidez da OKX...", "BOOT", 98, "LATERAL"),
+            ("SISTEMA", "Laya Sovereign Brain inicializado. Radar Universal ativo em 507 contratos OKX + 30 Titãs.", "BOOT", 98, "LATERAL"),
             ("BTC-ORACLE", "Farol Macro Bitcoin sincronizado. Aguardando leitura de ADX e viés institucional...", "ORACULO", 95, "LATERAL"),
-            ("RADAR-FLUXO", "Conectando ao OKX Rubik: preparando varredura multi-timeframe de fluxo e liquidez...", "VARREDURA", 92, "LATERAL")
+            ("RADAR-SMARTMONEY", "Radar Encryptos ativo: monitorando 1C-EXP, 1C-RANGE e aceleração de robôs nas altcoins...", "VARREDURA", 92, "LATERAL")
         ]
         for sym, msg, act, conf, reg in seeds:
             self.thought_stream.append({
@@ -1396,6 +1472,7 @@ class LayaRouterService:
             "thoughts": self.thought_stream[-20:],
             "candidate_setups": self.candidate_setups,
             "whale_flow": self.whale_flow_cache,
+            "universal_market_stats": self.universal_market_stats,
             "doctrine": "INSTITUTIONAL_LIQUIDITY_HUNTER",
             "memory_stats": mem_stats
         }
@@ -1417,19 +1494,68 @@ class LayaRouterService:
         self.last_scan_time = t0
         
         # [V160-TITANS-30] Catálogo das Top 30 Altcoins de liquidez soberana da OKX (Zero BTC para trade)
+        intel_map = {}
+        total_ignited = 0
         try:
             from app.services.okx_universe_service import okx_universe_service
+            from app.services.market_intel_engine import market_intel_engine
             dynamic_assets = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
             if dynamic_assets:
-                assets = dynamic_assets
+                assets = list(dynamic_assets)
             else:
                 assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
+
+            # [V163] Injeção Universal Encryptos: Varre os 507 pares da OKX e injeta altcoins com Robôs Institucionais Ativos
+            try:
+                tickers = await okx_universe_service.sync_tickers()
+                btc_climate_val = self.btc_climate_cache.get("regime", "ALTCOIN_EXPANSION")
+                ignited_assets = market_intel_engine.scan_universal_market(
+                    tickers_cache=tickers,
+                    min_volume_usd=1_000_000.0,
+                    exclude_btc=True,
+                    btc_climate=btc_climate_val
+                )
+                total_ignited = sum(1 for ign in ignited_assets if ign.get("bot_ignition"))
+                self.universal_market_stats = {
+                    "total_pairs": len(tickers) if tickers else 507,
+                    "liquid_pairs": len(ignited_assets),
+                    "ignited_count": total_ignited,
+                    "last_scan_ts": t0
+                }
+                for ign in ignited_assets:
+                    intel_map[ign["symbol"]] = ign
+                    intel_map[ign["pair"]] = ign
+                    intel_map[ign["pair"] + "USDT"] = ign
+
+                added_count = 0
+                for ign in ignited_assets[:8]:
+                    if ign.get("bot_ignition") and not any(a.get("symbol") == ign["symbol"] for a in assets):
+                        assets.append({
+                            "symbol": ign["symbol"],
+                            "pair": ign["pair"],
+                            "price": ign["price"],
+                            "high_24h": ign["high24h"],
+                            "low_24h": ign["low24h"],
+                            "change_24h": ign["change_24h"],
+                            "volume_24h_usd": ign["vol_ccy_24h"],
+                            "is_universal_ignition": True,
+                            "1c_exp": ign["1c_exp"],
+                            "1c_range": ign["1c_range"],
+                            "bot_ignition": True
+                        })
+                        added_count += 1
+                if added_count > 0:
+                    self.log_thought("SISTEMA", f"Radar Universal Encryptos: +{added_count} altcoins com aceleração institucional de robôs injetadas.", action="IGNICAO", confidence=95)
+            except Exception as _e_ign:
+                logger.warning(f"[LAYA-IGNITION] Injeção de robôs universal: {_e_ign}")
+
         except Exception as _e_uni:
             logger.debug(f"[LAYA-UNIVERSE] Fallback para 30 Altcoins: {_e_uni}")
             from app.services.okx_universe_service import okx_universe_service
             assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
 
-        self.log_thought("SISTEMA", f"Iniciando varredura soberana do Top 30 Altcoins ({len(assets)} ativos). Farol Macro: BTC. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
+        tot_p = self.universal_market_stats.get("total_pairs", 507)
+        self.log_thought("SISTEMA", f"Radar Universal Encryptos: {tot_p} contratos OKX | {total_ignited} altcoins com robôs ligados. Monitorando {len(assets)} ativos em confluência profunda. Farol: BTC. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
 
         best_setup = None
         best_score = 0
@@ -1541,6 +1667,12 @@ class LayaRouterService:
         spread_val = btc_intel.get("spot_vs_futures_spread_pct", 0.0)
         lead_lag_tag = btc_intel.get("lead_lag_signal", "SPOT_FUTURES_PARITY")
         climate_tag = btc_intel.get("altcoin_climate", "CONSOLIDATION_CHOP")
+        self.btc_climate_cache = {
+            "regime": climate_tag,
+            "btc_dominance": btcd_val,
+            "spread_pct": spread_val,
+            "lead_lag": lead_lag_tag
+        }
 
         self.log_thought(
             "BTC-ORACLE",
@@ -1698,6 +1830,32 @@ class LayaRouterService:
             rationale = multi_eval["rationale"]
             strat_name = multi_eval.get("strategy", "LAYA_SMART_MONEY_H1")
 
+            # [METRICAS ENCRYPTOS: 1C-EXP, 1C-RANGE & ROBÔS ON/OFF]
+            asset_intel = intel_map.get(sym) or intel_map.get(clean_sym) or {}
+            c_exp = asset_intel.get("1c_exp")
+            c_range = asset_intel.get("1c_range")
+            bot_on = asset_intel.get("bot_ignition", False) or a.get("is_universal_ignition", False)
+
+            if c_range is None:
+                sup_val = acc_range.get("support_h1", 0.0)
+                res_val = acc_range.get("resistance_h1", 0.0)
+                if res_val > sup_val > 0:
+                    c_range = round(((price - sup_val) / (res_val - sup_val)) * 100.0, 1)
+                else:
+                    c_range = 50.0
+
+            if c_exp is None:
+                from app.services.market_intel_engine import market_intel_engine
+                c_exp = market_intel_engine.calculate_1c_exp(
+                    bb_width_pct=bb_width_pct,
+                    vol_rel_5m=1.3 if abs(change_24h) > 1.0 else 1.0,
+                    oi_delta_pct=oi_delta,
+                    adx=self.master_adx
+                )
+                bot_on = c_exp >= 70.0
+
+            intel_tag = f"[ROBÔS ON • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]" if bot_on else f"[ROBÔS OFF • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]"
+
             if multi_eval["qualifies"]:
                 stop_loss = multi_eval["stop_loss"]
                 target = multi_eval["target"]
@@ -1714,7 +1872,7 @@ class LayaRouterService:
 
                 self.log_thought(
                     clean_sym,
-                    f"GATILHO {strat_name}: {rationale} | SL: ${stop_loss:.4f} | TP: ${target:.4f}",
+                    f"{intel_tag} GATILHO {strat_name}: {rationale} | SL: ${stop_loss:.4f} | TP: ${target:.4f}",
                     action=action_badge,
                     confidence=score
                 )
@@ -1725,8 +1883,8 @@ class LayaRouterService:
                 target_dist = 0.035
                 self.log_thought(
                     clean_sym,
-                    f"MONITORAMENTO MTF: {clean_sym} - {rationale}",
-                    action="RADAR_WAIT",
+                    f"{intel_tag} {clean_sym} - {rationale}",
+                    action="IGNICAO_RADAR" if bot_on else "RADAR_WAIT",
                     confidence=score
                 )
 
@@ -1754,14 +1912,15 @@ class LayaRouterService:
                 "acc_range": acc_range,
                 "vwap": vwap,
                 "bb_width_pct": bb_width_pct,
+                "1c_exp": c_exp,
+                "1c_range": c_range,
+                "bot_ignition": bot_on,
                 "confluence": {},
                 "leverage_cap": 50.0,
                 "rationale": rationale,
                 "memory_context": pair_mem,
                 "time": time.strftime("%H:%M:%S")
             }
-
-            self.log_thought(clean_sym, f"Análise MTF {clean_sym}: {direction} (Score {score}%) | Preço ${price:.4f} | LSR {lsr:.2f} | OI {oi_delta}%. {rationale}", action="RADAR", confidence=score)
 
         # [CONCORRÊNCIA OTIMIZADA] Avalia Kronos concorrentemente apenas nos top 4 candidatos
         top_candidates = sorted(self.candidate_setups.values(), key=lambda x: x["score"], reverse=True)[:4]
@@ -1800,6 +1959,53 @@ class LayaRouterService:
                 best_score = c["score"]
                 best_setup = c
 
+        # [V166 - TRÍPLICE CONFLUÊNCIA: ALT PUMP IGNITION / DESCOLAMENTO INSTITUCIONAL]
+        # Avalia descorrelação contra o BTC e robôs institucionais para os candidatos mais promissores
+        promising_candidates = [
+            c for c in self.candidate_setups.values()
+            if c.get("score", 0) >= 65 and "BTC" not in c.get("clean_sym", "").upper()
+        ]
+        if promising_candidates and btc_intel:
+            try:
+                from services.signal_generator import signal_generator
+
+                async def _eval_cand_ignition(cand):
+                    try:
+                        sym = cand["symbol"]
+                        d_cache = getattr(signal_generator, "decorrelation_cache", {}).get(sym)
+                        if d_cache and (time.time() - d_cache.get("updated_at", 0)) < 60:
+                            d_res = d_cache["data"]
+                        else:
+                            d_res = await signal_generator.detect_btc_decorrelation(sym)
+                        
+                        ignition_res = self.evaluate_alt_pump_ignition(btc_intel, d_res, cand)
+                        cand["decorrelation_data"] = d_res
+                        if ignition_res["is_ignition"]:
+                            cand["alt_pump_ignition"] = True
+                            cand["score"] = min(99, cand["score"] + ignition_res["bonus_score"])
+                            cand["strategy"] = "ALT_PUMP_IGNITION"
+                            cand["rationale"] += f" | {ignition_res['tag']}"
+                            self.log_thought(
+                                cand["clean_sym"],
+                                f"[ALT PUMP IGNITION]: Descolamento do BTC detectado (Corr: {ignition_res['correlation']:.2f}), BTC.D em queda e Robôs Ligados (1C-EXP: {cand.get('1c_exp', 0):.0f})!",
+                                action="ALT_IGNITION",
+                                confidence=cand["score"]
+                            )
+                    except Exception as e_ign:
+                        logger.debug(f"Erro ao avaliar Alt Pump Ignition para {cand.get('clean_sym')}: {e_ign}")
+
+                # Avalia concorrentemente os top 10 candidatos promissores
+                top_promising = sorted(promising_candidates, key=lambda x: x["score"], reverse=True)[:10]
+                await asyncio.gather(*[_eval_cand_ignition(c) for c in top_promising], return_exceptions=True)
+            except Exception as e_batch_ign:
+                logger.warning(f"Erro no batch de Alt Pump Ignition: {e_batch_ign}")
+
+        # Recalcula best_setup após potencial boost de Alt Pump Ignition
+        for c in self.candidate_setups.values():
+            if c.get("alt_pump_ignition") or c["score"] > best_score:
+                best_score = c["score"]
+                best_setup = c
+
         # Verifica se ja temos ordens ativas
         active_trades = []
         try:
@@ -1826,7 +2032,8 @@ class LayaRouterService:
             current_sandbox_balance = 10000.0
 
         daily_profit_pct = ((current_sandbox_balance - 10000.0) / 10000.0) * 100.0
-        max_allowed_slots = 4
+        # [V165-SLOTS-EXPANSION] 8 Slots de Scalping ($100 cada = $800 alocado para máxima diversificação de 507 pares)
+        max_allowed_slots = 8
         effective_min_score = self.MIN_ENTRY_SCORE
 
         if daily_profit_pct >= 5.0:
@@ -1834,10 +2041,10 @@ class LayaRouterService:
             max_allowed_slots = 0
             self.log_thought("SISTEMA", f"🏛️ [META DIÁRIA ATINGIDA]: Lucro de {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Novas entradas pausadas para blindar capital.", action="LOCK_IN", confidence=99)
         elif daily_profit_pct >= 2.5:
-            # Lucro expressivo (>= +2.5% = +$250). Reduz slots para 2 e exige score ultra-alto (92%)
-            max_allowed_slots = 2
+            # Lucro expressivo (>= +2.5% = +$250). Reduz slots para 4 e exige score ultra-alto (92%)
+            max_allowed_slots = 4
             effective_min_score = max(effective_min_score, 92)
-            self.log_thought("SISTEMA", f"🛡️ [PRESERVAÇÃO ATIVA]: Lucro do dia {daily_profit_pct:+.2f}%. Modo Sniper Seletivo ativo (Max 2 slots, Score >= 92%).", action="CAPITAL_SHIELD", confidence=95)
+            self.log_thought("SISTEMA", f"🛡️ [PRESERVAÇÃO ATIVA]: Lucro do dia {daily_profit_pct:+.2f}%. Modo Sniper Seletivo ativo (Max 4 slots, Score >= 92%).", action="CAPITAL_SHIELD", confidence=95)
 
         order_opened = None
         # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
@@ -1873,13 +2080,15 @@ class LayaRouterService:
                     and not btc_intel.get("altcoin_short_allowed", True)
                     and cand.get("direction") == "SHORT"
                 )
-                # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 2 posições ativas do mesmo cluster
-                and not self.is_cluster_limit_reached(cand.get("clean_sym", cand["symbol"]), active_symbols, max_per_cluster=2)
+                # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 3 posições ativas do mesmo cluster (8 slots totais)
+                and not self.is_cluster_limit_reached(cand.get("clean_sym", cand["symbol"]), active_symbols, max_per_cluster=3)
             ]
-            # [DIVERSITY & ROTATION] Evita repetição excessiva do mesmo par consecutivo (ex: SOL toda hora)
+            # [DIVERSITY & ROTATION & PRIORIDADE ALT PUMP IGNITION]
+            # Prioridade absoluta para Alt Pump Ignition, depois rotação e score
             last_traded = getattr(self, "_last_traded_pair", None)
             eligible.sort(
                 key=lambda x: (
+                    1 if x.get("alt_pump_ignition") else 0,
                     x["score"] - (8.0 if x.get("clean_sym") == last_traded else 0.0),
                     random.random()
                 ),
@@ -1898,34 +2107,58 @@ class LayaRouterService:
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                # [SANITY GATE INVIOLÁVEL: NUNCA PERMITIR STOP LOSS INVERTIDO, DESPROPORCIONAL OU ALVO INVÁLIDO]
-                # Teto estrito de 1.2% de distância no preço (= -18% ROI com 15x)
-                max_stop_dist = 0.012
-                default_stop_dist = 0.010
-                if d == "LONG":
-                    if not stop_loss or stop_loss >= p or ((p - stop_loss) / p) > max_stop_dist or ((p - stop_loss) / p) < 0.005:
-                        stop_loss = round(p * (1.0 - default_stop_dist), 4)
-                    if not target or target <= p:
-                        target = round(p * 1.025, 4)
-                elif d == "SHORT":
-                    if not stop_loss or stop_loss <= p or ((stop_loss - p) / p) > max_stop_dist or ((stop_loss - p) / p) < 0.005:
-                        stop_loss = round(p * (1.0 + default_stop_dist), 4)
-                    if not target or target >= p:
-                        target = round(p * 0.975, 4)
-
-                # [DOSSIÊ CANÔNICO DOS 10 TITÃS DA OKX]
+                # [SANITY GATE INVIOLÁVEL: RESPIRO ESTRUTURAL E ANTI-VIOLINADA]
+                # Calibrado para alavancagem 15x e margem de $100:
+                # Distância mínima: 1.8% de preço (-27% ROI = -$27 max)
+                # Distância máxima: 3.5% de preço (-52% ROI = -$35 max)
+                default_stop_dist = 0.022
+                min_stop_dist = 0.018
+                max_stop_dist = 0.035
                 from services.order_projection_service import proj_service
                 from app.services.okx_universe_service import okx_universe_service
+
+                if d == "LONG":
+                    if not stop_loss or stop_loss >= p or ((p - stop_loss) / p) > max_stop_dist or ((p - stop_loss) / p) < min_stop_dist:
+                        stop_loss = p * (1.0 - default_stop_dist)
+                    if not target or target <= p:
+                        target = p * 1.035
+                elif d == "SHORT":
+                    if not stop_loss or stop_loss <= p or ((stop_loss - p) / p) > max_stop_dist or ((stop_loss - p) / p) < min_stop_dist:
+                        stop_loss = p * (1.0 + default_stop_dist)
+                    if not target or target >= p:
+                        target = p * 0.965
+
+                stop_loss = okx_universe_service.format_price_by_tick(sym, stop_loss)
+                target = okx_universe_service.format_price_by_tick(sym, target)
+
+                # [QUANTIZADOR DE CONTRATOS OKX]
+                margin = 100.0
                 dossier = await okx_universe_service.get_asset_dossier(sym)
-                ct_val = float(dossier.get("ctVal", 1.0))
-                tick_sz = float(dossier.get("tickSize", 0.001))
-                lot_sz = float(dossier.get("lotSize", 1.0))
-                min_sz = float(dossier.get("minSz", 1.0))
                 leverage = int(dossier.get("leverage", 15))
 
-                margin = 100.0
-                notional_usd = round(margin * leverage, 2)
-                num_contracts = round(notional_usd / (p * ct_val), 4) if (p * ct_val) > 0 else 1.0
+                quant_res = okx_universe_service.quantize_order_contracts(
+                    symbol=sym,
+                    margin_usd=margin,
+                    leverage=leverage,
+                    price=p
+                )
+
+                if not quant_res.get("is_valid"):
+                    self.log_thought(
+                        clean_sym,
+                        f"[VETO CONTRATO OKX]: Ordem rejeitada para {sym}: {quant_res.get('error')} (Contratos: {quant_res.get('contracts')}, minSz: {quant_res.get('minSz')})",
+                        action="VETO_CONTRATO",
+                        confidence=90
+                    )
+                    return best_setup
+
+                num_contracts = quant_res["contracts"]
+                notional_usd = quant_res["notional_usd"]
+                margin = quant_res["effective_margin"]
+                ct_val = quant_res["ctVal"]
+                tick_sz = quant_res["tickSize"]
+                lot_sz = quant_res["lotSize"]
+                min_sz = quant_res["minSz"]
                 fee_open = round(notional_usd * 0.0005, 2)
                 fee_close = round(notional_usd * 0.0005, 2)
                 slippage_usd = round(notional_usd * 0.0003, 2)
@@ -1936,7 +2169,8 @@ class LayaRouterService:
                 # Hard limit inviolável de -18.0% ROI
                 if init_stop_roi < -18.0:
                     init_stop_roi = -18.0
-                    stop_loss = round(proj_service.raw_price_from_roi(p, -18.0, d, leverage), 4)
+                    raw_stop_p = proj_service.raw_price_from_roi(p, -18.0, d, leverage)
+                    stop_loss = okx_universe_service.format_price_by_tick(sym, raw_stop_p)
                 be_trigger_roi = 10.0
 
                 decision_label = f"BUY ({chosen['score']}%)" if d == "LONG" else f"SELL ({chosen['score']}%)"
@@ -1994,7 +2228,9 @@ class LayaRouterService:
                         "kronos_conviction": (chosen.get("confluence") or {}).get("kronos_conviction", 50.0),
                         "kronos_change_pct": float((chosen.get("confluence") or {}).get("predicted_change_pct", 0.0) or 0.0),
                         "kronos_target_price": round(p * (1.0 + (float((chosen.get("confluence") or {}).get("predicted_change_pct", 0.0) or 0.0) / 100.0)), 4) if (chosen.get("confluence") or {}).get("predicted_change_pct") else round(target, 4),
-                        "confluence_type": (chosen.get("confluence") or {}).get("confluence_type", "NEUTRAL")
+                        "confluence_type": (chosen.get("confluence") or {}).get("confluence_type", "NEUTRAL"),
+                        "alt_pump_ignition": chosen.get("alt_pump_ignition", False),
+                        "decorrelation": chosen.get("decorrelation_data", {})
                     }
                 }
 

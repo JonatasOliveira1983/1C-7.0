@@ -1,9 +1,9 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.0.0 (V148+)  
-> **Data de Atualização**: 12/10/2026  
-> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/ml/fine_tuning/`
+> **Versão**: 7.5.0 (V165-UNIVERSAL-ENCRYPTOS-PRECISION)  
+> **Data de Atualização**: 23/10/2026  
+> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
 
@@ -20,8 +20,9 @@ O ecossistema de inteligência artificial do **1Crypten** combina três pilares 
 ├─────────────────────┼───────────────────────────┼───────────────────────────────┤
 │ • Protocolo Aberto  │ • BM25 / TF-IDF Vector    │ • Dataset JSONL Supervisionado│
 │ • Starlette SSE     │ • MASTER_ARCHITECTURE.md  │ • Bayesian Temperature Scale  │
-│ • Standalone Stdio  │ • Obsidian Vault Galaxy   │ • Kronos Adapter (Incerteza)  │
-│ • Claude/Cursor/n8n │ • Injeção Prompt Hermes   │ • Laya Smart Money H1 Feed    │
+│ • Standalone Stdio  │ • Blueprints (01 a 09)    │ • Kronos Adapter (Incerteza)  │
+│ • Claude/Cursor/n8n │ • Obsidian Vault Galaxy   │ • 507 Pares OKX + Tick/Lot Sz │
+│ • 10 Ferramentas    │ • Injeção Prompt Hermes   │ • Bots (1C-Exp, 1C-Range, etc)│
 └─────────────────────┴───────────────────────────┴───────────────────────────────┘
 ```
 
@@ -29,7 +30,7 @@ O ecossistema de inteligência artificial do **1Crypten** combina três pilares 
 
 ## 1. 🔌 Model Context Protocol (MCP 2.x) Bridge
 
-O **Model Context Protocol (MCP)** é o padrão aberto da Anthropic para interoperabilidade segura entre modelos de linguagem e ferramentas de sistemas em produção. No 1Crypten, o MCP é implementado em duas camadas complementares:
+O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade segura entre modelos de linguagem e ferramentas de sistemas em produção. No 1Crypten, o MCP é implementado em duas camadas complementares:
 
 ### 1.1. Arquitetura de Montagem
 
@@ -39,7 +40,7 @@ O **Model Context Protocol (MCP)** é o padrão aberto da Anthropic para interop
    - Endpoints expostos:
      - `GET /mcp/sse`: Canal de streaming de eventos para clientes conectados.
      - `POST /mcp/messages`: Receptor de comandos JSON-RPC 2.0.
-     - `GET /mcp/tools`: Endpoint REST de auditoria rápida da lista de ferramentas.
+     - `GET /mcp/tools`: Endpoint REST de auditoria rápida da lista de ferramentas registradas.
 
 2. **Servidor Standalone Stdio** (`backend/mcp_server.py`):
    - Permite conexão direta por pipes stdio para IDEs e agentes locais:
@@ -47,15 +48,20 @@ O **Model Context Protocol (MCP)** é o padrão aberto da Anthropic para interop
      - **Cursor IDE** (`Settings > Features > MCP Servers`).
      - **Hermes / n8n / Agentes Autônomos**.
 
-### 1.2. Catálogo Oficial de Ferramentas Expostas (5 Tools)
+### 1.2. Catálogo Oficial de Ferramentas Expostas (10 Tools)
 
 | Ferramenta | Descrição | Parâmetros | Retorno Principal |
 | :--- | :--- | :--- | :--- |
 | `get_balance` | Consulta banca consolidada, equity unificado e modo de execução. | Nenhum | `unified_balance_usd`, `execution_mode`, `simulated_base_usd` |
 | `get_positions` | Lista todas as posições ativas em tempo real (Scalp e Swing). | Nenhum | Lista de posições com `entry_price`, `current_stop`, `target`, `pnl_percent` |
+| `get_active_orders` | Recupera ordens pendentes e em aberto no motor e na OKX. | Nenhum | Lista de ordens ativas com tipo, quantidade e status |
 | `get_radar_signals` | Captura pulso de fluxo institucional (Whale vs Retail) da Laya. | Nenhum | Top tickers com LSR, Open Interest, Bias direcional e convicção |
 | `evaluate_asset` | Avalia confluência de entrada combinando Laya Flow e Kronos AI. | `symbol` (str), `side` (str, default "BUY") | Status de confluência, score Kronos, regime de fluxo e validação institucional |
 | `get_system_snapshot` | Retorna telemetria macro do sistema e governança de risco. | Nenhum | `regime_mode`, `master_adx`, `unified_balance_usd`, `doctrine` |
+| `close_position_emergency` | Executa desarme e liquidação emergencial a mercado de um par. | `symbol` (str) | Confirmação de fechamento forçado e cancelamento de ordens |
+| `get_risk_telemetry` | Auditoria completa de exposição, margem, drawdown e limites. | Nenhum | Alocação por cluster, margem consumida, stops armados |
+| `get_market_intel_screener` | Varre os 507 pares perpétuos da OKX com métricas de volume e volatilidade. | `top_n` (int, default 15) | Top pares por volume 24h em USDT, spread, volatilidade e filtros de liquidez |
+| `get_contract_precision_audit`| Inspeciona as especificações exatas de contrato OKX (`tickSz`, `lotSz`, `ctVal`, multiplicador). | `symbol` (str) | `instId`, `tick_sz`, `lot_sz`, `ct_val`, `min_sz`, exemplos quantizados de preço e lote |
 
 ### 1.3. Como Conectar o MCP aos Clientes
 
@@ -92,9 +98,13 @@ O **RAG Semântico** (`backend/services/rag_service.py` e rota `backend/routes/r
 
 O motor realiza varredura recursiva e particionamento inteligente em seções canônicas de:
 1. **`MASTER_ARCHITECTURE.md`**: Diretrizes inegociáveis, contratos, portas, limites de risco e histórico de versões.
-2. **`vault_galaxy/`**: Cofre Obsidian institucional contendo diários de trades (`journal/`), estratégias operacionais (`strategies/`) e notas de auditoria (`trades/`).
-3. **`AGENTS.md` & `.agents/rules/`**: Metodologia Superpowers, invariantes de stop, anti-hedge e protocolos operacionais.
-4. **`docs/`**: Blueprints, auditorias de rentabilidade e especificações de turnaround.
+2. **`docs/blueprint/`**: Blueprints arquiteturais blindados de 01 a 09, com destaque para:
+   - `01_ROBOS_INSTITUCIONAIS.md`: Motores de execução algorítmica.
+   - `08_MARKET_INTELLIGENCE_SCREENER_500.md`: Screener universal de 507 pares da OKX.
+   - `09_OKX_CONTRACT_PRECISION_ENGINE.md`: Motor de precisão `tickSz`, `lotSz`, `ctVal` e quantização.
+3. **`vault_galaxy/`**: Cofre Obsidian institucional contendo diários de trades (`journal/`), estratégias operacionais (`strategies/`) e notas de auditoria (`trades/`).
+4. **`AGENTS.md` & `.agents/rules/`**: Metodologia Superpowers, invariantes de stop, anti-hedge e protocolos operacionais.
+5. **`docs/`**: Especificações técnicas, relatórios e runbooks.
 
 ### 2.2. Algoritmo & Métricas de Desempenho
 
@@ -156,16 +166,21 @@ Com a migração do sistema para o padrão **1H (LAYA_SMART_MONEY_H1)**:
 - **`POST /api/v1/ml/train-kronos`**: Inicia o treinamento/calibração do adaptador Kronos.
 - **`GET /api/v1/ml/status`**: Relatório de status dos modelos calibrados e histórico do último treinamento.
 
-### 3.4. Catálogo Universal de Mercado OKX & Geometria Inviolável (V155)
+### 3.4. Catálogo Universal de Mercado OKX & Precisão Inviolável de Contratos (V165)
 
-A partir da versão **V155**, o ecossistema RAG e os modelos preditivos da Laya contam com o **`OKXUniverseService`** (`backend/app/services/okx_universe_service.py`):
-1. **Mapeamento de 489 Instrumentos Perpétuos USDT-SWAP**:
+A partir da versão **V165**, o ecossistema RAG e os modelos preditivos da Laya contam com o **`OKXUniverseService`** (`backend/app/services/okx_universe_service.py`):
+1. **Mapeamento de 507 Instrumentos Perpétuos USDT-SWAP**:
    - Resolução assíncrona dos contratos diretamente da OKX pública (`/api/v5/public/instruments?instType=SWAP`).
-   - Carregamento de especificações canônicas: `ctVal` (valor do contrato), `tickSize` (precisão de preço), `lotSize` e `minSz` (lotes mínimos).
-2. **Telemetria e Ranking de Liquidez em Tempo Real**:
+   - Carregamento de especificações canônicas: `ctVal` (valor por contrato), `tickSz` (precisão do tick de preço), `lotSz` e `minSz` (granularidade e contratos mínimos).
+   - Dicionário dinâmico indexado por símbolo (`BTCUSDT` -> `BTC-USDT-SWAP`).
+2. **Motor de Precisão & Quantização Matemática**:
+   - `format_price_by_tick(price, symbol)`: Ajusta o preço exatamente para o múltiplo mais próximo do `tickSz`, sem arredondamentos arbitrários.
+   - `quantize_order_contracts(notional_usd, mark_price, symbol)`: Converte o valor em dólares diretamente para o número inteiro ou fracionário exato de contratos exigidos pela OKX:
+     $$\text{Contracts} = \text{round}\left(\frac{\text{Notional USD}}{\text{Mark Price} \times \text{ctVal} \times \text{lotSz}}\right) \times \text{lotSz}$$
+3. **Telemetria e Ranking de Liquidez em Tempo Real**:
    - Sincronização contínua com `/api/v5/market/tickers?instType=SWAP`, permitindo ordenar o mercado por volume financeiro real em USDT nas 24h.
    - A Laya não depende de listas estáticas de moedas; ela seleciona os ativos mais líquidos e operáveis organicamente.
-3. **Geometria Inviolável de Stop e Alvo**:
+4. **Geometria Inviolável de Stop e Alvo**:
    - Eliminação de qualquer código legado que gere alvos estáticos cegos (`* 1.5`).
    - `LONG`: Alvo sempre acima do preço de entrada ($> P_{\text{entry}}$) e Stop Loss abaixo ($< P_{\text{entry}}$).
    - `SHORT`: Alvo sempre abaixo do preço de entrada ($< P_{\text{entry}}$) e Stop Loss acima ($> P_{\text{entry}}$).
@@ -182,7 +197,7 @@ curl -X POST http://localhost:8085/api/v1/hermes/rag/reindex
 
 ### Como Gerar Novos Datasets e Recalibrar a Laya:
 ```bash
-# 1. Gerar dataset a partir dos trades recentes
+# 1. Gerar dataset a partir dos trades recentes e blueprints
 curl -X POST http://localhost:8085/api/v1/ml/generate-dataset
 
 # 2. Executar calibração fina dos pesos
@@ -202,7 +217,9 @@ python backend/mcp_server.py
 - [x] **Zero Emojis na UI e Dados**: Ícones vetoriais SVG de precisão.
 - [x] **Invariante Never Give Back**: Stops progressivos só avançam, nunca regridem.
 - [x] **Sub-Milissegundo no RAG**: Algoritmo BM25 em memória sem gargalos de rede ou chamadas de API externas pagas.
+- [x] **10 Ferramentas MCP Registradas**: Cobertura total de saldo, posições, ordens, inteligência, screener e precisão de contratos.
 - [x] **Segurança no MCP**: Ferramentas expostas operam estritamente sob os limites de governança do Sandbox/OKX.
 - [x] **Conexão Direta H1**: O pipeline de treino e o RAG refletem fielmente a saída de acumulação em 1H com confirmação de fluxo.
-- [x] **OKX Market Universe Integrado (V155)**: 489 contratos USDT-SWAP mapeados com `ctVal` e `tickSize` canônicos.
-- [x] **Geometria de Alvo e Stop Blindada (V155)**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.
+- [x] **OKX Market Universe Integrado (V165)**: 507 contratos USDT-SWAP mapeados com `ctVal` e `tickSz` canônicos.
+- [x] **Motor de Quantização Ativo (V165)**: Preços e contratos formatados matematicamente pelo `tickSz` e `lotSz` da OKX.
+- [x] **Geometria de Alvo e Stop Blindada**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.

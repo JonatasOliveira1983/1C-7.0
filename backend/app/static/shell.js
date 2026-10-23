@@ -63,10 +63,10 @@
           <div style="width: 14px; height: 14px; background: #FFC000; transform: rotate(45deg); flex-shrink: 0;"></div>
           <div>
             <div style="font-weight: 900; font-size: 13px; letter-spacing: 0.12em; color: #FFFFFF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FFC000;">7.0</span>
+              1CRYPTEN <span style="color: #FFC000;">7.5</span> <span style="font-size: 9px; color: #0ECB81; padding: 1px 4px; background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; border-radius: 2px;">V165</span>
             </div>
             <div style="font-family: var(--font-mono); font-size: 9px; color: #777777; letter-spacing: 0.08em; text-transform: uppercase;">
-              HFT MOTORSPORT OS
+              UNIVERSAL PRECISION OS
             </div>
           </div>
         </div>
@@ -201,8 +201,9 @@
           <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
             <canvas class="thinking-orb-canvas" data-state="solving" data-size="22" data-color="#FCD535" width="22" height="22" style="width:22px;height:22px;"></canvas>
             <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.12em; color: #EAECEF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FCD535;">7.0</span>
+              1CRYPTEN <span style="color: #FCD535;">7.5</span>
             </span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 2px;">V165</span>
           </a>
 
           <span class="shell-sep desktop-only" style="color: #2B3139; font-size: 11px;">|</span>
@@ -547,17 +548,29 @@
     // Mount the Sidebar & Overlay
     mountSidebar(activePage);
 
+    // Global helper para atualizar o Net Worth do Shell instantaneamente sem dessincronização
+    window.updateShellNetWorth = function (bal) {
+      const networthEl = document.getElementById("shell-networth");
+      if (networthEl && bal !== undefined && bal !== null) {
+        networthEl.textContent = "$" + Number(bal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+    };
+
+    window.addEventListener("unified-state-updated", function (e) {
+      if (e && e.detail) {
+        const bal = e.detail.virtual_balance !== undefined ? e.detail.virtual_balance : (e.detail.consolidated_balance || 10000);
+        window.updateShellNetWorth(bal);
+      }
+    });
+
     // Auto-update Net Worth from /api/sandbox/unified-state
     async function syncVitals() {
       try {
         const res = await fetch("/api/sandbox/unified-state");
         if (res.ok) {
           const data = await res.json();
-          const bal = data.consolidated_balance || data.virtual_balance || data.unified_balance || 10000;
-          const networthEl = document.getElementById("shell-networth");
-          if (networthEl) {
-            networthEl.textContent = "$" + Number(bal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          }
+          const bal = data.virtual_balance !== undefined ? data.virtual_balance : (data.consolidated_balance || data.unified_balance || 10000);
+          window.updateShellNetWorth(bal);
           setVitalDot("hermes", "ok");
           setVitalDot("deepseek", "ok");
           setVitalDot("okx", "ok");
@@ -568,7 +581,7 @@
       }
     }
     syncVitals();
-    setInterval(syncVitals, 5000);
+    setInterval(syncVitals, 3000);
 
     // Auto-init Thinking Orbs after mounting header & sidebar
     if (window.ThinkingOrbsManager) {

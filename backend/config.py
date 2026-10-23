@@ -388,7 +388,7 @@ class Settings(BaseSettings):
 
     # Configurações Gerais da API
     APP_NAME: str = os.getenv("APP_NAME", "1Crypten")
-    APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")
+    APP_VERSION: str = os.getenv("APP_VERSION", "7.5.0")
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "t", "yes", "y")
     PORT: int = int(os.getenv("PORT", 8085))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO") or "INFO"

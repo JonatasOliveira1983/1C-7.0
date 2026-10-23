@@ -117,8 +117,30 @@ class DeepSeekService:
             # Use asyncio.to_thread to avoid blocking
             def _sync_call():
                 if self.client == "stdlib_urllib":
-                    from app.services.deepseek_service import deepseek_service as stdlib_ds
-                    return stdlib_ds.generate(full_messages, temperature=temperature, max_tokens=max_tokens, model=model)
+                    import json, urllib.request
+                    req_data = json.dumps({
+                        "model": model,
+                        "messages": full_messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        f"{self.base_url}/chat/completions",
+                        data=req_data,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        }
+                    )
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        res_json = json.loads(resp.read().decode("utf-8"))
+                        class _MockChoice:
+                            def __init__(self, c):
+                                self.message = type("msg", (), {"content": c.get("message", {}).get("content", "")})()
+                        class _MockResp:
+                            def __init__(self, r):
+                                self.choices = [_MockChoice(c) for c in r.get("choices", [])]
+                        return _MockResp(res_json)
                 return self.client.chat.completions.create(
                     model=model,
                     messages=full_messages,

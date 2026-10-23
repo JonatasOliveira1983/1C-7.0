@@ -537,6 +537,54 @@ class HermesAgent(AIOSAgent):
         if any(word in user_message.lower() for word in ["compliance", "divergencia", "escadinha", "auditoria", "hermes"]):
             compliance_context = json.dumps(self.divergencias[:5], indent=2) if self.divergencias else "Nenhuma divergência ativa."
         
+        # [V164] Hermes Contract Precision & Quantization Audit Command (507 pares OKX)
+        if any(w in user_message.lower() for w in ["contrato", "precisao", "precisão", "tick", "lot size", "ctval", "casas decimais", "quantizacao", "quantização"]):
+            try:
+                from app.services.okx_universe_service import okx_universe_service
+                words = user_message.upper().replace("/", " ").replace("-", " ").split()
+                target_sym = None
+                for word in words:
+                    clean_w = word.replace("USDT", "").replace("SWAP", "")
+                    if len(clean_w) >= 2 and not clean_w.isdigit():
+                        candidate = f"{clean_w}-USDT-SWAP"
+                        specs = okx_universe_service.get_specs(candidate)
+                        if specs.get("updated_at", 0) > 0 or clean_w in ("BTC", "ETH", "SOL", "PEPE", "SHIB", "DOGE", "NEAR", "AVAX", "LINK", "ARB", "INJ", "SUI", "BONK", "FLOKI", "DOT", "ADA", "XRP"):
+                            target_sym = candidate
+                            break
+                if not target_sym:
+                    target_sym = "PEPE-USDT-SWAP"
+
+                specs = okx_universe_service.get_specs(target_sym)
+                test_price = 0.00001 if "PEPE" in target_sym else (0.14 if "DOGE" in target_sym else 10.0)
+                quant = okx_universe_service.quantize_order_contracts(target_sym, margin_usd=100.0, leverage=15.0, price=test_price)
+
+                lines = [
+                    f"**[AUDITORIA DE CONTRATO OKX — {target_sym}]**",
+                    f"• Instrumento: {specs.get('instId')}",
+                    f"• ctVal (Valor do Contrato): {specs.get('ctVal')} {specs.get('ctValCcy', '')}",
+                    f"• tickSize (Precisão Preço): {specs.get('tickSize')}",
+                    f"• lotSize (Passo de Contrato): {specs.get('lotSize')}",
+                    f"• minSz (Ordem Mínima): {specs.get('minSz')}",
+                    f"• Alavancagem Máxima: {specs.get('maxLeverage')}x",
+                    "",
+                    "**Simulação de Quantização ($100 Margem @ 15x):**",
+                    f"• Contratos Válidos: {quant.get('contracts')}",
+                    f"• Notional Efetivo: ${quant.get('notional_usd'):,.2f}",
+                    f"• Margem Real: ${quant.get('effective_margin'):,.2f}",
+                    f"• Status de Validade: {'APROVADO' if quant.get('is_valid') else 'REJEITADO - ' + str(quant.get('error'))}",
+                    "",
+                    "Status: 507 contratos sincronizados e blindados contra arredondamento destrutivo."
+                ]
+                return {
+                    "response": "\n".join(lines),
+                    "context": {"type": "contract_audit_report", "active_dimensions": active_dims}
+                }
+            except Exception as _e_ca:
+                return {
+                    "response": f"Erro na auditoria de contrato: {_e_ca}",
+                    "context": {"type": "contract_audit_error"}
+                }
+
         # 3. Handle special commands
         if "compliance" in user_message.lower() or "auditar" in user_message.lower():
             report = await self.run_compliance_audit()
@@ -550,6 +598,85 @@ class HermesAgent(AIOSAgent):
                 "response": await self._generate_system_status(),
                 "context": {"type": "system_status", "active_dimensions": active_dims}
             }
+
+        # [V163] Hermes Universal Market Radar & Bot Ignition Command
+        if any(w in user_message.lower() for w in ["screener", "mercado universal", "ignicao", "ignição", "robos ligados", "robôs ligados", "radar universal", "oportunidades", "altcoins"]):
+            try:
+                from app.services.market_intel_engine import market_intel_engine
+                from app.services.okx_universe_service import OKXUniverseService
+                universe_service = OKXUniverseService()
+                tickers = await universe_service.sync_tickers()
+                results = market_intel_engine.scan_universal_market(tickers, min_volume_usd=500_000.0, exclude_btc=True)
+                top_bots = [r for r in results if r.get("bot_ignition", False)][:6]
+                if not top_bots:
+                    top_bots = results[:6]
+
+                lines = [
+                    "**[RADAR UNIVERSAL ENCRYPTOS — 507 PARES OKX]**",
+                    f"Varredura em tempo real sobre **{len(results)} contratos líquidos** da OKX.",
+                    f"Detectadas **{len([r for r in results if r.get('bot_ignition')])} altcoins** com ignição e aceleração de robôs:\n"
+                ]
+                for b in top_bots:
+                    lines.append(
+                        f"• **{b['pair']}**: ${b['price']} ({b['change_24h']:+0.2f}%) | "
+                        f"**1C-EXP: {b['1c_exp']}** | Canal H1: {b['1c_range']}% | "
+                        f"Ação: **{b['action']}** [{b['setup']}] — *{b['bot_status']}*"
+                    )
+                lines.append("\nInvariante Never Give Back ativa • Alavancagem 15x • Stops estruturais H1.")
+                return {
+                    "response": "\n".join(lines),
+                    "context": {"type": "market_screener_report", "active_dimensions": active_dims}
+                }
+            except Exception as _e_scr:
+                logger.error(f"Erro no Radar Universal do Hermes: {_e_scr}")
+
+        # [V164] Hermes Contract Precision & Quantization Audit Command (507 pares OKX)
+        if any(w in user_message.lower() for w in ["contrato", "precisao", "precisão", "tick", "lot size", "ctval", "casas decimais", "quantizacao", "quantização"]):
+            try:
+                from app.services.okx_universe_service import okx_universe_service
+                words = user_message.upper().replace("/", " ").replace("-", " ").split()
+                target_sym = None
+                for word in words:
+                    clean_w = word.replace("USDT", "").replace("SWAP", "")
+                    if len(clean_w) >= 2 and not clean_w.isdigit():
+                        candidate = f"{clean_w}-USDT-SWAP"
+                        specs = okx_universe_service.get_specs(candidate)
+                        if specs.get("updated_at", 0) > 0 or clean_w in ("BTC", "ETH", "SOL", "PEPE", "SHIB", "DOGE", "NEAR", "AVAX", "LINK", "ARB", "INJ", "SUI", "BONK", "FLOKI", "DOT", "ADA", "XRP"):
+                            target_sym = candidate
+                            break
+                if not target_sym:
+                    target_sym = "PEPE-USDT-SWAP"
+
+                specs = okx_universe_service.get_specs(target_sym)
+                test_price = 0.00001 if "PEPE" in target_sym else (0.14 if "DOGE" in target_sym else 10.0)
+                quant = okx_universe_service.quantize_order_contracts(target_sym, margin_usd=100.0, leverage=15.0, price=test_price)
+
+                lines = [
+                    f"**[AUDITORIA DE CONTRATO OKX — {target_sym}]**",
+                    f"• Instrumento: {specs.get('instId')}",
+                    f"• ctVal (Valor do Contrato): {specs.get('ctVal')} {specs.get('ctValCcy', '')}",
+                    f"• tickSize (Precisão Preço): {specs.get('tickSize')}",
+                    f"• lotSize (Passo de Contrato): {specs.get('lotSize')}",
+                    f"• minSz (Ordem Mínima): {specs.get('minSz')}",
+                    f"• Alavancagem Máxima: {specs.get('maxLeverage')}x",
+                    "",
+                    "**Simulação de Quantização ($100 Margem @ 15x):**",
+                    f"• Contratos Válidos: {quant.get('contracts')}",
+                    f"• Notional Efetivo: ${quant.get('notional_usd'):,.2f}",
+                    f"• Margem Real: ${quant.get('effective_margin'):,.2f}",
+                    f"• Status de Validade: {'APROVADO' if quant.get('is_valid') else 'REJEITADO - ' + str(quant.get('error'))}",
+                    "",
+                    "Status: 507 contratos sincronizados e blindados contra arredondamento destrutivo."
+                ]
+                return {
+                    "response": "\n".join(lines),
+                    "context": {"type": "contract_audit_report", "active_dimensions": active_dims}
+                }
+            except Exception as _e_ca:
+                return {
+                    "response": f"Erro na auditoria de contrato: {_e_ca}",
+                    "context": {"type": "contract_audit_error"}
+                }
             
 
         

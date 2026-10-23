@@ -9,8 +9,10 @@ Fornece à Laya Soberana e ao Cockpit:
 3. Seleção autônoma dos pares com maior liquidez e volatilidade institucional.
 """
 import time
+import math
 import asyncio
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Any, Optional
 import httpx
 
@@ -298,6 +300,140 @@ class OKXUniverseService:
         await self.sync_instruments()
         return self.get_asset_dossier_sync(symbol)
 
+    @staticmethod
+    def format_price_by_tick_custom(price: float, tick_size: float) -> float:
+        """
+        [PRECISION ENGINE CANÔNICO OKX]
+        Normaliza o preço para o tickSize oficial do contrato (ex: 0.1 para BTC, 0.00000001 para PEPE).
+        Previne erros de tick inválido e arredondamentos destrutivos em micro-caps.
+        """
+        if price <= 0:
+            return price
+        if not tick_size or tick_size <= 0:
+            tick_size = 0.0001
+
+        try:
+            tick_str = f"{tick_size:.10f}".rstrip("0")
+            if tick_str.endswith("."):
+                tick_str += "0"
+            tick_dec = Decimal(tick_str)
+            price_dec = Decimal(str(price))
+            rounded = (price_dec / tick_dec).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * tick_dec
+            return float(rounded)
+        except Exception:
+            steps = round(price / tick_size)
+            decimals = max(0, -int(math.floor(math.log10(tick_size)))) if tick_size < 1.0 else 1
+            return round(steps * tick_size, decimals)
+
+    def format_price_by_tick(self, symbol: str, price: float) -> float:
+        """Formata o preço baseado no tickSize oficial do par nos 507 contratos OKX."""
+        specs = self.get_specs(symbol)
+        tick_sz = float(specs.get("tickSize", 0.0001))
+        return self.format_price_by_tick_custom(price, tick_sz)
+
+    def format_price_str(self, symbol: str, price: float) -> str:
+        """Retorna representação string com o número correto de casas decimais."""
+        specs = self.get_specs(symbol)
+        tick_sz = float(specs.get("tickSize", 0.0001))
+        decimals = max(0, -int(math.floor(math.log10(tick_sz)))) if tick_sz < 1.0 else 0
+        norm_p = self.format_price_by_tick_custom(price, tick_sz)
+        return f"{norm_p:.{decimals}f}"
+
+    @staticmethod
+    def quantize_order_contracts_custom(
+        margin_usd: float,
+        leverage: float,
+        price: float,
+        ct_val: float,
+        lot_sz: float,
+        min_sz: float,
+        tick_sz: float
+    ) -> Dict[str, Any]:
+        """
+        [QUANTIZADOR DE CONTRATOS OKX]
+        Calcula o número de contratos válidos (sz) para a ordem:
+        - Aplica ctVal (multiplicador do contrato)
+        - Alinha com lotSz (passo de lote de contratos)
+        - Valida minSz (tamanho mínimo exigido pela OKX)
+        """
+        if price <= 0 or ct_val <= 0 or margin_usd <= 0 or leverage <= 0:
+            return {
+                "contracts": 0.0,
+                "notional_usd": 0.0,
+                "effective_margin": 0.0,
+                "is_valid": False,
+                "error": "INVALID_INPUTS"
+            }
+
+        notional_target = margin_usd * leverage
+        contract_cost_usd = price * ct_val
+
+        if contract_cost_usd <= 0:
+            return {
+                "contracts": 0.0,
+                "notional_usd": 0.0,
+                "effective_margin": 0.0,
+                "is_valid": False,
+                "error": "INVALID_CONTRACT_COST"
+            }
+
+        raw_contracts = notional_target / contract_cost_usd
+
+        if lot_sz <= 0:
+            lot_sz = 1.0
+
+        contract_steps = round(raw_contracts / lot_sz)
+        contracts = round(contract_steps * lot_sz, 6)
+
+        effective_notional = round(contracts * contract_cost_usd, 2)
+        effective_margin = round(effective_notional / leverage, 2) if leverage > 0 else 0.0
+
+        is_valid = contracts >= min_sz and contracts > 0
+
+        if effective_margin > (margin_usd * 1.5):
+            is_valid = False
+            error = "MARGIN_OVERFLOW"
+        elif contracts < min_sz:
+            is_valid = False
+            error = "BELOW_MIN_SIZE"
+        else:
+            error = None
+
+        return {
+            "contracts": contracts,
+            "notional_usd": effective_notional,
+            "effective_margin": effective_margin,
+            "ctVal": ct_val,
+            "lotSize": lot_sz,
+            "minSz": min_sz,
+            "tickSize": tick_sz,
+            "is_valid": is_valid,
+            "error": error
+        }
+
+    def quantize_order_contracts(
+        self,
+        symbol: str,
+        margin_usd: float,
+        leverage: float,
+        price: float
+    ) -> Dict[str, Any]:
+        """Calcula contratos válidos para qualquer par do catálogo de 507 ativos."""
+        specs = self.get_specs(symbol)
+        ct_val = float(specs.get("ctVal", 1.0))
+        lot_sz = float(specs.get("lotSize", 1.0))
+        min_sz = float(specs.get("minSz", 1.0))
+        tick_sz = float(specs.get("tickSize", 0.0001))
+        return self.quantize_order_contracts_custom(
+            margin_usd=margin_usd,
+            leverage=leverage,
+            price=price,
+            ct_val=ct_val,
+            lot_sz=lot_sz,
+            min_sz=min_sz,
+            tick_sz=tick_sz
+        )
+
     async def get_tradable_universe(
         self,
         limit: int = 30,
@@ -393,3 +529,18 @@ class OKXUniverseService:
 
 
 okx_universe_service = OKXUniverseService()
+
+
+def format_price_by_tick(price: float, symbol: str) -> float:
+    """Helper funcional para formatar preço de acordo com o tickSize do par."""
+    return okx_universe_service.format_price_by_tick(symbol, price)
+
+
+def quantize_order_contracts(
+    margin_usd: float,
+    price: float,
+    symbol: str,
+    leverage: float = 15.0
+) -> Dict[str, Any]:
+    """Helper funcional para quantizar contratos baseado em margin_usd, price, leverage e ctVal."""
+    return okx_universe_service.quantize_order_contracts(symbol, margin_usd, leverage, price)

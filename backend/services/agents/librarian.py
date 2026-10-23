@@ -7,7 +7,6 @@ from services.agents.aios_adapter import AIOSAgent
 from services.backtest.engine import backtest_engine
 from services.backtest import data_extractor
 from services.okx_ws_public import okx_ws_public_service
-from services.google_calendar_service import google_calendar_service
 from services.agents.quartermaster import quartermaster_agent # [V110.135]
 from services.firebase_service import firebase_service
 from services.kernel.dispatcher import kernel

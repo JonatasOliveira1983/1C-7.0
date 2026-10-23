@@ -103,29 +103,67 @@ class DatasetGenerator:
         }
 
     def _generate_bootstrap_laya_samples(self, count: int) -> List[Dict[str, Any]]:
-        """Gera amostras institucionais canônicas baseadas nas regras de Liquidez Baleia vs Sardinha e Farol Macro."""
+        """Gera amostras institucionais canônicas baseadas nas regras de Liquidez Baleia vs Sardinha, Farol Macro, Contratos OKX e Bots Ativos."""
         import random
+        from app.services.okx_universe_service import okx_universe_service
+
         symbols = [
             "SOLUSDT", "ETHUSDT", "AVAXUSDT", "NEARUSDT", "LINKUSDT", "SUIUSDT", "ADAUSDT", "DOTUSDT",
-            "ARBUSDT", "OPUSDT", "INJUSDT", "RENDERUSDT", "FETUSDT", "TIAUSDT", "STRKUSDT", "PYTHUSDT"
+            "ARBUSDT", "OPUSDT", "INJUSDT", "RENDERUSDT", "FETUSDT", "TIAUSDT", "STRKUSDT", "PYTHUSDT",
+            "BTCUSDT", "DOGEUSDT", "PEPEUSDT", "SHIBUSDT", "XRPUSDT", "ENAUSDT", "WLDUSDT", "SEIUSDT"
+        ]
+        active_bots = [
+            "1c_exp", "1c_range", "bot_ignition", "bot_scalp_mola", "bot_sniper",
+            "bot_reversao", "bot_trend_following", "bot_breakout", "bot_arbitragem"
         ]
         samples = []
 
         for i in range(count):
             sym = random.choice(symbols)
+            bot_tag = random.choice(active_bots)
+            specs = okx_universe_service.get_specs(sym)
+            tick_sz = specs.get("tick_sz", "0.0001")
+            lot_sz = specs.get("lot_sz", "1")
+            ct_val = specs.get("ct_val", 1.0)
+
             scenario = random.choice([
                 "ARMADILHA_SARDINHA", "ABSORCAO_BALEIA", "ROMPIMENTO_INSTITUCIONAL", "CONSOLIDACAO",
-                "BTC_DUMP_VETO_LONG", "TREND_ALIGNMENT_SHORT"
+                "BTC_DUMP_VETO_LONG", "TREND_ALIGNMENT_SHORT", "EXPANSAO_VOLATILIDADE_1C_EXP",
+                "CANAL_LATERAL_1C_RANGE", "IGNITION_BALEIAS"
             ])
 
-            if scenario == "ARMADILHA_SARDINHA":
+            if scenario == "EXPANSAO_VOLATILIDADE_1C_EXP":
+                lsr = round(random.uniform(0.85, 1.15), 2)
+                oi_delta = round(random.uniform(1.2, 4.5), 2)
+                decision = "BUY"
+                regime = "VOLATILITY_EXPANSION_BREAKOUT"
+                conf = 0.94
+                pnl = round(random.uniform(4.0, 11.0), 2)
+                rationale = f"Disparo do motor {bot_tag}: rompimento com expansão de volatilidade e aumento maciço de Open Interest."
+            elif scenario == "CANAL_LATERAL_1C_RANGE":
+                lsr = round(random.uniform(0.95, 1.05), 2)
+                oi_delta = round(random.uniform(-0.15, 0.15), 2)
+                decision = "BUY" if random.random() > 0.5 else "SELL"
+                regime = "MEAN_REVERSION_RANGE"
+                conf = 0.89
+                pnl = round(random.uniform(1.8, 4.2), 2)
+                rationale = f"Operação do bot {bot_tag}: reversão à média nos limites da banda de Bollinger em consolidação H1."
+            elif scenario == "IGNITION_BALEIAS":
+                lsr = round(random.uniform(0.70, 0.95), 2)
+                oi_delta = round(random.uniform(2.5, 6.0), 2)
+                decision = "BUY"
+                regime = "INSTITUTIONAL_IGNITION"
+                conf = 0.96
+                pnl = round(random.uniform(5.0, 14.0), 2)
+                rationale = f"Disparo do {bot_tag}: ignição algorítmica de fluxo institucional agressivo rompendo VWAP diária."
+            elif scenario == "ARMADILHA_SARDINHA":
                 lsr = round(random.uniform(1.36, 1.85), 2)
                 oi_delta = round(random.uniform(-0.8, 0.4), 2)
                 decision = "SELL"
                 regime = "RETAIL_TRAP_LONG"
                 conf = 0.92
                 pnl = round(random.uniform(2.0, 6.5), 2)
-                rationale = "Varejo eufórico no topo. Venda a favor da absorção das baleias."
+                rationale = f"Varejo eufórico no topo. Venda a favor da absorção das baleias no bot {bot_tag}."
             elif scenario == "BTC_DUMP_VETO_LONG":
                 lsr = round(random.uniform(0.80, 1.20), 2)
                 oi_delta = round(random.uniform(-1.0, 0.2), 2)
@@ -171,11 +209,17 @@ class DatasetGenerator:
                 "id": f"bootstrap_{i+1}",
                 "input": {
                     "symbol": sym,
+                    "bot": bot_tag,
                     "direction": "LONG" if decision == "BUY" else ("SHORT" if decision == "SELL" else "NEUTRAL"),
                     "lsr": lsr,
                     "oi_delta_pct": oi_delta,
                     "flow_regime": regime,
-                    "market_condition": "LATERAL" if abs(oi_delta) < 0.3 else "TRENDING"
+                    "market_condition": "LATERAL" if abs(oi_delta) < 0.3 else "TRENDING",
+                    "contract_specs": {
+                        "tick_sz": tick_sz,
+                        "lot_sz": lot_sz,
+                        "ct_val": ct_val
+                    }
                 },
                 "target_decision": decision,
                 "confidence": conf,
