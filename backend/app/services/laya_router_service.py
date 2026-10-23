@@ -536,13 +536,16 @@ class LayaRouterService:
         lsr: float = 1.0,
         btc_trend_bias: float = 0.0,
         funding_rate: float = 0.0,
-        atr_pct: float = 1.5
+        atr_pct: float = 1.5,
+        bot_ignition: bool = False,
+        c_exp: float = 0.0
     ) -> Dict[str, Any]:
         """
         [SETUP 3: DVWAP REVERSION - INTRA-RANGE RETORNO À MÉDIA CALIBRADO COM ATR & FUNDING SHIELD]
         - Esticado para baixo (diff <= -2.0%): compra SOMENTE se BTC não estiver caindo (btc_trend_bias >= -0.3%).
         - Esticado para cima (diff >= +2.0%): venda SOMENTE se BTC não estiver em forte rali (btc_trend_bias <= +0.5%).
         - Veto de Funding Rate adverso (> +0.03% em LONG ou < -0.03% em SHORT).
+        - Veto Anti-Faca: Proibido vender contra robôs institucionais (1C-EXP >= 70 ou bot_ignition) ou em pumps verticais (diff >= +5%).
         - Stop Loss estrutural por ATR (mínimo 1.5%, ajustado à volatilidade real).
         """
         sup_h1 = acc_range.get("support_h1", 0.0)
@@ -555,6 +558,22 @@ class LayaRouterService:
 
         # REVERSÃO LONG: Preço esticado abaixo da VWAP (exige esticamento real de pelo menos -2.0%)
         if diff_pct <= -2.0:
+            # BLINDAGEM ANTI-DUMP: Proibido comprar se robôs vendedores acelerando ou queda vertical > 6%
+            if bot_ignition or c_exp >= 70.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 50,
+                    "rationale": f"[VETO ROBÔS LIGADOS - ANTI-DUMP]: Altcoin em forte aceleração vendedora (1C-EXP {c_exp:.0f} / Bot On). Proibido comprar faca caindo contra robôs institucionais."
+                }
+            if diff_pct <= -6.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 50,
+                    "rationale": f"[VETO ANTI-DUMP]: Preço esticado {diff_pct:.1f}% abaixo da VWAP (queda vertical). Proibido comprar faca caindo sem absorção confirmada."
+                }
+
             # FAROL MACRO DO BTC: Veto imediato se o Bitcoin estiver caindo (evita comprar faca caindo)
             if btc_trend_bias < -0.3:
                 return {
@@ -610,6 +629,22 @@ class LayaRouterService:
 
         # REVERSÃO SHORT: Preço esticado acima da VWAP (+2.0% ou mais)
         elif diff_pct >= 2.0:
+            # BLINDAGEM ANTI-FACA: Proibido shortar se robôs compradores acelerando ou rali vertical > 5%
+            if bot_ignition or c_exp >= 70.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 50,
+                    "rationale": f"[VETO ROBÔS LIGADOS - ANTI-FACA]: Altcoin em forte aceleração compradora (1C-EXP {c_exp:.0f} / Bot On). Proibido vender contra robôs institucionais."
+                }
+            if diff_pct >= 5.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 50,
+                    "rationale": f"[VETO ANTI-PUMP]: Preço esticado +{diff_pct:.1f}% acima da VWAP (momentum vertical). Proibido abrir SHORT contra explosão de preço sem exaustão confirmada."
+                }
+
             # FAROL MACRO DO BTC: Veto se o Bitcoin estiver subindo forte
             if btc_trend_bias > 0.5:
                 return {
@@ -813,7 +848,9 @@ class LayaRouterService:
         atr_pct: float = 1.5,
         boundary_threshold: float = 0.25,
         taker_sell_ratio: float = 1.0,
-        taker_buy_ratio: float = 1.0
+        taker_buy_ratio: float = 1.0,
+        bot_ignition: bool = False,
+        c_exp: float = 0.0
     ) -> Dict[str, Any]:
         """
         [SETUP: RANGE BOUNDARY REVERSAL (MEAN REVERSION / EXAUSTÃO NAS BORDAS DO RANGE)]
@@ -844,7 +881,16 @@ class LayaRouterService:
 
         # CASO 1: TESTE DO TETO / RESISTÊNCIA DO CANAL (EXAUSTÃO VENDEDORA -> SHORT)
         # O preço deve estar estritamente no topo do canal (pos >= 75%) e próximo da resistência
-        if range_pos >= (1.0 - boundary_threshold) and dist_to_res_pct <= 2.0:
+        if range_pos >= (1.0 - boundary_threshold) and dist_to_res_pct <= 2.5:
+            # BLINDAGEM ROBÔS LIGADOS: Se os robôs estão empurrando para cima, proibido shortar topo
+            if bot_ignition or c_exp >= 70.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 55,
+                    "rationale": f"[VETO ROBÔS LIGADOS]: Altcoin em forte aceleração compradora (1C-EXP {c_exp:.0f} / Bot On). Proibido vender topo contra robôs institucionais."
+                }
+
             # FAROL MACRO DO BTC: Veto se o Bitcoin estiver subindo forte (> +1.0%)
             if btc_trend_bias > 1.0:
                 return {
@@ -924,7 +970,16 @@ class LayaRouterService:
 
         # CASO 2: TESTE DO PISO / SUPORTE DO CANAL (ABSORÇÃO COMPRADORA -> LONG)
         # O preço deve estar estritamente no fundo do canal (pos <= 25%) e próximo do suporte
-        elif range_pos <= boundary_threshold and dist_to_sup_pct <= 2.0:
+        elif range_pos <= boundary_threshold and dist_to_sup_pct <= 2.5:
+            # BLINDAGEM ROBÔS LIGADOS: Se os robôs estão empurrando para baixo, proibido comprar fundo
+            if bot_ignition or c_exp >= 70.0:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 55,
+                    "rationale": f"[VETO ROBÔS LIGADOS]: Altcoin em forte aceleração vendedora (1C-EXP {c_exp:.0f} / Bot On). Proibido comprar fundo contra robôs institucionais."
+                }
+
             # FAROL MACRO DO BTC: Veto se o Bitcoin estiver despencando (< -0.8%)
             if btc_trend_bias < -0.8:
                 return {
@@ -1021,7 +1076,9 @@ class LayaRouterService:
         btc_trend_bias: float = 0.0,
         funding_rate: float = 0.0,
         atr_pct: float = 1.5,
-        btc_intel: Optional[Dict[str, Any]] = None
+        btc_intel: Optional[Dict[str, Any]] = None,
+        bot_ignition: bool = False,
+        c_exp: float = 0.0
     ) -> Dict[str, Any]:
         """
         [MAESTRO MULTI-TIMEFRAME & MULTI-SETUP COM FAROL MACRO, FUNDING SHIELD, BTC.D & STOP ATR]
@@ -1073,7 +1130,9 @@ class LayaRouterService:
                 oi_delta_pct=oi_delta_pct,
                 btc_trend_bias=btc_trend_bias,
                 funding_rate=funding_rate,
-                atr_pct=atr_pct
+                atr_pct=atr_pct,
+                bot_ignition=bot_ignition,
+                c_exp=c_exp
             )
             if range_eval.get("qualifies"):
                 setup_res = range_eval
@@ -1104,7 +1163,9 @@ class LayaRouterService:
                 lsr=lsr,
                 btc_trend_bias=btc_trend_bias,
                 funding_rate=funding_rate,
-                atr_pct=atr_pct
+                atr_pct=atr_pct,
+                bot_ignition=bot_ignition,
+                c_exp=c_exp
             )
             if dvwap_eval.get("qualifies"):
                 setup_res = dvwap_eval
@@ -1238,7 +1299,21 @@ class LayaRouterService:
         if "BTC" in clean_sym:
             return {"is_ignition": False, "bonus_score": 0, "tag": "", "correlation": 1.0}
 
-        # 1. Macro Dominance Factor
+        # 1. Descolamento Estatístico do BTC (Pearson)
+        corr = float(decorrelation_data.get("correlation", 1.0))
+        is_decorrelated = decorrelation_data.get("is_decorrelated", False) or (corr < 0.45)
+        
+        if not is_decorrelated:
+            return {"is_ignition": False, "bonus_score": 0, "tag": f"CORRELATED_BTC({corr:.2f})", "correlation": corr}
+
+        # 2. Ignição dos Robôs Algorítmicos (1C-EXP & Bot Ignition)
+        c_exp = float(candidate.get("1c_exp", 0.0) or 0.0)
+        bot_on = candidate.get("bot_ignition", False) or (c_exp >= 70.0)
+
+        if not bot_on:
+            return {"is_ignition": False, "bonus_score": 0, "tag": f"ROBOTS_OFF(1C-EXP:{c_exp:.0f})", "correlation": corr}
+
+        # 3. Macro Dominance Factor & Clima
         dom_trend = str(btc_intel.get("dominance_trend", "")).upper()
         dom_delta = float(btc_intel.get("dominance_delta_1h", 0.0) or 0.0)
         dom_val = float(btc_intel.get("btc_dominance", 58.0) or 58.0)
@@ -1249,24 +1324,11 @@ class LayaRouterService:
             or climate == "ALTCOIN_EXPANSION"
             or dom_delta < 0.0
             or dom_val < 56.5
+            or (corr < 0.35 and bot_on)
         ) and climate != "ALTCOIN_BLOODBATH"
 
         if not is_macro_favorable:
-            return {"is_ignition": False, "bonus_score": 0, "tag": "MACRO_VETO", "correlation": 1.0}
-
-        # 2. Descolamento Estatístico do BTC (Pearson)
-        corr = float(decorrelation_data.get("correlation", 1.0))
-        is_decorrelated = decorrelation_data.get("is_decorrelated", False) or (corr < 0.45)
-        
-        if not is_decorrelated:
-            return {"is_ignition": False, "bonus_score": 0, "tag": f"CORRELATED_BTC({corr:.2f})", "correlation": corr}
-
-        # 3. Ignição dos Robôs Algorítmicos (1C-EXP & Bot Ignition)
-        c_exp = float(candidate.get("1c_exp", 0.0) or 0.0)
-        bot_on = candidate.get("bot_ignition", False) or (c_exp >= 70.0)
-
-        if not bot_on:
-            return {"is_ignition": False, "bonus_score": 0, "tag": f"ROBOTS_OFF(1C-EXP:{c_exp:.0f})", "correlation": corr}
+            return {"is_ignition": False, "bonus_score": 0, "tag": "MACRO_VETO", "correlation": corr}
 
         # TRÍPLICE CONFLUÊNCIA CONFIRMADA
         tag = f"[ALT PUMP IGNITION: Descolamento BTC (Corr: {corr:.2f}) + BTC.D Queda + Robôs On (1C-EXP: {c_exp:.0f})]"
@@ -1810,27 +1872,7 @@ class LayaRouterService:
             if bb_width_pct <= 0:
                 bb_width_pct = 2.5
 
-            # Avaliação Multi-Setup Integrada (Hierarquia: 1. H1 Breakout -> 2. Range Reversal -> 3. Mola 15M -> 4. DVWAP 5M)
-            multi_eval = self.evaluate_multi_setup_opportunity(
-                symbol=clean_sym,
-                current_price=price,
-                acc_range=acc_range,
-                vwap=vwap,
-                bb_width_pct=bb_width_pct,
-                lsr=lsr,
-                oi_delta_pct=oi_delta,
-                btc_trend_bias=btc_trend_bias,
-                funding_rate=funding_rate,
-                atr_pct=atr_pct,
-                btc_intel=btc_intel
-            )
-
-            direction = multi_eval["direction"]
-            score = multi_eval["score"]
-            rationale = multi_eval["rationale"]
-            strat_name = multi_eval.get("strategy", "LAYA_SMART_MONEY_H1")
-
-            # [METRICAS ENCRYPTOS: 1C-EXP, 1C-RANGE & ROBÔS ON/OFF]
+            # [METRICAS ENCRYPTOS: 1C-EXP, 1C-RANGE & ROBÔS ON/OFF ANTES DO MULTI-SETUP]
             asset_intel = intel_map.get(sym) or intel_map.get(clean_sym) or {}
             c_exp = asset_intel.get("1c_exp")
             c_range = asset_intel.get("1c_range")
@@ -1855,6 +1897,28 @@ class LayaRouterService:
                 bot_on = c_exp >= 70.0
 
             intel_tag = f"[ROBÔS ON • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]" if bot_on else f"[ROBÔS OFF • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]"
+
+            # Avaliação Multi-Setup Integrada com Blindagem Anti-Faca (Robôs On & C-EXP)
+            multi_eval = self.evaluate_multi_setup_opportunity(
+                symbol=clean_sym,
+                current_price=price,
+                acc_range=acc_range,
+                vwap=vwap,
+                bb_width_pct=bb_width_pct,
+                lsr=lsr,
+                oi_delta_pct=oi_delta,
+                btc_trend_bias=btc_trend_bias,
+                funding_rate=funding_rate,
+                atr_pct=atr_pct,
+                btc_intel=btc_intel,
+                bot_ignition=bot_on,
+                c_exp=c_exp
+            )
+
+            direction = multi_eval["direction"]
+            score = multi_eval["score"]
+            rationale = multi_eval["rationale"]
+            strat_name = multi_eval.get("strategy", "LAYA_SMART_MONEY_H1")
 
             if multi_eval["qualifies"]:
                 stop_loss = multi_eval["stop_loss"]
@@ -1984,6 +2048,7 @@ class LayaRouterService:
                             cand["alt_pump_ignition"] = True
                             cand["score"] = min(99, cand["score"] + ignition_res["bonus_score"])
                             cand["strategy"] = "ALT_PUMP_IGNITION"
+                            cand["direction"] = "LONG"
                             cand["rationale"] += f" | {ignition_res['tag']}"
                             self.log_thought(
                                 cand["clean_sym"],

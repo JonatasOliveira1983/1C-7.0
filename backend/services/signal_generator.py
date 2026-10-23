@@ -1468,8 +1468,12 @@ class SignalGenerator:
             correlation_data = {"is_decorrelated": False, "correlation": 1.0}
             try:
                 # Fetch last 15 1h candles for both
-                btc_klines = await okx_rest_service.get_klines(symbol="BTCUSDT.P", interval="60", limit=15)
-                sym_klines = await okx_rest_service.get_klines(symbol=symbol, interval="60", limit=15)
+                btc_inst = "BTC-USDT-SWAP"
+                sym_inst = symbol if "-" in symbol else (f"{symbol.replace('USDT', '')}-USDT-SWAP" if symbol.endswith("USDT") else f"{symbol}-USDT-SWAP")
+                btc_klines = await okx_rest_service.get_klines(symbol=btc_inst, interval="60", limit=15)
+                sym_klines = await okx_rest_service.get_klines(symbol=sym_inst, interval="60", limit=15)
+                if not sym_klines:
+                    sym_klines = await okx_rest_service.get_klines(symbol=symbol, interval="60", limit=15)
                 
                 if btc_klines and sym_klines and len(btc_klines) >= 10 and len(sym_klines) >= 10:
                     btc_returns = []
@@ -1515,12 +1519,20 @@ class SignalGenerator:
             
             # 3. Captura variação da altcoin
             alt_price = okx_ws_public_service.get_current_price(symbol)
+            if alt_price <= 0 and 'sym_klines' in locals() and sym_klines:
+                try:
+                    alt_price = float(sym_klines[0][4])
+                except Exception:
+                    pass
             if alt_price <= 0:
                 return {'is_decorrelated': False, 'confidence': 0.0, 'direction': 'Neutral', 'signals': [], 'reason': 'no_price', 'correlation': 1.0}
             
-            klines = await okx_rest_service.get_klines(symbol=symbol, interval="60", limit=2)
+            klines = await okx_rest_service.get_klines(symbol=sym_inst if 'sym_inst' in locals() else symbol, interval="60", limit=2)
             if not klines or len(klines) < 2:
-                return {'is_decorrelated': False, 'confidence': 0.0, 'direction': 'Neutral', 'signals': [], 'reason': 'no_klines', 'correlation': 1.0}
+                if 'sym_klines' in locals() and sym_klines and len(sym_klines) >= 2:
+                    klines = sym_klines[:2]
+                else:
+                    return {'is_decorrelated': False, 'confidence': 0.0, 'direction': 'Neutral', 'signals': [], 'reason': 'no_klines', 'correlation': 1.0}
             
             prev_close = float(klines[1][4])
             alt_var_1h = ((alt_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0

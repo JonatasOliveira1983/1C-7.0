@@ -2580,58 +2580,64 @@
             const d = await res.json();
             const badge = document.getElementById(`chart-laya-badge-${i}`);
             const hudBadge = document.getElementById(`hud-laya-badge-${i}`);
-            let dec = d.decision || (isTradeActive ? (slotSide === 'BUY' || slotSide === 'LONG' ? 'BUY' : 'SELL') : "HOLD");
-            if (isTradeActive && dec === "HOLD") {
-              dec = (slotSide === 'BUY' || slotSide === 'LONG') ? 'BUY' : 'SELL';
-            }
-            const conf = Math.round((d.confidence || (isTradeActive ? 0.88 : 0.50)) * 100);
-            const isBuy = dec === "BUY";
-            const isSell = dec === "SELL";
+            let dec = d.decision || 'HOLD';
+            const conf = Math.round((d.confidence || 0.50) * 100);
+            const isBuy = isTradeActive ? (slotSide === 'BUY' || slotSide === 'LONG') : (dec === 'BUY');
+            const isSell = isTradeActive ? (slotSide === 'SELL' || slotSide === 'SHORT') : (dec === 'SELL');
 
-            if (badge) {
-              if (isTradeActive) {
-                badge.className = isBuy ? "badge-up" : "badge-down";
-                badge.style.color = "";
-                badge.style.borderColor = "";
-                badge.textContent = `LAYA: ${dec} (${conf}%) • ATIVA`;
-              } else if (isBuy && conf >= 75) {
-                badge.className = "badge-up";
-                badge.style.color = "";
-                badge.style.borderColor = "";
-                badge.textContent = `LAYA: BUY (${conf}%)`;
-              } else if (isSell && conf >= 75) {
-                badge.className = "badge-down";
-                badge.style.color = "";
-                badge.style.borderColor = "";
-                badge.textContent = `LAYA: SELL (${conf}%)`;
-              } else {
-                badge.className = "badge-ghost";
-                badge.style.color = "#FFC000";
-                badge.style.borderColor = "#FFC000";
-                badge.textContent = `LAYA: HOLD (${conf}%) • FILTRO`;
+            if (isTradeActive) {
+              const isLongTrade = slotSide === 'BUY' || slotSide === 'LONG';
+              const lev = (matchingSlot && matchingSlot.leverage) ? matchingSlot.leverage : 15;
+              const dirText = isLongTrade ? '▲ LONG' : '▼ SHORT';
+
+              if (badge) {
+                badge.className = isLongTrade ? 'badge-up' : 'badge-down';
+                badge.style.color = '';
+                badge.style.border = `1.5px solid ${isLongTrade ? '#0ECB81' : '#F6465D'}`;
+                badge.textContent = `${dirText} (${lev}X) • ATIVA`;
               }
-            }
-            if (hudBadge) {
-              if (isTradeActive) {
-                hudBadge.className = isBuy ? "badge-up" : "badge-down";
-                hudBadge.style.color = "";
-                hudBadge.style.borderColor = "";
-                hudBadge.textContent = `${dec} (${conf}%) • ATIVA`;
-              } else if (isBuy && conf >= 75) {
-                hudBadge.className = "badge-up";
-                hudBadge.style.color = "";
-                hudBadge.style.borderColor = "";
-                hudBadge.textContent = `BUY (${conf}%)`;
-              } else if (isSell && conf >= 75) {
-                hudBadge.className = "badge-down";
-                hudBadge.style.color = "";
-                hudBadge.style.borderColor = "";
-                hudBadge.textContent = `SELL (${conf}%)`;
-              } else {
-                hudBadge.className = "badge-ghost";
-                hudBadge.style.color = "#FFC000";
-                hudBadge.style.borderColor = "#FFC000";
-                hudBadge.textContent = `HOLD (${conf}%)`;
+              if (hudBadge) {
+                hudBadge.className = isLongTrade ? 'badge-up' : 'badge-down';
+                hudBadge.style.color = '';
+                hudBadge.style.borderColor = '';
+                hudBadge.textContent = `${dirText} (${lev}X) • ATIVA`;
+              }
+            } else {
+              if (badge) {
+                if (isBuy && conf >= 75) {
+                  badge.className = 'badge-up';
+                  badge.style.color = '';
+                  badge.style.borderColor = '';
+                  badge.textContent = `LAYA: BUY (${conf}%)`;
+                } else if (isSell && conf >= 75) {
+                  badge.className = 'badge-down';
+                  badge.style.color = '';
+                  badge.style.borderColor = '';
+                  badge.textContent = `LAYA: SELL (${conf}%)`;
+                } else {
+                  badge.className = 'badge-ghost';
+                  badge.style.color = '#FFC000';
+                  badge.style.borderColor = '#FFC000';
+                  badge.textContent = `LAYA: HOLD (${conf}%) • FILTRO`;
+                }
+              }
+              if (hudBadge) {
+                if (isBuy && conf >= 75) {
+                  hudBadge.className = 'badge-up';
+                  hudBadge.style.color = '';
+                  hudBadge.style.borderColor = '';
+                  hudBadge.textContent = `BUY (${conf}%)`;
+                } else if (isSell && conf >= 75) {
+                  hudBadge.className = 'badge-down';
+                  hudBadge.style.color = '';
+                  hudBadge.style.borderColor = '';
+                  hudBadge.textContent = `SELL (${conf}%)`;
+                } else {
+                  hudBadge.className = 'badge-ghost';
+                  hudBadge.style.color = '#FFC000';
+                  hudBadge.style.borderColor = '#FFC000';
+                  hudBadge.textContent = `HOLD (${conf}%)`;
+                }
               }
             }
 

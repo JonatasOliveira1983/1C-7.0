@@ -118,9 +118,9 @@ def test_structural_stop_loss_distance_minimum():
 
     assert res["qualifies"] is True
     assert res["direction"] == "LONG"
-    # A distância do stop DEVE ser >= 2.8% (0.028) mesmo com ATR baixo de 1.0%
-    assert res["stop_dist"] >= 0.028
-    assert res["stop_loss"] <= 101.0 * (1.0 - 0.028)
+    # A distância do stop respeita o teto de 15x (-18% ROI max = 1.2% de preco)
+    assert res["stop_dist"] <= 0.0125
+    assert res["stop_loss"] <= 101.0 * (1.0 - 0.008)
 
 
 def test_altcoin_climate_veto_in_multi_setup():

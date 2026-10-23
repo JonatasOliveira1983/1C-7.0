@@ -3,7 +3,7 @@
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V166-UNIVERSAL-ALT-PUMP-CALIBRATION" / DEPLOYMENT_ID="V166_ALT_PUMP_ENGINE". Atualizacao com Sensor Institucional de Alt Pump Ignition (Triplice Confluencia: BTC.D em queda + Descolamento Pearson < 0.45 + Robos Ligados 1C-EXP >= 70), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado), Stop Loss Estrutural Anti-Violinada (respiro de 1.8% a 2.8% alem do canal H1) e Filtro de Rejeicao de Agressao de Fluxo.*
+*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V167-SOVEREIGN-UNIFIED-ANTI-KNIFE" / DEPLOYMENT_ID="V167_ANTI_KNIFE_ENGINE". Atualizacao com Motor Unificado Laya Soberana: Blindagem Anti-Faca (Veto de SHORT em DVWAP Reversion e Range Reversal quando 1C-EXP >= 70 ou esticamento >= 5%), Promocao Soberana de Alt Pump Ignition (Triplice Confluencia com Pearson Real OKX BTC-USDT-SWAP, sempre operando LONG), Travamento de Badges no Cockpit (ordens ativas refletem estritamente a direcao da custodia), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado) e Stop Loss Estrutural com Hard Limit de -18% ROI.*
 
 ---
 

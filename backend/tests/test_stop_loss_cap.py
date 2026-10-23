@@ -121,6 +121,42 @@ def test_dvwap_reversion_stop_capping():
     assert stop_dist <= 0.0125
 
 
+def test_dvwap_reversion_anti_faca_veto():
+    """
+    Testa se DVWAP Reversion veta SHORT quando robos estao ligados ou ativo em pump vertical.
+    """
+    current_price = 50.0
+    vwap = 48.0
+    acc_range = {"is_consolidating": True, "support_h1": 45.0, "resistance_h1": 58.0}
+
+    # 1. Robôs ligados (bot_ignition=True ou c_exp=75.0) -> VETO de SHORT
+    res_bots = laya_router_service.evaluate_dvwap_reversion(
+        symbol="IRYS-USDT-SWAP",
+        current_price=current_price,
+        vwap=vwap,
+        acc_range=acc_range,
+        bot_ignition=True,
+        c_exp=78.0
+    )
+    assert res_bots["qualifies"] is False
+    assert res_bots["direction"] == "HOLD"
+    assert "ROBÔS LIGADOS" in res_bots["rationale"]
+
+    # 2. Esticamento extremo estilo pump (+28% da VWAP como na IRYS) -> VETO ANTI-PUMP
+    res_pump = laya_router_service.evaluate_dvwap_reversion(
+        symbol="IRYS-USDT-SWAP",
+        current_price=0.0779,
+        vwap=0.0608,  # +28.1% da VWAP
+        acc_range=acc_range,
+        bot_ignition=False,
+        c_exp=50.0
+    )
+    assert res_pump["qualifies"] is False
+    assert res_pump["direction"] == "HOLD"
+    assert "ANTI-PUMP" in res_pump["rationale"]
+
+
+
 @pytest.mark.asyncio
 async def test_sandbox_adaptive_stop_limits():
     """

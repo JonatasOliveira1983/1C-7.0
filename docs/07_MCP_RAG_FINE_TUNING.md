@@ -1,9 +1,9 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.5.0 (V165-UNIVERSAL-ENCRYPTOS-PRECISION)  
+> **Versão**: 7.6.0 (V167-SOVEREIGN-UNIFIED-ANTI-KNIFE)  
 > **Data de Atualização**: 23/10/2026  
-> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/ml/fine_tuning/`
+> **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
 
@@ -185,6 +185,21 @@ A partir da versão **V165**, o ecossistema RAG e os modelos preditivos da Laya 
    - `LONG`: Alvo sempre acima do preço de entrada ($> P_{\text{entry}}$) e Stop Loss abaixo ($< P_{\text{entry}}$).
    - `SHORT`: Alvo sempre abaixo do preço de entrada ($< P_{\text{entry}}$) e Stop Loss acima ($> P_{\text{entry}}$).
    - Sanitização no backend e trava geométrica no frontend (`cockpit.html`).
+
+### 3.5. Blindagem Anti-Faca no Motor de Reversão & Alt Pump Ignition Unificado (V167)
+
+A partir da versão **V167**, a matriz de decisão da Laya Soberana e o RAG incorporam formalmente a proteção anti-faca e a soberania do descolamento de altcoins:
+1. **Antecipação de Métricas de Fluxo (1C-EXP & Robôs On/Off)**:
+   - A Laya avalia `1c_exp` e a ignição de robôs institucionais **antes** de testar qualquer setup intra-range.
+   - Se `1c_exp >= 70.0` ou `bot_ignition == True`, os motores de reversão (`evaluate_dvwap_reversion` e `evaluate_range_boundary_reversal`) vetam imediatamente qualquer tentativa de `SHORT`. É terminantemente proibido abrir vendas contra robôs algorítmicos em aceleração.
+2. **Proteção Anti-Pump e Anti-Dump Vertical**:
+   - Veto de SHORT em reversão à média para distâncias $\ge +5.0\%$ da VWAP (momentum vertical).
+   - Veto de LONG em quedas verticais aceleradas $\le -6.0\%$ da VWAP sem absorção confirmada.
+3. **Alt Pump Ignition Soberano**:
+   - A correlação estatística de Pearson é calculada diretamente contra o contrato canônico `BTC-USDT-SWAP` da OKX.
+   - Altcoins com descolamento (`corr < 0.40`) e robôs institucionais ligados (`1C-EXP >= 70`) são promovidas com prioridade máxima com viés estritamente `LONG`.
+4. **Travamento de Ordem Ativa no Cockpit**:
+   - A badge de monitoramento nos 4 gráficos do Flash Map permanece travada na direção real da custódia (`▲ LONG 15X` ou `▼ SHORT 15X`), impedindo que oscilações transitórias de velas menores sobrescrevam a posição em andamento.
 
 ---
 
