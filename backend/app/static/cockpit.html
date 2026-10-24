@@ -1159,7 +1159,7 @@
        Monitor Oráculo BTCUSDT (1M, 5M, 15M, 1H) quando ocioso
        Mapeamento automático dinâmico para as ordens ativas da OKX
        ========================================================================== */
-    const chartSymbols = ["BTCUSDT", "BTCUSDT", "BTCUSDT", "BTCUSDT"];
+    const chartSymbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "ARBUSDT"];
     const chartIntervals = ["60", "60", "60", "60"];
     let currentGridMode = 'quad';
 
@@ -2169,7 +2169,8 @@
             renderSlotOrderLines(i, slot);
           } else {
             // Sem ordem para este gráfico: exibe BTCUSDT no timeframe padrão 1H
-            const btcSym = "BTCUSDT";
+            const defaultSymbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "ARBUSDT"];
+            const btcSym = defaultSymbols[i] || "BTCUSDT";
             const defaultTf = "60";
 
             let needReload = false;

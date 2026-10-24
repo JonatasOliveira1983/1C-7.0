@@ -345,15 +345,15 @@ class LayaRouterService:
                     "rationale": f"[VETO ENCRYPTOS - FAKEOUT]: Rompimento sem entrada de capital novo (OI caiu {oi_delta_pct:.2f}%). Sem força para sustentação no H1."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = res_h1 * 0.998 if res_h1 > 0 else 0.0
-            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = res_h1 * 0.995 if res_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and 0.020 <= ((current_price - candidate_sl) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+            stop_dist = max(0.020, min(0.038, (current_price - stop_loss) / current_price))
 
             # Alvo assimétrico no H1 (+1.8% a +3.0%)
             target_dist = max(0.018, stop_dist * 2.0)
@@ -409,15 +409,15 @@ class LayaRouterService:
                     "rationale": f"[VETO ENCRYPTOS - FAKEOUT]: Perda de suporte sem volume vendedor novo (OI caiu {oi_delta_pct:.2f}%)."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = sup_h1 * 1.002 if sup_h1 > 0 else 0.0
-            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = sup_h1 * 1.005 if sup_h1 > 0 else 0.0
+            if candidate_sl > current_price and 0.020 <= ((candidate_sl - current_price) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+            stop_dist = max(0.020, min(0.038, (stop_loss - current_price) / current_price))
 
             target_dist = max(0.018, stop_dist * 2.0)
             target = round(current_price * (1.0 - target_dist), 4)
@@ -600,15 +600,15 @@ class LayaRouterService:
                     "rationale": f"[DVWAP VETO]: Preço esticado abaixo da VWAP ({diff_pct:.1f}%), mas varejo já está muito comprado (LSR {lsr:.2f})."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
-            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = sup_h1 * 0.995 if sup_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and 0.020 <= ((current_price - candidate_sl) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+            stop_dist = max(0.020, min(0.038, (current_price - stop_loss) / current_price))
             target = round(vwap, 4)
             if target <= current_price:
                 target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
@@ -671,15 +671,15 @@ class LayaRouterService:
                     "rationale": f"[DVWAP VETO]: Preço esticado acima da VWAP (+{diff_pct:.1f}%), mas varejo está muito vendido (LSR {lsr:.2f}). Risco de short squeeze."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
-            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = res_h1 * 1.005 if res_h1 > 0 else 0.0
+            if candidate_sl > current_price and 0.020 <= ((candidate_sl - current_price) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+            stop_dist = max(0.020, min(0.038, (stop_loss - current_price) / current_price))
             target = round(vwap, 4)
             if target >= current_price:
                 target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
@@ -755,15 +755,15 @@ class LayaRouterService:
                     "rationale": f"[VETO FUNDING RATE]: Funding rate excessivo (+{funding_rate*100:.3f}%). Compradores pagam taxa às baleias."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = sup_h1 * 0.998 if sup_h1 > 0 else 0.0
-            if 0 < candidate_sl < current_price and ((current_price - candidate_sl) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = sup_h1 * 0.995 if sup_h1 > 0 else 0.0
+            if 0 < candidate_sl < current_price and 0.020 <= ((current_price - candidate_sl) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 - stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (current_price - stop_loss) / current_price))
+            stop_dist = max(0.020, min(0.038, (current_price - stop_loss) / current_price))
             target = round(res_h1 * 0.995 if res_h1 > 0 else current_price * 1.025, 4)
             if target <= current_price:
                 target = round(current_price * (1.0 + max(0.018, stop_dist * 1.8)), 4)
@@ -802,15 +802,15 @@ class LayaRouterService:
                     "rationale": f"[VETO FUNDING RATE]: Funding rate fortemente negativo ({funding_rate*100:.3f}%). Vendedores pagam taxa às baleias."
                 }
 
-            # Stop Loss Dinâmico ATR calibrado para 15x (0.8% a 1.2% de folga = -12% a -18% ROI)
-            stop_dist = max(0.008, min(0.012, (atr_pct * 0.8) / 100.0))
-            candidate_sl = res_h1 * 1.002 if res_h1 > 0 else 0.0
-            if candidate_sl > current_price and ((candidate_sl - current_price) / current_price) <= 0.012:
+            # [V169-STOP-ESTRUTURAL]: Stop Loss ATR Anti-Violinada com respiro real (2.0% a 3.5%)
+            stop_dist = max(0.020, min(0.035, (atr_pct * 1.2) / 100.0))
+            candidate_sl = res_h1 * 1.005 if res_h1 > 0 else 0.0
+            if candidate_sl > current_price and 0.020 <= ((candidate_sl - current_price) / current_price) <= 0.038:
                 stop_loss = round(candidate_sl, 4)
             else:
                 stop_loss = round(current_price * (1.0 + stop_dist), 4)
 
-            stop_dist = max(0.008, min(0.012, (stop_loss - current_price) / current_price))
+            stop_dist = max(0.020, min(0.038, (stop_loss - current_price) / current_price))
             target = round(sup_h1 * 1.005 if sup_h1 > 0 else current_price * 0.975, 4)
             if target >= current_price:
                 target = round(current_price * (1.0 - max(0.018, stop_dist * 1.8)), 4)
@@ -1318,6 +1318,14 @@ class LayaRouterService:
         dom_delta = float(btc_intel.get("dominance_delta_1h", 0.0) or 0.0)
         dom_val = float(btc_intel.get("btc_dominance", 58.0) or 58.0)
         climate = str(btc_intel.get("altcoin_climate", "")).upper()
+        btc_bias = float(btc_intel.get("btc_trend_bias", 0.0) or 0.0)
+        btc_chg = float(btc_intel.get("btc_change_24h", 0.0) or 0.0)
+        long_allowed = btc_intel.get("altcoin_long_allowed", True)
+
+        # [V169-FAROL-MACRO-VETO]: Se o Bitcoin estiver em sangria, queda livre ou tendência de baixa,
+        # NENHUMA altcoin tem autorização para LONG via Alt Pump Ignition.
+        if not long_allowed or btc_bias < -0.4 or btc_chg < -1.0 or climate == "ALTCOIN_BLOODBATH":
+            return {"is_ignition": False, "bonus_score": 0, "tag": f"VETO_BTC_SANGRIANDO({btc_bias:+.1f}%)", "correlation": corr}
         
         is_macro_favorable = (
             dom_trend == "FALLING"
@@ -1325,7 +1333,7 @@ class LayaRouterService:
             or dom_delta < 0.0
             or dom_val < 56.5
             or (corr < 0.35 and bot_on)
-        ) and climate != "ALTCOIN_BLOODBATH"
+        ) and climate not in ("ALTCOIN_BLOODBATH", "BTC_DRAINAGE")
 
         if not is_macro_favorable:
             return {"is_ignition": False, "bonus_score": 0, "tag": "MACRO_VETO", "correlation": corr}
@@ -1434,17 +1442,46 @@ class LayaRouterService:
 
     def is_symbol_in_cooldown(self, symbol: str) -> bool:
         """Verifica se o ativo está em período de quarentena (2 horas) após stop."""
-        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper()
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+        now = time.time()
         expiry = self._symbol_cooldowns.get(clean, 0.0)
-        if time.time() < expiry:
+        if now < expiry:
             return True
+
+        # Checagem resiliente no SandboxService em memória
         try:
             from services.sandbox_service import sandbox_service
-            for (sb_sym, _), sl_time in sandbox_service._stop_cooldown.items():
-                if sb_sym.replace("-USDT-SWAP", "").replace("USDT", "").upper() == clean and (time.time() - sl_time) < 7200:
+            for key, sl_time in list(sandbox_service._stop_cooldown.items()):
+                sb_sym = key[0] if isinstance(key, tuple) else str(key)
+                sb_clean = sb_sym.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+                if sb_clean == clean and (now - float(sl_time)) < 7200:
                     return True
         except Exception:
             pass
+
+        # Checagem persistente em SQLite para blindagem pós-reboot
+        try:
+            import sqlite3
+            db_candidates = [
+                _Path(__file__).resolve().parent.parent.parent / "local_sniper.db",
+                _Path(__file__).resolve().parent.parent.parent.parent / "local_sniper.db"
+            ]
+            for db_p in db_candidates:
+                if db_p.exists():
+                    conn = sqlite3.connect(str(db_p), timeout=0.5)
+                    row = conn.execute(
+                        "SELECT closed_at FROM sandbox_trades WHERE symbol LIKE ? AND status='CLOSED_SL' ORDER BY closed_at DESC LIMIT 1",
+                        (f"%{clean}%",)
+                    ).fetchone()
+                    conn.close()
+                    if row and row[0]:
+                        closed_ts = float(row[0])
+                        if (now - closed_ts) < 7200:
+                            return True
+                    break
+        except Exception:
+            pass
+
         return False
 
     def _load_calibrated_weights(self) -> Dict[str, Any]:
@@ -1459,6 +1496,45 @@ class LayaRouterService:
         except Exception as e:
             logger.debug(f"[LAYA] Sem pesos calibrados customizados: {e}")
         return {}
+
+    async def check_lower_tf_exhaustion(self, symbol: str, direction: str) -> Dict[str, Any]:
+        """
+        [V169-TF-MENORES] Confirmação obrigatória em timeframe curto (5M) antes do disparo:
+        - Para LONG: Veta entrada se os últimos candles de 5m forem facas caindo sem absorção (marubozu vermelho).
+        - Para SHORT: Veta entrada se os últimos candles de 5m forem bombas em expansão sem pavio superior.
+        """
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper() + "USDT"
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                r = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=5m&limit=4")
+                if r.status_code == 200:
+                    raw = r.json()
+                    if len(raw) >= 3:
+                        c1 = raw[-3]
+                        c2 = raw[-2]
+                        o1, h1, l1, cl1 = float(c1[1]), float(c1[2]), float(c1[3]), float(c1[4])
+                        o2, h2, l2, cl2 = float(c2[1]), float(c2[2]), float(c2[3]), float(c2[4])
+
+                        if direction == "LONG":
+                            drop1 = o1 - cl1
+                            drop2 = o2 - cl2
+                            if drop1 > 0 and drop2 > 0:
+                                wick2 = cl2 - l2
+                                if wick2 < (drop2 * 0.20):
+                                    return {"is_safe": False, "reason": "LOWER_TF_FALLING_KNIFE (5M em queda livre sem absorção)"}
+
+                        elif direction == "SHORT":
+                            pump1 = cl1 - o1
+                            pump2 = cl2 - o2
+                            if pump1 > 0 and pump2 > 0:
+                                wick2 = h2 - cl2
+                                if wick2 < (pump2 * 0.20):
+                                    return {"is_safe": False, "reason": "LOWER_TF_PUMP_EXPLOSION (5M em explosão sem exaustão)"}
+
+        except Exception as _e_ltf:
+            logger.debug(f"[LOWER-TF] Falha benigna ao ler 5m para {clean}: {_e_ltf}")
+
+        return {"is_safe": True, "reason": "LOWER_TF_CONFIRMED"}
 
     def _seed_initial_thoughts(self):
         """Inicializa pensamentos táticos para exibir sinal de vida na UI imediatamente."""
@@ -2130,7 +2206,7 @@ class LayaRouterService:
                 and not self.is_direction_in_cooldown(cand.get("direction", ""))
                 and cand["score"] >= effective_min_score
                 # [FAROL MACRO VETO NO DISPARO]: Veta compras se BTC caindo e veta vendas se BTC subindo
-                and not (btc_trend_bias < -1.0 and cand.get("direction") == "LONG")
+                and not (btc_trend_bias < -0.4 and cand.get("direction") == "LONG")
                 and not (btc_trend_bias > 1.0 and cand.get("direction") == "SHORT")
                 # [ENCRYPTOS CLIMA VETO]: Veta compras em altcoins se BTC.D drenando, veta vendas se Altcoin Expansion
                 and not (
@@ -2160,8 +2236,24 @@ class LayaRouterService:
                 reverse=True
             )
 
-            if eligible:
-                chosen = eligible[0]
+            chosen = None
+            for cand in eligible:
+                cand_sym = cand["symbol"]
+                cand_dir = cand["direction"]
+                # [V169-TF-MENORES]: Verifica exaustão e ausência de faca caindo em 5m antes do disparo
+                ltf_check = await self.check_lower_tf_exhaustion(cand_sym, cand_dir)
+                if not ltf_check.get("is_safe", True):
+                    self.log_thought(
+                        cand.get("clean_sym", cand_sym),
+                        f"🛡️ [VETO TF MENOR]: Ordem {cand_dir} bloqueada: {ltf_check.get('reason')}",
+                        action="VETO_TF_MENOR",
+                        confidence=92
+                    )
+                    continue
+                chosen = cand
+                break
+
+            if chosen:
                 sym = chosen["symbol"]
                 clean_sym = chosen.get("clean_sym", sym.replace("-USDT-SWAP", ""))
                 p = chosen["price"]
@@ -2172,13 +2264,11 @@ class LayaRouterService:
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                # [SANITY GATE INVIOLÁVEL: RESPIRO ESTRUTURAL E ANTI-VIOLINADA]
-                # Calibrado para alavancagem 15x e margem de $100:
-                # Distância mínima: 1.8% de preço (-27% ROI = -$27 max)
-                # Distância máxima: 3.5% de preço (-52% ROI = -$35 max)
-                default_stop_dist = 0.022
-                min_stop_dist = 0.018
-                max_stop_dist = 0.035
+                # [CALIBRAÇÃO ESTRUTURAL DE STOP LOSS E ALAVANCAGEM — V169]
+                # Altcoins exigem respiro técnico entre 2.0% e 3.8% para não morrer no ruído.
+                default_stop_dist = 0.025
+                min_stop_dist = 0.020
+                max_stop_dist = 0.038
                 from services.order_projection_service import proj_service
                 from app.services.okx_universe_service import okx_universe_service
 
@@ -2186,21 +2276,27 @@ class LayaRouterService:
                     if not stop_loss or stop_loss >= p or ((p - stop_loss) / p) > max_stop_dist or ((p - stop_loss) / p) < min_stop_dist:
                         stop_loss = p * (1.0 - default_stop_dist)
                     if not target or target <= p:
-                        target = p * 1.035
+                        target = p * 1.045
                 elif d == "SHORT":
                     if not stop_loss or stop_loss <= p or ((stop_loss - p) / p) > max_stop_dist or ((stop_loss - p) / p) < min_stop_dist:
                         stop_loss = p * (1.0 + default_stop_dist)
                     if not target or target >= p:
-                        target = p * 0.965
+                        target = p * 0.955
 
                 stop_loss = okx_universe_service.format_price_by_tick(sym, stop_loss)
                 target = okx_universe_service.format_price_by_tick(sym, target)
 
-                # [QUANTIZADOR DE CONTRATOS OKX]
-                margin = 100.0
-                dossier = await okx_universe_service.get_asset_dossier(sym)
-                leverage = int(dossier.get("leverage", 15))
+                # Distância real de preço do Stop
+                stop_dist_pct = max(min_stop_dist, min(max_stop_dist, abs(p - stop_loss) / p))
 
+                # [ALAVANCAGEM ADAPTATIVA ANTI-VIOLINADA]:
+                # Para calibrar a perda máxima em torno de ~$25 a $28 sobre margem de $100 (-25% a -28% ROI):
+                # O stop técnico de preço nunca é mutilado; a alavancagem se adapta à distância estrutural.
+                target_stop_roi = 28.0
+                calc_lev = int(target_stop_roi / (stop_dist_pct * 100.0))
+                leverage = max(5, min(15, calc_lev))
+
+                margin = 100.0
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,
                     margin_usd=margin,
@@ -2231,12 +2327,7 @@ class LayaRouterService:
 
                 # Stop ROI estrutural exato ancorado no preço de Stop Loss e alavancagem calibrada
                 init_stop_roi = round(proj_service.calculate_roi(p, stop_loss, d, leverage), 2)
-                # Hard limit inviolável de -18.0% ROI
-                if init_stop_roi < -18.0:
-                    init_stop_roi = -18.0
-                    raw_stop_p = proj_service.raw_price_from_roi(p, -18.0, d, leverage)
-                    stop_loss = okx_universe_service.format_price_by_tick(sym, raw_stop_p)
-                be_trigger_roi = 10.0
+                be_trigger_roi = 12.0
 
                 decision_label = f"BUY ({chosen['score']}%)" if d == "LONG" else f"SELL ({chosen['score']}%)"
                 trade_id = f"laya_{int(time.time() * 1000)}"

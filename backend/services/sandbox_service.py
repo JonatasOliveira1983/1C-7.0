@@ -1585,11 +1585,11 @@ class SandboxService:
         slot_type = getattr(trade, 'slot_type', '') or ''
         is_swing = (slot_type == 'SWING' or strat_class in ('VELOCITY FLOW', 'ALPHA SHIELD', 'DECOR SHADOW', 'LAYA_SMART_MONEY_H1'))
 
-        # [V162-SNIPER-UNSTRANGLE] Breakeven profissional calibrado:
-        # Só ativa Risco Zero quando o trade tiver se desenvolvido (> +10.0% ROI = +0.67% a favor)
-        # Trava o stop em +2.5% ROI (cobre integralmente taxas de abertura, fechamento e slippage da OKX com lucro líquido)
-        breakeven_trigger = 10.0
-        breakeven_target_stop = 2.5
+        # [V169-NEVER-GIVE-BACK] Breakeven com lucro real digno:
+        # Só ativa Risco Zero quando o trade tiver se desenvolvido (> +12.0% ROI)
+        # Trava o stop em +5.0% ROI (cobre integralmente taxas e slippage da OKX ~1.95%, garantindo lucro líquido de +3.05% ROI)
+        breakeven_trigger = 12.0
+        breakeven_target_stop = 5.0
 
         if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
             updated_stop_roi = breakeven_target_stop

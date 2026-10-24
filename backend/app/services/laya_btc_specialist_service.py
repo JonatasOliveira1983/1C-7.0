@@ -226,24 +226,26 @@ class LayaBTCSpecialistService:
             btc_change_24h = float(kwargs["btc_24h_change_pct"])
         if not btc_trend_bias:
             btc_trend_bias = btc_change_24h
-        # 1. PÂNICO / SANGRIA: Bitcoin em queda e dominância subindo (Altcoins sangram dobrado)
-        if (btc_trend_bias < -1.0 or btc_change_24h < -1.5) and (dominance_trend == "RISING" or btc_dominance >= 58.5):
+        # 1. PÂNICO / SANGRIA: Bitcoin em queda ou sangria de mercado
+        # [V169-FAROL-MACRO]: Se BTC estiver em queda (< -0.4% ou 24h < -1.0%), altcoins sangram dobrado.
+        # Veto total e inegociável de ordens LONG em altcoins.
+        if btc_trend_bias < -0.4 or btc_change_24h < -1.0 or (btc_dominance >= 58.0 and btc_trend_bias < 0.0):
             return {
                 "climate": "ALTCOIN_BLOODBATH",
                 "altcoin_long_allowed": False,
                 "altcoin_short_allowed": True,
                 "focus": "SHORTS_ONLY",
-                "rationale": f"SANGRIA DE ALTCOINS: BTC em queda ({btc_trend_bias:+.1f}%) com Dominância subindo ({btc_dominance:.1f}% {dominance_trend}). Veto absoluto em compras de altcoins."
+                "rationale": f"SANGRIA DE ALTCOINS: BTC em queda ({btc_trend_bias:+.1f}% / 24h: {btc_change_24h:+.1f}%) com Dominância em {btc_dominance:.1f}%. Veto absoluto em compras de altcoins."
             }
 
         # 2. EXPANSÃO / ALTSEASON: Bitcoin estável ou positivo e dominância caindo (Capital migrando para Altcoins)
-        if btc_trend_bias >= -0.5 and (dominance_trend == "FALLING" or btc_dominance < 56.5):
+        if btc_trend_bias >= -0.2 and (dominance_trend == "FALLING" or btc_dominance < 56.5):
             return {
                 "climate": "ALTCOIN_EXPANSION",
                 "altcoin_long_allowed": True,
                 "altcoin_short_allowed": False,
                 "focus": "HIGH_BETA_LONGS",
-                "rationale": f"EXPANSÃO DE ALTCOINS: Dominância em queda ({btc_dominance:.1f}% {dominance_trend}) com BTC estável ({btc_trend_bias:+.1f}%). Compras liberadas com 15x. Proibido shortar altcoins em expansão."
+                "rationale": f"EXPANSÃO DE ALTCOINS: Dominância em queda ({btc_dominance:.1f}% {dominance_trend}) com BTC estável ({btc_trend_bias:+.1f}%). Compras liberadas com alavancagem calibrada. Proibido shortar altcoins em expansão."
             }
 
         # 3. DRENAGEM DE LIQUIDEZ: Bitcoin positivo (>= +0.3% ou trend bias positivo) com dominância elevada (>= 59.0%) ou em alta (RISING)
@@ -266,7 +268,7 @@ class LayaBTCSpecialistService:
 
         return {
             "climate": "CONSOLIDATION_CHOP",
-            "altcoin_long_allowed": btc_trend_bias >= -1.0,
+            "altcoin_long_allowed": btc_trend_bias >= -0.3,
             "altcoin_short_allowed": short_allowed,
             "focus": "LIQUIDITY_EDGE_REVERSAL",
             "rationale": f"LATERALIDADE GERAL: BTC ({btc_trend_bias:+.1f}%) e Dominância ({btc_dominance:.1f}% {dominance_trend}) em consolidação. Operando caça de liquidez em bordas."

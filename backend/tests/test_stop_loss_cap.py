@@ -37,14 +37,9 @@ def test_h1_breakout_short_distant_support_capped():
     stop_loss = res["stop_loss"]
     assert stop_loss > current_price
     
-    # Distância percentual do stop não pode ultrapassar 1.2%
+    # [V169] Distância percentual do stop estrutural deve ter respiro técnico (2.0% a 3.8%)
     stop_dist = (stop_loss - current_price) / current_price
-    assert stop_dist <= 0.0125
-    
-    # Em 15x de alavancagem, o stop ROI não pode ser pior do que -18.75%
-    roi = proj_service.calculate_roi(current_price, stop_loss, "SHORT", 15.0)
-    assert roi >= -18.75
-    assert roi <= -10.0
+    assert 0.018 <= stop_dist <= 0.040
 
 
 def test_h1_breakout_long_distant_resistance_capped():
@@ -81,11 +76,7 @@ def test_h1_breakout_long_distant_resistance_capped():
     assert stop_loss < current_price
 
     stop_dist = (current_price - stop_loss) / current_price
-    assert stop_dist <= 0.0125
-
-    roi = proj_service.calculate_roi(current_price, stop_loss, "LONG", 15.0)
-    assert roi >= -18.75
-    assert roi <= -10.0
+    assert 0.018 <= stop_dist <= 0.040
 
 
 def test_dvwap_reversion_stop_capping():
@@ -118,7 +109,7 @@ def test_dvwap_reversion_stop_capping():
     assert res["qualifies"] is True
     assert res["direction"] == "SHORT"
     stop_dist = (res["stop_loss"] - current_price) / current_price
-    assert stop_dist <= 0.0125
+    assert 0.018 <= stop_dist <= 0.040
 
 
 def test_dvwap_reversion_anti_faca_veto():

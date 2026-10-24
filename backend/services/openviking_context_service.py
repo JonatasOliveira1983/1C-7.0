@@ -142,45 +142,80 @@ class OpenVikingContextService:
             tags=["patterns", "trading", "risk", "anti_knife", "laya"],
         )
 
-        # Alt Pump Ignition
+        # Alt Pump Ignition (V169)
         uri_pump = "viking://user/memories/patterns/alt_pump_ignition"
-        l0_pump = "Alt Pump Ignition: Setup soberano prioritário. Identifica descolamento do BTC (Pearson < 0.50) + robôs ligados (1C-EXP >= 70) para forçar LONG."
+        l0_pump = "Alt Pump Ignition: Setup prioritário. Identifica descolamento do BTC (Pearson < 0.45) + robôs ligados (1C-EXP >= 70) com Farol Macro BTC OBRIGATORIAMENTE favorável."
         l1_pump = (
-            "PADRÃO ALT PUMP IGNITION (IGNIÇÃO INSTITUCIONAL):\n"
+            "PADRÃO ALT PUMP IGNITION (IGNIÇÃO INSTITUCIONAL V169):\n"
             "• Prioridade Soberana: Avaliado antes de qualquer tentativa de reversão à média.\n"
-            "• Condições de Gatilho: 1c_exp >= 70 + correlação de Pearson BTC < 0.50 + queda de dominância do BTC (BTC.D).\n"
-            "• Direção Obrigatória: LONG (15X). Jamais operar SHORT contra ignição algorítmica de altcoin.\n"
-            "• Alvo e Stop: Alvo no topo da banda de volatilidade, stop sob o suporte do range H1."
+            "• Condições de Gatilho: 1c_exp >= 70 + Pearson < 0.45 + BTC.D em queda + BTC SEM SANGRIA (btc_trend_bias >= -0.4% e altcoin_long_allowed == True).\n"
+            "• Veto Macro Inviolável: Se BTC estiver caindo (bloodbath ou trend bias < -0.4%), VETA compras de altcoins imediatamente.\n"
+            "• Direção: LONG. Jamais operar SHORT contra ignição algorítmica de altcoin.\n"
+            "• Alvo e Stop: Alvo no topo da banda de volatilidade, stop estrutural ATR saudável (2.0% a 3.8%)."
         )
         self.nodes[uri_pump] = VikingNode(
             uri=uri_pump,
-            title="Alt Pump Ignition (V167)",
+            title="Alt Pump Ignition (V169)",
             l0_abstract=l0_pump,
             l1_overview=l1_pump,
             l2_detail=l1_pump,
-            tags=["patterns", "trading", "ignition", "momentum", "laya"],
+            tags=["patterns", "trading", "ignition", "momentum", "laya", "v169"],
         )
 
-        # Never Give Back
+        # Never Give Back (V169)
         uri_ngb = "viking://user/memories/patterns/never_give_back"
-        l0_ngb = "Never Give Back: Escadinha progressiva de 5 degraus de Trailing Stop que só sobem, nunca recuam."
+        l0_ngb = "Never Give Back V169: Breakeven acionado em +12% ROI travando +5% de lucro real (cobre taxas e slippage com ganho líquido)."
         l1_ngb = (
-            "INVARIANTE NEVER GIVE BACK (DEFESA PROGRESSIVA):\n"
-            "• Princípio: PnL positivo nunca pode virar prejuízo.\n"
-            "• Degrau 0 (Inicial): Stop estrutural abaixo do suporte ATR.\n"
-            "• Degrau 1 (Breakeven): Ativado ao atingir +10% de ROI. Stop sobe para +1.0% de lucro garantido.\n"
-            "• Degrau 2 (+5% Protegido): Ao atingir +20% de ROI, stop sobe para +5%.\n"
-            "• Degrau 3 (+10% Protegido): Ao atingir +35% de ROI, stop sobe para +10%.\n"
-            "• Degrau 4 (+20% Protegido): Ao atingir +50% de ROI, stop sobe para +20%.\n"
-            "• Degrau 5 (+40% Protegido): Ao atingir +80% de ROI, trailing fecha a mercado ou trava em +40%."
+            "INVARIANTE NEVER GIVE BACK (DEFESA PROGRESSIVA V169):\n"
+            "• Princípio: PnL positivo nunca pode virar prejuízo ou sair no zero a zero por ruído.\n"
+            "• Degrau 0 (Inicial): Stop estrutural abaixo do suporte ATR com folga saudável (2.0% a 3.8%).\n"
+            "• Degrau 1 (Breakeven): Ativado ao atingir +12.0% de ROI. Stop sobe para +5.0% de ROI (+3.05% líquido após taxas OKX).\n"
+            "• Degrau 2 (Trailing 65%): Ao ultrapassar +14.0% de ROI, trailing protege 65% do pico de lucro.\n"
+            "• Degraus Superiores: Permite o trade buscar alvos assimétricos de +25%, +35% e +50% ROI sem ser asfixiado."
         )
         self.nodes[uri_ngb] = VikingNode(
             uri=uri_ngb,
-            title="Invariante Never Give Back",
+            title="Invariante Never Give Back (V169)",
             l0_abstract=l0_ngb,
             l1_overview=l1_ngb,
             l2_detail=l1_ngb,
-            tags=["patterns", "trading", "trailing_stop", "risk", "never_give_back"],
+            tags=["patterns", "trading", "trailing_stop", "risk", "never_give_back", "v169"],
+        )
+
+        # Stop Estrutural Anti-Mutilação (V169)
+        uri_stop = "viking://user/memories/patterns/structural_stop_anti_mutilation"
+        l0_stop = "Stop Estrutural Anti-Mutilação: Proibido amputar stops para 1.2% do preço. Stops têm respiro técnico de 2.0% a 3.8% com alavancagem adaptativa."
+        l1_stop = (
+            "DIRETRIZ DE STOP ESTRUTURAL ANTI-MUTILAÇÃO (V169):\n"
+            "• Distância Técnica: Todo stop loss em altcoins deve respeitar a distância mínima de 2.0% a 3.8% de preço.\n"
+            "• Alavancagem Adaptativa: Para calibrar a perda máxima em ~$28 sobre $100 de margem, a alavancagem se adapta à distância (calc_lev = int(28 / stop_dist_pct)), variando de 8x a 14x.\n"
+            "• Fim do Clamp Artificial: Eliminada a antiga trava de -18% ROI que esmagava o preço do stop em míseros 1.2% gerando mortes no ruído."
+        )
+        self.nodes[uri_stop] = VikingNode(
+            uri=uri_stop,
+            title="Stop Estrutural Anti-Mutilação (V169)",
+            l0_abstract=l0_stop,
+            l1_overview=l1_stop,
+            l2_detail=l1_stop,
+            tags=["patterns", "trading", "stop_loss", "risk", "v169"],
+        )
+
+        # Quarentena 2h Pós-Stop Loss (V169)
+        uri_quar = "viking://user/memories/patterns/symbol_quarantine_2h"
+        l0_quar = "Quarentena Pós-SL: Ativo que tomou stop loss fica em quarentena inviolável de 2 horas (7200s), persistente em SQLite e memória."
+        l1_quar = (
+            "QUARENTENA INSTITUCIONAL PÓS-STOP LOSS (V169):\n"
+            "• Duração: 7200 segundos (2 horas) a partir do timestamp do fechamento.\n"
+            "• Persistência Dupla: Registrado em _symbol_cooldowns (RAM) e validado em sandbox_trades WHERE status='CLOSED_SL' (SQLite local_sniper.db).\n"
+            "• Objetivo: Impede reentradas compulsivas (como ocorreu no caso ENA) no mesmo par recém-perdedor."
+        )
+        self.nodes[uri_quar] = VikingNode(
+            uri=uri_quar,
+            title="Quarentena 2h Pós-Stop Loss (V169)",
+            l0_abstract=l0_quar,
+            l1_overview=l1_quar,
+            l2_detail=l1_quar,
+            tags=["patterns", "trading", "cooldown", "anti_tilt", "v169"],
         )
 
         # Anti-Hedge
