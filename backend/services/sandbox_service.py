@@ -61,9 +61,22 @@ class SandboxService:
         self.is_running = True
         self._loop_task = asyncio.create_task(self._price_update_loop())
         asyncio.create_task(self.recalculate_realized_balance())
+        asyncio.create_task(self._sync_active_trades_topics())
         asyncio.create_task(self._load_existing_radar_signals())
         asyncio.create_task(self._initial_auto_blocklist_check())
         logger.info("🧪 Sandbox Service iniciado com sucesso.")
+
+    async def _sync_active_trades_topics(self):
+        """[V170] Garante que ordens ativas pré-existentes no banco tenham preços via WebSocket imediatos."""
+        try:
+            await asyncio.sleep(1.0)
+            trades = await database_service.get_sandbox_trades(active_only=True)
+            symbols = [t.symbol for t in trades if t.symbol]
+            if symbols:
+                logger.info(f"🧪 [SANDBOX] Sincronizando tópicos WebSocket para {len(symbols)} trades ativos: {symbols}")
+                await okx_ws_public_service.sync_topics(symbols)
+        except Exception as e:
+            logger.debug(f"[SANDBOX] Erro ao sincronizar tópicos de trades ativos: {e}")
 
     async def _load_existing_radar_signals(self):
         try:
@@ -115,6 +128,19 @@ class SandboxService:
                 return float(ticker.get("lastPrice") or ticker.get("last") or 0)
         except Exception as e:
             logger.debug(f"[SANDBOX] REST price fallback falhou para {symbol}: {e}")
+        # Fallback direto via HTTP com User-Agent para evitar 403 do Cloudflare
+        try:
+            import httpx
+            from services.okx_service import okx_service
+            inst_id = okx_service.to_okx_inst_id(symbol)
+            async with httpx.AsyncClient(timeout=3.0, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
+                resp = await client.get(f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}")
+                if resp.status_code == 200:
+                    d = resp.json().get("data", [])
+                    if d and "last" in d[0]:
+                        return float(d[0]["last"])
+        except Exception as e2:
+            logger.debug(f"[SANDBOX] Fallback direto HTTP falhou para {symbol}: {e2}")
         return 0.0
 
     async def _get_current_price(self, symbol: str) -> float:
@@ -1524,12 +1550,10 @@ class SandboxService:
             )
             return
 
-        # [V136.2] Price sanity check — reject if price is >15% from entry (stale/spike data)
-        price_drift_pct = abs(current_price - entry_price) / entry_price * 100.0
-        if price_drift_pct > 15.0:
+        # [V170-UNLEASH-RUNNERS] Sanity check legítimo: apenas validação de preço positivo e numérico válido
+        if current_price <= 0 or math.isnan(current_price) or math.isinf(current_price):
             logger.warning(
-                f"[SANDBOX-PRICE-SPIKE] {symbol} | Entry={entry_price:.4f} Current={current_price:.4f} | "
-                f"Drift={price_drift_pct:.1f}% > 15% — provavel preco stale/spike, ignorando tick"
+                f"[SANDBOX-INVALID-PRICE] {symbol} | Preço inválido ({current_price}) — ignorando tick"
             )
             return
 
@@ -1541,18 +1565,14 @@ class SandboxService:
             except (ValueError, TypeError):
                 leverage = 15.0
 
-        # 3. Calcular ROI
+        # 3. Calcular ROI livre de tetos artificiais (permite capturar super-tendências de +300%, +500%, +1000%+)
         current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
-        # [V136.2] Sanity cap: com 50x, 300% ROI = 6% de variação. Acima disso é spike/stale data.
-        current_roi = min(current_roi, 300.0)
 
         # 4. Peak ROI (cache + persistido)
         trade_key = trade.id
         cached_peak = float(self._peak_roi_cache.get(trade_key, 0.0) or 0.0)
         stored_peak = float(trade.max_roi or 0.0)
         effective_roi = max(current_roi, cached_peak, stored_peak)
-        # [FIX] Sanity cap: com 50x, 300% ROI = 6% de variação. Acima disso é spike/stale data.
-        effective_roi = min(effective_roi, 300.0)
         self._peak_roi_cache[trade_key] = effective_roi
         max_roi = effective_roi
 
@@ -1651,6 +1671,30 @@ class SandboxService:
                 history.append(f"Subiu degrau para {active_level.name} (Stop: {new_stop_roi}% ROI) no preço {current_price}")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} subiu para {active_level.name} (SL {new_stop_roi}% ROI)")
 
+        # [V170-TARGET-EXPANSION] Alvo de projeção da Laya:
+        # Quando atingido, garante lucro mínimo substancial no alvo e deixa a Escadinha/Trailing Stop
+        # surfar a super-tendência sem matar o trade prematuramente.
+        target_price = float(trade.target or 0.0)
+        target_reached = False
+        if target_price > 0 and entry_price > 0:
+            is_long_dir = str(side).lower() in ("buy", "long", "b")
+            is_short_dir = str(side).lower() in ("sell", "short", "s")
+            if is_long_dir and current_price >= target_price:
+                target_reached = True
+            elif is_short_dir and current_price <= target_price:
+                target_reached = True
+
+        if target_reached:
+            target_roi = proj_service.calculate_roi(entry_price, target_price, side, leverage)
+            target_protected_stop = max(5.0, round(target_roi * 0.70, 1))
+            if target_protected_stop > updated_stop_roi:
+                updated_stop_roi = target_protected_stop
+                updated_level_name = "ALVO_EXPANSAO"
+                updated_phase = "ESCADINHA"
+                if not any("ALVO_ATINGIDO" in str(h) for h in history[-3:]):
+                    history.append(f"[ALVO_ATINGIDO] Alvo de projeção ${target_price:.4f} atingido (+{target_roi:.1f}% ROI)! Stop travado em +{target_protected_stop:.1f}% ROI. Escadinha ativa para expansão máxima.")
+                    logger.info(f"🎯 [SANDBOX-ALVO-EXPANSAO] {symbol} atingiu alvo ${target_price:.4f}! Stop garantido em +{target_protected_stop:.1f}% ROI — buscando expansão máxima.")
+
         # [V126-LOCK-IN] Protocolo Lock-In de Defesa
         if getattr(database_service, "lock_in_active", False):
             from config import settings
@@ -1705,32 +1749,14 @@ class SandboxService:
         if tick_size > 0:
             stop_price = self._round_stop_to_tick(stop_price, tick_size, side, updated_stop_roi)
 
-        # 11. Verificar target hit ou stop hit com conservative price (HIGH/LOW 120s)
+        # 11. Verificar stop hit com conservative price (HIGH/LOW 120s)
         is_closed = False
         should_run_blocklist = False
         status = "ACTIVE"
         closed_at = None
         exit_price = 0.0
 
-        target_price = float(trade.target or 0.0)
-        target_hit = False
-        if target_price > 0 and entry_price > 0:
-            if side in ("Buy", "long", "LONG") and target_price > entry_price and current_price >= target_price:
-                target_hit = True
-            elif side in ("Sell", "short", "SHORT") and target_price < entry_price and current_price <= target_price:
-                target_hit = True
-
-        if target_hit:
-            current_price = target_price
-            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
-            is_closed = True
-            should_run_blocklist = False
-            exit_price = target_price
-            closed_at = time.time()
-            status = "CLOSED_TARGET"
-            history.append(f"[TARGET-HIT] Alvo atingido a ${target_price:.4f}! ROI: +{current_roi:.1f}%")
-            logger.info(f"🎯 [SANDBOX-TARGET] {symbol} atingiu alvo ${target_price:.4f} (ROI: +{current_roi:.1f}%)")
-        elif stop_price > 0:
+        if stop_price > 0:
             stop_hit = await self._check_stop_hit(side, stop_price, symbol)
             if stop_hit:
                 # [V119] Sem confirmações REST lentas para o Sandbox. Fecha instantaneamente!

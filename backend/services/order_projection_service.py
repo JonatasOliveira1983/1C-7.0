@@ -52,6 +52,20 @@ ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
     StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 30.0, 18.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 45.0, 32.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "ALVO_MAXIMO_REVERSION", 60.0, 48.0, "PROFIT_LOCK"),
+    # [V170-SUPER-RUNNERS] Expansão infinita institucional: se o trade romper em super-tendência, a Escadinha surfa até 1200%+
+    StopLevel("ESCADINHA", "LUCRO_GARANTIDO_100", 100.0, 80.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUCESSO_TOTAL", 130.0, 110.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_150", 150.0, 110.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "WAVE", 200.0, 150.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "ROCKET", 300.0, 220.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "STAR", 400.0, 280.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CROWN", 500.0, 350.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "SUPERNOVA", 600.0, 420.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "GOD_MODE", 700.0, 500.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE_PREP", 750.0, 600.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE", 800.0, 650.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "HYPER", 1000.0, 800.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "APEX", 1200.0, 1000.0, "TRAIL_LOCK"),
 ]
 
 # [V130-FIX] Escadinha Oficial para Swing (Doutrina das Extrações)
