@@ -1961,6 +1961,24 @@ class SandboxService:
                 invalidate_unified_state_cache()
             except Exception:
                 pass
+
+            # [OPENVIKING] Memória Auto-Evolutiva de Trading em Fechamento Automático (V171)
+            try:
+                from services.openviking_context_service import openviking_context_service
+                openviking_context_service.record_trade_closure({
+                    "id": trade.id,
+                    "symbol": trade.symbol,
+                    "strategy": getattr(trade, "strategy", "UNKNOWN"),
+                    "direction": trade.direction,
+                    "entry_price": entry_price,
+                    "exit_price": exit_price,
+                    "pnl_pct": final_pnl,
+                    "exit_reason": status,
+                    "contract_meta": getattr(trade, "contract_meta", {})
+                })
+                logger.info(f"🏛️ [OPENVIKING] Episódio registrado automaticamente no Vault para {trade.symbol} ({status})")
+            except Exception as _e_viking:
+                logger.debug(f"[OPENVIKING] Falha silenciosa ao registrar memória episódica: {_e_viking}")
         asyncio.create_task(self._check_auto_finetune_cycle())
 
     async def _check_auto_finetune_cycle(self):
