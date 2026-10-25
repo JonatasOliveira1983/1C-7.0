@@ -1380,16 +1380,27 @@ class DatabaseService:
                 )
                 
                 total_pnl_usd = 0.0
+                import json
                 for row in scalp_res.all():
                     pnl_pct = float(row[0] or 0.0)
                     meta = row[1] or {}
-                    margin = float(meta.get("margin", 200.0))
+                    if isinstance(meta, str):
+                        try:
+                            meta = json.loads(meta)
+                        except Exception:
+                            meta = {}
+                    margin = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
                     total_pnl_usd += (pnl_pct / 100.0) * margin
                     
                 for row in swing_res.all():
                     pnl_pct = float(row[0] or 0.0)
                     meta = row[1] or {}
-                    margin = float(meta.get("margin", 200.0))
+                    if isinstance(meta, str):
+                        try:
+                            meta = json.loads(meta)
+                        except Exception:
+                            meta = {}
+                    margin = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
                     total_pnl_usd += (pnl_pct / 100.0) * margin
 
                 current_balance = 10000.0 + total_pnl_usd

@@ -12,6 +12,12 @@ router = APIRouter(prefix="/api/sandbox", tags=["Sandbox"])
 _last_unified_state_cache = None
 _last_unified_state_ts = 0.0
 
+def invalidate_unified_state_cache():
+    """Invalida o cache do unified-state forçando atualização em tempo real."""
+    global _last_unified_state_cache, _last_unified_state_ts
+    _last_unified_state_cache = None
+    _last_unified_state_ts = 0.0
+
 @router.get("/unified-state")
 async def get_unified_sandbox_state():
     """Unifica a telemetria das ordens de Scalping e Swing sob a mesma banca de $10.000."""
@@ -34,8 +40,16 @@ async def get_unified_sandbox_state():
         active_scalp = len(scalp_trades)
         active_swing = len(swing_trades)
         
-        # 4. Lucro realizado (obtido do cache atômico em RAM da SandboxService) e Lucro flutuante
+        # 4. Lucro realizado (obtido do cache atômico em RAM da SandboxService com fallback DB resiliente)
         realized_balance = getattr(sandbox_service, "base_balance_cache", 10000.0)
+        if realized_balance == 10000.0:
+            try:
+                db_bal = await database_service.get_sandbox_unified_balance()
+                if db_bal != 10000.0:
+                    realized_balance = db_bal
+                    sandbox_service.base_balance_cache = db_bal
+            except Exception:
+                pass
         realized_pnl_usd = round(realized_balance - BANCA_BASE, 2)
         floating_pnl_usd = 0.0
         allocated_margin = 0.0

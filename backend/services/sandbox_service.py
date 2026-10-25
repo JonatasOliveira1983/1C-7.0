@@ -60,6 +60,7 @@ class SandboxService:
             return
         self.is_running = True
         self._loop_task = asyncio.create_task(self._price_update_loop())
+        asyncio.create_task(self.recalculate_realized_balance())
         asyncio.create_task(self._load_existing_radar_signals())
         asyncio.create_task(self._initial_auto_blocklist_check())
         logger.info("🧪 Sandbox Service iniciado com sucesso.")
@@ -1321,6 +1322,61 @@ class SandboxService:
 
     # ==================== MAIN LOOP (paridade com FlashAgent) ====================
 
+    async def recalculate_realized_balance(self) -> float:
+        """
+        [V169.1] Recalcula atômica e imediatamente o saldo realizado do Sandbox,
+        com tratamento resiliente para metadados JSON (dict ou str) e taxas.
+        """
+        try:
+            from services.database_service import database_service
+            import json
+            all_scalps = await database_service.get_sandbox_trades(active_only=False)
+            all_swings = await database_service.get_swing_trades(active_only=False)
+            
+            closed_pnl_usd = 0.0
+            total_fees_usd = 0.0
+            for t in all_scalps:
+                if getattr(t, "status", "") != "ACTIVE":
+                    meta = getattr(t, "contract_meta", None) or {}
+                    if isinstance(meta, str):
+                        try:
+                            meta = json.loads(meta)
+                        except Exception:
+                            meta = {}
+                    _m = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
+                    net_trade = (float(getattr(t, "pnl_pct", 0.0) or 0.0) / 100.0) * _m
+                    closed_pnl_usd += net_trade
+                    fee = float(meta.get("total_fees_usd") or 0.0) if isinstance(meta, dict) else 0.0
+                    if fee <= 0:
+                        lev = float((meta.get("leverage") if isinstance(meta, dict) else 15.0) or getattr(t, "leverage", 15.0) or 15.0)
+                        fee = round(_m * lev * 0.0013, 2)
+                    total_fees_usd += fee
+            for t in all_swings:
+                if getattr(t, "status", "") != "ACTIVE":
+                    meta = getattr(t, "contract_meta", None) or {}
+                    if isinstance(meta, str):
+                        try:
+                            meta = json.loads(meta)
+                        except Exception:
+                            meta = {}
+                    _m = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
+                    net_trade = (float(getattr(t, "pnl_pct", 0.0) or 0.0) / 100.0) * _m
+                    closed_pnl_usd += net_trade
+                    fee = float(meta.get("total_fees_usd") or 0.0) if isinstance(meta, dict) else 0.0
+                    if fee <= 0:
+                        lev = float((meta.get("leverage") if isinstance(meta, dict) else 15.0) or getattr(t, "leverage", 15.0) or 15.0)
+                        fee = round(_m * lev * 0.0013, 2)
+                    total_fees_usd += fee
+                    
+            self.base_balance_cache = round(10000.0 + closed_pnl_usd, 2)
+            self.total_fees_paid_cache = round(total_fees_usd, 2)
+            self.total_gross_pnl_cache = round(closed_pnl_usd + total_fees_usd, 2)
+            self.last_balance_recalc = time.time()
+            return self.base_balance_cache
+        except Exception as e:
+            logger.error(f"[SANDBOX-RECALC] Erro ao recalcular saldo fechado base: {e}")
+            return self.base_balance_cache
+
     async def _price_update_loop(self):
         """
         Loop de 1s que monitora stops com a mesma logica robusta do FlashAgent:
@@ -1341,41 +1397,7 @@ class SandboxService:
                 
                 # A cada 10 segundos, atualiza o saldo fechado (base) do Sandbox
                 if now_ts - self.last_balance_recalc >= 10.0 or self.last_balance_recalc == 0.0:
-                    try:
-                        all_scalps = await database_service.get_sandbox_trades(active_only=False)
-                        all_swings = await database_service.get_swing_trades(active_only=False)
-                        
-                        closed_pnl_usd = 0.0
-                        total_fees_usd = 0.0
-                        for t in all_scalps:
-                            if t.status != "ACTIVE":
-                                meta = t.contract_meta or {}
-                                _m = float(meta.get("margin", 200.0))
-                                net_trade = (float(t.pnl_pct or 0.0) / 100.0) * _m
-                                closed_pnl_usd += net_trade
-                                fee = float(meta.get("total_fees_usd") or 0.0)
-                                if fee <= 0:
-                                    lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
-                                    fee = round(_m * lev * 0.0013, 2)
-                                total_fees_usd += fee
-                        for t in all_swings:
-                            if t.status != "ACTIVE":
-                                meta = t.contract_meta or {}
-                                _m = float(meta.get("margin", 200.0))
-                                net_trade = (float(t.pnl_pct or 0.0) / 100.0) * _m
-                                closed_pnl_usd += net_trade
-                                fee = float(meta.get("total_fees_usd") or 0.0)
-                                if fee <= 0:
-                                    lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
-                                    fee = round(_m * lev * 0.0013, 2)
-                                total_fees_usd += fee
-                                
-                        self.base_balance_cache = 10000.0 + closed_pnl_usd
-                        self.total_fees_paid_cache = round(total_fees_usd, 2)
-                        self.total_gross_pnl_cache = round(closed_pnl_usd + total_fees_usd, 2)
-                        self.last_balance_recalc = now_ts
-                    except Exception as e:
-                        logger.error(f"[LOCK-IN] Erro ao recalcular saldo fechado base: {e}")
+                    await self.recalculate_realized_balance()
                 
                 # A cada segundo, adiciona o PnL aberto de todos os trades ativos (scalp + swing)
                 active_trades_for_pnl = await database_service.get_sandbox_trades(active_only=True)
@@ -1906,6 +1928,13 @@ class SandboxService:
             self._peak_roi_cache.pop(trade_key, None)
 
         await database_service.update_sandbox_trade(trade.id, update_payload)
+        if is_closed:
+            await self.recalculate_realized_balance()
+            try:
+                from routes.sandbox import invalidate_unified_state_cache
+                invalidate_unified_state_cache()
+            except Exception:
+                pass
         asyncio.create_task(self._check_auto_finetune_cycle())
 
     async def _check_auto_finetune_cycle(self):
