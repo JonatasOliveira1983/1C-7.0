@@ -150,7 +150,7 @@ class LayaRouterService:
     - Telemetria de Consciência em Tempo Real (Thought Stream para a UI).
     """
 
-    MIN_ENTRY_SCORE: int = 90
+    MIN_ENTRY_SCORE: int = 85
 
     def __init__(self):
         self.thought_stream: List[Dict[str, Any]] = []
@@ -2177,15 +2177,11 @@ class LayaRouterService:
         max_allowed_slots = 8
         effective_min_score = self.MIN_ENTRY_SCORE
 
-        if daily_profit_pct >= 5.0:
-            # Meta máxima batida (>= +5.0% = +$500). Trava novas aberturas para garantir 100% do lucro!
-            max_allowed_slots = 0
-            self.log_thought("SISTEMA", f"🏛️ [META DIÁRIA ATINGIDA]: Lucro de {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Novas entradas pausadas para blindar capital.", action="LOCK_IN", confidence=99)
-        elif daily_profit_pct >= 2.5:
-            # Lucro expressivo (>= +2.5% = +$250). Reduz slots para 4 e exige score ultra-alto (92%)
-            max_allowed_slots = 4
-            effective_min_score = max(effective_min_score, 92)
-            self.log_thought("SISTEMA", f"🛡️ [PRESERVAÇÃO ATIVA]: Lucro do dia {daily_profit_pct:+.2f}%. Modo Sniper Seletivo ativo (Max 4 slots, Score >= 92%).", action="CAPITAL_SHIELD", confidence=95)
+        # [V170.1-CAPITAL-FLOW] A Laya mantém operação institucional contínua em 8 slots (Score >= 85%).
+        # O lucro realizado é protegido dinamicamente pelo Piso Soberano (Never Give Back),
+        # garantindo que o sistema continue abrindo trades excelentes sem congelamento de slots.
+        if daily_profit_pct > 0:
+            self.log_thought("SISTEMA", f"🏛️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
 
         order_opened = None
         # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
