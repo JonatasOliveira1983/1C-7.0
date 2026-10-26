@@ -19,6 +19,7 @@
     kronos: `<svg class="sh-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
     chat: `<svg class="sh-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
     pulse: `<svg class="sh-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    laya: `<svg class="sh-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>`,
     plutus: `<svg class="sh-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15.5 10.5H10a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8.5"/></svg>`
   };
 
@@ -94,6 +95,11 @@
             <span>COCKPIT TÁTICO</span>
             <span class="sh-badge-subtle">HFT</span>
           </a>
+          <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
+            ${ICONS.laya}
+            <span>LAYA 360 (CÉREBRO SOBERANO)</span>
+            <span class="sh-badge-gold">360°</span>
+          </a>
           <a href="/hermes" class="sh-link ${activePage === 'hermes' ? 'active' : ''}">
             ${ICONS.hermes}
             <span>HERMES ORCHESTRATOR</span>
@@ -113,6 +119,11 @@
         <!-- Fleet Section -->
         <div class="sh-sec-title" style="margin-top: 18px;">AGENTES DA FROTA</div>
         <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
+          <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
+            ${ICONS.laya}
+            <span>LAYA · CÉREBRO SOBERANO</span>
+            <span class="sh-status-pill ok">360° ON</span>
+          </a>
           <a href="/hermes" class="sh-link">
             ${ICONS.hermes}
             <span>HERMES · ORQUESTRADOR</span>
@@ -148,6 +159,11 @@
         <!-- Vitals Telemetry Section -->
         <div class="sh-sec-title" style="margin-top: 18px;">TELEMETRIA DOS MOTORES</div>
         <div id="vitals-strip" style="padding: 6px 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div class="sh-vital-item">
+            <span class="sh-vital-dot" data-vital="laya"></span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: #AAAAAA;">LAYA 360 RADAR</span>
+            <span style="margin-left: auto; font-family: var(--font-mono); font-size: 9px; color: #00E676;">ACTIVE</span>
+          </div>
           <div class="sh-vital-item">
             <span class="sh-vital-dot" data-vital="hermes"></span>
             <span style="font-family: var(--font-mono); font-size: 10px; color: #AAAAAA;">HERMES AGENT ENGINE</span>
@@ -211,7 +227,7 @@
           <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 8px;">
             <canvas class="thinking-orb-canvas" data-state="listening" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;"></canvas>
             <span style="font-family: var(--font-mono); font-size: 10px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.05em;">
-              HERMES • CAPTAIN • FLASH • KRONOS • PLUTUS
+              LAYA 360 • HERMES • CAPTAIN • FLASH • KRONOS • PLUTUS
             </span>
           </div>
         </div>
@@ -220,6 +236,9 @@
         <nav class="desktop-nav" style="display: flex; align-items: center; gap: 4px;">
           <a href="/" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
+          </a>
+          <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
+            ${ICONS.laya} <span>LAYA 360</span>
           </a>
           <a href="/plutus" class="nav-item ${activePage === 'plutus' ? 'active' : ''}">
             ${ICONS.plutus} <span>PLUTUS</span>
@@ -527,6 +546,10 @@
         <a href="/cockpit" class="bbar-item ${page === 'cockpit' ? 'active' : ''}">
           ${ICONS.cockpit}
           <span>Cockpit</span>
+        </a>
+        <a href="/laya" class="bbar-item ${page === 'laya' ? 'active' : ''}">
+          ${ICONS.laya}
+          <span>Laya 360</span>
         </a>
         <a href="/plutus" class="bbar-item ${page === 'plutus' ? 'active' : ''}">
           ${ICONS.plutus}

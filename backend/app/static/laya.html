@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>1Crypten 7.5 — LAYA 360 (Cérebro Soberano)</title>
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
+  <script src="/static/js/lightweight-charts.js"></script>
+  <script src="/static/js/thinking_orbs.js"></script>
+  <style>
+    :root {
+      --bg-base: #080808;
+      --bg-panel: #0E1013;
+      --bg-card: #14171C;
+      --border-subtle: #1E2329;
+      --border-active: #2B3139;
+      --gold: #FCD535;
+      --gold-dim: rgba(252, 213, 53, 0.12);
+      --green: #0ECB81;
+      --green-dim: rgba(14, 203, 129, 0.12);
+      --red: #F6465D;
+      --red-dim: rgba(246, 70, 93, 0.12);
+      --text-main: #EAECEF;
+      --text-muted: #848E9C;
+      --font-mono: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Layout Container */
+    .laya-container {
+      max-width: 1920px;
+      margin: 0 auto;
+      padding: 12px 16px 64px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Panoramic HUD */
+    .panoramic-hud {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--gold);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hud-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hud-title {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 2px;
+    }
+
+    .hud-value {
+      font-size: 13px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    .hud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+    }
+
+    .hud-badge.gold {
+      background: var(--gold-dim);
+      color: var(--gold);
+      border-color: rgba(252, 213, 53, 0.3);
+    }
+
+    .hud-badge.green {
+      background: var(--green-dim);
+      color: var(--green);
+      border-color: rgba(14, 203, 129, 0.3);
+    }
+
+    .hud-badge.red {
+      background: var(--red-dim);
+      color: var(--red);
+      border-color: rgba(246, 70, 93, 0.3);
+    }
+
+    .btn-cockpit {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-cockpit:hover {
+      background: var(--gold);
+      color: #000;
+    }
+
+    /* 3-Column Grid */
+    .laya-grid {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr) 380px;
+      gap: 12px;
+      align-items: start;
+    }
+
+    @media (max-width: 1400px) {
+      .laya-grid {
+        grid-template-columns: 260px minmax(0, 1fr);
+      }
+      .col-right {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .laya-grid {
+        grid-template-columns: 1fr;
+      }
+      .col-right {
+        grid-column: span 1;
+      }
+    }
+
+    /* Panels & Cards */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0B0D10;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--text-main);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-body {
+      padding: 12px 14px;
+    }
+
+    /* Left Column: Titans List */
+    .titans-search {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0B0D10;
+    }
+
+    .titans-input {
+      width: 100%;
+      background: #14171C;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 6px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .titans-input:focus {
+      border-color: var(--gold);
+    }
+
+    .titans-list {
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .titan-card {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      background: transparent;
+      user-select: none;
+    }
+
+    .titan-card:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .titan-card.active {
+      background: rgba(252, 213, 53, 0.07);
+      border-left: 3px solid var(--gold);
+    }
+
+    .titan-sym {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .titan-ignition-pill {
+      font-size: 8px;
+      font-family: var(--font-mono);
+      padding: 1px 4px;
+      background: rgba(14, 203, 129, 0.15);
+      color: var(--green);
+      border: 1px solid var(--green);
+      font-weight: 800;
+      border-radius: 2px;
+    }
+
+    .titan-px {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-main);
+      text-align: right;
+    }
+
+    .titan-chg {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .titan-chg.up { color: var(--green); }
+    .titan-chg.down { color: var(--red); }
+
+    /* Center Column: Microstructure & Orderbook */
+    .asset-hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #0B0D10;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .hero-sym {
+      font-size: 18px;
+      font-weight: 900;
+      font-family: var(--font-mono);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    .hero-px {
+      font-size: 18px;
+      font-weight: 900;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    /* Microstructure Rejection Radar */
+    .rejection-banner {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #111419;
+    }
+
+    .rejection-banner.safe {
+      border-left: 4px solid var(--green);
+      background: rgba(14, 203, 129, 0.05);
+    }
+
+    .rejection-banner.veto {
+      border-left: 4px solid var(--red);
+      background: rgba(246, 70, 93, 0.05);
+    }
+
+    .rejection-meters {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0C0E12;
+    }
+
+    @media (max-width: 600px) {
+      .rejection-meters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .meter-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      padding: 10px 12px;
+    }
+
+    .meter-label {
+      font-size: 9px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .meter-val {
+      font-size: 14px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      margin-bottom: 6px;
+    }
+
+    .meter-bar-track {
+      width: 100%;
+      height: 4px;
+      background: #20242B;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .meter-bar-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    /* L2 Orderbook Imbalance Radar */
+    .obi-strip {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0E1014;
+    }
+
+    .obi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .obi-bar-track {
+      width: 100%;
+      height: 8px;
+      background: #1C2026;
+      border-radius: 2px;
+      display: flex;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .obi-bar-bid {
+      background: var(--green);
+      transition: width 0.3s ease;
+    }
+
+    .obi-bar-ask {
+      background: var(--red);
+      transition: width 0.3s ease;
+    }
+
+    /* Depth Ladder Table */
+    .depth-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .depth-side-title {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .depth-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 4px;
+      position: relative;
+      margin-bottom: 2px;
+    }
+
+    .depth-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      opacity: 0.15;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .depth-fill.bid {
+      right: 0;
+      background: var(--green);
+    }
+
+    .depth-fill.ask {
+      left: 0;
+      background: var(--red);
+    }
+
+    .depth-text {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Chart Container */
+    #laya-chart-container {
+      width: 100%;
+      height: 380px;
+      background: #080808;
+      position: relative;
+    }
+
+    /* Right Column: Flow & Specialist Stream */
+    .stream-filters {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0B0D10;
+      overflow-x: auto;
+    }
+
+    .stream-pill {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 9px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      padding: 3px 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.12s ease;
+    }
+
+    .stream-pill:hover, .stream-pill.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--gold-dim);
+    }
+
+    .stream-feed {
+      max-height: calc(100vh - 420px);
+      min-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      background: #090B0E;
+    }
+
+    .thought-item {
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-left: 2px solid var(--gold);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .thought-item.veto {
+      border-left-color: var(--red);
+    }
+
+    .thought-item.absorpcao {
+      border-left-color: var(--green);
+    }
+
+    .thought-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 9px;
+    }
+
+    .thought-time {
+      color: var(--text-muted);
+    }
+
+    .thought-action {
+      padding: 1px 5px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+    }
+
+    .thought-action.veto { color: var(--red); background: var(--red-dim); }
+    .thought-action.absorpcao { color: var(--green); background: var(--green-dim); }
+    .thought-action.gatilho { color: var(--gold); background: var(--gold-dim); }
+
+    .thought-body {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-main);
+      line-height: 1.4;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080808;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #222222;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Injected Shell Navigation via shell.js -->
+
+  <main class="laya-container">
+
+    <!-- Panoramic Sovereign HUD -->
+    <section class="panoramic-hud">
+      <div class="hud-block">
+        <canvas class="thinking-orb-canvas" data-state="solving" data-size="28" data-color="#FCD535" width="28" height="28" style="width:28px;height:28px;"></canvas>
+        <div>
+          <div class="hud-title">SISTEMA NEURAL SOBERANO</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="hud-value" style="color: var(--gold);">LAYA 360</span>
+            <span class="hud-badge gold" id="laya-status-pill">REACTION ENGINE ON</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-block">
+        <div>
+          <div class="hud-title">REGIME & MASTER ADX</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="hud-value" id="hud-adx">ADX --.-</span>
+            <span class="hud-badge gold" id="hud-regime">CALIBRATING</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-block">
+        <div>
+          <div class="hud-title">FAROL MACRO BTC</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="hud-value" id="hud-btc-px">$---,---</span>
+            <span class="hud-badge green" id="hud-btc-chg">0.00%</span>
+            <span class="hud-badge gold" id="hud-btc-climate">EXPANSION</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-block">
+        <div>
+          <div class="hud-title">RADAR UNIVERSAL OKX</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="hud-value" id="hud-ignited-cnt">-- ALTCOINS</span>
+            <span class="hud-badge green">ROBÔS ATIVOS</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-block">
+        <a href="/cockpit" class="btn-cockpit">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>OPERAR NO COCKPIT</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Main 360 Grid -->
+    <div class="laya-grid">
+
+      <!-- Column 1: Top 30 Titans Scanner -->
+      <aside class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>TOP 30 TITÃS OKX</span>
+          </div>
+          <span style="font-family: var(--font-mono); font-size: 9px; color: var(--gold);" id="titans-count">30 ATIVOS</span>
+        </div>
+
+        <div class="titans-search">
+          <input type="text" id="titans-filter-input" class="titans-input" placeholder="Filtrar par (ex: SOL, SUI)..." oninput="filterTitansList()">
+        </div>
+
+        <div class="titans-list" id="titans-list-container">
+          <!-- Dynamically populated -->
+          <div style="padding: 20px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+            Sincronizando Titãs OKX...
+          </div>
+        </div>
+      </aside>
+
+      <!-- Column 2: 360° Microstructure & Depth Inspector -->
+      <section class="panel">
+        
+        <!-- Asset Hero Banner -->
+        <div class="asset-hero">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="hero-sym" id="inspected-sym">SOLUSDT</span>
+              <span class="hud-badge gold" id="inspected-inst">SOL-USDT-SWAP</span>
+              <span class="titan-ignition-pill" id="inspected-ignition-tag" style="display:none;">IGNIÇÃO ON</span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 2px;" id="inspected-subinfo">
+              24h High: $--.-- | 24h Low: $--.-- | Funding: 0.0000%
+            </div>
+          </div>
+
+          <div style="text-align: right;">
+            <div class="hero-px" id="inspected-price">$---.--</div>
+            <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 700;" id="inspected-chg">0.00%</div>
+          </div>
+        </div>
+
+        <!-- Microstructure Rejection Banner (V173 Anti-Predictive Guardian) -->
+        <div class="rejection-banner safe" id="rejection-banner">
+          <div>
+            <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">
+              GUARDIÃO DE MICROESTRUTURA REATIVA (5M)
+            </div>
+            <div style="font-size: 13px; font-weight: 900; font-family: var(--font-mono);" id="rejection-verdict">
+              VERIFICANDO EXAUSTÃO...
+            </div>
+          </div>
+          <div id="rejection-decision-badge">
+            <span class="hud-badge green">CONFERINDO</span>
+          </div>
+        </div>
+
+        <!-- Microstructure Reactive Meters -->
+        <div class="rejection-meters">
+          <div class="meter-card">
+            <div class="meter-label">TICK_REJECTION_INDEX (MIN 25%)</div>
+            <div class="meter-val" id="meter-rejection-val" style="color: var(--gold);">--%</div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill" id="meter-rejection-bar" style="width: 0%; background: var(--gold);"></div>
+            </div>
+          </div>
+
+          <div class="meter-card">
+            <div class="meter-label">MICRO_ACCEL_BRAKE (TETO 1.5%)</div>
+            <div class="meter-val" id="meter-accel-val" style="color: var(--green);">--%</div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill" id="meter-accel-bar" style="width: 0%; background: var(--green);"></div>
+            </div>
+          </div>
+
+          <div class="meter-card">
+            <div class="meter-label">MSB_CONFIRMATION (MÍN/MÁX 5M)</div>
+            <div class="meter-val" id="meter-msb-val" style="color: var(--text-main);">ESTÁVEL</div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill" id="meter-msb-bar" style="width: 100%; background: var(--green);"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- L2 Orderbook Imbalance Radar -->
+        <div class="obi-strip">
+          <div class="obi-header">
+            <div style="font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+              L2 ORDERBOOK IMBALANCE (OBI)
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 800;" id="obi-ratio-val">
+              OBI: 0.00%
+            </div>
+          </div>
+
+          <div class="obi-bar-track">
+            <div class="obi-bar-bid" id="obi-bar-bid" style="width: 50%;"></div>
+            <div class="obi-bar-ask" id="obi-bar-ask" style="width: 50%;"></div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);">
+            <span id="obi-bid-vol">BIDS: 0.0</span>
+            <span id="obi-bias-tag" style="color: var(--gold); font-weight: 800;">EQUILIBRADO</span>
+            <span id="obi-ask-vol">ASKS: 0.0</span>
+          </div>
+        </div>
+
+        <!-- Depth Ladder Top 6 -->
+        <div class="depth-grid">
+          <div>
+            <div class="depth-side-title" style="color: var(--green);">
+              <span>BIDS (COMPRA)</span>
+              <span>QTD</span>
+            </div>
+            <div id="depth-bids-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <div>
+            <div class="depth-side-title" style="color: var(--red);">
+              <span>PREÇO</span>
+              <span>ASKS (VENDA)</span>
+            </div>
+            <div id="depth-asks-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 5M Microstructure Chart -->
+        <div class="panel-header" style="border-top: 1px solid var(--border-subtle);">
+          <div class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            <span id="chart-title">MICROESTRUTURA 5M & VOLUME OKX</span>
+          </div>
+          <span style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);">BARRA 5M CANDLESTICKS</span>
+        </div>
+        <div id="laya-chart-container"></div>
+
+      </section>
+
+      <!-- Column 3: Flow Intelligence & Specialist Conscious Stream -->
+      <aside class="col-right" style="display: flex; flex-direction: column; gap: 12px;">
+
+        <!-- CVD Aggression & Liquidation Map -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>CVD & LIQUIDAÇÃO INSTITUCIONAL</span>
+            </div>
+          </div>
+
+          <div class="panel-body" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- CVD -->
+            <div>
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; margin-bottom: 4px;">
+                <span style="color: var(--text-muted);">DELTA DE AGRESSÃO TAKER</span>
+                <span id="cvd-delta-usd" style="font-weight: 800; color: var(--gold);">+$0.00</span>
+              </div>
+              <div class="obi-bar-track" style="height: 6px;">
+                <div class="obi-bar-bid" id="cvd-bar-buy" style="width: 50%;"></div>
+                <div class="obi-bar-ask" id="cvd-bar-sell" style="width: 50%;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 3px;">
+                <span id="cvd-buy-vol">Taker Buys: 0</span>
+                <span id="cvd-bias-label" style="font-weight: 800; color: var(--gold);">NEUTRO</span>
+                <span id="cvd-sell-vol">Taker Sells: 0</span>
+              </div>
+            </div>
+
+            <!-- Liquidation Magnet -->
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 10px;">
+              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                PISCINAS DE LIQUIDAÇÃO ESTIMADAS
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
+                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--green);">LONGS EM RISCO</div>
+                  <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-long-pool">$0.00</div>
+                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);">Alavancagem 20x-50x</div>
+                </div>
+
+                <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
+                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--red);">SHORTS EM RISCO</div>
+                  <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-short-pool">$0.00</div>
+                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);">Alavancagem 20x-50x</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Whale vs Retail -->
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 10px;">
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px;">
+                <span style="color: var(--text-muted);">LONG/SHORT RATIO (LSR):</span>
+                <span id="flow-lsr-val" style="font-weight: 800; color: var(--gold);">1.00</span>
+              </div>
+              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="flow-sardinha-status">
+                Equilíbrio de posicionamento do varejo
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Specialist Conscious Thought Stream -->
+        <div class="panel" style="flex: 1;">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>STREAM DE CONSCIÊNCIA ESPECIALISTA</span>
+            </div>
+            <span class="hud-badge gold">AO VIVO</span>
+          </div>
+
+          <div class="stream-filters">
+            <button class="stream-pill active" onclick="setThoughtFilter('ALL')">TODOS</button>
+            <button class="stream-pill" onclick="setThoughtFilter('VETO')">VETOS</button>
+            <button class="stream-pill" onclick="setThoughtFilter('ABSORCAO')">ABSORÇÃO</button>
+            <button class="stream-pill" onclick="setThoughtFilter('GATILHO')">GATILHOS</button>
+            <button class="stream-pill" onclick="setThoughtFilter('MACRO')">MACRO</button>
+          </div>
+
+          <div class="stream-feed" id="laya-thought-feed">
+            <div style="padding: 20px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+              Conectando aos pensamentos da Laya...
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </main>
+
+  <!-- Injeta Shell Unificado (Drawer Lateral, Header Lamborghini, Mobile Bottom Bar) -->
+  <script src="/static/shell.js"></script>
+
+  <script>
+    // Inicialização da Shell
+    if (window.mountLamborghiniShell) {
+      window.mountLamborghiniShell('laya');
+    }
+
+    // Estado da Página
+    let currentSelectedSymbol = "SOLUSDT";
+    let allTitans = [];
+    let allThoughts = [];
+    let currentThoughtFilter = "ALL";
+    let chartInstance = null;
+    let candleSeries = null;
+    let volumeSeries = null;
+    let isPolling = false;
+
+    // Inicialização do Gráfico LightweightCharts
+    function initChart() {
+      const container = document.getElementById("laya-chart-container");
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      chartInstance = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: 380,
+        layout: {
+          background: { color: "#080808" },
+          textColor: "#848E9C",
+          fontFamily: "'IBM Plex Mono', Consolas, monospace",
+          fontSize: 10
+        },
+        grid: {
+          vertLines: { color: "#14171C" },
+          horzLines: { color: "#14171C" }
+        },
+        timeScale: {
+          borderColor: "#1E2329",
+          timeVisible: true,
+          secondsVisible: false
+        },
+        rightPriceScale: {
+          borderColor: "#1E2329",
+          autoScale: true
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+          vertLine: { color: "#FCD535", width: 1, style: 2 },
+          horzLine: { color: "#FCD535", width: 1, style: 2 }
+        }
+      });
+
+      candleSeries = chartInstance.addCandlestickSeries({
+        upColor: "#0ECB81",
+        downColor: "#F6465D",
+        borderUpColor: "#0ECB81",
+        borderDownColor: "#F6465D",
+        wickUpColor: "#0ECB81",
+        wickDownColor: "#F6465D"
+      });
+
+      volumeSeries = chartInstance.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+        scaleMargins: {
+          top: 0.82,
+          bottom: 0
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (chartInstance && container) {
+          chartInstance.applyOptions({ width: container.clientWidth });
+        }
+      });
+    }
+
+    // Carregar Candles 5M
+    async function loadCandles(symbol) {
+      try {
+        const res = await fetch(`/api/candles?symbol=${symbol}&bar=5m&limit=100`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const raw = Array.isArray(data) ? data : (data.data || []);
+        if (!raw || raw.length === 0) return;
+
+        // OKX format: [ts, o, h, l, c, vol, volCcy]
+        const candles = [];
+        const volumes = [];
+
+        // Ordena por timestamp crescente
+        const sorted = [...raw].sort((a, b) => Number(a[0]) - Number(b[0]));
+
+        for (const item of sorted) {
+          const t = Math.floor(Number(item[0]) / 1000);
+          const o = parseFloat(item[1]);
+          const h = parseFloat(item[2]);
+          const l = parseFloat(item[3]);
+          const c = parseFloat(item[4]);
+          const v = parseFloat(item[5] || item[6] || 0);
+
+          if (!isNaN(t) && !isNaN(o) && !isNaN(c)) {
+            candles.push({ time: t, open: o, high: h, low: l, close: c });
+            volumes.push({
+              time: t,
+              value: v,
+              color: c >= o ? "rgba(14, 203, 129, 0.4)" : "rgba(246, 70, 93, 0.4)"
+            });
+          }
+        }
+
+        if (candleSeries && candles.length > 0) {
+          candleSeries.setData(candles);
+        }
+        if (volumeSeries && volumes.length > 0) {
+          volumeSeries.setData(volumes);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar candles:", err);
+      }
+    }
+
+    // Selecionar Ativo para Inspeção
+    window.selectTitan = function(symbol) {
+      currentSelectedSymbol = symbol;
+      document.querySelectorAll(".titan-card").forEach(el => {
+        el.classList.toggle("active", el.getAttribute("data-symbol") === symbol);
+      });
+      loadCandles(symbol);
+      fetchTelemetry();
+    };
+
+    // Filtro da Lista de Titãs
+    window.filterTitansList = function() {
+      const q = (document.getElementById("titans-filter-input")?.value || "").toUpperCase().trim();
+      document.querySelectorAll(".titan-card").forEach(el => {
+        const sym = el.getAttribute("data-symbol") || "";
+        el.style.display = sym.includes(q) ? "flex" : "none";
+      });
+    };
+
+    // Filtro do Stream de Pensamentos
+    window.setThoughtFilter = function(filter) {
+      currentThoughtFilter = filter;
+      document.querySelectorAll(".stream-pill").forEach(btn => {
+        btn.classList.toggle("active", btn.textContent.includes(filter) || (filter === "ALL" && btn.textContent === "TODOS"));
+      });
+      renderThoughts();
+    };
+
+    function renderThoughts() {
+      const feedEl = document.getElementById("laya-thought-feed");
+      if (!feedEl) return;
+
+      let list = allThoughts || [];
+      if (currentThoughtFilter === "VETO") {
+        list = list.filter(t => (t.action || "").includes("VETO") || (t.thought || "").includes("VETO"));
+      } else if (currentThoughtFilter === "ABSORCAO") {
+        list = list.filter(t => (t.action || "").includes("ABSOR") || (t.thought || "").includes("absor"));
+      } else if (currentThoughtFilter === "GATILHO") {
+        list = list.filter(t => (t.action || "").includes("GATILHO") || (t.action || "").includes("ORDEM"));
+      } else if (currentThoughtFilter === "MACRO") {
+        list = list.filter(t => (t.symbol || "") === "SISTEMA" || (t.symbol || "") === "BTC-ORACLE");
+      }
+
+      if (list.length === 0) {
+        feedEl.innerHTML = `<div style="padding: 16px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Nenhum pensamento nesta categoria.</div>`;
+        return;
+      }
+
+      // Ordenar decrescente por timestamp
+      const reversed = [...list].reverse();
+      feedEl.innerHTML = reversed.map(t => {
+        const act = (t.action || "PENSAMENTO").toUpperCase();
+        let cls = "";
+        let actCls = "";
+        if (act.includes("VETO")) { cls = "veto"; actCls = "veto"; }
+        else if (act.includes("ABSOR") || act.includes("ORDEM")) { cls = "absorpcao"; actCls = "absorpcao"; }
+        else if (act.includes("GATILHO") || act.includes("IGNICAO")) { actCls = "gatilho"; }
+
+        return `
+          <div class="thought-item ${cls}">
+            <div class="thought-head">
+              <span class="thought-time">${t.time || "--:--:--"} • ${t.symbol || "SISTEMA"}</span>
+              <span class="thought-action ${actCls}">${act} (${t.confidence || 80}%)</span>
+            </div>
+            <div class="thought-body">${t.thought || ""}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Renderizar Titãs
+    function renderTitans(titans) {
+      const container = document.getElementById("titans-list-container");
+      if (!container || !titans || titans.length === 0) return;
+
+      allTitans = titans;
+      const countEl = document.getElementById("titans-count");
+      if (countEl) countEl.textContent = `${titans.length} ATIVOS`;
+
+      container.innerHTML = titans.map((t, idx) => {
+        const isUp = t.change_24h >= 0;
+        const isActive = t.symbol === currentSelectedSymbol;
+        return `
+          <div class="titan-card ${isActive ? 'active' : ''}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}')">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div class="titan-sym">
+                <span style="font-size: 9px; color: var(--text-muted);">#${String(idx + 1).padStart(2, '0')}</span>
+                <span>${t.symbol.replace("USDT", "")}</span>
+                ${t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : ''}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span class="titan-px">$${Number(t.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+              <span class="titan-chg ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${Number(t.change_24h || 0).toFixed(2)}%</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Buscar Telemetria 360 Principal
+    async function fetchTelemetry() {
+      if (isPolling) return;
+      isPolling = true;
+
+      try {
+        const res = await fetch(`/api/v1/hermes/laya/360-telemetry?symbol=${currentSelectedSymbol}`);
+        if (!res.ok) {
+          isPolling = false;
+          return;
+        }
+
+        const data = await res.json();
+        isPolling = false;
+
+        // 1. Atualizar HUD Panorâmico
+        const pulse = data.pulse || {};
+        const btcClimate = pulse.universal_market_stats || {};
+        
+        const adxEl = document.getElementById("hud-adx");
+        if (adxEl) adxEl.textContent = `ADX ${Number(pulse.master_adx || 20).toFixed(1)}`;
+
+        const regEl = document.getElementById("hud-regime");
+        if (regEl) regEl.textContent = pulse.regime_mode || "MEAN_REVERSION";
+
+        const ignEl = document.getElementById("hud-ignited-cnt");
+        if (ignEl) ignEl.textContent = `${btcClimate.ignited_count || 0} ALTCOINS`;
+
+        // 2. Atualizar Titãs
+        if (data.titans && data.titans.length > 0) {
+          renderTitans(data.titans);
+        }
+
+        // 3. Atualizar Hero do Ativo Inspecionado
+        const heroSym = document.getElementById("inspected-sym");
+        if (heroSym) heroSym.textContent = data.symbol;
+
+        const heroInst = document.getElementById("inspected-inst");
+        if (heroInst) heroInst.textContent = `${data.symbol.replace('USDT', '')}-USDT-SWAP`;
+
+        const heroPx = document.getElementById("inspected-price");
+        if (heroPx) heroPx.textContent = `$${Number(data.current_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+
+        const flow = data.flow || {};
+        const heroSub = document.getElementById("inspected-subinfo");
+        if (heroSub) {
+          heroSub.textContent = `Funding: ${((flow.funding_rate || 0) * 100).toFixed(4)}% | OI: $${Number(flow.oi_usd || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+        }
+
+        // 4. Microestrutura Reativa (V173 Anti-Predictive Guards)
+        const micro = data.microstructure || {};
+        const shortStatus = micro.short_status || {};
+        const longStatus = micro.long_status || {};
+
+        const banner = document.getElementById("rejection-banner");
+        const verdict = document.getElementById("rejection-verdict");
+        const badgeBox = document.getElementById("rejection-decision-badge");
+
+        // Avalia se há veto ativo em qualquer direção
+        if (!shortStatus.is_safe && shortStatus.reason) {
+          banner.className = "rejection-banner veto";
+          verdict.textContent = shortStatus.reason;
+          verdict.style.color = "var(--red)";
+          badgeBox.innerHTML = `<span class="hud-badge red">VETO SHORT ATIVO</span>`;
+        } else if (!longStatus.is_safe && longStatus.reason) {
+          banner.className = "rejection-banner veto";
+          verdict.textContent = longStatus.reason;
+          verdict.style.color = "var(--red)";
+          badgeBox.innerHTML = `<span class="hud-badge red">VETO LONG ATIVO</span>`;
+        } else {
+          banner.className = "rejection-banner safe";
+          verdict.textContent = "MICROESTRUTURA VALIDADA: Pavio de exaustão e recuo confirmados em 5M. Seguro para disparos snipers.";
+          verdict.style.color = "var(--green)";
+          badgeBox.innerHTML = `<span class="hud-badge green">SEGURO & REATIVO</span>`;
+        }
+
+        // Medidores
+        const meterRejVal = document.getElementById("meter-rejection-val");
+        const meterRejBar = document.getElementById("meter-rejection-bar");
+        if (meterRejVal && meterRejBar) {
+          meterRejVal.textContent = shortStatus.is_safe ? ">= 25% (VALIDADO)" : "< 25% (EXPANSÃO)";
+          meterRejVal.style.color = shortStatus.is_safe ? "var(--green)" : "var(--red)";
+          meterRejBar.style.width = shortStatus.is_safe ? "100%" : "20%";
+          meterRejBar.style.background = shortStatus.is_safe ? "var(--green)" : "var(--red)";
+        }
+
+        const meterAccelVal = document.getElementById("meter-accel-val");
+        const meterAccelBar = document.getElementById("meter-accel-bar");
+        if (meterAccelVal && meterAccelBar) {
+          const isLoco = (shortStatus.reason || "").includes("LOCOMOTIVA");
+          meterAccelVal.textContent = isLoco ? "ALTA VELOCIDADE" : "CONTIDO";
+          meterAccelVal.style.color = isLoco ? "var(--red)" : "var(--green)";
+          meterAccelBar.style.width = isLoco ? "100%" : "30%";
+          meterAccelBar.style.background = isLoco ? "var(--red)" : "var(--green)";
+        }
+
+        // 5. Orderbook L2 (OBI)
+        const ob = data.orderbook || {};
+        const obiRatio = ob.obi_ratio || 0;
+        const obiValEl = document.getElementById("obi-ratio-val");
+        if (obiValEl) {
+          obiValEl.textContent = `OBI: ${obiRatio > 0 ? '+' : ''}${obiRatio.toFixed(2)}%`;
+          obiValEl.style.color = obiRatio > 10 ? "var(--green)" : (obiRatio < -10 ? "var(--red)" : "var(--text-main)");
+        }
+
+        const bidVolEl = document.getElementById("obi-bid-vol");
+        const askVolEl = document.getElementById("obi-ask-vol");
+        if (bidVolEl) bidVolEl.textContent = `BIDS: ${ob.bid_vol || 0}`;
+        if (askVolEl) askVolEl.textContent = `ASKS: ${ob.ask_vol || 0}`;
+
+        const obiBarBid = document.getElementById("obi-bar-bid");
+        const obiBarAsk = document.getElementById("obi-bar-ask");
+        const totDepth = (ob.bid_vol || 0) + (ob.ask_vol || 0);
+        if (obiBarBid && obiBarAsk && totDepth > 0) {
+          const bidPct = ((ob.bid_vol / totDepth) * 100).toFixed(1);
+          const askPct = (100 - bidPct).toFixed(1);
+          obiBarBid.style.width = `${bidPct}%`;
+          obiBarAsk.style.width = `${askPct}%`;
+        }
+
+        // Escada de Profundidade L2
+        renderDepthLadder(ob.bids || [], ob.asks || []);
+
+        // 6. CVD Taker Delta
+        const cvd = data.cvd || {};
+        const cvdDeltaEl = document.getElementById("cvd-delta-usd");
+        if (cvdDeltaEl) {
+          const d = cvd.cvd_delta || 0;
+          cvdDeltaEl.textContent = `${d >= 0 ? '+' : ''}${d.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}`;
+          cvdDeltaEl.style.color = d >= 0 ? "var(--green)" : "var(--red)";
+        }
+
+        const cvdBuyVol = document.getElementById("cvd-buy-vol");
+        const cvdSellVol = document.getElementById("cvd-sell-vol");
+        if (cvdBuyVol) cvdBuyVol.textContent = `Buys: ${cvd.taker_buy_vol || 0}`;
+        if (cvdSellVol) cvdSellVol.textContent = `Sells: ${cvd.taker_sell_vol || 0}`;
+
+        const cvdBiasLabel = document.getElementById("cvd-bias-label");
+        if (cvdBiasLabel) {
+          cvdBiasLabel.textContent = (cv.bias || cvd.bias || "NEUTRO").replace("_", " ");
+          cvdBiasLabel.style.color = cvd.cvd_delta >= 0 ? "var(--green)" : "var(--red)";
+        }
+
+        const cvdBarBuy = document.getElementById("cvd-bar-buy");
+        const cvdBarSell = document.getElementById("cvd-bar-sell");
+        const totTaker = (cvd.taker_buy_vol || 0) + (cvd.taker_sell_vol || 0);
+        if (cvdBarBuy && cvdBarSell && totTaker > 0) {
+          const buyPct = ((cvd.taker_buy_vol / totTaker) * 100).toFixed(1);
+          cvdBarBuy.style.width = `${buyPct}%`;
+          cvdBarSell.style.width = `${(100 - buyPct).toFixed(1)}%`;
+        }
+
+        // 7. Liquidação Clusters
+        const liqs = data.liquidations || {};
+        const liqLong = document.getElementById("liq-long-pool");
+        const liqShort = document.getElementById("liq-short-pool");
+        if (liqLong) liqLong.textContent = `$${Number(liqs.long_pool_20x || 0).toFixed(4)}`;
+        if (liqShort) liqShort.textContent = `$${Number(liqs.short_pool_20x || 0).toFixed(4)}`;
+
+        // 8. Whale vs Retail
+        const lsrVal = document.getElementById("flow-lsr-val");
+        if (lsrVal) lsrVal.textContent = Number(flow.lsr_val || 1.0).toFixed(2);
+
+        const sardinhaStatus = document.getElementById("flow-sardinha-status");
+        if (sardinhaStatus) sardinhaStatus.textContent = flow.sardinha_status || "Equilíbrio de posicionamento do varejo";
+
+        // 9. Stream de Pensamentos
+        if (pulse.thoughts && pulse.thoughts.length > 0) {
+          allThoughts = pulse.thoughts;
+          renderThoughts();
+        }
+
+      } catch (err) {
+        console.error("Erro ao buscar telemetria 360:", err);
+        isPolling = false;
+      }
+    }
+
+    // Renderizar Escada L2
+    function renderDepthLadder(bids, asks) {
+      const bidsEl = document.getElementById("depth-bids-list");
+      const asksEl = document.getElementById("depth-asks-list");
+      if (!bidsEl || !asksEl) return;
+
+      const maxBidSz = Math.max(...bids.map(b => b[1]), 1.0);
+      const maxAskSz = Math.max(...asks.map(a => a[1]), 1.0);
+
+      bidsEl.innerHTML = bids.slice(0, 6).map(b => {
+        const fillW = Math.min(100, Math.round((b[1] / maxBidSz) * 100));
+        return `
+          <div class="depth-row">
+            <div class="depth-fill bid" style="width: ${fillW}%;"></div>
+            <span class="depth-text" style="color: var(--green);">${Number(b[0]).toFixed(4)}</span>
+            <span class="depth-text" style="color: var(--text-muted);">${Number(b[1]).toFixed(1)}</span>
+          </div>
+        `;
+      }).join("");
+
+      asksEl.innerHTML = asks.slice(0, 6).map(a => {
+        const fillW = Math.min(100, Math.round((a[1] / maxAskSz) * 100));
+        return `
+          <div class="depth-row">
+            <div class="depth-fill ask" style="width: ${fillW}%;"></div>
+            <span class="depth-text" style="color: var(--red);">${Number(a[0]).toFixed(4)}</span>
+            <span class="depth-text" style="color: var(--text-muted);">${Number(a[1]).toFixed(1)}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Auto-execução na carga da página
+    window.addEventListener("DOMContentLoaded", () => {
+      initChart();
+      loadCandles(currentSelectedSymbol);
+      fetchTelemetry();
+      setInterval(fetchTelemetry, 2500);
+      setInterval(() => {
+        loadCandles(currentSelectedSymbol);
+      }, 5000);
+    });
+  </script>
+</body>
+</html>

@@ -269,6 +269,134 @@ async def laya_kronos_projection_endpoint(symbol: str = "SOLUSDT", side: str = "
     }
 
 
+@router.get("/laya/360-telemetry", summary="Retorna telemetria 360 graus em tempo real da Laya")
+async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
+    """
+    [V173] Telemetria 360 Institucional da Laya:
+    - Pulso global (regime, adx, btc_climate, thought_stream, universal_market_stats)
+    - Livro de Ofertas L2 (Orderbook Imbalance OBI) com profundidade
+    - CVD (Cumulative Volume Delta) e Agressão de Takers
+    - Microestrutura Reativa 5M (TICK_REJECTION_INDEX, MICRO_ACCELERATION_BRAKE, MSB_CONFIRMATION)
+    - Mapa de Liquidações estimadas
+    - Lista de Titãs com preços e status
+    """
+    import time
+    from app.services.laya_router_service import laya_router_service
+    from app.services.laya_flow_service import laya_flow_service
+    from services.okx_rest import okx_rest_service
+    from services.okx_ws_public import okx_ws_public_service
+    from app.services.okx_universe_service import okx_universe_service
+
+    clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper() + "USDT"
+    clean_coin = clean_sym.replace("USDT", "")
+
+    # 1. Pulso da Laya
+    pulse = laya_router_service.get_pulse()
+
+    # 2. Preço atual
+    current_price = float(okx_ws_public_service.get_current_price(clean_sym) or 0.0)
+    if current_price <= 0:
+        current_price = float(okx_ws_public_service.get_current_price(f"{clean_coin}-USDT-SWAP") or 0.0)
+
+    # 3. L2 Orderbook & Imbalance
+    orderbook_data = {"bids": [], "asks": [], "obi_ratio": 0.0, "bid_vol": 0.0, "ask_vol": 0.0}
+    try:
+        raw_ob = await okx_rest_service.get_orderbook(clean_sym, limit=12)
+        bids = raw_ob.get("b", [])[:12]
+        asks = raw_ob.get("a", [])[:12]
+        b_vol = sum(float(b[1]) for b in bids)
+        a_vol = sum(float(a[1]) for a in asks)
+        tot_depth = b_vol + a_vol
+        obi = round(((b_vol - a_vol) / tot_depth) * 100.0, 2) if tot_depth > 0 else 0.0
+
+        if current_price <= 0 and bids and asks:
+            current_price = round((float(bids[0][0]) + float(asks[0][0])) / 2.0, 4)
+
+        orderbook_data = {
+            "bids": bids,
+            "asks": asks,
+            "bid_vol": round(b_vol, 2),
+            "ask_vol": round(a_vol, 2),
+            "obi_ratio": obi
+        }
+    except Exception as _e_ob:
+        logger.debug(f"[360-TELEMETRY] Erro no orderbook para {clean_sym}: {_e_ob}")
+
+    # 4. CVD Taker Delta
+    cvd_data = {"taker_buy_vol": 0.0, "taker_sell_vol": 0.0, "cvd_delta": 0.0, "cvd_ratio": 0.0, "bias": "NEUTRAL"}
+    try:
+        trades = await okx_rest_service.get_public_trade_history(clean_sym, limit=50)
+        t_buy = sum(float(t.get("size", 0)) for t in trades if t.get("side") == "Buy")
+        t_sell = sum(float(t.get("size", 0)) for t in trades if t.get("side") == "Sell")
+        tot_t = t_buy + t_sell
+        cvd_delta = t_buy - t_sell
+        cvd_ratio = round((cvd_delta / tot_t) * 100.0, 2) if tot_t > 0 else 0.0
+        bias = "BULLISH_AGGRESSION" if cvd_ratio > 10 else ("BEARISH_AGGRESSION" if cvd_ratio < -10 else "NEUTRAL")
+        cvd_data = {
+            "taker_buy_vol": round(t_buy, 2),
+            "taker_sell_vol": round(t_sell, 2),
+            "cvd_delta": round(cvd_delta, 2),
+            "cvd_ratio": cvd_ratio,
+            "bias": bias
+        }
+    except Exception as _e_cvd:
+        logger.debug(f"[360-TELEMETRY] Erro no CVD para {clean_sym}: {_e_cvd}")
+
+    # 5. Microestrutura Reativa 5M (V173 Anti-Predictive Guards)
+    micro_eval = {
+        "short_status": await laya_router_service.check_lower_tf_exhaustion(clean_sym, "SHORT"),
+        "long_status": await laya_router_service.check_lower_tf_exhaustion(clean_sym, "BUY")
+    }
+
+    # 6. Flow Radar (LSR, OI, Funding, Sardinha)
+    flow = await laya_flow_service.get_flow_radar(clean_sym)
+
+    # 7. Estimated Liquidation Clusters
+    p = current_price if current_price > 0 else float(flow.get("price", 100.0) or 100.0)
+    liquidation_clusters = {
+        "long_pool_20x": round(p * 0.952, 4),
+        "long_pool_50x": round(p * 0.981, 4),
+        "short_pool_20x": round(p * 1.048, 4),
+        "short_pool_50x": round(p * 1.019, 4),
+        "magnet_target": "LONG_LIQUIDATION_MAGNET" if flow.get("lsr_val", 1.0) > 1.25 else "SHORT_SQUEEZE_MAGNET"
+    }
+
+    # 8. Top 30 Universe Titans List
+    titans_list = []
+    try:
+        tradable = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
+        for t in tradable:
+            s = t.get("symbol", "")
+            cp = t.get("pair", s.replace("-USDT-SWAP", "USDT"))
+            live_p = okx_ws_public_service.get_current_price(cp) or t.get("price", 0.0)
+            chg = t.get("change_24h", 0.0)
+            vol = t.get("volume_24h_usd", 0.0)
+            titans_list.append({
+                "symbol": cp,
+                "inst_id": s,
+                "price": live_p,
+                "change_24h": round(chg, 2),
+                "volume_usd": vol,
+                "bot_ignition": t.get("bot_ignition", False),
+                "is_active": (cp == clean_sym)
+            })
+    except Exception as _e_titans:
+        logger.debug(f"[360-TELEMETRY] Erro universo titas: {_e_titans}")
+
+    return {
+        "symbol": clean_sym,
+        "current_price": current_price,
+        "pulse": pulse,
+        "orderbook": orderbook_data,
+        "cvd": cvd_data,
+        "microstructure": micro_eval,
+        "flow": flow,
+        "liquidations": liquidation_clusters,
+        "titans": titans_list,
+        "timestamp": time.time()
+    }
+
+
 @router.get("/rag/search")
 async def search_rag_knowledge(q: str = Query(..., description="Query de busca no Segundo Cérebro"), top_k: int = Query(4, ge=1, le=10)):
     """[V143] Endpoint para consulta semântica ao RAG do 1Crypten (MASTER_ARCHITECTURE + vault_galaxy)."""

@@ -1141,6 +1141,22 @@ if settings.SERVE_STATIC_FRONTEND:
                 }
             )
 
+    @app.get("/laya")
+    @app.get("/laya.html")
+    async def serve_laya_page():
+        path = os.path.join(APP_STATIC_DIR, "laya.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "laya.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-laya-{time.time()}"
+                }
+            )
+
     @app.get("/cockpit")
     @app.get("/cockpit.html")
     async def serve_cockpit_page():
