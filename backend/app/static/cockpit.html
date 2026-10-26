@@ -3604,37 +3604,136 @@
       return;
     }
 
-    const activeSymbols = new Set(
-      (activeSlots || []).map(s => (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase())
-    );
+    // Mapeamento dos slots em custodia ativa indexados pelo simbolo limpo
+    const activeSlotMap = {};
+    (activeSlots || []).forEach(s => {
+      const clean = (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase();
+      activeSlotMap[clean] = s;
+    });
 
-    // Mapear e preparar candidatos
+    // Mapear e preparar candidatos com calculo da verdadeira postura institucional
     const list = entries.map(([key, cand]) => {
       const sym = cand.symbol || key;
       const cleanSym = cand.clean_sym || sym.replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase();
-      const score = Math.max(40, Math.min(99, parseInt(cand.score || 60, 10)));
-      const direction = cand.direction || 'HOLD';
+      const baseScore = Math.max(40, Math.min(99, parseInt(cand.score || 60, 10)));
+      const rawDir = (cand.direction || 'HOLD').toUpperCase();
       const cExp = parseFloat(cand['1c_exp'] || 0);
-      const cRange = parseFloat(cand['1c_range'] || 0);
+      const cRange = parseFloat(cand['1c_range'] || 50);
       const botOn = cand.bot_ignition || (cExp >= 70);
-      const strategy = cand.strategy || 'MONITOR';
-      const isHolding = activeSymbols.has(cleanSym);
+      const slot = activeSlotMap[cleanSym] || null;
+      const isHolding = !!slot;
+
+      let postureLabel = 'CONSOLIDAÇÃO';
+      let readinessScore = baseScore;
+      let barColor = '#848E9C';
+      let barFillGrad = 'linear-gradient(90deg, rgba(132,142,156,0.15), rgba(132,142,156,0.5))';
+      let textColor = '#848E9C';
+      let cardBorder = '#1B232D';
+      let cardBg = '#0B0E14';
+      let metricRight = cRange > 0 ? `MIOLO ${cRange.toFixed(0)}%` : 'CHOP';
+      let strategyLabel = (cand.strategy || 'MONITOR').replace('LAYA_', '');
+
+      if (isHolding) {
+        // ATIVO EM CUSTODIA ATIVA (AVAX, RENDER, ETC.)
+        const isLong = (slot.side === 'BUY' || slot.side === 'LONG' || slot.side === 'Buy');
+        const pnlPct = (slot.pnl_percent !== undefined) ? Number(slot.pnl_percent) : 0;
+        const pnlUsd = (slot.pnl_usd !== undefined) ? Number(slot.pnl_usd) : 0;
+        const lev = slot.leverage || 5;
+        const pnlSign = pnlPct >= 0 ? '+' : '';
+
+        postureLabel = `${isLong ? 'LONG' : 'SHORT'} ${lev}X (${pnlSign}${pnlPct.toFixed(1)}%)`;
+        readinessScore = 100;
+        barColor = pnlPct >= 0 ? 'var(--accent-gold)' : '#F6465D';
+        barFillGrad = isLong 
+          ? 'linear-gradient(90deg, rgba(14,203,129,0.35), rgba(252,213,53,0.95))'
+          : 'linear-gradient(90deg, rgba(246,70,93,0.35), rgba(252,213,53,0.95))';
+        textColor = 'var(--accent-gold)';
+        cardBorder = 'rgba(252,213,53,0.6)';
+        cardBg = '#141208';
+        metricRight = `${pnlSign}$${Math.abs(pnlUsd).toFixed(2)}`;
+        strategyLabel = 'EM CUSTODIA';
+      } else if (rawDir === 'BUY' || rawDir === 'LONG') {
+        postureLabel = 'GATILHO: LONG';
+        readinessScore = Math.max(85, baseScore);
+        barColor = '#0ECB81';
+        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
+        textColor = '#0ECB81';
+        cardBorder = 'rgba(14,203,129,0.35)';
+        metricRight = 'GATILHO';
+      } else if (rawDir === 'SELL' || rawDir === 'SHORT') {
+        postureLabel = 'GATILHO: SHORT';
+        readinessScore = Math.max(85, baseScore);
+        barColor = '#F6465D';
+        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
+        textColor = '#F6465D';
+        cardBorder = 'rgba(246,70,93,0.35)';
+        metricRight = 'GATILHO';
+      } else if (botOn || cExp >= 70) {
+        // IGNICAO / BREAKOUT MOMENTUM
+        postureLabel = 'IGNICAO LONG';
+        readinessScore = Math.min(96, Math.max(baseScore, Math.round(cExp)));
+        barColor = '#29ABE2';
+        barFillGrad = 'linear-gradient(90deg, rgba(41,171,226,0.2), rgba(41,171,226,0.9))';
+        textColor = '#29ABE2';
+        cardBorder = 'rgba(41,171,226,0.35)';
+        metricRight = `EXP ${cExp.toFixed(0)}`;
+        strategyLabel = 'BREAKOUT EXP';
+      } else if (cRange >= 65) {
+        // EXAUSTAO NO TOPO DO CANAL (TESTANDO RESISTENCIA) -> MIRA SHORT
+        postureLabel = 'MIRA SHORT';
+        readinessScore = Math.min(94, Math.max(68, Math.round(cRange)));
+        barColor = '#F6465D';
+        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.2), rgba(246,70,93,0.85))';
+        textColor = '#F6465D';
+        cardBorder = 'rgba(246,70,93,0.3)';
+        metricRight = `TOPO ${cRange.toFixed(0)}%`;
+        strategyLabel = 'EXAUSTAO BORD';
+      } else if (cRange <= 35 && cRange > 0) {
+        // DESCONTO NO FUNDO DO CANAL (TESTANDO SUPORTE) -> MIRA LONG
+        postureLabel = 'MIRA LONG';
+        readinessScore = Math.min(94, Math.max(68, Math.round(100 - cRange)));
+        barColor = '#0ECB81';
+        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.2), rgba(14,203,129,0.85))';
+        textColor = '#0ECB81';
+        cardBorder = 'rgba(14,203,129,0.3)';
+        metricRight = `FUNDO ${(100 - cRange).toFixed(0)}%`;
+        strategyLabel = 'DESCONTO BORD';
+      } else {
+        // MIOLO DO CANAL / CHOPPING ZONE
+        postureLabel = 'CONSOLIDAÇÃO';
+        readinessScore = Math.min(65, Math.max(45, baseScore));
+        barColor = '#848E9C';
+        barFillGrad = 'linear-gradient(90deg, rgba(132,142,156,0.15), rgba(132,142,156,0.45))';
+        textColor = '#848E9C';
+        cardBorder = '#1B232D';
+        metricRight = `MIOLO ${cRange.toFixed(0)}%`;
+        strategyLabel = 'LATERAL';
+      }
 
       return {
         sym,
         cleanSym,
-        score,
-        direction,
+        score: readinessScore,
+        postureLabel,
+        barColor,
+        barFillGrad,
+        textColor,
+        cardBorder,
+        cardBg,
+        metricRight,
+        strategyLabel,
         cExp,
         cRange,
         botOn,
-        strategy,
         isHolding,
         rationale: cand.rationale || ''
       };
     });
 
-    // Ordenação: primeiro ativos em custódia, depois maior score decrescente, depois 1c_exp
+    // Ordenacao soberana:
+    // 1. Ativos em custodia sempre no topo (#01, #02...)
+    // 2. Maior readiness score (prontidao) decrescente
+    // 3. Maior cExp (explosao) decrescente
     list.sort((a, b) => {
       if (a.isHolding && !b.isHolding) return -1;
       if (!a.isHolding && b.isHolding) return 1;
@@ -3647,8 +3746,9 @@
 
     if (subtextEl) {
       const highest = top30[0];
+      const countHolding = top30.filter(t => t.isHolding).length;
       if (highest) {
-        subtextEl.textContent = `${top30.length} ATIVOS | TOP 1: ${highest.cleanSym} (${highest.score}%)`;
+        subtextEl.textContent = `${top30.length} ATIVOS | ${countHolding > 0 ? `${countHolding} EM CUSTODIA | ` : ''}TOP 1: ${highest.cleanSym} (${highest.score}%)`;
       }
     }
 
@@ -3657,30 +3757,6 @@
       const rankNum = String(idx + 1).padStart(2, '0');
       const isTop3 = idx < 3;
       const rankColor = item.isHolding ? 'var(--accent-gold)' : (isTop3 ? '#FFF' : '#848E9C');
-
-      let barColor = '#474D57';
-      let barFillGrad = 'linear-gradient(90deg, rgba(71,77,87,0.2), rgba(71,77,87,0.6))';
-      let textColor = '#848E9C';
-      let cardBorder = '#1B232D';
-      let cardBg = '#0B0E14';
-
-      if (item.isHolding) {
-        barColor = 'var(--accent-gold)';
-        barFillGrad = 'linear-gradient(90deg, rgba(252,213,53,0.3), rgba(252,213,53,0.85))';
-        textColor = 'var(--accent-gold)';
-        cardBorder = 'rgba(252,213,53,0.5)';
-        cardBg = '#141208';
-      } else if (item.direction === 'LONG') {
-        barColor = '#0ECB81';
-        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.85))';
-        textColor = '#0ECB81';
-        cardBorder = 'rgba(14,203,129,0.25)';
-      } else if (item.direction === 'SHORT') {
-        barColor = '#F6465D';
-        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.85))';
-        textColor = '#F6465D';
-        cardBorder = 'rgba(246,70,93,0.25)';
-      }
 
       const barWidth = Math.min(100, Math.max(12, item.score));
 
@@ -3693,18 +3769,16 @@
         tagsHtml += `<span style="background:rgba(41,171,226,0.2); color:#29ABE2; border:1px solid rgba(41,171,226,0.6); font-weight:800; font-size:7.5px; padding:0 3px; border-radius:2px;">ROBÔS</span>`;
       }
 
-      const metricRight = item.botOn 
-        ? `EXP ${item.cExp.toFixed(0)}` 
-        : (item.cRange > 0 ? `RNG ${item.cRange.toFixed(0)}%` : item.strategy.replace('LAYA_', ''));
+      const scoreDisplay = item.isHolding ? '' : ` ${item.score}%`;
 
       html += `
         <div onclick="setChartSymbol(0, '${item.cleanSym}USDT')" 
-             title="${item.cleanSym}: ${item.direction} (${item.score}%) - ${item.rationale}"
-             style="cursor:pointer; background:${cardBg}; border:1px solid ${cardBorder}; border-radius:3px; padding:3px 6px; display:flex; flex-direction:column; gap:2px; transition:all 0.12s ease;"
+             title="${item.cleanSym}: ${item.postureLabel} (${item.score}%) - ${item.rationale}"
+             style="cursor:pointer; background:${item.cardBg}; border:1px solid ${item.cardBorder}; border-radius:3px; padding:3px 6px; display:flex; flex-direction:column; gap:2px; transition:all 0.12s ease;"
              onmouseover="this.style.background='#131A24'; this.style.borderColor='var(--accent-gold)';"
-             onmouseout="this.style.background='${cardBg}'; this.style.borderColor='${cardBorder}';">
+             onmouseout="this.style.background='${item.cardBg}'; this.style.borderColor='${item.cardBorder}';">
           
-          <!-- Linha Superior: Rank + Símbolo + Tags + Score -->
+          <!-- Linha Superior: Rank + Simbolo + Tags + Postura e Score -->
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:9px;">
             <div style="display:flex; align-items:center; gap:5px;">
               <span style="color:${rankColor}; font-weight:800; font-size:8.5px; min-width:18px;">#${rankNum}</span>
@@ -3712,16 +3786,16 @@
               ${tagsHtml}
             </div>
             <div style="display:flex; align-items:center; gap:4px;">
-              <span style="color:${textColor}; font-weight:800; font-size:9.5px;">${item.direction === 'HOLD' ? 'NEUTRO' : item.direction} ${item.score}%</span>
+              <span style="color:${item.textColor}; font-weight:800; font-size:9.5px;">${item.postureLabel}${scoreDisplay}</span>
             </div>
           </div>
 
-          <!-- Barra Dinâmica de Calor -->
+          <!-- Barra Dinamica de Calor -->
           <div style="width:100%; height:13px; background:#0B0E14; border:1px solid #1B232D; border-radius:2px; position:relative; overflow:hidden; display:flex; align-items:center;">
-            <div style="width:${barWidth}%; height:100%; background:${barFillGrad}; border-right:2px solid ${barColor}; transition:width 0.4s ease;"></div>
+            <div style="width:${barWidth}%; height:100%; background:${item.barFillGrad}; border-right:2px solid ${item.barColor}; transition:width 0.4s ease;"></div>
             <div style="position:absolute; width:100%; display:flex; justify-content:space-between; padding:0 5px; font-size:7.5px; font-weight:700; pointer-events:none;">
-              <span style="color:#FFF; opacity:0.9;">${item.strategy.replace('LAYA_', '')}</span>
-              <span style="color:#AAA;">${metricRight}</span>
+              <span style="color:#FFF; opacity:0.9;">${item.strategyLabel}</span>
+              <span style="color:#AAA;">${item.metricRight}</span>
             </div>
           </div>
 
