@@ -992,21 +992,20 @@
 
           <!-- Sub-abas Táticas da Laya -->
           <div style="display: flex; gap: 3px; margin-bottom: 6px; border-bottom: 1px solid #2B3139; padding-bottom: 4px; flex-shrink: 0; overflow-x: auto;">
-            <button id="tab-laya-bubbles" onclick="switchLayaTab('bubbles')" class="btn-gold" style="padding: 3px 6px; font-size: 9px; font-weight: 800; border-left: 2px solid var(--accent-gold);">RADAR BOLHAS</button>
+            <button id="tab-laya-ranking" onclick="switchLayaTab('ranking')" class="btn-gold" style="padding: 3px 6px; font-size: 9px; font-weight: 800; border-left: 2px solid var(--accent-gold);">RANKING 1-30</button>
             <button id="tab-laya-thoughts" onclick="switchLayaTab('thoughts')" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;">STREAM TEXTO</button>
             <button id="tab-laya-whales" onclick="switchLayaTab('whales')" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;">BALEIAS (RUBIK)</button>
             <button id="tab-laya-candidates" onclick="switchLayaTab('candidates')" class="btn-ghost" style="padding: 3px 6px; font-size: 9px;">CANDIDATOS</button>
           </div>
 
-          <!-- Pane 0: Radar de Bolhas Neurais (Laya Neural Bubbles - DEFAULT) -->
-          <div id="pane-laya-bubbles" class="laya-tab-pane active-tab" style="display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden; position: relative;">
+          <!-- Pane 0: Ranking Tático de 1 a 30 (Termômetro de Gatilhos - DEFAULT) -->
+          <div id="pane-laya-ranking" class="laya-tab-pane active-tab" style="display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; overflow: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; flex-shrink: 0;">
-              <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">RADAR QUÂNTICO DE GATILHOS:</span>
-              <span id="laya-bubbles-subtext" style="font-size: 7.5px; color: var(--accent-gold); font-family: var(--font-mono);">0 ATIVOS NA MIRA</span>
+              <span style="font-size: 8px; color: #848E9C; font-weight: 700; letter-spacing: 0.5px;">PRIORIDADE DE GATILHO (SCORE & BARRAS):</span>
+              <span id="laya-ranking-subtext" style="font-size: 7.5px; color: var(--accent-gold); font-family: var(--font-mono);">TOP 30 ATIVOS</span>
             </div>
-            <div style="flex: 1 1 0; min-height: 0; height: 100%; position: relative; border-radius: 3px; overflow: hidden; background: radial-gradient(circle at center, #0B0E14 0%, #05070A 100%); border: 1px solid #1B232D;">
-              <canvas id="laya-bubble-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
-              <div id="laya-bubble-tooltip" style="position: absolute; display: none; pointer-events: none; background: rgba(11, 14, 17, 0.96); border: 1px solid var(--accent-gold); border-radius: 3px; padding: 6px 8px; font-family: var(--font-mono); font-size: 9px; color: #EAECEF; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.8); max-width: 220px;"></div>
+            <div id="laya-ranked-list" style="background: #05070A; border: 1px solid #1B232D; border-radius: 3px; padding: 4px 6px; font-family: var(--font-mono); font-size: 9px; flex: 1 1 0; height: 100%; min-height: 0; max-height: none; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+              <div style="color: #555; text-align: center; padding: 30px 0;">SINCRONIZANDO RANKING INSTITUCIONAL...</div>
             </div>
           </div>
 
@@ -2839,16 +2838,11 @@
           renderLayaWhaleRadar(d.whale_flow);
         }
 
-        // 6. Render Candidate Setups & Neural Bubbles
+        // 6. Render Candidate Setups & Ranked Leaderboard #01 to #30
         if (d.candidate_setups) {
           window._lastCandidateSetups = d.candidate_setups;
           renderLayaCandidates(d.candidate_setups);
-          if (!window._layaBubbleEngine && typeof initLayaBubbleEngine === 'function') {
-            initLayaBubbleEngine();
-          }
-          if (window._layaBubbleEngine) {
-            window._layaBubbleEngine.updateData(d.candidate_setups, window._activeSlotsData || []);
-          }
+          renderLayaRankedList(d.candidate_setups, window._activeSlotsData || []);
         }
       } catch (err) {
         console.warn("[LAYA-PULSE] Erro:", err);
@@ -2857,18 +2851,18 @@
 
     function switchLayaTab(tab) {
       window._activeLayaTab = tab;
-      const bBtn = document.getElementById("tab-laya-bubbles");
+      const rBtn = document.getElementById("tab-laya-ranking");
       const tBtn = document.getElementById("tab-laya-thoughts");
       const wBtn = document.getElementById("tab-laya-whales");
       const cBtn = document.getElementById("tab-laya-candidates");
-      const bPane = document.getElementById("pane-laya-bubbles");
+      const rPane = document.getElementById("pane-laya-ranking");
       const tPane = document.getElementById("pane-laya-thoughts");
       const wPane = document.getElementById("pane-laya-whales");
       const cPane = document.getElementById("pane-laya-candidates");
 
-      if (bBtn) {
-        bBtn.className = tab === 'bubbles' ? 'btn-gold' : 'btn-ghost';
-        bBtn.style.fontWeight = tab === 'bubbles' ? '800' : '400';
+      if (rBtn) {
+        rBtn.className = tab === 'ranking' ? 'btn-gold' : 'btn-ghost';
+        rBtn.style.fontWeight = tab === 'ranking' ? '800' : '400';
       }
       if (tBtn) {
         tBtn.className = tab === 'thoughts' ? 'btn-gold' : 'btn-ghost';
@@ -2883,16 +2877,16 @@
         cBtn.style.fontWeight = tab === 'candidates' ? '700' : '400';
       }
 
-      if (bPane) {
-        if (tab === 'bubbles') {
-          bPane.classList.add('active-tab');
-          bPane.style.setProperty('display', 'flex', 'important');
-          if (window._layaBubbleEngine) {
-            window._layaBubbleEngine.resize();
+      if (rPane) {
+        if (tab === 'ranking') {
+          rPane.classList.add('active-tab');
+          rPane.style.setProperty('display', 'flex', 'important');
+          if (window._lastCandidateSetups) {
+            renderLayaRankedList(window._lastCandidateSetups, window._activeSlotsData || []);
           }
         } else {
-          bPane.classList.remove('active-tab');
-          bPane.style.setProperty('display', 'none', 'important');
+          rPane.classList.remove('active-tab');
+          rPane.style.setProperty('display', 'none', 'important');
         }
       }
       if (tPane) {
@@ -3595,375 +3589,149 @@
 
     console.log("[COCKPIT] Initialization sequence completed.");
 
+
   // =========================================================================
-  // 1CRYPTEN — LAYA NEURAL BUBBLES ENGINE (HTML5 CANVAS 2D PHYSICS RADAR)
+  // 1CRYPTEN — LAYA RANKED LEADERBOARD (#01 A #30) COM BARRAS DE CALOR
   // =========================================================================
-  class LayaBubbleEngine {
-    constructor(canvasId, tooltipId) {
-      this.canvas = document.getElementById(canvasId);
-      this.tooltip = document.getElementById(tooltipId);
-      this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-      this.bubbles = [];
-      this.hoveredBubble = null;
-      this.width = 0;
-      this.height = 0;
-      this.dpr = window.devicePixelRatio || 1;
-      this.animId = null;
-      this.subtextEl = document.getElementById('laya-bubbles-subtext');
+  function renderLayaRankedList(candidateSetups, activeSlots) {
+    const container = document.getElementById("laya-ranked-list");
+    const subtextEl = document.getElementById("laya-ranking-subtext");
+    if (!container || !candidateSetups) return;
 
-      if (this.canvas) {
-        this.initEvents();
-        setTimeout(() => this.resize(), 50);
-        setTimeout(() => this.resize(), 300);
-        setTimeout(() => this.resize(), 1000);
-        this.startLoop();
-      }
+    const entries = Object.entries(candidateSetups);
+    if (entries.length === 0) {
+      container.innerHTML = `<div style="color:#555; text-align:center; padding:30px 0;">VARRENDO ESTRUTURAS INSTITUCIONAIS...</div>`;
+      return;
     }
 
-    resize() {
-      if (!this.canvas || !this.canvas.parentElement) return;
-      const rect = this.canvas.parentElement.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-      this.width = rect.width;
-      this.height = rect.height;
-      this.dpr = window.devicePixelRatio || 1;
-      this.canvas.width = this.width * this.dpr;
-      this.canvas.height = this.height * this.dpr;
-      if (this.ctx) {
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.scale(this.dpr, this.dpr);
-      }
-    }
+    const activeSymbols = new Set(
+      (activeSlots || []).map(s => (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase())
+    );
 
-    initEvents() {
-      window.addEventListener('resize', () => this.resize());
+    // Mapear e preparar candidatos
+    const list = entries.map(([key, cand]) => {
+      const sym = cand.symbol || key;
+      const cleanSym = cand.clean_sym || sym.replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase();
+      const score = Math.max(40, Math.min(99, parseInt(cand.score || 60, 10)));
+      const direction = cand.direction || 'HOLD';
+      const cExp = parseFloat(cand['1c_exp'] || 0);
+      const cRange = parseFloat(cand['1c_range'] || 0);
+      const botOn = cand.bot_ignition || (cExp >= 70);
+      const strategy = cand.strategy || 'MONITOR';
+      const isHolding = activeSymbols.has(cleanSym);
 
-      this.canvas.addEventListener('mousemove', (e) => {
-        const rect = this.canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        let found = null;
-        for (let i = this.bubbles.length - 1; i >= 0; i--) {
-          const b = this.bubbles[i];
-          const dx = mx - b.x;
-          const dy = my - b.y;
-          if (Math.sqrt(dx * dx + dy * dy) <= b.r) {
-            found = b;
-            break;
-          }
-        }
-        this.hoveredBubble = found;
-        this.canvas.style.cursor = found ? 'pointer' : 'default';
-
-        if (found && this.tooltip) {
-          this.tooltip.style.display = 'block';
-          let tx = mx + 14;
-          let ty = my + 14;
-          if (tx + 195 > this.width) tx = mx - 200;
-          if (ty + 110 > this.height) ty = my - 110;
-          this.tooltip.style.left = `${Math.max(4, tx)}px`;
-          this.tooltip.style.top = `${Math.max(4, ty)}px`;
-
-          const dirColor = found.direction === 'LONG' ? '#0ECB81' : (found.direction === 'SHORT' ? '#F6465D' : '#848E9C');
-          const holdTag = found.isHolding ? `<span style="color:#FCD535; font-weight:800; display:block; margin-bottom:2px;">[ORDEM EM CUSTÓDIA]</span>` : '';
-          const botTag = found.botOn ? `<span style="color:#29ABE2; font-weight:800; display:block; margin-bottom:2px;">[ROBÔS LIGADOS • EXP ${found.cExp.toFixed(0)}]</span>` : '';
-          this.tooltip.innerHTML = `
-            ${holdTag}${botTag}
-            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #2B3139; padding-bottom:3px; margin-bottom:4px;">
-              <b style="color:#FFF; font-size:10.5px;">${found.symbol}</b>
-              <b style="color:${dirColor}; font-size:10px;">${found.direction} (${found.score}%)</b>
-            </div>
-            <div style="font-size:8.5px; color:#A0AEC0; line-height:1.35;">
-              <div>Estratégia: <b style="color:#FFF;">${found.strategy}</b></div>
-              <div>Range H1: <b style="color:#FFF;">${found.cRange.toFixed(1)}%</b></div>
-              <div style="margin-top:3px; color:#848E9C; font-style:italic;">Clique para carregar no gráfico G1</div>
-            </div>
-          `;
-        } else if (this.tooltip) {
-          this.tooltip.style.display = 'none';
-        }
-      });
-
-      this.canvas.addEventListener('mouseleave', () => {
-        this.hoveredBubble = null;
-        if (this.tooltip) this.tooltip.style.display = 'none';
-      });
-
-      this.canvas.addEventListener('click', () => {
-        if (this.hoveredBubble && typeof setChartSymbol === 'function') {
-          const sym = this.hoveredBubble.cleanSym + "USDT";
-          setChartSymbol(0, sym);
-          if (typeof showToast === 'function') {
-            showToast(`Gráfico G1 focado em ${this.hoveredBubble.cleanSym}`);
-          }
-        }
-      });
-    }
-
-    updateData(candidateSetups, activeSlots) {
-      if (!candidateSetups) return;
-      const entries = Object.entries(candidateSetups);
-      const activeSymbols = new Set(
-        (activeSlots || []).map(s => (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase())
-      );
-
-      const cx = this.width > 0 ? this.width / 2 : 160;
-      const cy = this.height > 0 ? this.height / 2 : 180;
-      const seenSymbols = new Set();
-
-      entries.forEach(([key, cand]) => {
-        const sym = cand.symbol || key;
-        const cleanSym = cand.clean_sym || sym.replace('-USDT-SWAP', '').replace('USDT', '').replace('.P', '').toUpperCase();
-        seenSymbols.add(cleanSym);
-
-        const score = Math.max(40, Math.min(99, parseInt(cand.score || 60, 10)));
-        const direction = cand.direction || 'HOLD';
-        const cExp = parseFloat(cand['1c_exp'] || 0);
-        const cRange = parseFloat(cand['1c_range'] || 0);
-        const botOn = cand.bot_ignition || (cExp >= 70);
-        const strategy = cand.strategy || 'MONITOR';
-        const isHolding = activeSymbols.has(cleanSym);
-
-        let targetRadius = 16;
-        if (score >= 90) targetRadius = 31;
-        else if (score >= 85) targetRadius = 27;
-        else if (score >= 80) targetRadius = 24;
-        else if (score >= 70) targetRadius = 20;
-        else targetRadius = 17;
-
-        if (isHolding) targetRadius += 4;
-        if (botOn) targetRadius += 2;
-
-        let b = this.bubbles.find(item => item.cleanSym === cleanSym);
-        if (b) {
-          b.score = score;
-          b.direction = direction;
-          b.cExp = cExp;
-          b.cRange = cRange;
-          b.botOn = botOn;
-          b.strategy = strategy;
-          b.isHolding = isHolding;
-          b.targetR = targetRadius;
-        } else {
-          const angle = Math.random() * Math.PI * 2;
-          const dist = Math.random() * 50;
-          this.bubbles.push({
-            cleanSym: cleanSym,
-            symbol: sym,
-            x: cx + Math.cos(angle) * dist,
-            y: cy + Math.sin(angle) * dist,
-            vx: (Math.random() - 0.5) * 0.4,
-            vy: (Math.random() - 0.5) * 0.4,
-            r: targetRadius,
-            targetR: targetRadius,
-            score: score,
-            direction: direction,
-            cExp: cExp,
-            cRange: cRange,
-            botOn: botOn,
-            strategy: strategy,
-            isHolding: isHolding,
-            pulsePhase: Math.random() * Math.PI * 2
-          });
-        }
-      });
-
-      this.bubbles = this.bubbles.filter(b => seenSymbols.has(b.cleanSym));
-
-      if (this.subtextEl) {
-        const highest = this.bubbles.reduce((max, b) => b.score > max.score ? b : max, { score: 0 });
-        if (highest.score > 0) {
-          this.subtextEl.textContent = `${this.bubbles.length} ATIVOS | MIRA: ${highest.cleanSym} (${highest.score}%)`;
-        } else {
-          this.subtextEl.textContent = `${this.bubbles.length} ATIVOS NA MIRA`;
-        }
-      }
-    }
-
-    startLoop() {
-      const loop = () => {
-        this.tick();
-        this.render();
-        this.animId = requestAnimationFrame(loop);
+      return {
+        sym,
+        cleanSym,
+        score,
+        direction,
+        cExp,
+        cRange,
+        botOn,
+        strategy,
+        isHolding,
+        rationale: cand.rationale || ''
       };
-      this.animId = requestAnimationFrame(loop);
-    }
+    });
 
-    tick() {
-      if (this.width <= 0 || this.height <= 0) {
-        this.resize();
-        if (this.width <= 0 || this.height <= 0) return;
-      }
-      const cx = this.width / 2;
-      const cy = this.height / 2;
+    // Ordenação: primeiro ativos em custódia, depois maior score decrescente, depois 1c_exp
+    list.sort((a, b) => {
+      if (a.isHolding && !b.isHolding) return -1;
+      if (!a.isHolding && b.isHolding) return 1;
+      if (b.score !== a.score) return b.score - a.score;
+      return b.cExp - a.cExp;
+    });
 
-      for (let i = 0; i < this.bubbles.length; i++) {
-        const b = this.bubbles[i];
+    // Top 30
+    const top30 = list.slice(0, 30);
 
-        b.r += (b.targetR - b.r) * 0.1;
-        b.pulsePhase = (b.pulsePhase + 0.04) % (Math.PI * 2);
-
-        b.vx += (cx - b.x) * 0.0018;
-        b.vy += (cy - b.y) * 0.0018;
-
-        b.x += b.vx;
-        b.y += b.vy;
-
-        b.vx *= 0.94;
-        b.vy *= 0.94;
-
-        const pad = b.r + 2;
-        if (b.x < pad) { b.x = pad; b.vx *= -0.5; }
-        if (b.x > this.width - pad) { b.x = this.width - pad; b.vx *= -0.5; }
-        if (b.y < pad) { b.y = pad; b.vy *= -0.5; }
-        if (b.y > this.height - pad) { b.y = this.height - pad; b.vy *= -0.5; }
-      }
-
-      for (let i = 0; i < this.bubbles.length; i++) {
-        const b1 = this.bubbles[i];
-        for (let j = i + 1; j < this.bubbles.length; j++) {
-          const b2 = this.bubbles[j];
-          const dx = b2.x - b1.x;
-          const dy = b2.y - b1.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = b1.r + b2.r + 2;
-
-          if (dist < minDist && dist > 0) {
-            const overlap = (minDist - dist) * 0.5;
-            const nx = dx / dist;
-            const ny = dy / dist;
-
-            b1.x -= nx * overlap;
-            b1.y -= ny * overlap;
-            b2.x += nx * overlap;
-            b2.y += ny * overlap;
-
-            const dvx = b2.vx - b1.vx;
-            const dvy = b2.vy - b1.vy;
-            const dot = dvx * nx + dvy * ny;
-            if (dot < 0) {
-              b1.vx += dot * nx * 0.8;
-              b1.vy += dot * ny * 0.8;
-              b2.vx -= dot * nx * 0.8;
-              b2.vy -= dot * ny * 0.8;
-            }
-          }
-        }
+    if (subtextEl) {
+      const highest = top30[0];
+      if (highest) {
+        subtextEl.textContent = `${top30.length} ATIVOS | TOP 1: ${highest.cleanSym} (${highest.score}%)`;
       }
     }
 
-    render() {
-      if (!this.ctx || this.width <= 0 || this.height <= 0) return;
-      const ctx = this.ctx;
-      ctx.clearRect(0, 0, this.width, this.height);
+    let html = '';
+    top30.forEach((item, idx) => {
+      const rankNum = String(idx + 1).padStart(2, '0');
+      const isTop3 = idx < 3;
+      const rankColor = item.isHolding ? 'var(--accent-gold)' : (isTop3 ? '#FFF' : '#848E9C');
 
-      for (let i = 0; i < this.bubbles.length; i++) {
-        const b = this.bubbles[i];
-        const isHovered = (this.hoveredBubble === b);
+      let barColor = '#474D57';
+      let barFillGrad = 'linear-gradient(90deg, rgba(71,77,87,0.2), rgba(71,77,87,0.6))';
+      let textColor = '#848E9C';
+      let cardBorder = '#1B232D';
+      let cardBg = '#0B0E14';
 
-        ctx.save();
-        ctx.translate(b.x, b.y);
-
-        let strokeColor = '#363C4E';
-        let fillGradientStart = '#1E2329';
-        let fillGradientEnd = '#0B0E11';
-        let glowColor = 'transparent';
-
-        if (b.isHolding) {
-          strokeColor = '#FCD535';
-          fillGradientStart = '#3D2F00';
-          fillGradientEnd = '#141000';
-          glowColor = 'rgba(252, 213, 53, 0.4)';
-        } else if (b.direction === 'LONG') {
-          strokeColor = '#0ECB81';
-          fillGradientStart = '#073620';
-          fillGradientEnd = '#02140C';
-          glowColor = 'rgba(14, 203, 129, 0.35)';
-        } else if (b.direction === 'SHORT') {
-          strokeColor = '#F6465D';
-          fillGradientStart = '#3B0F16';
-          fillGradientEnd = '#140407';
-          glowColor = 'rgba(246, 70, 93, 0.35)';
-        }
-
-        if (isHovered || b.isHolding) {
-          const pulseR = b.r + (b.isHolding ? Math.sin(b.pulsePhase) * 2.5 : 3);
-          ctx.beginPath();
-          ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
-          ctx.strokeStyle = isHovered ? '#FFFFFF' : strokeColor;
-          ctx.lineWidth = isHovered ? 2 : 1.5;
-          ctx.shadowColor = isHovered ? '#FFF' : glowColor;
-          ctx.shadowBlur = isHovered ? 12 : 8;
-          ctx.stroke();
-        }
-
-        if (b.botOn) {
-          ctx.save();
-          ctx.rotate(b.pulsePhase * 0.5);
-          ctx.beginPath();
-          ctx.arc(0, 0, b.r + 3.5, 0, Math.PI * 2);
-          ctx.setLineDash([3, 3]);
-          ctx.strokeStyle = '#29ABE2';
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        ctx.beginPath();
-        ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-        const radGrad = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.3, b.r * 0.1, 0, 0, b.r);
-        radGrad.addColorStop(0, fillGradientStart);
-        radGrad.addColorStop(1, fillGradientEnd);
-        ctx.fillStyle = radGrad;
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = b.score >= 85 ? 8 : 2;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = b.score >= 85 ? 2 : 1;
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        const symFontSize = b.r >= 28 ? 10 : (b.r >= 22 ? 8.5 : 7.5);
-        ctx.font = `800 ${symFontSize}px 'IBM Plex Mono', monospace`;
-        ctx.fillStyle = '#FFFFFF';
-
-        const textOffset = b.r >= 22 ? -4 : 0;
-        ctx.fillText(b.cleanSym, 0, textOffset);
-
-        if (b.r >= 22) {
-          const scoreFontSize = b.r >= 28 ? 8 : 7;
-          ctx.font = `700 ${scoreFontSize}px 'IBM Plex Mono', monospace`;
-          ctx.fillStyle = b.isHolding ? '#FCD535' : (b.direction === 'LONG' ? '#0ECB81' : (b.direction === 'SHORT' ? '#F6465D' : '#848E9C'));
-          const subLabel = b.isHolding ? 'ATIVA' : `${b.score}%`;
-          ctx.fillText(subLabel, 0, textOffset + symFontSize + 1);
-        }
-
-        ctx.restore();
+      if (item.isHolding) {
+        barColor = 'var(--accent-gold)';
+        barFillGrad = 'linear-gradient(90deg, rgba(252,213,53,0.3), rgba(252,213,53,0.85))';
+        textColor = 'var(--accent-gold)';
+        cardBorder = 'rgba(252,213,53,0.5)';
+        cardBg = '#141208';
+      } else if (item.direction === 'LONG') {
+        barColor = '#0ECB81';
+        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.85))';
+        textColor = '#0ECB81';
+        cardBorder = 'rgba(14,203,129,0.25)';
+      } else if (item.direction === 'SHORT') {
+        barColor = '#F6465D';
+        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.85))';
+        textColor = '#F6465D';
+        cardBorder = 'rgba(246,70,93,0.25)';
       }
-    }
+
+      const barWidth = Math.min(100, Math.max(12, item.score));
+
+      // Tags compactas
+      let tagsHtml = '';
+      if (item.isHolding) {
+        tagsHtml += `<span style="background:var(--accent-gold); color:#000; font-weight:800; font-size:7.5px; padding:1px 4px; border-radius:2px; letter-spacing:0.4px;">ATIVA</span>`;
+      }
+      if (item.botOn) {
+        tagsHtml += `<span style="background:rgba(41,171,226,0.2); color:#29ABE2; border:1px solid rgba(41,171,226,0.6); font-weight:800; font-size:7.5px; padding:0 3px; border-radius:2px;">ROBÔS</span>`;
+      }
+
+      const metricRight = item.botOn 
+        ? `EXP ${item.cExp.toFixed(0)}` 
+        : (item.cRange > 0 ? `RNG ${item.cRange.toFixed(0)}%` : item.strategy.replace('LAYA_', ''));
+
+      html += `
+        <div onclick="setChartSymbol(0, '${item.cleanSym}USDT')" 
+             title="${item.cleanSym}: ${item.direction} (${item.score}%) - ${item.rationale}"
+             style="cursor:pointer; background:${cardBg}; border:1px solid ${cardBorder}; border-radius:3px; padding:3px 6px; display:flex; flex-direction:column; gap:2px; transition:all 0.12s ease;"
+             onmouseover="this.style.background='#131A24'; this.style.borderColor='var(--accent-gold)';"
+             onmouseout="this.style.background='${cardBg}'; this.style.borderColor='${cardBorder}';">
+          
+          <!-- Linha Superior: Rank + Símbolo + Tags + Score -->
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:9px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              <span style="color:${rankColor}; font-weight:800; font-size:8.5px; min-width:18px;">#${rankNum}</span>
+              <b style="color:#FFF; font-size:9.5px; letter-spacing:0.3px;">${item.cleanSym}</b>
+              ${tagsHtml}
+            </div>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span style="color:${textColor}; font-weight:800; font-size:9.5px;">${item.direction === 'HOLD' ? 'NEUTRO' : item.direction} ${item.score}%</span>
+            </div>
+          </div>
+
+          <!-- Barra Dinâmica de Calor -->
+          <div style="width:100%; height:13px; background:#0B0E14; border:1px solid #1B232D; border-radius:2px; position:relative; overflow:hidden; display:flex; align-items:center;">
+            <div style="width:${barWidth}%; height:100%; background:${barFillGrad}; border-right:2px solid ${barColor}; transition:width 0.4s ease;"></div>
+            <div style="position:absolute; width:100%; display:flex; justify-content:space-between; padding:0 5px; font-size:7.5px; font-weight:700; pointer-events:none;">
+              <span style="color:#FFF; opacity:0.9;">${item.strategy.replace('LAYA_', '')}</span>
+              <span style="color:#AAA;">${metricRight}</span>
+            </div>
+          </div>
+
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
   }
 
-  // Instantiate engine globally
-  function initLayaBubbleEngine() {
-    if (!window._layaBubbleEngine) {
-      window._layaBubbleEngine = new LayaBubbleEngine('laya-bubble-canvas', 'laya-bubble-tooltip');
-      if (window._lastCandidateSetups) {
-        window._layaBubbleEngine.updateData(window._lastCandidateSetups, window._activeSlotsData || []);
-      }
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initLayaBubbleEngine);
-  } else {
-    initLayaBubbleEngine();
-  }
-  window.initLayaBubbleEngine = initLayaBubbleEngine;
   </script>
 </body>
 </html>
