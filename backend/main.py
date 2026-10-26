@@ -916,8 +916,23 @@ except Exception as _e_plutus:
     logger.error(f"Erro ao registrar rotas do Plutus: {_e_plutus}")
 
 
-# [V148] High-Performance OKX Candles Proxy (Same-origin CORS bypass for Cockpit Charts)
+# [V148-V172] High-Performance Universal Candles Proxy (Persistent Pool + Binance Fallback)
 _candles_cache = {}
+_candles_http_client = None
+
+def _get_candles_client():
+    global _candles_http_client
+    import httpx
+    if _candles_http_client is None or _candles_http_client.is_closed:
+        _candles_http_client = httpx.AsyncClient(
+            timeout=5.0,
+            limits=httpx.Limits(max_keepalive_connections=25, max_connections=50),
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+        )
+    return _candles_http_client
 
 @app.get("/api/candles")
 async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int = 250):
@@ -925,38 +940,53 @@ async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int
     now = time.time()
     if cache_key in _candles_cache:
         cached_time, cached_data = _candles_cache[cache_key]
-        if now - cached_time < 3.0:  # 3s cache
+        if now - cached_time < 2.5:
             return cached_data
 
+    clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
+    client = _get_candles_client()
+
+    # 1. Tentativa Primária: OKX SWAP Perpétuo
     try:
-        import httpx
-        clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
         inst_id = f"{clean.replace('USDT', '')}-USDT-SWAP"
         url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "application/json"
-        }
-        async with httpx.AsyncClient(timeout=3.5) as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("code") == "0" and data.get("data"):
-                    _candles_cache[cache_key] = (now, data)
-                    return data
-            # Fallback para Spot se Swap não retornar dados
-            spot_id = inst_id.replace("-SWAP", "")
-            url_spot = f"https://www.okx.com/api/v5/market/candles?instId={spot_id}&bar={bar}&limit={limit}"
-            resp_spot = await client.get(url_spot, headers=headers)
-            if resp_spot.status_code == 200:
-                data_spot = resp_spot.json()
-                if data_spot.get("code") == "0" and data_spot.get("data"):
-                    _candles_cache[cache_key] = (now, data_spot)
-                    return data_spot
+        resp = await client.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("code") == "0" and data.get("data") and len(data["data"]) > 0:
+                _candles_cache[cache_key] = (now, data)
+                return data
     except Exception as e:
-        logger.debug(f"[CANDLES-PROXY] Erro ao buscar candles para {symbol}: {e}")
-    
-    # Return last known cached data if available
+        logger.debug(f"[CANDLES-PROXY] Erro OKX SWAP para {symbol}: {e}")
+
+    # 2. Tentativa Secundária: OKX Spot
+    try:
+        spot_id = f"{clean.replace('USDT', '')}-USDT"
+        url_spot = f"https://www.okx.com/api/v5/market/candles?instId={spot_id}&bar={bar}&limit={limit}"
+        resp_spot = await client.get(url_spot)
+        if resp_spot.status_code == 200:
+            data_spot = resp_spot.json()
+            if data_spot.get("code") == "0" and data_spot.get("data") and len(data_spot["data"]) > 0:
+                _candles_cache[cache_key] = (now, data_spot)
+                return data_spot
+    except Exception as e:
+        logger.debug(f"[CANDLES-PROXY] Erro OKX Spot para {symbol}: {e}")
+
+    # 3. Tentativa Terciária: Binance Futures (Sub-milissegundo para SOL, BTC, ETH, etc.)
+    try:
+        bin_bar = "1h" if bar in ("1H", "60") else ("15m" if bar == "15m" else ("5m" if bar == "5m" else "1m"))
+        url_bin = f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval={bin_bar}&limit={limit}"
+        resp_bin = await client.get(url_bin)
+        if resp_bin.status_code == 200:
+            b_data = resp_bin.json()
+            if isinstance(b_data, list) and len(b_data) > 0:
+                mapped = [[str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])] for k in reversed(b_data)]
+                out = {"code": "0", "data": mapped}
+                _candles_cache[cache_key] = (now, out)
+                return out
+    except Exception as e:
+        logger.debug(f"[CANDLES-PROXY] Erro Binance Fallback para {symbol}: {e}")
+
     if cache_key in _candles_cache:
         return _candles_cache[cache_key][1]
     return {"code": "1", "data": []}

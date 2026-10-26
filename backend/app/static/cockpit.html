@@ -1483,7 +1483,7 @@
         // 1. Tenta proxy local sem CORS com timeout estrito de 1.5s
         try {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 1500);
+          const toId = setTimeout(() => controller.abort(), 4500);
           let pRes = await fetch(`/api/candles?symbol=${cleanSym}&bar=${okxBar}&limit=250`, { signal: controller.signal });
           clearTimeout(toId);
           if (pRes.ok) {
@@ -1577,7 +1577,7 @@
         basePrice = Number(matchSlot.current_price || matchSlot.entry_price);
       } else if (symbol.includes("BTC")) basePrice = 64500.0;
       else if (symbol.includes("ETH")) basePrice = 2450.0;
-      else if (symbol.includes("SOL")) basePrice = 152.40;
+      else if (symbol.includes("SOL")) basePrice = (chartLastPrice[i] && chartLastPrice[i] > 50) ? chartLastPrice[i] : 102.0;
       else if (symbol.includes("AVAX")) basePrice = 28.60;
       else if (symbol.includes("NEAR")) basePrice = 4.85;
       else if (symbol.includes("LINK")) basePrice = 11.75;
@@ -1659,6 +1659,12 @@
         statusBadge.textContent = "RADAR ATIVO";
         statusBadge.className = "badge-ghost";
       }
+      const layaBadge = document.getElementById(`chart-laya-badge-${i}`);
+      if (layaBadge) {
+        layaBadge.textContent = "";
+        layaBadge.className = "";
+        layaBadge.style.display = "none";
+      }
     }
 
     function renderSlotOrderLines(i, slot) {
@@ -1696,6 +1702,7 @@
       // Atualiza badge de Laya para ORDEM ATIVA em destaque monumental
       const layaBadge = document.getElementById(`chart-laya-badge-${i}`);
       if (layaBadge) {
+        layaBadge.style.display = "inline-flex";
         layaBadge.className = isLong ? 'badge-up' : 'badge-down';
         layaBadge.style.fontSize = "11px";
         layaBadge.style.fontWeight = "900";
