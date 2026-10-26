@@ -62,11 +62,16 @@ class DatasetGenerator:
                 optimal_decision = "HOLD"
                 confidence = 0.70
 
+            # [V172]: Alavancagem obrigatória 15X a 20X
+            lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
+            lev = max(15.0, min(20.0, lev))
+
             entry = {
                 "id": f"trade_{getattr(t, 'id', len(dataset_entries))}",
                 "input": {
                     "symbol": sym,
                     "direction": direction,
+                    "leverage": lev,
                     "lsr": round(lsr, 2),
                     "oi_delta_pct": round(oi_delta, 2),
                     "flow_regime": regime,
@@ -215,6 +220,7 @@ class DatasetGenerator:
                     "oi_delta_pct": oi_delta,
                     "flow_regime": regime,
                     "market_condition": "LATERAL" if abs(oi_delta) < 0.3 else "TRENDING",
+                    "leverage": random.choice([15, 16, 17, 18, 19, 20]),
                     "contract_specs": {
                         "tick_sz": tick_sz,
                         "lot_sz": lot_sz,

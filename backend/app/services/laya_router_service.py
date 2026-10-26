@@ -2285,12 +2285,12 @@ class LayaRouterService:
                 # Distância real de preço do Stop
                 stop_dist_pct = max(min_stop_dist, min(max_stop_dist, abs(p - stop_loss) / p))
 
-                # [ALAVANCAGEM ADAPTATIVA ANTI-VIOLINADA]:
-                # Para calibrar a perda máxima em torno de ~$25 a $28 sobre margem de $100 (-25% a -28% ROI):
-                # O stop técnico de preço nunca é mutilado; a alavancagem se adapta à distância estrutural.
-                target_stop_roi = 28.0
+                # [ALAVANCAGEM ADAPTATIVA 15X A 20X MANDATÓRIA]:
+                # Regra institucional soberana: ordens estritamente entre 15X e 20X (NUNCA menor que 15X).
+                # Calibração de Stop ROI estrutural proporcional (~ -30% a -38% ROI).
+                target_stop_roi = 35.0
                 calc_lev = int(target_stop_roi / (stop_dist_pct * 100.0))
-                leverage = max(5, min(15, calc_lev))
+                leverage = max(15, min(20, calc_lev))
 
                 margin = 100.0
                 quant_res = okx_universe_service.quantize_order_contracts(
