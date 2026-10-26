@@ -1177,6 +1177,7 @@
 
     const nativeCharts = [null, null, null, null];
     const candleSeriesList = [null, null, null, null];
+    const volumeSeriesList = [null, null, null, null];
     const priceLinesList = [[], [], [], []];
     const chartLastPrice = [152.40, 28.60, 4.85, 11.75];
     let focusedSlot = null;
@@ -1240,8 +1241,20 @@
         wickDownColor: '#FF1744'
       });
 
+      const volSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+      });
+      chart.priceScale('').applyOptions({
+        scaleMargins: {
+          top: 0.82,
+          bottom: 0,
+        },
+      });
+
       nativeCharts[i] = chart;
       candleSeriesList[i] = series;
+      volumeSeriesList[i] = volSeries;
       priceLinesList[i] = [];
 
       loadCandlesForChart(i, chartSymbols[i], chartIntervals[i]);
@@ -1333,6 +1346,7 @@
                 low: parseFloat(k[3]),
                 close: parseFloat(k[4])
               };
+              const vol = parseFloat(k[5] || 0);
 
               // Atualiza os gráficos correspondentes
               for (let i = 0; i < 4; i++) {
@@ -1342,6 +1356,13 @@
                   if (series) {
                     try {
                       series.update(candle);
+                      if (volumeSeriesList[i] && vol > 0) {
+                        volumeSeriesList[i].update({
+                          time: candle.time,
+                          value: vol,
+                          color: candle.close >= candle.open ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+                        });
+                      }
                     } catch(chartErr) {
                       // Silently skip out-of-order candlestick updates from websocket bursts
                     }
@@ -1380,14 +1401,11 @@
                     const pnlTd = row.children[6];
                     if (priceTd) {
                       priceTd.textContent = "$" + formatPriceSmart(newP);
-                      if (newP > oldP) {
-                        priceTd.classList.remove("price-flash-down");
-                        priceTd.classList.add("price-flash-up");
-                        setTimeout(() => priceTd.classList.remove("price-flash-up"), 800);
-                      } else if (newP < oldP) {
-                        priceTd.classList.remove("price-flash-up");
-                        priceTd.classList.add("price-flash-down");
-                        setTimeout(() => priceTd.classList.remove("price-flash-down"), 800);
+                      if (newP !== oldP) {
+                        const flashClass = newP > oldP ? "price-flash-up" : "price-flash-down";
+                        priceTd.classList.remove("price-flash-up", "price-flash-down");
+                        void priceTd.offsetWidth;
+                        priceTd.classList.add(flashClass);
                       }
                     }
                     if (pnlTd) {
@@ -1478,6 +1496,7 @@
 
       try {
         let klines = [];
+        let volumes = [];
         let okxData = null;
         
         // 1. Tenta proxy local sem CORS com timeout estrito de 1.5s
@@ -1503,13 +1522,21 @@
         }
 
         if (okxData && okxData.code === "0" && okxData.data && okxData.data.length > 0) {
-          klines = okxData.data.map(k => ({
-            time: Math.floor(parseInt(k[0]) / 1000),
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4])
-          })).sort((a,b) => a.time - b.time);
+          klines = okxData.data.map(k => {
+            const t = Math.floor(parseInt(k[0]) / 1000);
+            const o = parseFloat(k[1]);
+            const h = parseFloat(k[2]);
+            const l = parseFloat(k[3]);
+            const c = parseFloat(k[4]);
+            const v = parseFloat(k[5] || 0);
+            volumes.push({
+              time: t,
+              value: v,
+              color: c >= o ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+            });
+            return { time: t, open: o, high: h, low: l, close: c };
+          }).sort((a,b) => a.time - b.time);
+          volumes.sort((a,b) => a.time - b.time);
         }
 
         if (candleSeriesList[i] && klines.length > 0) {
@@ -1527,6 +1554,9 @@
           });
 
           candleSeriesList[i].setData(klines);
+          if (volumeSeriesList[i] && volumes.length > 0) {
+            volumeSeriesList[i].setData(volumes);
+          }
           if (nativeCharts[i]) {
             nativeCharts[i].priceScale('right').applyOptions({
               autoScale: true,
@@ -1598,6 +1628,7 @@
 
       const now = Math.floor(Date.now() / 1000);
       const klines = [];
+      const volumes = [];
       let p = basePrice;
       for (let j = 0; j <= 75; j++) {
         const t = now - (j * 900);
@@ -1606,10 +1637,19 @@
         const o = p - change;
         const h = Math.max(o, c) + Math.random() * (basePrice * 0.001);
         const l = Math.min(o, c) - Math.random() * (basePrice * 0.001);
+        const v = Math.floor(Math.random() * 8000 + 1500);
         klines.unshift({ time: t, open: o, high: h, low: l, close: c });
+        volumes.unshift({
+          time: t,
+          value: v,
+          color: c >= o ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+        });
         p = o;
       }
       series.setData(klines);
+      if (volumeSeriesList[i]) {
+        volumeSeriesList[i].setData(volumes);
+      }
       if (nativeCharts[i]) {
         nativeCharts[i].priceScale('right').applyOptions({ autoScale: true });
         nativeCharts[i].timeScale().fitContent();
@@ -2233,8 +2273,13 @@
         }
 
         // Render Table (Full Audit) com Moeda, Direção e Taxa de Financiamento OKX
+        const currentSlotSig = activeSlots.map(s => `${s.symbol}_${s.entry_price}_${s.side}_${s.leverage || 15}`).join('|');
+        const isSlotStructureSame = (window._lastSlotStructureSig === currentSlotSig);
+        window._lastSlotStructureSig = currentSlotSig;
+
         if (tbody && activeSlots.length > 0) {
-          tbody.innerHTML = activeSlots.map((s, idx) => {
+          if (!isSlotStructureSame) {
+            tbody.innerHTML = activeSlots.map((s, idx) => {
             const isUp = (s.pnl_percent || 0) >= 0;
             const pnlClass = isUp ? "badge-up" : "badge-down";
             const pnlSign = isUp ? "+" : "";
@@ -2295,6 +2340,24 @@
               </tr>
             `;
           }).join("");
+          } else {
+            // Atualização reativa leve sem destruir o DOM
+            activeSlots.forEach(s => {
+              const row = tbody.querySelector(`tr[data-sym="${s.symbol}"]`);
+              if (row) {
+                const curPriceTd = row.children[4];
+                const stopTd = row.children[5];
+                const pnlTd = row.children[6];
+                if (curPriceTd) curPriceTd.textContent = "$" + formatPriceSmart(s.current_price || s.entry_price);
+                if (stopTd) stopTd.textContent = Number(s.current_stop || 0) > 0 ? ('$' + formatPriceSmart(s.current_stop)) : 'DEFESA';
+                if (pnlTd) {
+                  const pnl = Number(s.pnl_percent || 0);
+                  const isUp = pnl >= 0;
+                  pnlTd.innerHTML = `<span class="${isUp ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${isUp ? '+' : ''}${pnl.toFixed(2)}%</span>`;
+                }
+              }
+            });
+          }
         }
 
         // Render Dedicated Right/Left Panel Cards com Destaque Monumental
@@ -3572,7 +3635,7 @@
       }
     }
 
-    setInterval(unifiedCockpitPoll, 2000);
+    setInterval(unifiedCockpitPoll, 3500);
     setInterval(fetchRecentHistory, 15000);
     setInterval(evaluateLayaForCharts, 90000);
     setInterval(updateCockpitClock, 1000);
@@ -3750,6 +3813,12 @@
 
     // Top 30
     const top30 = list.slice(0, 30);
+
+    const listSig = top30.map(t => `${t.cleanSym}_${t.score}_${t.postureLabel}_${t.isHolding ? 1 : 0}`).join('|');
+    if (window._lastRankedSig === listSig && container.children.length === top30.length) {
+      return;
+    }
+    window._lastRankedSig = listSig;
 
     if (subtextEl) {
       const highest = top30[0];
