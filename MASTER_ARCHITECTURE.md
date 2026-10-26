@@ -139,7 +139,7 @@ flowchart TD
 
 | Constante | Valor | Fonte |
 |-----------|-------|-------|
-| `LEVERAGE` (Laya Soberana) | 15x a 20x (Piso estrito 15x, Teto 20x) | `laya_router_service.py` / V172 |
+| `LEVERAGE` (Laya Soberana) | 15x ou 20x (Exclusivamente 15x ou 20x) | `laya_router_service.py` / V172 |
 | `LEVERAGE` (Altcoins Geral) | 15x (Cross) | `okx_universe_service.py` / Dossiê dos 10 Titãs |
 | `LEVERAGE` (BTC / ETH) | 30x (Cross) | `okx_universe_service.py` / Dossiê dos 10 Titãs |
 | `MAX_SLOTS` (cap global) | 20 | `config.py:124` |
@@ -192,9 +192,9 @@ flowchart TD
    - `order_projection_service.py` padronizado como singleton único (`order_projection_service`) com alias canônico `proj_service`, unificando a projeção de ROI, cálculo de Stops escalonados (Never Give Back) e metadados de execução para o Sandbox e Cockpit.
 
 8. **Invariante de Alavancagem Obrigatória (15X a 20X) [V172]**:
-   - Todas as ordens autônomas abertas pela Laya Soberana operam estritamente na faixa de **15x a 20x**.
+   - Todas as ordens autônomas abertas pela Laya Soberana operam **exclusivamente em 15x ou 20x** (sem valores intermediários).
    - Proibição Absoluta: Nenhuma ordem pode ser aberta com alavancagem inferior a 15x (veto irrestrito a 5x, 8x, 9x ou 10x).
-   - Clamp Matemático de Execução: `leverage = max(15, min(20, calc_lev))` com `target_stop_roi = 35.0` ancorado na distância estrutural de Stop Loss de preço H1.
+   - Clamp Matemático de Execução: `leverage = 20 if (calc_lev >= 18 or chosen.get("score", 0) >= 90) else 15` com `target_stop_roi = 35.0` ancorado na distância estrutural de Stop Loss de preço H1.
    - Compatibilização de Stop ROI: O stop financeiro inicial é mantido proporcionalmente na faixa de -30% a -38% de ROI, garantindo proteção de capital sem encurtar a distância técnica do canal H1.
 
 ### 2.2 Radar Universal Encryptos V163 (507 Contratos OKX & Detecção de Ignição de Robôs)

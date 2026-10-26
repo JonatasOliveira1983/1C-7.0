@@ -123,12 +123,12 @@ class OpenVikingContextService:
 
         # Banda Mandatória de Alavancagem (15X a 20X) [V172]
         uri_lev = "viking://user/memories/preferences/leverage_band"
-        l0_lev = "Invariante de Alavancagem: Ordens da Laya Soberana estritamente entre 15X e 20X. Proibido abrir abaixo de 15X."
+        l0_lev = "Invariante de Alavancagem: Ordens da Laya Soberana exclusivamente em 15X ou 20X (sem valores intermediários). Proibido abrir abaixo de 15X."
         l1_lev = (
             "INVARIANTE DE ALAVANCAGEM OBRIGATÓRIA (15X A 20X):\n"
-            "1. Faixa Soberana: Toda ordem autônoma aberta pela Laya deve operar na faixa de 15X a 20X.\n"
+            "1. Faixa Soberana: Toda ordem autônoma aberta pela Laya deve operar exclusivamente com 15X ou 20X.\n"
             "2. Proibição Absoluta: Nenhuma ordem pode ser aberta com alavancagem inferior a 15X (veto irrestrito a 5x, 8x, 9x, 10x).\n"
-            "3. Clamp Matemático: leverage = max(15, min(20, calc_lev)) em backend/app/services/laya_router_service.py.\n"
+            "3. Clamp Matemático: leverage = 20 if (calc_lev >= 18 or chosen.get("score", 0) >= 90) else 15 em backend/app/services/laya_router_service.py.\n"
             "4. Stop ROI Estrutural: target_stop_roi = 35.0 (~ -30% a -38% ROI) ancorado na distância estrutural de preço."
         )
         self.nodes[uri_lev] = VikingNode(

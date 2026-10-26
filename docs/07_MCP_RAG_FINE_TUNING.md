@@ -263,4 +263,4 @@ python backend/mcp_server.py
 - [x] **OKX Market Universe Integrado (V165)**: 507 contratos USDT-SWAP mapeados com `ctVal` e `tickSz` canônicos.
 - [x] **Motor de Quantização Ativo (V165)**: Preços e contratos formatados matematicamente pelo `tickSz` e `lotSz` da OKX.
 - [x] **Geometria de Alvo e Stop Blindada**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.
-- [x] **Invariante de Alavancagem Obrigatória 15X a 20X [V172]**: Ordens autônomas da Laya estritamente entre 15X e 20X (piso rígido de 15X, teto de 20X). Proibido abrir ordens abaixo de 15X.
+- [x] **Invariante de Alavancagem Obrigatória 15X a 20X [V172]**: Ordens autônomas da Laya exclusivamente em 15X ou 20X (sem valores intermediários). Proibido abrir ordens abaixo de 15X.

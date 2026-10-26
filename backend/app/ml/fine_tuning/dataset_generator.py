@@ -64,7 +64,7 @@ class DatasetGenerator:
 
             # [V172]: Alavancagem obrigatória 15X a 20X
             lev = float(meta.get("leverage") or getattr(t, "leverage", 15.0) or 15.0)
-            lev = max(15.0, min(20.0, lev))
+            lev = 20.0 if lev >= 18.0 else 15.0
 
             entry = {
                 "id": f"trade_{getattr(t, 'id', len(dataset_entries))}",
@@ -220,7 +220,7 @@ class DatasetGenerator:
                     "oi_delta_pct": oi_delta,
                     "flow_regime": regime,
                     "market_condition": "LATERAL" if abs(oi_delta) < 0.3 else "TRENDING",
-                    "leverage": random.choice([15, 16, 17, 18, 19, 20]),
+                    "leverage": random.choice([15, 20]),
                     "contract_specs": {
                         "tick_sz": tick_sz,
                         "lot_sz": lot_sz,

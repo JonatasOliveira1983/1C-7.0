@@ -2285,12 +2285,12 @@ class LayaRouterService:
                 # Distância real de preço do Stop
                 stop_dist_pct = max(min_stop_dist, min(max_stop_dist, abs(p - stop_loss) / p))
 
-                # [ALAVANCAGEM ADAPTATIVA 15X A 20X MANDATÓRIA]:
-                # Regra institucional soberana: ordens estritamente entre 15X e 20X (NUNCA menor que 15X).
-                # Calibração de Stop ROI estrutural proporcional (~ -30% a -38% ROI).
+                # [ALAVANCAGEM DISCRETA: EXCLUSIVAMENTE 15X OU 20X]:
+                # Regra soberana: ordens abertas estritamente em 15X ou 20X (sem valores intermediários).
+                # Stop curto (<= 1.95%) ou alta convicção (score >= 90): 20X; Canal estrutural padrão H1: 15X.
                 target_stop_roi = 35.0
                 calc_lev = int(target_stop_roi / (stop_dist_pct * 100.0))
-                leverage = max(15, min(20, calc_lev))
+                leverage = 20 if (calc_lev >= 18 or chosen.get("score", 0) >= 90) else 15
 
                 margin = 100.0
                 quant_res = okx_universe_service.quantize_order_contracts(

@@ -145,7 +145,7 @@ async def _tool_get_system_snapshot() -> Dict[str, Any]:
             "master_adx": getattr(laya_sovereign_engine, "master_adx", 24.2),
             "unified_balance_usd": round(balance, 2),
             "active_positions_count": len(trades),
-            "leverage_band": "15x-20x (Piso 15X, Teto 20X)",
+            "leverage_band": "15X ou 20X (Exclusivamente 15X ou 20X)",
             "doctrine": "INSTITUTIONAL_LIQUIDITY_HUNTER"
         }
     except Exception as e:
