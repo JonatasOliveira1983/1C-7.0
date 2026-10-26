@@ -2841,7 +2841,11 @@
 
         // 6. Render Candidate Setups & Neural Bubbles
         if (d.candidate_setups) {
+          window._lastCandidateSetups = d.candidate_setups;
           renderLayaCandidates(d.candidate_setups);
+          if (!window._layaBubbleEngine && typeof initLayaBubbleEngine === 'function') {
+            initLayaBubbleEngine();
+          }
           if (window._layaBubbleEngine) {
             window._layaBubbleEngine.updateData(d.candidate_setups, window._activeSlotsData || []);
           }
@@ -3590,7 +3594,6 @@
     }
 
     console.log("[COCKPIT] Initialization sequence completed.");
-  </script>
 
   // =========================================================================
   // 1CRYPTEN — LAYA NEURAL BUBBLES ENGINE (HTML5 CANVAS 2D PHYSICS RADAR)
@@ -3610,7 +3613,9 @@
 
       if (this.canvas) {
         this.initEvents();
-        setTimeout(() => this.resize(), 100);
+        setTimeout(() => this.resize(), 50);
+        setTimeout(() => this.resize(), 300);
+        setTimeout(() => this.resize(), 1000);
         this.startLoop();
       }
     }
@@ -3785,7 +3790,10 @@
     }
 
     tick() {
-      if (this.width <= 0 || this.height <= 0) return;
+      if (this.width <= 0 || this.height <= 0) {
+        this.resize();
+        if (this.width <= 0 || this.height <= 0) return;
+      }
       const cx = this.width / 2;
       const cy = this.height / 2;
 
@@ -3945,6 +3953,9 @@
   function initLayaBubbleEngine() {
     if (!window._layaBubbleEngine) {
       window._layaBubbleEngine = new LayaBubbleEngine('laya-bubble-canvas', 'laya-bubble-tooltip');
+      if (window._lastCandidateSetups) {
+        window._layaBubbleEngine.updateData(window._lastCandidateSetups, window._activeSlotsData || []);
+      }
     }
   }
   if (document.readyState === 'loading') {
@@ -3953,6 +3964,6 @@
     initLayaBubbleEngine();
   }
   window.initLayaBubbleEngine = initLayaBubbleEngine;
-
+  </script>
 </body>
 </html>
