@@ -9,11 +9,12 @@
   <script src="/static/js/thinking_orbs.js"></script>
   <style>
     :root {
-      --bg-base: #080808;
-      --bg-panel: #0E1013;
-      --bg-card: #14171C;
-      --border-subtle: #1E2329;
-      --border-active: #2B3139;
+      --bg-base: #060709;
+      --bg-panel: #0B0E11;
+      --bg-card: #12161C;
+      --bg-card-hover: #181E26;
+      --border-subtle: #1C2128;
+      --border-active: #2B3340;
       --gold: #FCD535;
       --gold-dim: rgba(252, 213, 53, 0.12);
       --green: #0ECB81;
@@ -41,14 +42,26 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Price Flashing */
+    @keyframes priceFlashUp {
+      0% { background-color: rgba(14, 203, 129, 0.45); color: #0ECB81; }
+      100% { background-color: transparent; }
+    }
+    @keyframes priceFlashDown {
+      0% { background-color: rgba(246, 70, 93, 0.45); color: #F6465D; }
+      100% { background-color: transparent; }
+    }
+    .price-flash-up { animation: priceFlashUp 0.8s ease-out; }
+    .price-flash-down { animation: priceFlashDown 0.8s ease-out; }
+
     /* Layout Container */
     .laya-container {
       max-width: 1920px;
       margin: 0 auto;
-      padding: 12px 16px 64px 16px;
+      padding: 10px 14px 60px 14px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     /* Panoramic HUD */
@@ -71,7 +84,7 @@
     }
 
     .hud-title {
-      font-size: 10px;
+      font-size: 9.5px;
       font-family: var(--font-mono);
       color: var(--text-muted);
       text-transform: uppercase;
@@ -89,43 +102,44 @@
     .hud-badge {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 2px 8px;
-      font-size: 10px;
+      gap: 4px;
+      padding: 2px 7px;
+      font-size: 9.5px;
       font-weight: 800;
       font-family: var(--font-mono);
       letter-spacing: 0.06em;
       text-transform: uppercase;
       border: 1px solid transparent;
+      border-radius: 2px;
     }
 
     .hud-badge.gold {
       background: var(--gold-dim);
       color: var(--gold);
-      border-color: rgba(252, 213, 53, 0.3);
+      border-color: rgba(252, 213, 53, 0.35);
     }
 
     .hud-badge.green {
       background: var(--green-dim);
       color: var(--green);
-      border-color: rgba(14, 203, 129, 0.3);
+      border-color: rgba(14, 203, 129, 0.35);
     }
 
     .hud-badge.red {
       background: var(--red-dim);
       color: var(--red);
-      border-color: rgba(246, 70, 93, 0.3);
+      border-color: rgba(246, 70, 93, 0.35);
     }
 
-    .btn-cockpit {
+    .btn-action {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 7px 14px;
+      padding: 6px 12px;
       background: transparent;
-      border: 1px solid var(--gold);
-      color: var(--gold);
-      font-size: 11px;
+      border: 1px solid var(--border-active);
+      color: var(--text-main);
+      font-size: 10px;
       font-weight: 800;
       font-family: var(--font-mono);
       text-transform: uppercase;
@@ -135,29 +149,40 @@
       cursor: pointer;
     }
 
-    .btn-cockpit:hover {
+    .btn-action:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--gold-dim);
+    }
+
+    .btn-action.gold-solid {
       background: var(--gold);
       color: #000;
+      border-color: var(--gold);
+    }
+
+    .btn-action.gold-solid:hover {
+      background: #FFE066;
     }
 
     /* 3-Column Grid */
     .laya-grid {
       display: grid;
-      grid-template-columns: 290px minmax(0, 1fr) 380px;
-      gap: 12px;
+      grid-template-columns: 295px minmax(0, 1fr) 385px;
+      gap: 10px;
       align-items: start;
     }
 
-    @media (max-width: 1400px) {
+    @media (max-width: 1440px) {
       .laya-grid {
-        grid-template-columns: 260px minmax(0, 1fr);
+        grid-template-columns: 270px minmax(0, 1fr);
       }
       .col-right {
         grid-column: span 2;
       }
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 960px) {
       .laya-grid {
         grid-template-columns: 1fr;
       }
@@ -176,43 +201,73 @@
     }
 
     .panel-header {
-      padding: 10px 14px;
+      padding: 9px 12px;
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #0B0D10;
+      background: #090C0F;
     }
 
     .panel-title {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 800;
       letter-spacing: 0.08em;
       color: var(--text-main);
       text-transform: uppercase;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
     }
 
     .panel-body {
-      padding: 12px 14px;
+      padding: 10px 12px;
     }
 
     /* Left Column: Titans List */
-    .titans-search {
-      padding: 8px 12px;
+    .titans-filter-bar {
+      display: flex;
+      gap: 4px;
+      padding: 6px 10px;
       border-bottom: 1px solid var(--border-subtle);
-      background: #0B0D10;
+      background: #090C0F;
+      overflow-x: auto;
+    }
+
+    .titans-pill {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 8.5px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      padding: 2px 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .titans-pill:hover, .titans-pill.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--gold-dim);
+    }
+
+    .titans-search {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #090C0F;
     }
 
     .titans-input {
       width: 100%;
-      background: #14171C;
+      background: #12161C;
       border: 1px solid var(--border-subtle);
       color: var(--text-main);
-      padding: 6px 10px;
-      font-size: 11px;
+      padding: 5px 8px;
+      font-size: 10.5px;
       font-family: var(--font-mono);
       outline: none;
       transition: border-color 0.15s ease;
@@ -223,15 +278,15 @@
     }
 
     .titans-list {
-      max-height: calc(100vh - 200px);
+      max-height: calc(100vh - 225px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
     }
 
     .titan-card {
-      padding: 9px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -239,31 +294,56 @@
       transition: all 0.12s ease;
       background: transparent;
       user-select: none;
+      position: relative;
     }
 
     .titan-card:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .titan-card.active {
-      background: rgba(252, 213, 53, 0.07);
+      background: rgba(252, 213, 53, 0.08);
       border-left: 3px solid var(--gold);
+    }
+
+    .titan-heat-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      opacity: 0.06;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .titan-heat-bar.up { background: var(--green); }
+    .titan-heat-bar.down { background: var(--red); }
+
+    .titan-sym-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .titan-rank {
+      font-size: 8.5px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      width: 18px;
     }
 
     .titan-sym {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 800;
       color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
     .titan-ignition-pill {
-      font-size: 8px;
+      font-size: 7.5px;
       font-family: var(--font-mono);
-      padding: 1px 4px;
+      padding: 1px 3px;
       background: rgba(14, 203, 129, 0.15);
       color: var(--green);
       border: 1px solid var(--green);
@@ -271,20 +351,26 @@
       border-radius: 2px;
     }
 
+    .titan-val-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      position: relative;
+      z-index: 2;
+    }
+
     .titan-px {
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-main);
-      text-align: right;
     }
 
     .titan-chg {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
-      text-align: right;
     }
-
     .titan-chg.up { color: var(--green); }
     .titan-chg.down { color: var(--red); }
 
@@ -295,13 +381,13 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 10px;
-      padding: 12px 16px;
-      background: #0B0D10;
+      padding: 10px 14px;
+      background: #090C0F;
       border-bottom: 1px solid var(--border-subtle);
     }
 
     .hero-sym {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 900;
       font-family: var(--font-mono);
       color: var(--gold);
@@ -309,7 +395,7 @@
     }
 
     .hero-px {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 900;
       font-family: var(--font-mono);
       color: var(--text-main);
@@ -317,66 +403,69 @@
 
     /* Microstructure Rejection Radar */
     .rejection-banner {
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      background: #111419;
+      background: #10141A;
     }
 
     .rejection-banner.safe {
       border-left: 4px solid var(--green);
-      background: rgba(14, 203, 129, 0.05);
+      background: rgba(14, 203, 129, 0.06);
     }
 
     .rejection-banner.veto {
       border-left: 4px solid var(--red);
-      background: rgba(246, 70, 93, 0.05);
+      background: rgba(246, 70, 93, 0.06);
     }
 
     .rejection-meters {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      padding: 12px 16px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border-subtle);
-      background: #0C0E12;
+      background: #0A0D10;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 800px) {
       .rejection-meters {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
     .meter-card {
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      padding: 10px 12px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .meter-label {
-      font-size: 9px;
+      font-size: 8.5px;
       font-family: var(--font-mono);
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
     }
 
     .meter-val {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 800;
       font-family: var(--font-mono);
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .meter-bar-track {
       width: 100%;
       height: 4px;
-      background: #20242B;
+      background: #1C222B;
       border-radius: 2px;
       overflow: hidden;
       position: relative;
@@ -389,26 +478,26 @@
 
     /* L2 Orderbook Imbalance Radar */
     .obi-strip {
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border-subtle);
-      background: #0E1014;
+      background: #0B0E12;
     }
 
     .obi-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .obi-bar-track {
       width: 100%;
-      height: 8px;
-      background: #1C2026;
+      height: 7px;
+      background: #181E26;
       border-radius: 2px;
       display: flex;
       overflow: hidden;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .obi-bar-bid {
@@ -425,17 +514,17 @@
     .depth-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      padding: 12px 16px;
+      gap: 10px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border-subtle);
     }
 
     .depth-side-title {
-      font-size: 10px;
+      font-size: 9.5px;
       font-family: var(--font-mono);
       font-weight: 800;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       letter-spacing: 0.06em;
       display: flex;
       justify-content: space-between;
@@ -446,7 +535,7 @@
       align-items: center;
       justify-content: space-between;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       padding: 2px 4px;
       position: relative;
       margin-bottom: 2px;
@@ -456,7 +545,7 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      opacity: 0.15;
+      opacity: 0.18;
       z-index: 1;
       pointer-events: none;
     }
@@ -480,7 +569,7 @@
     #laya-chart-container {
       width: 100%;
       height: 380px;
-      background: #080808;
+      background: #060709;
       position: relative;
     }
 
@@ -488,9 +577,9 @@
     .stream-filters {
       display: flex;
       gap: 4px;
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-bottom: 1px solid var(--border-subtle);
-      background: #0B0D10;
+      background: #090C0F;
       overflow-x: auto;
     }
 
@@ -498,14 +587,15 @@
       background: transparent;
       border: 1px solid var(--border-subtle);
       color: var(--text-muted);
-      font-size: 9px;
+      font-size: 8.5px;
       font-family: var(--font-mono);
       font-weight: 800;
-      padding: 3px 8px;
+      padding: 2px 7px;
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       transition: all 0.12s ease;
+      white-space: nowrap;
     }
 
     .stream-pill:hover, .stream-pill.active {
@@ -515,46 +605,40 @@
     }
 
     .stream-feed {
-      max-height: calc(100vh - 420px);
-      min-height: 280px;
+      max-height: calc(100vh - 460px);
+      min-height: 290px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding: 10px 12px;
-      background: #090B0E;
+      padding: 8px 10px;
+      background: #080A0D;
     }
 
     .thought-item {
-      padding: 8px 10px;
+      padding: 7px 9px;
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
       border-left: 2px solid var(--gold);
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       transition: all 0.15s ease;
     }
 
-    .thought-item.veto {
-      border-left-color: var(--red);
-    }
-
-    .thought-item.absorpcao {
-      border-left-color: var(--green);
-    }
+    .thought-item.veto { border-left-color: var(--red); }
+    .thought-item.absorpcao { border-left-color: var(--green); }
+    .thought-item.gatilho { border-left-color: var(--gold); }
 
     .thought-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 8.5px;
     }
 
-    .thought-time {
-      color: var(--text-muted);
-    }
+    .thought-time { color: var(--text-muted); }
 
     .thought-action {
       padding: 1px 5px;
@@ -569,37 +653,30 @@
 
     .thought-body {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--text-main);
       line-height: 1.4;
     }
 
     /* Scrollbars */
-    ::-webkit-scrollbar {
-      width: 4px;
-      height: 4px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #080808;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #222222;
-    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #060709; }
+    ::-webkit-scrollbar-thumb { background: #1C2128; }
   </style>
 </head>
 <body>
 
-  <!-- Injected Shell Navigation via shell.js -->
+  <!-- Injeta Shell Unificado (Drawer Lateral, Header Lamborghini, Mobile Bottom Bar) -->
 
   <main class="laya-container">
 
     <!-- Panoramic Sovereign HUD -->
     <section class="panoramic-hud">
       <div class="hud-block">
-        <canvas class="thinking-orb-canvas" data-state="solving" data-size="28" data-color="#FCD535" width="28" height="28" style="width:28px;height:28px;"></canvas>
+        <canvas class="thinking-orb-canvas" data-state="solving" data-size="26" data-color="#FCD535" width="26" height="26" style="width:26px;height:26px;"></canvas>
         <div>
           <div class="hud-title">SISTEMA NEURAL SOBERANO</div>
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-value" style="color: var(--gold);">LAYA 360</span>
             <span class="hud-badge gold" id="laya-status-pill">REACTION ENGINE ON</span>
           </div>
@@ -609,19 +686,19 @@
       <div class="hud-block">
         <div>
           <div class="hud-title">REGIME & MASTER ADX</div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="hud-value" id="hud-adx">ADX --.-</span>
-            <span class="hud-badge gold" id="hud-regime">CALIBRATING</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="hud-value" id="hud-adx">ADX 14.5</span>
+            <span class="hud-badge gold" id="hud-regime">MEAN-REVERSION</span>
           </div>
         </div>
       </div>
 
       <div class="hud-block">
         <div>
-          <div class="hud-title">FAROL MACRO BTC</div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="hud-value" id="hud-btc-px">$---,---</span>
-            <span class="hud-badge green" id="hud-btc-chg">0.00%</span>
+          <div class="hud-title">FAROL MACRO BTC (OKX SWAP)</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="hud-value" id="hud-btc-px">$79,912.90</span>
+            <span class="hud-badge green" id="hud-btc-chg">-0.81%</span>
             <span class="hud-badge gold" id="hud-btc-climate">EXPANSION</span>
           </div>
         </div>
@@ -630,16 +707,21 @@
       <div class="hud-block">
         <div>
           <div class="hud-title">RADAR UNIVERSAL OKX</div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="hud-value" id="hud-ignited-cnt">-- ALTCOINS</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="hud-value" id="hud-ignited-cnt">507 CONTRATOS</span>
             <span class="hud-badge green">ROBÔS ATIVOS</span>
           </div>
         </div>
       </div>
 
-      <div class="hud-block">
-        <a href="/cockpit" class="btn-cockpit">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <div class="hud-block" style="gap: 8px;">
+        <button onclick="triggerForcedScan()" class="btn-action" id="btn-scan-now" title="Forçar varredura autônoma agora">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <span>VARREDURA AGORA</span>
+        </button>
+
+        <a href="/cockpit" class="btn-action gold-solid" id="btn-to-cockpit">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           <span>OPERAR NO COCKPIT</span>
         </a>
       </div>
@@ -652,19 +734,25 @@
       <aside class="panel">
         <div class="panel-header">
           <div class="panel-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>TOP 30 TITÃS OKX</span>
           </div>
-          <span style="font-family: var(--font-mono); font-size: 9px; color: var(--gold);" id="titans-count">30 ATIVOS</span>
+          <span style="font-family: var(--font-mono); font-size: 8.5px; color: var(--gold);" id="titans-count">30 ATIVOS</span>
+        </div>
+
+        <div class="titans-filter-bar">
+          <button class="titans-pill active" onclick="setTitanFilter('ALL')">TODOS</button>
+          <button class="titans-pill" onclick="setTitanFilter('IGNITED')">IGNIÇÃO</button>
+          <button class="titans-pill" onclick="setTitanFilter('GAINERS')">ALTAS</button>
+          <button class="titans-pill" onclick="setTitanFilter('LOSERS')">QUEDAS</button>
         </div>
 
         <div class="titans-search">
-          <input type="text" id="titans-filter-input" class="titans-input" placeholder="Filtrar par (ex: SOL, SUI)..." oninput="filterTitansList()">
+          <input type="text" id="titans-filter-input" class="titans-input" placeholder="Buscar símbolo (ex: SOL, SUI)..." oninput="filterTitansList()">
         </div>
 
         <div class="titans-list" id="titans-list-container">
-          <!-- Dynamically populated -->
-          <div style="padding: 20px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+          <div style="padding: 16px; text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
             Sincronizando Titãs OKX...
           </div>
         </div>
@@ -681,52 +769,60 @@
               <span class="hud-badge gold" id="inspected-inst">SOL-USDT-SWAP</span>
               <span class="titan-ignition-pill" id="inspected-ignition-tag" style="display:none;">IGNIÇÃO ON</span>
             </div>
-            <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 2px;" id="inspected-subinfo">
-              24h High: $--.-- | 24h Low: $--.-- | Funding: 0.0000%
+            <div style="font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); margin-top: 3px;" id="inspected-subinfo">
+              24h High: $--.-- | 24h Low: $--.-- | Funding: 0.0000% | Vol: $--M
             </div>
           </div>
 
           <div style="text-align: right;">
-            <div class="hero-px" id="inspected-price">$---.--</div>
-            <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 700;" id="inspected-chg">0.00%</div>
+            <div class="hero-px" id="inspected-price">$100.43</div>
+            <div style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;" id="inspected-chg">-1.28%</div>
           </div>
         </div>
 
         <!-- Microstructure Rejection Banner (V173 Anti-Predictive Guardian) -->
         <div class="rejection-banner safe" id="rejection-banner">
           <div>
-            <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">
+            <div style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">
               GUARDIÃO DE MICROESTRUTURA REATIVA (5M)
             </div>
-            <div style="font-size: 13px; font-weight: 900; font-family: var(--font-mono);" id="rejection-verdict">
-              VERIFICANDO EXAUSTÃO...
+            <div style="font-size: 11.5px; font-weight: 800; font-family: var(--font-mono);" id="rejection-verdict">
+              AVALIANDO CONFLUÊNCIA DE MICROESTRUTURA...
             </div>
           </div>
           <div id="rejection-decision-badge">
-            <span class="hud-badge green">CONFERINDO</span>
+            <span class="hud-badge green">SEGURO & REATIVO</span>
           </div>
         </div>
 
         <!-- Microstructure Reactive Meters -->
         <div class="rejection-meters">
           <div class="meter-card">
-            <div class="meter-label">TICK_REJECTION_INDEX (MIN 25%)</div>
-            <div class="meter-val" id="meter-rejection-val" style="color: var(--gold);">--%</div>
+            <div class="meter-label">PAVIO SUPERIOR (SHORT >= 25%)</div>
+            <div class="meter-val" id="meter-upper-wick-val" style="color: var(--gold);">--%</div>
             <div class="meter-bar-track">
-              <div class="meter-bar-fill" id="meter-rejection-bar" style="width: 0%; background: var(--gold);"></div>
+              <div class="meter-bar-fill" id="meter-upper-wick-bar" style="width: 0%; background: var(--gold);"></div>
             </div>
           </div>
 
           <div class="meter-card">
-            <div class="meter-label">MICRO_ACCEL_BRAKE (TETO 1.5%)</div>
-            <div class="meter-val" id="meter-accel-val" style="color: var(--green);">--%</div>
+            <div class="meter-label">PAVIO INFERIOR (LONG >= 25%)</div>
+            <div class="meter-val" id="meter-lower-wick-val" style="color: var(--green);">--%</div>
             <div class="meter-bar-track">
-              <div class="meter-bar-fill" id="meter-accel-bar" style="width: 0%; background: var(--green);"></div>
+              <div class="meter-bar-fill" id="meter-lower-wick-bar" style="width: 0%; background: var(--green);"></div>
             </div>
           </div>
 
           <div class="meter-card">
-            <div class="meter-label">MSB_CONFIRMATION (MÍN/MÁX 5M)</div>
+            <div class="meter-label">MOMENTUM 3-VELAS (TETO 1.5%)</div>
+            <div class="meter-val" id="meter-momentum-val" style="color: var(--green);">--%</div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill" id="meter-momentum-bar" style="width: 0%; background: var(--green);"></div>
+            </div>
+          </div>
+
+          <div class="meter-card">
+            <div class="meter-label">ESTRUTURA MSB 5M</div>
             <div class="meter-val" id="meter-msb-val" style="color: var(--text-main);">ESTÁVEL</div>
             <div class="meter-bar-track">
               <div class="meter-bar-fill" id="meter-msb-bar" style="width: 100%; background: var(--green);"></div>
@@ -737,11 +833,12 @@
         <!-- L2 Orderbook Imbalance Radar -->
         <div class="obi-strip">
           <div class="obi-header">
-            <div style="font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
-              L2 ORDERBOOK IMBALANCE (OBI)
+            <div style="font-family: var(--font-mono); font-size: 9.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+              L2 ORDERBOOK IMBALANCE (OBI) & SPREAD
             </div>
-            <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 800;" id="obi-ratio-val">
-              OBI: 0.00%
+            <div style="display: flex; gap: 8px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 800;">
+              <span id="obi-spread-val" style="color: var(--text-muted);">Spread: $0.00</span>
+              <span id="obi-ratio-val">OBI: 0.00%</span>
             </div>
           </div>
 
@@ -750,9 +847,9 @@
             <div class="obi-bar-ask" id="obi-bar-ask" style="width: 50%;"></div>
           </div>
 
-          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 8.5px; color: var(--text-muted);">
             <span id="obi-bid-vol">BIDS: 0.0</span>
-            <span id="obi-bias-tag" style="color: var(--gold); font-weight: 800;">EQUILIBRADO</span>
+            <span id="obi-bias-tag" style="color: var(--gold); font-weight: 800;">MID: $0.00</span>
             <span id="obi-ask-vol">ASKS: 0.0</span>
           </div>
         </div>
@@ -783,31 +880,31 @@
         <!-- 5M Microstructure Chart -->
         <div class="panel-header" style="border-top: 1px solid var(--border-subtle);">
           <div class="panel-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
             <span id="chart-title">MICROESTRUTURA 5M & VOLUME OKX</span>
           </div>
-          <span style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);">BARRA 5M CANDLESTICKS</span>
+          <span style="font-family: var(--font-mono); font-size: 8.5px; color: var(--text-muted);">VELAS 5M OKX SWAP</span>
         </div>
         <div id="laya-chart-container"></div>
 
       </section>
 
       <!-- Column 3: Flow Intelligence & Specialist Conscious Stream -->
-      <aside class="col-right" style="display: flex; flex-direction: column; gap: 12px;">
+      <aside class="col-right" style="display: flex; flex-direction: column; gap: 10px;">
 
         <!-- CVD Aggression & Liquidation Map -->
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               <span>CVD & LIQUIDAÇÃO INSTITUCIONAL</span>
             </div>
           </div>
 
-          <div class="panel-body" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="panel-body" style="display: flex; flex-direction: column; gap: 10px;">
             <!-- CVD -->
             <div>
-              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; margin-bottom: 4px;">
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9.5px; margin-bottom: 4px;">
                 <span style="color: var(--text-muted);">DELTA DE AGRESSÃO TAKER</span>
                 <span id="cvd-delta-usd" style="font-weight: 800; color: var(--gold);">+$0.00</span>
               </div>
@@ -815,7 +912,7 @@
                 <div class="obi-bar-bid" id="cvd-bar-buy" style="width: 50%;"></div>
                 <div class="obi-bar-ask" id="cvd-bar-sell" style="width: 50%;"></div>
               </div>
-              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 3px;">
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 8.5px; color: var(--text-muted); margin-top: 2px;">
                 <span id="cvd-buy-vol">Taker Buys: 0</span>
                 <span id="cvd-bias-label" style="font-weight: 800; color: var(--gold);">NEUTRO</span>
                 <span id="cvd-sell-vol">Taker Sells: 0</span>
@@ -823,32 +920,33 @@
             </div>
 
             <!-- Liquidation Magnet -->
-            <div style="border-top: 1px solid var(--border-subtle); padding-top: 10px;">
-              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
-                PISCINAS DE LIQUIDAÇÃO ESTIMADAS
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                <span>PISCINAS DE LIQUIDAÇÃO (MAGNET)</span>
+                <span id="liq-magnet-tag" class="hud-badge gold" style="font-size: 8px; padding: 1px 4px;">SHORT MAGNET</span>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                 <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
-                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--green);">LONGS EM RISCO</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--green);">LONGS EM RISCO</div>
                   <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-long-pool">$0.00</div>
-                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);">Alavancagem 20x-50x</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);">Pool 20x-50x (-4.8%)</div>
                 </div>
 
                 <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
-                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--red);">SHORTS EM RISCO</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--red);">SHORTS EM RISCO</div>
                   <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-short-pool">$0.00</div>
-                  <div style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);">Alavancagem 20x-50x</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);">Pool 20x-50x (+4.8%)</div>
                 </div>
               </div>
             </div>
 
             <!-- Whale vs Retail -->
-            <div style="border-top: 1px solid var(--border-subtle); padding-top: 10px;">
-              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px;">
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9.5px;">
                 <span style="color: var(--text-muted);">LONG/SHORT RATIO (LSR):</span>
                 <span id="flow-lsr-val" style="font-weight: 800; color: var(--gold);">1.00</span>
               </div>
-              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="flow-sardinha-status">
+              <div style="font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); margin-top: 3px;" id="flow-sardinha-status">
                 Equilíbrio de posicionamento do varejo
               </div>
             </div>
@@ -860,7 +958,7 @@
         <div class="panel" style="flex: 1;">
           <div class="panel-header">
             <div class="panel-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span>STREAM DE CONSCIÊNCIA ESPECIALISTA</span>
             </div>
             <span class="hud-badge gold">AO VIVO</span>
@@ -875,7 +973,7 @@
           </div>
 
           <div class="stream-feed" id="laya-thought-feed">
-            <div style="padding: 20px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+            <div style="padding: 16px; text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
               Conectando aos pensamentos da Laya...
             </div>
           </div>
@@ -896,15 +994,17 @@
       window.mountLamborghiniShell('laya');
     }
 
-    // Estado da Página
+    // Estado Global da Interface
     let currentSelectedSymbol = "SOLUSDT";
     let allTitans = [];
     let allThoughts = [];
     let currentThoughtFilter = "ALL";
+    let currentTitanFilter = "ALL";
     let chartInstance = null;
     let candleSeries = null;
     let volumeSeries = null;
     let isPolling = false;
+    let _lastPriceMap = {};
 
     // Inicialização do Gráfico LightweightCharts
     function initChart() {
@@ -917,22 +1017,22 @@
         width: container.clientWidth,
         height: 380,
         layout: {
-          background: { color: "#080808" },
+          background: { color: "#060709" },
           textColor: "#848E9C",
           fontFamily: "'IBM Plex Mono', Consolas, monospace",
           fontSize: 10
         },
         grid: {
-          vertLines: { color: "#14171C" },
-          horzLines: { color: "#14171C" }
+          vertLines: { color: "#12161C" },
+          horzLines: { color: "#12161C" }
         },
         timeScale: {
-          borderColor: "#1E2329",
+          borderColor: "#1C2128",
           timeVisible: true,
           secondsVisible: false
         },
         rightPriceScale: {
-          borderColor: "#1E2329",
+          borderColor: "#1C2128",
           autoScale: true
         },
         crosshair: {
@@ -976,11 +1076,8 @@
         const raw = Array.isArray(data) ? data : (data.data || []);
         if (!raw || raw.length === 0) return;
 
-        // OKX format: [ts, o, h, l, c, vol, volCcy]
         const candles = [];
         const volumes = [];
-
-        // Ordena por timestamp crescente
         const sorted = [...raw].sort((a, b) => Number(a[0]) - Number(b[0]));
 
         for (const item of sorted) {
@@ -1018,17 +1115,50 @@
       document.querySelectorAll(".titan-card").forEach(el => {
         el.classList.toggle("active", el.getAttribute("data-symbol") === symbol);
       });
+      const btnCockpit = document.getElementById("btn-to-cockpit");
+      if (btnCockpit) {
+        btnCockpit.href = `/cockpit?symbol=${symbol}`;
+      }
       loadCandles(symbol);
       fetchTelemetry();
     };
 
-    // Filtro da Lista de Titãs
+    // Filtro de Categoria dos Titãs
+    window.setTitanFilter = function(filter) {
+      currentTitanFilter = filter;
+      document.querySelectorAll(".titans-pill").forEach(btn => {
+        btn.classList.toggle("active", btn.textContent.includes(filter) || (filter === "ALL" && btn.textContent === "TODOS"));
+      });
+      renderTitans(allTitans);
+    };
+
+    // Filtro de Busca de Titãs
     window.filterTitansList = function() {
       const q = (document.getElementById("titans-filter-input")?.value || "").toUpperCase().trim();
       document.querySelectorAll(".titan-card").forEach(el => {
         const sym = el.getAttribute("data-symbol") || "";
         el.style.display = sym.includes(q) ? "flex" : "none";
       });
+    };
+
+    // Disparar Varredura Autônoma Forçada
+    window.triggerForcedScan = async function() {
+      const btn = document.getElementById("btn-scan-now");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>ESCANEANDO...</span>`;
+      }
+      try {
+        await fetch("/api/v1/hermes/laya/scan-now", { method: "POST" });
+        await fetchTelemetry();
+      } catch (e) {
+        console.error("Erro scan now:", e);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><span>VARREDURA AGORA</span>`;
+        }
+      }
     };
 
     // Filtro do Stream de Pensamentos
@@ -1046,21 +1176,20 @@
 
       let list = allThoughts || [];
       if (currentThoughtFilter === "VETO") {
-        list = list.filter(t => (t.action || "").includes("VETO") || (t.thought || "").includes("VETO"));
+        list = list.filter(t => (t.action || "").includes("VETO") || (t.thought || "").includes("VETO") || (t.thought || "").includes("Veto"));
       } else if (currentThoughtFilter === "ABSORCAO") {
-        list = list.filter(t => (t.action || "").includes("ABSOR") || (t.thought || "").includes("absor"));
+        list = list.filter(t => (t.action || "").includes("ABSOR") || (t.thought || "").includes("absor") || (t.action || "").includes("ORDEM"));
       } else if (currentThoughtFilter === "GATILHO") {
-        list = list.filter(t => (t.action || "").includes("GATILHO") || (t.action || "").includes("ORDEM"));
+        list = list.filter(t => (t.action || "").includes("GATILHO") || (t.action || "").includes("IGNICAO") || (t.action || "").includes("DISPARO"));
       } else if (currentThoughtFilter === "MACRO") {
         list = list.filter(t => (t.symbol || "") === "SISTEMA" || (t.symbol || "") === "BTC-ORACLE");
       }
 
       if (list.length === 0) {
-        feedEl.innerHTML = `<div style="padding: 16px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Nenhum pensamento nesta categoria.</div>`;
+        feedEl.innerHTML = `<div style="padding: 16px; text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Nenhum pensamento nesta categoria.</div>`;
         return;
       }
 
-      // Ordenar decrescente por timestamp
       const reversed = [...list].reverse();
       feedEl.innerHTML = reversed.map(t => {
         const act = (t.action || "PENSAMENTO").toUpperCase();
@@ -1068,7 +1197,7 @@
         let actCls = "";
         if (act.includes("VETO")) { cls = "veto"; actCls = "veto"; }
         else if (act.includes("ABSOR") || act.includes("ORDEM")) { cls = "absorpcao"; actCls = "absorpcao"; }
-        else if (act.includes("GATILHO") || act.includes("IGNICAO")) { actCls = "gatilho"; }
+        else if (act.includes("GATILHO") || act.includes("IGNICAO")) { cls = "gatilho"; actCls = "gatilho"; }
 
         return `
           <div class="thought-item ${cls}">
@@ -1088,22 +1217,43 @@
       if (!container || !titans || titans.length === 0) return;
 
       allTitans = titans;
-      const countEl = document.getElementById("titans-count");
-      if (countEl) countEl.textContent = `${titans.length} ATIVOS`;
 
-      container.innerHTML = titans.map((t, idx) => {
+      let filtered = [...titans];
+      if (currentTitanFilter === "IGNITED") {
+        filtered = filtered.filter(t => t.bot_ignition);
+      } else if (currentTitanFilter === "GAINERS") {
+        filtered = filtered.filter(t => t.change_24h > 0).sort((a,b) => b.change_24h - a.change_24h);
+      } else if (currentTitanFilter === "LOSERS") {
+        filtered = filtered.filter(t => t.change_24h < 0).sort((a,b) => a.change_24h - b.change_24h);
+      }
+
+      const countEl = document.getElementById("titans-count");
+      if (countEl) countEl.textContent = `${filtered.length} ATIVOS`;
+
+      const maxAbsChg = Math.max(...titans.map(t => Math.abs(t.change_24h || 0)), 1.0);
+
+      container.innerHTML = filtered.map(t => {
         const isUp = t.change_24h >= 0;
         const isActive = t.symbol === currentSelectedSymbol;
+        const heatPct = Math.min(100, Math.round((Math.abs(t.change_24h || 0) / maxAbsChg) * 100));
+
+        let flashClass = "";
+        const oldP = _lastPriceMap[t.symbol];
+        if (oldP !== undefined && t.price !== undefined) {
+          if (t.price > oldP) flashClass = "price-flash-up";
+          else if (t.price < oldP) flashClass = "price-flash-down";
+        }
+        _lastPriceMap[t.symbol] = t.price;
+
         return `
-          <div class="titan-card ${isActive ? 'active' : ''}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}')">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <div class="titan-sym">
-                <span style="font-size: 9px; color: var(--text-muted);">#${String(idx + 1).padStart(2, '0')}</span>
-                <span>${t.symbol.replace("USDT", "")}</span>
-                ${t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : ''}
-              </div>
+          <div class="titan-card ${isActive ? 'active' : ''} ${flashClass}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}')">
+            <div class="titan-heat-bar ${isUp ? 'up' : 'down'}" style="width: ${heatPct}%;"></div>
+            <div class="titan-sym-box">
+              <span class="titan-rank">#${String(t.rank || 0).padStart(2, '0')}</span>
+              <span class="titan-sym">${t.symbol.replace("USDT", "")}</span>
+              ${t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : ''}
             </div>
-            <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div class="titan-val-box">
               <span class="titan-px">$${Number(t.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
               <span class="titan-chg ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${Number(t.change_24h || 0).toFixed(2)}%</span>
             </div>
@@ -1129,16 +1279,32 @@
 
         // 1. Atualizar HUD Panorâmico
         const pulse = data.pulse || {};
-        const btcClimate = pulse.universal_market_stats || {};
+        const btcMacro = data.btc_macro || {};
         
         const adxEl = document.getElementById("hud-adx");
         if (adxEl) adxEl.textContent = `ADX ${Number(pulse.master_adx || 20).toFixed(1)}`;
 
         const regEl = document.getElementById("hud-regime");
-        if (regEl) regEl.textContent = pulse.regime_mode || "MEAN_REVERSION";
+        if (regEl) regEl.textContent = pulse.regime_mode || "MEAN-REVERSION";
+
+        const btcPxEl = document.getElementById("hud-btc-px");
+        if (btcPxEl) btcPxEl.textContent = `$${Number(btcMacro.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        const btcChgEl = document.getElementById("hud-btc-chg");
+        if (btcChgEl) {
+          const bChg = btcMacro.change_24h || 0;
+          btcChgEl.textContent = `${bChg >= 0 ? '+' : ''}${bChg.toFixed(2)}%`;
+          btcChgEl.className = `hud-badge ${bChg >= 0 ? 'green' : 'red'}`;
+        }
+
+        const btcClimateEl = document.getElementById("hud-btc-climate");
+        if (btcClimateEl) btcClimateEl.textContent = btcMacro.climate || "ALTCOIN EXPANSION";
 
         const ignEl = document.getElementById("hud-ignited-cnt");
-        if (ignEl) ignEl.textContent = `${btcClimate.ignited_count || 0} ALTCOINS`;
+        if (ignEl) {
+          const stats = pulse.universal_market_stats || {};
+          ignEl.textContent = `${stats.total_pairs || 507} CONTRATOS`;
+        }
 
         // 2. Atualizar Titãs
         if (data.titans && data.titans.length > 0) {
@@ -1155,57 +1321,85 @@
         const heroPx = document.getElementById("inspected-price");
         if (heroPx) heroPx.textContent = `$${Number(data.current_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
 
+        const heroChg = document.getElementById("inspected-chg");
+        const stats24 = data.stats_24h || {};
+        if (heroChg) {
+          const chg = stats24.change || 0;
+          heroChg.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
+          heroChg.className = chg >= 0 ? "up" : "down";
+        }
+
         const flow = data.flow || {};
         const heroSub = document.getElementById("inspected-subinfo");
         if (heroSub) {
-          heroSub.textContent = `Funding: ${((flow.funding_rate || 0) * 100).toFixed(4)}% | OI: $${Number(flow.oi_usd || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+          const volM = (stats24.volume_usd / 1_000_000).toFixed(1);
+          heroSub.textContent = `24h High: $${Number(stats24.high || 0).toFixed(stats24.high < 1 ? 4 : 2)} | 24h Low: $${Number(stats24.low || 0).toFixed(stats24.low < 1 ? 4 : 2)} | Funding: ${((flow.funding_rate || 0) * 100).toFixed(4)}% | Vol: $${volM}M`;
         }
 
         // 4. Microestrutura Reativa (V173 Anti-Predictive Guards)
         const micro = data.microstructure || {};
         const shortStatus = micro.short_status || {};
         const longStatus = micro.long_status || {};
+        const shortMetrics = shortStatus.metrics || {};
 
         const banner = document.getElementById("rejection-banner");
         const verdict = document.getElementById("rejection-verdict");
         const badgeBox = document.getElementById("rejection-decision-badge");
 
-        // Avalia se há veto ativo em qualquer direção
         if (!shortStatus.is_safe && shortStatus.reason) {
           banner.className = "rejection-banner veto";
           verdict.textContent = shortStatus.reason;
           verdict.style.color = "var(--red)";
-          badgeBox.innerHTML = `<span class="hud-badge red">VETO SHORT ATIVO</span>`;
+          badgeBox.innerHTML = `<span class="hud-badge red">VETO ATIVO</span>`;
         } else if (!longStatus.is_safe && longStatus.reason) {
           banner.className = "rejection-banner veto";
           verdict.textContent = longStatus.reason;
           verdict.style.color = "var(--red)";
-          badgeBox.innerHTML = `<span class="hud-badge red">VETO LONG ATIVO</span>`;
+          badgeBox.innerHTML = `<span class="hud-badge red">VETO ATIVO</span>`;
         } else {
           banner.className = "rejection-banner safe";
-          verdict.textContent = "MICROESTRUTURA VALIDADA: Pavio de exaustão e recuo confirmados em 5M. Seguro para disparos snipers.";
+          verdict.textContent = "CONFIRMADO: Absorção e pavio validados em 5M. Seguro para disparos snipers.";
           verdict.style.color = "var(--green)";
           badgeBox.innerHTML = `<span class="hud-badge green">SEGURO & REATIVO</span>`;
         }
 
-        // Medidores
-        const meterRejVal = document.getElementById("meter-rejection-val");
-        const meterRejBar = document.getElementById("meter-rejection-bar");
-        if (meterRejVal && meterRejBar) {
-          meterRejVal.textContent = shortStatus.is_safe ? ">= 25% (VALIDADO)" : "< 25% (EXPANSÃO)";
-          meterRejVal.style.color = shortStatus.is_safe ? "var(--green)" : "var(--red)";
-          meterRejBar.style.width = shortStatus.is_safe ? "100%" : "20%";
-          meterRejBar.style.background = shortStatus.is_safe ? "var(--green)" : "var(--red)";
+        // Medidores Numéricos Reais
+        const uWickVal = shortMetrics.upper_wick_ratio || 0;
+        const meterUWick = document.getElementById("meter-upper-wick-val");
+        const barUWick = document.getElementById("meter-upper-wick-bar");
+        if (meterUWick && barUWick) {
+          meterUWick.textContent = `${uWickVal.toFixed(1)}%`;
+          meterUWick.style.color = uWickVal >= 25 ? "var(--green)" : "var(--red)";
+          barUWick.style.width = `${Math.min(100, (uWickVal / 50) * 100)}%`;
+          barUWick.style.background = uWickVal >= 25 ? "var(--green)" : "var(--red)";
         }
 
-        const meterAccelVal = document.getElementById("meter-accel-val");
-        const meterAccelBar = document.getElementById("meter-accel-bar");
-        if (meterAccelVal && meterAccelBar) {
-          const isLoco = (shortStatus.reason || "").includes("LOCOMOTIVA");
-          meterAccelVal.textContent = isLoco ? "ALTA VELOCIDADE" : "CONTIDO";
-          meterAccelVal.style.color = isLoco ? "var(--red)" : "var(--green)";
-          meterAccelBar.style.width = isLoco ? "100%" : "30%";
-          meterAccelBar.style.background = isLoco ? "var(--red)" : "var(--green)";
+        const lWickVal = shortMetrics.lower_wick_ratio || 0;
+        const meterLWick = document.getElementById("meter-lower-wick-val");
+        const barLWick = document.getElementById("meter-lower-wick-bar");
+        if (meterLWick && barLWick) {
+          meterLWick.textContent = `${lWickVal.toFixed(1)}%`;
+          meterLWick.style.color = lWickVal >= 25 ? "var(--green)" : "var(--gold)";
+          barLWick.style.width = `${Math.min(100, (lWickVal / 50) * 100)}%`;
+          barLWick.style.background = lWickVal >= 25 ? "var(--green)" : "var(--gold)";
+        }
+
+        const momVal = shortMetrics.momentum_pct || 0;
+        const meterMom = document.getElementById("meter-momentum-val");
+        const barMom = document.getElementById("meter-momentum-bar");
+        if (meterMom && barMom) {
+          meterMom.textContent = `${momVal >= 0 ? '+' : ''}${momVal.toFixed(2)}%`;
+          const isHighVel = Math.abs(momVal) >= 1.5;
+          meterMom.style.color = isHighVel ? "var(--red)" : "var(--green)";
+          barMom.style.width = `${Math.min(100, (Math.abs(momVal) / 2.0) * 100)}%`;
+          barMom.style.background = isHighVel ? "var(--red)" : "var(--green)";
+        }
+
+        const meterMsb = document.getElementById("meter-msb-val");
+        if (meterMsb) {
+          const isExp = (shortStatus.reason || "").includes("EXPANSAO");
+          meterMsb.textContent = isExp ? "EXPANSÃO ATIVA" : "CONSOLIDADO";
+          meterMsb.style.color = isExp ? "var(--red)" : "var(--green)";
         }
 
         // 5. Orderbook L2 (OBI)
@@ -1217,10 +1411,20 @@
           obiValEl.style.color = obiRatio > 10 ? "var(--green)" : (obiRatio < -10 ? "var(--red)" : "var(--text-main)");
         }
 
+        const spreadValEl = document.getElementById("obi-spread-val");
+        if (spreadValEl) {
+          spreadValEl.textContent = `Spread: $${Number(ob.spread || 0).toFixed(ob.spread < 0.1 ? 4 : 2)} (${Number(ob.spread_pct || 0).toFixed(3)}%)`;
+        }
+
         const bidVolEl = document.getElementById("obi-bid-vol");
         const askVolEl = document.getElementById("obi-ask-vol");
-        if (bidVolEl) bidVolEl.textContent = `BIDS: ${ob.bid_vol || 0}`;
-        if (askVolEl) askVolEl.textContent = `ASKS: ${ob.ask_vol || 0}`;
+        if (bidVolEl) bidVolEl.textContent = `BIDS: ${Number(ob.bid_vol || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
+        if (askVolEl) askVolEl.textContent = `ASKS: ${Number(ob.ask_vol || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
+
+        const biasTag = document.getElementById("obi-bias-tag");
+        if (biasTag) {
+          biasTag.textContent = `MID: $${Number(ob.mid_price || data.current_price).toFixed(data.current_price < 1 ? 4 : 2)}`;
+        }
 
         const obiBarBid = document.getElementById("obi-bar-bid");
         const obiBarAsk = document.getElementById("obi-bar-ask");
@@ -1232,7 +1436,6 @@
           obiBarAsk.style.width = `${askPct}%`;
         }
 
-        // Escada de Profundidade L2
         renderDepthLadder(ob.bids || [], ob.asks || []);
 
         // 6. CVD Taker Delta
@@ -1246,12 +1449,13 @@
 
         const cvdBuyVol = document.getElementById("cvd-buy-vol");
         const cvdSellVol = document.getElementById("cvd-sell-vol");
-        if (cvdBuyVol) cvdBuyVol.textContent = `Buys: ${cvd.taker_buy_vol || 0}`;
-        if (cvdSellVol) cvdSellVol.textContent = `Sells: ${cvd.taker_sell_vol || 0}`;
+        if (cvdBuyVol) cvdBuyVol.textContent = `Buys: ${Number(cvd.taker_buy_vol || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
+        if (cvdSellVol) cvdSellVol.textContent = `Sells: ${Number(cvd.taker_sell_vol || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}`;
 
         const cvdBiasLabel = document.getElementById("cvd-bias-label");
         if (cvdBiasLabel) {
-          cvdBiasLabel.textContent = (cv.bias || cvd.bias || "NEUTRO").replace("_", " ");
+          const biasText = (cvd.bias || "NEUTRAL").replace("_", " ");
+          cvdBiasLabel.textContent = biasText;
           cvdBiasLabel.style.color = cvd.cvd_delta >= 0 ? "var(--green)" : "var(--red)";
         }
 
@@ -1270,6 +1474,12 @@
         const liqShort = document.getElementById("liq-short-pool");
         if (liqLong) liqLong.textContent = `$${Number(liqs.long_pool_20x || 0).toFixed(4)}`;
         if (liqShort) liqShort.textContent = `$${Number(liqs.short_pool_20x || 0).toFixed(4)}`;
+
+        const magnetTag = document.getElementById("liq-magnet-tag");
+        if (magnetTag) {
+          magnetTag.textContent = (liqs.magnet_target || "SHORT_MAGNET").replace("_", " ");
+          magnetTag.className = `hud-badge ${(liqs.magnet_target || "").includes("SHORT") ? "green" : "gold"}`;
+        }
 
         // 8. Whale vs Retail
         const lsrVal = document.getElementById("flow-lsr-val");
@@ -1304,7 +1514,7 @@
         return `
           <div class="depth-row">
             <div class="depth-fill bid" style="width: ${fillW}%;"></div>
-            <span class="depth-text" style="color: var(--green);">${Number(b[0]).toFixed(4)}</span>
+            <span class="depth-text" style="color: var(--green);">${Number(b[0]).toFixed(b[0] < 1 ? 4 : 2)}</span>
             <span class="depth-text" style="color: var(--text-muted);">${Number(b[1]).toFixed(1)}</span>
           </div>
         `;
@@ -1315,7 +1525,7 @@
         return `
           <div class="depth-row">
             <div class="depth-fill ask" style="width: ${fillW}%;"></div>
-            <span class="depth-text" style="color: var(--red);">${Number(a[0]).toFixed(4)}</span>
+            <span class="depth-text" style="color: var(--red);">${Number(a[0]).toFixed(a[0] < 1 ? 4 : 2)}</span>
             <span class="depth-text" style="color: var(--text-muted);">${Number(a[1]).toFixed(1)}</span>
           </div>
         `;
