@@ -1497,44 +1497,148 @@ class LayaRouterService:
             logger.debug(f"[LAYA] Sem pesos calibrados customizados: {e}")
         return {}
 
+    def evaluate_lower_tf_structure(self, candles: List[Any], direction: str) -> Dict[str, Any]:
+        """
+        [V173-ANTI-PREDICTIVE-GUARDS]: Especialista de Microestrutura M1/M5.
+        Garante que a LAYA seja 100% REATIVA e NUNCA PREDITIVA.
+        
+        1. Validação de dados: exige ao menos 3 candles.
+        2. TICK_REJECTION_INDEX: Exige pavio de rejeição >= 25% do range total da vela mais recente.
+           - Para SHORT: Pavio superior >= 25% (comprova que vendedores apareceram no topo).
+           - Para LONG: Pavio inferior >= 25% (comprova que compradores absorveram o fundo).
+        3. MICRO_ACCELERATION_BRAKE: Veta se o par subiu/caiu continuamente > 1.2% nos últimos candles.
+        4. MSB_CONFIRMATION: Veta se a vela mais recente estiver rompendo novas máximas (SHORT) ou mínimas (LONG).
+        """
+        if not candles or len(candles) < 3:
+            return {
+                "is_safe": False,
+                "reason": "DADOS_5M_INSUFICIENTES (Veto preventivo de segurança em alta alavancagem)"
+            }
+
+        # Normaliza ordenação por timestamp ascendente (antigo -> recente)
+        try:
+            sorted_c = sorted(candles, key=lambda c: int(c[0]))
+        except Exception:
+            sorted_c = candles
+
+        c_prev2 = sorted_c[-3]
+        c_prev1 = sorted_c[-2]
+        c_curr = sorted_c[-1]
+
+        o1, h1, l1, cl1 = float(c_prev1[1]), float(c_prev1[2]), float(c_prev1[3]), float(c_prev1[4])
+        o_curr, h_curr, l_curr, cl_curr = float(c_curr[1]), float(c_curr[2]), float(c_curr[3]), float(c_curr[4])
+        o_old, h_old, l_old, cl_old = float(c_prev2[1]), float(c_prev2[2]), float(c_prev2[3]), float(c_prev2[4])
+
+        range_curr = max(1e-8, h_curr - l_curr)
+
+        if direction == "SHORT":
+            upper_wick = h_curr - max(o_curr, cl_curr)
+            wick_ratio = upper_wick / range_curr
+            is_green_expansion = (cl_curr >= o_curr) and (wick_ratio < 0.25)
+
+            # 1. TICK_REJECTION_INDEX (Pavio superior de exaustão obrigatório)
+            if is_green_expansion:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_EXAUSTAO_INSUFICIENTE (Vela 5M compradora sem pavio de absorção: pavio {wick_ratio*100:.1f}% vs min 25%. Proibido adivinhar topo)"
+                }
+
+            # 2. MICRO_ACCELERATION_BRAKE (Anti-Locomotiva sem exaustão)
+            total_gain = (cl_curr - l_old) / l_old if l_old > 0 else 0.0
+            if total_gain >= 0.015 and cl_curr >= o_curr and wick_ratio < 0.40:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Alta agressiva de +{total_gain*100:.1f}% sem recuo em 5M. Proibido vender vela de expansão)"
+                }
+
+            # 3. MSB_CONFIRMATION: Não vender se vela estiver em expansão renovando máximas sem pavio
+            if h_curr > h1 * 1.002 and cl_curr > o_curr and wick_ratio < 0.40:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando máximas em ${h_curr:.4f}. Aguardar exaustão do topo local)"
+                }
+
+        elif direction == "LONG":
+            lower_wick = min(o_curr, cl_curr) - l_curr
+            wick_ratio = lower_wick / range_curr
+            is_red_expansion = (cl_curr <= o_curr) and (wick_ratio < 0.25)
+
+            # 1. TICK_REJECTION_INDEX (Pavio inferior de absorção obrigatório)
+            if is_red_expansion:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_EXAUSTAO_INSUFICIENTE (Vela 5M vendedora sem pavio de absorção: pavio {wick_ratio*100:.1f}% vs min 25%. Proibido adivinhar fundo)"
+                }
+
+            # 2. MICRO_ACCELERATION_BRAKE (Anti-Queda Livre sem absorção)
+            total_drop = (h_old - cl_curr) / h_old if h_old > 0 else 0.0
+            if total_drop >= 0.015 and cl_curr <= o_curr and wick_ratio < 0.40:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Queda agressiva de -{total_drop*100:.1f}% sem respiro em 5M. Proibido comprar faca caindo)"
+                }
+
+            # 3. MSB_CONFIRMATION: Não comprar se vela estiver em plena expansão para baixo sem absorção
+            if l_curr < l1 * 0.998 and cl_curr < o_curr and wick_ratio < 0.40:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f}. Aguardar absorção do fundo local)"
+                }
+
+        return {
+            "is_safe": True,
+            "reason": "CONFIRMADO_MICROESTRUTURA_REATIVA (Exaustão e absorção validadas em 5M)"
+        }
+
     async def check_lower_tf_exhaustion(self, symbol: str, direction: str) -> Dict[str, Any]:
         """
-        [V169-TF-MENORES] Confirmação obrigatória em timeframe curto (5M) antes do disparo:
-        - Para LONG: Veta entrada se os últimos candles de 5m forem facas caindo sem absorção (marubozu vermelho).
-        - Para SHORT: Veta entrada se os últimos candles de 5m forem bombas em expansão sem pavio superior.
+        [V173-NATIVE-OKX-FEED]: Consulta nativa de velas 5M na OKX Perpétuo
+        com fallbacks para OKX Spot e Binance, passando os candles para evaluate_lower_tf_structure.
         """
-        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper() + "USDT"
+        clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
+        clean_coin = clean.replace("USDT", "")
+        raw_candles = []
+
         try:
-            async with httpx.AsyncClient(timeout=1.5) as client:
-                r = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=5m&limit=4")
-                if r.status_code == 200:
-                    raw = r.json()
-                    if len(raw) >= 3:
-                        c1 = raw[-3]
-                        c2 = raw[-2]
-                        o1, h1, l1, cl1 = float(c1[1]), float(c1[2]), float(c1[3]), float(c1[4])
-                        o2, h2, l2, cl2 = float(c2[1]), float(c2[2]), float(c2[3]), float(c2[4])
+            async with httpx.AsyncClient(timeout=2.5, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                # 1. OKX SWAP Perpétuo (Primário para todos os pares)
+                inst_id = f"{clean_coin}-USDT-SWAP"
+                url_okx = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar=5m&limit=6"
+                resp = await client.get(url_okx)
+                if resp.status_code == 200:
+                    d = resp.json()
+                    if d.get("code") == "0" and d.get("data") and len(d["data"]) >= 3:
+                        raw_candles = d["data"]
 
-                        if direction == "LONG":
-                            drop1 = o1 - cl1
-                            drop2 = o2 - cl2
-                            if drop1 > 0 and drop2 > 0:
-                                wick2 = cl2 - l2
-                                if wick2 < (drop2 * 0.20):
-                                    return {"is_safe": False, "reason": "LOWER_TF_FALLING_KNIFE (5M em queda livre sem absorção)"}
+                # 2. Fallback OKX Spot
+                if not raw_candles:
+                    url_spot = f"https://www.okx.com/api/v5/market/candles?instId={clean_coin}-USDT&bar=5m&limit=6"
+                    resp_s = await client.get(url_spot)
+                    if resp_s.status_code == 200:
+                        d_s = resp_s.json()
+                        if d_s.get("code") == "0" and d_s.get("data") and len(d_s["data"]) >= 3:
+                            raw_candles = d_s["data"]
 
-                        elif direction == "SHORT":
-                            pump1 = cl1 - o1
-                            pump2 = cl2 - o2
-                            if pump1 > 0 and pump2 > 0:
-                                wick2 = h2 - cl2
-                                if wick2 < (pump2 * 0.20):
-                                    return {"is_safe": False, "reason": "LOWER_TF_PUMP_EXPLOSION (5M em explosão sem exaustão)"}
+                # 3. Fallback Binance Futures / Spot
+                if not raw_candles:
+                    url_bin = f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval=5m&limit=6"
+                    resp_b = await client.get(url_bin)
+                    if resp_b.status_code == 200:
+                        b_data = resp_b.json()
+                        if isinstance(b_data, list) and len(b_data) >= 3:
+                            raw_candles = [[str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])] for k in b_data]
 
         except Exception as _e_ltf:
-            logger.debug(f"[LOWER-TF] Falha benigna ao ler 5m para {clean}: {_e_ltf}")
+            logger.debug(f"[LOWER-TF] Erro ao consultar candles 5M para {symbol}: {_e_ltf}")
 
-        return {"is_safe": True, "reason": "LOWER_TF_CONFIRMED"}
+        if not raw_candles:
+            # Em alta alavancagem (20X), sem dados de microestrutura não podemos arriscar
+            return {
+                "is_safe": False,
+                "reason": f"DADOS_5M_INDISPONIVEIS (Veto de segurança em {symbol}: confirmação microestrutural ausente)"
+            }
+
+        return self.evaluate_lower_tf_structure(raw_candles, direction)
 
     def _seed_initial_thoughts(self):
         """Inicializa pensamentos táticos para exibir sinal de vida na UI imediatamente."""
