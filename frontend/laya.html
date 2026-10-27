@@ -1344,12 +1344,12 @@
     }
 
     // Renderiza Canvas Central de Alta Resolução do Mapa de Calor (Estilo Coinglass)
+        // Renderiza Canvas Central de Alta Resolução do Mapa de Calor 2D Estilo Coinglass
     function renderLiquidationHeatmap(data) {
       window._lastTelemetryData = data;
       const canvas = document.getElementById("laya-central-heatmap");
       if (!canvas) return;
 
-      // Sincronizar tamanho físico com resolução real
       const rect = canvas.getBoundingClientRect();
       const w = canvas.width = rect.width > 0 ? Math.floor(rect.width) : 880;
       const h = canvas.height = 380;
@@ -1357,122 +1357,157 @@
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, w, h);
 
-      // Fundo escuro Binance Dark
+      // Fundo escuro Binance Dark / Lamborghini Carbon
       ctx.fillStyle = "#060709";
       ctx.fillRect(0, 0, w, h);
 
       const liqs = data.liquidations || {};
-      const matrix = liqs.heat_matrix || [];
+      const matrix2d = liqs.matrix_2d || [];
+      const yLevels = liqs.y || [];
+      const candles = liqs.candles || [];
       const currentPrice = data.current_price || 0.0;
       const targetPrice = liqs.target_price || 0.0;
 
-      if (!matrix || matrix.length === 0) {
+      if (!matrix2d || matrix2d.length === 0 || !yLevels || yLevels.length === 0) {
         ctx.fillStyle = "#848E9C";
         ctx.font = "11px JetBrains Mono";
-        ctx.fillText("Sincronizando bolsões de liquidez de alta profundidade...", 20, h / 2);
+        ctx.fillText("Sincronizando bolsões de liquidez institucional 2D (Coinglass Engine)...", 24, h / 2);
         return;
       }
 
-      const minP = matrix[0].price;
-      const maxP = matrix[matrix.length - 1].price;
+      const numCols = matrix2d.length;
+      const numRows = yLevels.length;
+      const minP = yLevels[0];
+      const maxP = yLevels[numRows - 1];
       const pRange = Math.max(1e-6, maxP - minP);
-      const rightMargin = 120; // Espaço para rótulos de preços e volumes à direita
-      const chartW = w - rightMargin;
-      const barHeight = Math.max(2.5, h / matrix.length);
 
-      // 1. Grade horizontal sutil e faixas de liquidação
-      for (let i = 0; i < matrix.length; i++) {
-        const item = matrix[i];
-        const intensity = item.intensity || 0.0;
-        const volUsd = item.liq_volume_usd || 0.0;
-        const yPos = h - ((item.price - minP) / pRange) * h;
+      const rightMargin = 120; // Espaço do eixo de preços e perfil acumulado
+      const plotW = w - rightMargin;
+      const colW = plotW / numCols;
+      const rowH = h / numRows;
 
-        // Grade suave a cada 5 níveis
-        if (i % 5 === 0) {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(0, yPos);
-          ctx.lineTo(w, yPos);
-          ctx.stroke();
-        }
+      // 1. LAYER 1: Matriz Bidimensional de Calor (X = Velas no Tempo, Y = Preço)
+      for (let t = 0; t < numCols; t++) {
+        const row = matrix2d[t];
+        const xPos = t * colW;
 
-        if (intensity > 0.03) {
-          // Gradiente horizontal simulando densidade Coinglass
-          const grad = ctx.createLinearGradient(0, yPos, chartW, yPos);
-          
-          let colorStart, colorEnd;
-          if (intensity > 0.65) {
-            // Clúster de alta intensidade: Ouro Lamborghini / Laranja
-            colorStart = "rgba(252, 213, 53, 0.05)";
-            colorEnd = `rgba(252, 213, 53, ${Math.min(0.95, 0.4 + intensity * 0.55)})`;
-          } else if (intensity > 0.35) {
-            // Intensidade média: Verde institucional
-            colorStart = "rgba(14, 203, 129, 0.04)";
-            colorEnd = `rgba(14, 203, 129, ${0.25 + intensity * 0.5})`;
-          } else {
-            // Intensidade baixa: Roxo / Indigo
-            colorStart = "rgba(80, 70, 150, 0.02)";
-            colorEnd = `rgba(80, 70, 150, ${0.15 + intensity * 0.4})`;
-          }
+        for (let p = 0; p < numRows; p++) {
+          const intensity = row[p] || 0.0;
+          if (intensity > 0.02) {
+            let color;
+            if (intensity >= 0.75) {
+              // Mega Cluster Institucional: Ouro Lamborghini Radiante / Amarelo
+              color = `rgba(252, 213, 53, ${Math.min(0.95, 0.55 + intensity * 0.45)})`;
+            } else if (intensity >= 0.45) {
+              // Cluster Pesado: Verde Institucional Binance
+              color = `rgba(14, 203, 129, ${0.4 + intensity * 0.5})`;
+            } else if (intensity >= 0.20) {
+              // Cluster Médio: Ciano / Azul Elétrico
+              color = `rgba(0, 180, 216, ${0.3 + intensity * 0.45})`;
+            } else {
+              // Densidade Leve: Roxo Profundo / Indigo
+              color = `rgba(62, 45, 110, ${0.2 + intensity * 0.4})`;
+            }
 
-          grad.addColorStop(0, colorStart);
-          grad.addColorStop(1, colorEnd);
-
-          ctx.fillStyle = grad;
-          const bandWidth = chartW * Math.min(1.0, 0.35 + intensity * 0.65);
-          ctx.fillRect(chartW - bandWidth, yPos - barHeight / 2, bandWidth, barHeight);
-
-          // Rótulo para os maiores bolsões de liquidez (> $800k)
-          if (volUsd >= 800000 || intensity >= 0.70) {
-            ctx.fillStyle = intensity > 0.65 ? "#FCD535" : "#0ECB81";
-            ctx.font = "bold 8.5px JetBrains Mono";
-            ctx.fillText(`$${(volUsd / 1000000).toFixed(2)}M`, chartW - bandWidth - 45, yPos + 3);
+            const yPos = h - ((yLevels[p] - minP) / pRange) * h - rowH;
+            ctx.fillStyle = color;
+            ctx.fillRect(xPos, yPos, colW + 0.9, rowH + 0.9);
           }
         }
       }
 
-      // 2. Coluna de Escala de Preços no Eixo Direito
-      ctx.fillStyle = "#0A0D14";
-      ctx.fillRect(chartW, 0, rightMargin, h);
+      // 2. LAYER 2: Grade Horizontal Suave
+      for (let p = 0; p < numRows; p += 6) {
+        const yPos = h - ((yLevels[p] - minP) / pRange) * h;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, yPos);
+        ctx.lineTo(plotW, yPos);
+        ctx.stroke();
+      }
+
+      // 3. LAYER 3: Trajetória Real das Velas de Preço (K-Lines Sobrepostas)
+      if (candles && candles.length > 0) {
+        for (let t = 0; t < candles.length; t++) {
+          const c = candles[t];
+          const xCenter = t * colW + colW / 2;
+          const oY = h - ((c[1] - minP) / pRange) * h;
+          const hY = h - ((c[2] - minP) / pRange) * h;
+          const lY = h - ((c[3] - minP) / pRange) * h;
+          const cY = h - ((c[4] - minP) / pRange) * h;
+
+          const isBull = c[4] >= c[1];
+          const candleColor = isBull ? "rgba(14, 203, 129, 0.85)" : "rgba(246, 70, 93, 0.85)";
+
+          // Pavio
+          ctx.strokeStyle = candleColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xCenter, hY);
+          ctx.lineTo(xCenter, lY);
+          ctx.stroke();
+
+          // Corpo da vela
+          const bodyTop = Math.min(oY, cY);
+          const bodyH = Math.max(1.5, Math.abs(cY - oY));
+          ctx.fillStyle = candleColor;
+          ctx.fillRect(xCenter - colW * 0.35, bodyTop, Math.max(1.5, colW * 0.7), bodyH);
+        }
+      }
+
+      // 4. LAYER 4: Coluna do Eixo Direito (Preços e Perfil Acumulado)
+      ctx.fillStyle = "#080B10";
+      ctx.fillRect(plotW, 0, rightMargin, h);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(chartW, 0);
-      ctx.lineTo(chartW, h);
+      ctx.moveTo(plotW, 0);
+      ctx.lineTo(plotW, h);
       ctx.stroke();
 
-      // Marcadores de Preço de Referência
-      const steps = 6;
+      // Perfil de volume de liquidação remanescente no eixo (Histograma Horizontal)
+      const latestRow = matrix2d[numCols - 1] || [];
+      for (let p = 0; p < numRows; p++) {
+        const intensity = latestRow[p] || 0.0;
+        if (intensity > 0.05) {
+          const yPos = h - ((yLevels[p] - minP) / pRange) * h - rowH;
+          const barW = Math.min(35, intensity * 35);
+          ctx.fillStyle = intensity > 0.6 ? "rgba(252, 213, 53, 0.5)" : "rgba(14, 203, 129, 0.4)";
+          ctx.fillRect(plotW + 2, yPos, barW, rowH);
+        }
+      }
+
+      // Rótulos de Preço de Referência
+      const steps = 7;
       for (let s = 0; s <= steps; s++) {
         const pVal = minP + (pRange * s) / steps;
         const pY = h - (s / steps) * h;
-        ctx.fillStyle = "#5E6673";
+        ctx.fillStyle = "#848E9C";
         ctx.font = "8.5px JetBrains Mono";
-        ctx.fillText(`$${pVal.toFixed(4)}`, chartW + 8, Math.min(h - 4, Math.max(10, pY + 3)));
+        ctx.fillText(`$${pVal.toFixed(4)}`, plotW + 12, Math.min(h - 6, Math.max(12, pY + 3)));
       }
 
-      // 3. Linha do Preço Atual
+      // 5. LAYER 5: Linha e Badge do Preço Atual
       if (currentPrice >= minP && currentPrice <= maxP) {
         const currY = h - ((currentPrice - minP) / pRange) * h;
-        ctx.strokeStyle = "#FFFFFF";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([2, 2]);
+        ctx.setLineDash([3, 3]);
         ctx.beginPath();
         ctx.moveTo(0, currY);
-        ctx.lineTo(chartW, currY);
+        ctx.lineTo(plotW, currY);
         ctx.stroke();
 
-        // Badge do Preço Atual no Eixo
         ctx.setLineDash([]);
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(chartW + 2, currY - 9, rightMargin - 4, 18);
+        ctx.fillRect(plotW + 4, currY - 9, rightMargin - 8, 18);
         ctx.fillStyle = "#060709";
         ctx.font = "bold 9px JetBrains Mono";
-        ctx.fillText(`$${currentPrice.toFixed(4)}`, chartW + 8, currY + 3);
+        ctx.fillText(`$${currentPrice.toFixed(4)}`, plotW + 10, currY + 3);
       }
 
-      // 4. Linha e Destaque do Alvo Magnético das Baleias (Whale Magnet)
+      // 6. LAYER 6: Linha, Badge e Vetor do Alvo Magnético das Baleias
       if (targetPrice >= minP && targetPrice <= maxP) {
         const targetY = h - ((targetPrice - minP) / pRange) * h;
         ctx.strokeStyle = "#FCD535";
@@ -1480,23 +1515,22 @@
         ctx.setLineDash([5, 4]);
         ctx.beginPath();
         ctx.moveTo(0, targetY);
-        ctx.lineTo(chartW, targetY);
+        ctx.lineTo(plotW, targetY);
         ctx.stroke();
 
-        // Badge do Ímã Baleia no Eixo
         ctx.setLineDash([]);
         ctx.fillStyle = "#FCD535";
-        ctx.fillRect(chartW + 2, targetY - 10, rightMargin - 4, 20);
+        ctx.fillRect(plotW + 4, targetY - 10, rightMargin - 8, 20);
         ctx.fillStyle = "#060709";
         ctx.font = "bold 9px JetBrains Mono";
-        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, chartW + 6, targetY + 3);
+        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, plotW + 6, targetY + 3);
 
-        // Indicador de seta de direção magnética no centro
+        // Indicador de seta de direção magnética no canto superior do gráfico
         ctx.fillStyle = "#FCD535";
         ctx.font = "bold 10px JetBrains Mono";
         const distPct = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(2) : "0.00";
         const dirLabel = targetPrice >= currentPrice ? `▲ VETOR DE LIQUIDAÇÃO LONG (+${distPct}%)` : `▼ VETOR DE LIQUIDAÇÃO SHORT (${distPct}%)`;
-        ctx.fillText(dirLabel, 20, Math.max(25, targetY - 6));
+        ctx.fillText(dirLabel, 16, Math.max(26, Math.min(h - 15, targetY - 6)));
       }
 
       // Sincronizar Header Superior do Cockpit
@@ -1725,8 +1759,17 @@
 
         if (liqLong) liqLong.textContent = `$${Number(liqs.long_pool_20x || 0).toFixed(4)}`;
         if (liqShort) liqShort.textContent = `$${Number(liqs.short_pool_20x || 0).toFixed(4)}`;
-        if (liqLongVol) liqLongVol.textContent = `Vol: $${((liqs.lower_total_usd || 0)/1e6).toFixed(2)}M`;
-        if (liqShortVol) liqShortVol.textContent = `Vol: $${((liqs.upper_total_usd || 0)/1e6).toFixed(2)}M`;
+        
+        const lowerVolUSD = Number(liqs.lower_total_usd || 0);
+        const upperVolUSD = Number(liqs.upper_total_usd || 0);
+        if (liqLongVol) {
+          const formatted = lowerVolUSD >= 1e6 ? `$${(lowerVolUSD / 1e6).toFixed(2)}M` : (lowerVolUSD >= 1e3 ? `$${(lowerVolUSD / 1e3).toFixed(0)}K` : `$${lowerVolUSD.toFixed(0)}`);
+          liqLongVol.textContent = `Vol: ${formatted}`;
+        }
+        if (liqShortVol) {
+          const formatted = upperVolUSD >= 1e6 ? `$${(upperVolUSD / 1e6).toFixed(2)}M` : (upperVolUSD >= 1e3 ? `$${(upperVolUSD / 1e3).toFixed(0)}K` : `$${upperVolUSD.toFixed(0)}`);
+          liqShortVol.textContent = `Vol: ${formatted}`;
+        }
         if (targetVal) targetVal.textContent = `$${Number(liqs.target_price || 0).toFixed(4)} (${liqs.distance_pct || 0}%)`;
 
         const magnetTag = document.getElementById("liq-magnet-tag");
