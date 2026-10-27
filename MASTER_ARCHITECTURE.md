@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.7.0
+# MASTER_ARCHITECTURE.md — 1Crypten 7.7.4 (V174)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-23. VERSION no codigo: `backend/main.py` VERSION="V168-SOVEREIGN-OPENVIKING-MEMORY" / DEPLOYMENT_ID="V168_OPENVIKING_CONTEXT_ENGINE". Integracao Nativa do OpenViking Context Database (Sistema de Arquivos Virtual viking:// com Progressive Disclosure L0/L1/L2 e Memoria Episodica Auto-Evolutiva em Fechamento de Trades), Blindagem Anti-Faca (Veto de SHORT em DVWAP Reversion e Range Reversal quando 1C-EXP >= 70 ou esticamento >= 5%), Promocao Soberana de Alt Pump Ignition (Triplice Confluencia com Pearson Real OKX BTC-USDT-SWAP, sempre operando LONG), Travamento de Badges no Cockpit (ordens ativas refletem estritamente a direcao da custodia), Day Trade (1H) com 8 Slots Simultaneos ($100 cada = $800 alocado) e Stop Loss Estrutural com Hard Limit de -18% ROI.*
+*Verificado contra o codigo em 2026-10-27. VERSION no codigo: `backend/main.py` VERSION="V174-LIQUIDATION-HEATMAP-WHALE-MAGNET" / DEPLOYMENT_ID="V174_SOVEREIGN_LIQUIDITY_HUNTER". Integracao do Motor de Mapa de Calor de Liquidacoes Coinglass + OKX Deep L2 (coinglass_heatmap_service.py), Extirpacao Definitiva da Contratendencia Cega (desativacao permanente de LAYA_DVWAP_REVERSION), Novo Setup Soberano LAYA_LIQUIDITY_HUNT com Imas de Liquidacao de Baleia (BULLISH_SWEEP / BEARISH_SWEEP), Veto Absoluto de Ima de Liquidez (proibido abrir SHORT com muralha de liquidacao acima), Blindagem Microestrutural 5M sem falsos positivos e Nova Interface Laya 360 com Canvas Nativo de Liquidacao em Tempo Real.*
 
 ---
 
@@ -45,6 +45,8 @@ flowchart TD
         R_ML["/api/v1/ml/status & /dataset-stats & /generate-dataset"]
         R_Intel["/api/v1/market/screener-matrix & /ai-context (1C-EXP & 1C-RANGE)"]
         R_Precision["/api/v1/market/contract-specs (TickSz & LotSz Audit)"]
+        R_Heatmap["/api/v1/hermes/laya/liquidation-heatmap (Coinglass Matrix & Whale Magnet)"]
+        R_Heatmap["/api/v1/hermes/laya/liquidation-heatmap (Coinglass Matrix & Whale Magnet)"]
     end
 
     subgraph Protocol_Bridges["Protocol & AI Bridges"]
@@ -64,6 +66,8 @@ flowchart TD
         MarketIntel["MarketIntelEngine (Universal Screener 507 Pares, 1C-EXP, 1C-RANGE)"]
         StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
         SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.5%)"]
+        CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
+        CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
     end
 
     subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
@@ -119,6 +123,10 @@ flowchart TD
     LayaRouter --> Kronos
     LayaRouter --> RAG_Engine
     LayaRouter --> SanityGate
+    LayaRouter --> CoinglassHeatmap
+    R_Heatmap --> CoinglassHeatmap
+    LayaRouter --> CoinglassHeatmap
+    R_Heatmap --> CoinglassHeatmap
     SanityGate --> ScalpLab
 
     CoinGecko --> BTCSpecialist
