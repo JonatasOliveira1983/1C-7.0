@@ -469,7 +469,12 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
     # 7. Real-Time Liquidation HeatMap & Whale Magnet
     try:
         from app.services.coinglass_heatmap_service import coinglass_heatmap_service
-        heatmap_data = await coinglass_heatmap_service.get_liquidity_heatmap(clean_sym)
+        heatmap_data = await coinglass_heatmap_service.get_liquidity_heatmap(
+            clean_sym,
+            current_price=current_price,
+            bids=bids,
+            asks=asks
+        )
         liquidation_clusters = {
             "long_pool_20x": heatmap_data["lower_pool"]["peak_price"],
             "long_pool_50x": round(current_price * 0.981, 4),

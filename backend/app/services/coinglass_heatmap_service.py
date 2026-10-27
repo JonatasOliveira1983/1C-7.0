@@ -22,7 +22,13 @@ class CoinglassHeatmapService:
         clean = symbol.replace("-USDT-SWAP", "").replace("-SWAP", "").replace("USDT", "").upper()
         return f"{clean}USDT"
 
-    async def get_liquidity_heatmap(self, symbol: str) -> Dict[str, Any]:
+    async def get_liquidity_heatmap(
+        self,
+        symbol: str,
+        current_price: float = 0.0,
+        bids: Optional[List[List[float]]] = None,
+        asks: Optional[List[List[float]]] = None
+    ) -> Dict[str, Any]:
         """
         Retorna a matriz de calor de liquidações e os parâmetros de ímã institucional
         para o símbolo solicitado.
@@ -40,14 +46,20 @@ class CoinglassHeatmapService:
             if cached and (now - cached.get("_cached_at", 0)) < self._cache_ttl:
                 return cached["data"]
 
-            data = await self._compute_liquidity_heatmap(norm_sym)
+            data = await self._compute_liquidity_heatmap(norm_sym, current_price, bids, asks)
             self._cache[norm_sym] = {
                 "_cached_at": now,
                 "data": data
             }
             return data
 
-    async def _compute_liquidity_heatmap(self, norm_sym: str) -> Dict[str, Any]:
+    async def _compute_liquidity_heatmap(
+        self,
+        norm_sym: str,
+        passed_price: float = 0.0,
+        passed_bids: Optional[List[List[float]]] = None,
+        passed_asks: Optional[List[List[float]]] = None
+    ) -> Dict[str, Any]:
         """
         Gera a matriz tridimensional e calcula os bolsões de liquidez.
         Combina orderbook L2 profundo da OKX com modelo matemático de alavancagem acumulada.
@@ -56,37 +68,38 @@ class CoinglassHeatmapService:
         inst_id = f"{coin}-USDT-SWAP"
 
         # 1. Coleta de preço atual, orderbook profundo e métricas de derivativos
-        current_price = 0.0
-        bids: List[List[float]] = []
-        asks: List[List[float]] = []
+        current_price = passed_price if passed_price > 0.0 else 0.0
+        bids: List[List[float]] = passed_bids if passed_bids else []
+        asks: List[List[float]] = passed_asks if passed_asks else []
         oi_usd = 10_000_000.0
         lsr = 1.0
 
-        try:
-            async with httpx.AsyncClient(timeout=3.5, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
-                # OKX Deep Orderbook
-                ob_url = f"https://www.okx.com/api/v5/market/books?instId={inst_id}&sz=100"
-                # OKX Ticker
-                tick_url = f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}"
+        if current_price <= 0.0 or not bids or not asks:
+            try:
+                async with httpx.AsyncClient(timeout=2.0, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
+                    # OKX Deep Orderbook
+                    ob_url = f"https://www.okx.com/api/v5/market/books?instId={inst_id}&sz=100"
+                    # OKX Ticker
+                    tick_url = f"https://www.okx.com/api/v5/market/ticker?instId={inst_id}"
 
-                ob_resp, tick_resp = await asyncio.gather(
-                    client.get(ob_url),
-                    client.get(tick_url),
-                    return_exceptions=True
-                )
+                    ob_resp, tick_resp = await asyncio.gather(
+                        client.get(ob_url),
+                        client.get(tick_url),
+                        return_exceptions=True
+                    )
 
-                if isinstance(tick_resp, httpx.Response) and tick_resp.status_code == 200:
-                    t_json = tick_resp.json()
-                    if t_json.get("code") == "0" and t_json.get("data"):
-                        current_price = float(t_json["data"][0].get("last", 0.0) or 0.0)
+                    if isinstance(tick_resp, httpx.Response) and tick_resp.status_code == 200:
+                        t_json = tick_resp.json()
+                        if t_json.get("code") == "0" and t_json.get("data"):
+                            current_price = float(t_json["data"][0].get("last", 0.0) or 0.0)
 
-                if isinstance(ob_resp, httpx.Response) and ob_resp.status_code == 200:
-                    ob_json = ob_resp.json()
-                    if ob_json.get("code") == "0" and ob_json.get("data"):
-                        bids = [[float(x[0]), float(x[1])] for x in ob_json["data"][0].get("bids", [])]
-                        asks = [[float(x[0]), float(x[1])] for x in ob_json["data"][0].get("asks", [])]
-        except Exception as e:
-            logger.debug(f"[HEATMAP-SERVICE] Erro ao coletar book OKX para {norm_sym}: {e}")
+                    if isinstance(ob_resp, httpx.Response) and ob_resp.status_code == 200:
+                        ob_json = ob_resp.json()
+                        if ob_json.get("code") == "0" and ob_json.get("data"):
+                            bids = [[float(x[0]), float(x[1])] for x in ob_json["data"][0].get("bids", [])]
+                            asks = [[float(x[0]), float(x[1])] for x in ob_json["data"][0].get("asks", [])]
+            except Exception as e:
+                logger.debug(f"[HEATMAP-SERVICE] Erro ao coletar book OKX para {norm_sym}: {e}")
 
         # Fallback de preço se necessário
         if current_price <= 0.0:
