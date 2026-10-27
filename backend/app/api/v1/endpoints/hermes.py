@@ -466,15 +466,34 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
         "long_status": long_status
     }
 
-    # 7. Estimated Liquidation Clusters
-    p = current_price if current_price > 0 else float(flow.get("price", 100.0) or 100.0)
-    liquidation_clusters = {
-        "long_pool_20x": round(p * 0.952, 4),
-        "long_pool_50x": round(p * 0.981, 4),
-        "short_pool_20x": round(p * 1.048, 4),
-        "short_pool_50x": round(p * 1.019, 4),
-        "magnet_target": "LONG_LIQUIDATION_MAGNET" if flow.get("lsr_val", 1.0) > 1.25 else "SHORT_SQUEEZE_MAGNET"
-    }
+    # 7. Real-Time Liquidation HeatMap & Whale Magnet
+    try:
+        from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+        heatmap_data = await coinglass_heatmap_service.get_liquidity_heatmap(clean_sym)
+        liquidation_clusters = {
+            "long_pool_20x": heatmap_data["lower_pool"]["peak_price"],
+            "long_pool_50x": round(current_price * 0.981, 4),
+            "short_pool_20x": heatmap_data["upper_pool"]["peak_price"],
+            "short_pool_50x": round(current_price * 1.019, 4),
+            "upper_total_usd": heatmap_data["upper_pool"]["total_volume_usd"],
+            "lower_total_usd": heatmap_data["lower_pool"]["total_volume_usd"],
+            "magnet_target": heatmap_data["dominant_magnet"],
+            "target_price": heatmap_data["target_price"],
+            "target_volume_usd": heatmap_data["target_volume_usd"],
+            "distance_pct": heatmap_data["distance_pct"],
+            "rationale": heatmap_data["rationale"],
+            "heat_matrix": heatmap_data["heat_matrix"]
+        }
+    except Exception:
+        p = current_price if current_price > 0 else float(flow.get("price", 100.0) or 100.0)
+        liquidation_clusters = {
+            "long_pool_20x": round(p * 0.952, 4),
+            "long_pool_50x": round(p * 0.981, 4),
+            "short_pool_20x": round(p * 1.048, 4),
+            "short_pool_50x": round(p * 1.019, 4),
+            "magnet_target": "LONG_LIQUIDATION_MAGNET" if flow.get("lsr_val", 1.0) > 1.25 else "SHORT_SQUEEZE_MAGNET",
+            "heat_matrix": []
+        }
 
     # 8. Top 30 Universe Titans List (Leitura Ultra Rápida em Memória O(1))
     titans_list = []
@@ -527,6 +546,12 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
         "titans": titans_list,
         "timestamp": time.time()
     }
+
+
+@router.get("/laya/liquidation-heatmap", summary="Retorna o mapa de calor de liquidações e ímã de baleias")
+async def laya_liquidation_heatmap_endpoint(symbol: Optional[str] = "SOLUSDT"):
+    from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+    return await coinglass_heatmap_service.get_liquidity_heatmap(symbol or "SOLUSDT")
 
 
 @router.get("/rag/search")

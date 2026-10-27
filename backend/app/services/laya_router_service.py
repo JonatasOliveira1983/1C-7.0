@@ -528,32 +528,14 @@ class LayaRouterService:
         atr_pct = round((avg_tr / current_price) * 100.0, 2)
         return max(1.2, min(3.5, atr_pct))
 
-    def evaluate_dvwap_reversion(
-        self,
-        symbol: str,
-        current_price: float,
-        vwap: float,
-        acc_range: Dict[str, Any],
-        lsr: float = 1.0,
-        btc_trend_bias: float = 0.0,
-        funding_rate: float = 0.0,
-        atr_pct: float = 1.5,
-        bot_ignition: bool = False,
-        c_exp: float = 0.0
-    ) -> Dict[str, Any]:
-        """
-        [SETUP 3: DVWAP REVERSION - INTRA-RANGE RETORNO À MÉDIA CALIBRADO COM ATR & FUNDING SHIELD]
-        - Esticado para baixo (diff <= -2.0%): compra SOMENTE se BTC não estiver caindo (btc_trend_bias >= -0.3%).
-        - Esticado para cima (diff >= +2.0%): venda SOMENTE se BTC não estiver em forte rali (btc_trend_bias <= +0.5%).
-        - Veto de Funding Rate adverso (> +0.03% em LONG ou < -0.03% em SHORT).
-        - Veto Anti-Faca: Proibido vender contra robôs institucionais (1C-EXP >= 70 ou bot_ignition) ou em pumps verticais (diff >= +5%).
-        - Stop Loss estrutural por ATR (mínimo 1.5%, ajustado à volatilidade real).
-        """
-        sup_h1 = acc_range.get("support_h1", 0.0)
-        res_h1 = acc_range.get("resistance_h1", 0.0)
-
-        if vwap <= 0 or current_price <= 0:
-            return {"qualifies": False, "direction": "HOLD", "score": 50, "rationale": "VWAP inválida."}
+    def evaluate_dvwap_reversion(self, *args, **kwargs) -> Dict[str, Any]:
+        """[DESATIVADO - V174]: Veto definitivo de contratendência por reversão à média."""
+        return {
+            "qualifies": False,
+            "direction": "HOLD",
+            "score": 0,
+            "rationale": "[DESATIVADO]: Reversão contra a tendência desativada para proteger banca contra locomotivas."
+        }
 
         diff_pct = ((current_price - vwap) / vwap) * 100.0
 
@@ -1571,18 +1553,18 @@ class LayaRouterService:
                 }
 
             # 2. MICRO_ACCELERATION_BRAKE (Anti-Locomotiva sem exaustão)
-            if total_gain >= 0.015 and cl_curr >= o_curr and wick_ratio < 0.40:
+            if total_gain >= 0.015 and wick_ratio < 0.35:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Alta agressiva de +{total_gain*100:.1f}% sem recuo em 5M. Proibido vender vela de expansão)",
+                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Alta agressiva de +{total_gain*100:.1f}% sem recuo em 5M. Proibido vender locomotiva)",
                     "metrics": metrics
                 }
 
-            # 3. MSB_CONFIRMATION: Não vender se vela estiver em expansão renovando máximas sem pavio
-            if h_curr > h1 * 1.002 and cl_curr > o_curr and wick_ratio < 0.40:
+            # 3. MSB_CONFIRMATION: Não vender se vela estiver no topo sem pavio de rejeição real (mesmo se for vermelha momentânea)
+            if h_curr >= h1 * 0.999 and wick_ratio < 0.30 and cl_curr >= l1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando máximas em ${h_curr:.4f}. Aguardar exaustão do topo local)",
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M sustentando topo em ${h_curr:.4f} sem pavio de rejeição ({wick_ratio*100:.1f}% vs min 30%). Aguardar confirmação real)",
                     "metrics": metrics
                 }
 
@@ -1599,18 +1581,18 @@ class LayaRouterService:
                 }
 
             # 2. MICRO_ACCELERATION_BRAKE (Anti-Queda Livre sem absorção)
-            if total_drop >= 0.015 and cl_curr <= o_curr and wick_ratio < 0.40:
+            if total_drop >= 0.015 and wick_ratio < 0.35:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_LOCOMOTIVA_ACELERADA (Queda agressiva de -{total_drop*100:.1f}% sem respiro em 5M. Proibido comprar faca caindo)",
                     "metrics": metrics
                 }
 
-            # 3. MSB_CONFIRMATION: Não comprar se vela estiver em plena expansão para baixo sem absorção
-            if l_curr < l1 * 0.998 and cl_curr < o_curr and wick_ratio < 0.40:
+            # 3. MSB_CONFIRMATION: Não comprar se vela estiver na mínima sem absorção real
+            if l_curr <= l1 * 1.001 and wick_ratio < 0.30 and cl_curr <= h1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f}. Aguardar absorção do fundo local)",
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f} sem absorção ({wick_ratio*100:.1f}% vs min 30%). Aguardar absorção do fundo local)",
                     "metrics": metrics
                 }
 
@@ -2369,6 +2351,30 @@ class LayaRouterService:
             for cand in eligible:
                 cand_sym = cand["symbol"]
                 cand_dir = cand["direction"]
+
+                # [V174-LIQUIDITY-MAGNET-VETO]: Veta qualquer ordem contra muralha de liquidação pesada
+                try:
+                    from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+                    heat = await coinglass_heatmap_service.get_liquidity_heatmap(cand_sym)
+                    if cand_dir == "SHORT" and heat.get("dominant_magnet") == "BULLISH_SWEEP" and heat.get("upper_pool", {}).get("total_volume_usd", 0) > 800_000:
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"🛡️ [VETO ÍMÃ DE LIQUIDEZ]: SHORT proibido: muralha de ${heat['upper_pool']['total_volume_usd']/1e6:.2f}M acima em ${heat['target_price']:.4f} atraindo o preço.",
+                            action="VETO_IMA_LIQUIDEZ",
+                            confidence=95
+                        )
+                        continue
+                    elif cand_dir == "LONG" and heat.get("dominant_magnet") == "BEARISH_SWEEP" and heat.get("lower_pool", {}).get("total_volume_usd", 0) > 800_000:
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"🛡️ [VETO ÍMÃ DE LIQUIDEZ]: LONG proibido: muralha de ${heat['lower_pool']['total_volume_usd']/1e6:.2f}M abaixo em ${heat['target_price']:.4f} atraindo o preço.",
+                            action="VETO_IMA_LIQUIDEZ",
+                            confidence=95
+                        )
+                        continue
+                except Exception:
+                    pass
+
                 # [V169-TF-MENORES]: Verifica exaustão e ausência de faca caindo em 5m antes do disparo
                 ltf_check = await self.check_lower_tf_exhaustion(cand_sym, cand_dir)
                 if not ltf_check.get("is_safe", True):

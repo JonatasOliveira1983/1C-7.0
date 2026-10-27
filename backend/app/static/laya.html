@@ -919,23 +919,35 @@
               </div>
             </div>
 
-            <!-- Liquidation Magnet -->
+            <!-- Liquidation HeatMap (Coinglass Style Matrix) -->
             <div style="border-top: 1px solid var(--border-subtle); padding-top: 8px;">
               <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
-                <span>PISCINAS DE LIQUIDAÇÃO (MAGNET)</span>
-                <span id="liq-magnet-tag" class="hud-badge gold" style="font-size: 8px; padding: 1px 4px;">SHORT MAGNET</span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  MAPA DE CALOR DE LIQUIDAÇÕES (HEATMAP)
+                </span>
+                <span id="liq-magnet-tag" class="hud-badge gold" style="font-size: 8px; padding: 1px 4px;">BULLISH SWEEP</span>
               </div>
+
+              <!-- Visual HeatMap Canvas -->
+              <div style="position: relative; background: #040507; border: 1px solid var(--border-subtle); padding: 4px; margin-bottom: 6px; border-radius: 2px;">
+                <canvas id="liq-heatmap-canvas" width="380" height="110" style="width: 100%; height: 110px; display: block;"></canvas>
+                <div id="heatmap-target-overlay" style="position: absolute; right: 8px; top: 6px; font-family: var(--font-mono); font-size: 8.5px; color: var(--gold); background: rgba(6,7,9,0.85); padding: 2px 6px; border: 1px solid rgba(252,213,53,0.3); border-radius: 2px;">
+                  ÍMÃ BALEIA: <span id="heatmap-target-val">---</span>
+                </div>
+              </div>
+
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                 <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
-                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--green);">LONGS EM RISCO</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--green);">LONGS EM RISCO (PULL)</div>
                   <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-long-pool">$0.00</div>
-                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);">Pool 20x-50x (-4.8%)</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);" id="liq-long-vol">Vol: $0.00M</div>
                 </div>
 
                 <div style="background: var(--bg-card); padding: 6px 8px; border: 1px solid var(--border-subtle);">
-                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--red);">SHORTS EM RISCO</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--red);">SHORTS EM RISCO (PULL)</div>
                   <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: var(--text-main);" id="liq-short-pool">$0.00</div>
-                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);">Pool 20x-50x (+4.8%)</div>
+                  <div style="font-size: 7.5px; font-family: var(--font-mono); color: var(--text-muted);" id="liq-short-vol">Vol: $0.00M</div>
                 </div>
               </div>
             </div>
@@ -1263,6 +1275,90 @@
     }
 
     // Buscar Telemetria 360 Principal
+    
+    // Renderiza Canvas de Mapa de Calor de Liquidações estilo Coinglass
+    function renderLiquidationHeatmap(data) {
+      const canvas = document.getElementById("liq-heatmap-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const liqs = data.liquidations || {};
+      const matrix = liqs.heat_matrix || [];
+      const currentPrice = data.current_price || 0.0;
+      const targetPrice = liqs.target_price || 0.0;
+
+      if (!matrix || matrix.length === 0) {
+        ctx.fillStyle = "#0c0d12";
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#848E9C";
+        ctx.font = "9px JetBrains Mono";
+        ctx.fillText("Sincronizando bolsões de liquidez...", 12, h / 2);
+        return;
+      }
+
+      const minP = matrix[0].price;
+      const maxP = matrix[matrix.length - 1].price;
+      const pRange = Math.max(1e-6, maxP - minP);
+      const barHeight = Math.max(1.8, h / matrix.length);
+
+      // 1. Faixas de calor
+      for (let i = 0; i < matrix.length; i++) {
+        const item = matrix[i];
+        const intensity = item.intensity || 0.0;
+        const yPos = h - ((item.price - minP) / pRange) * h;
+
+        if (intensity > 0.04) {
+          let color;
+          if (intensity > 0.65) {
+            color = `rgba(252, 213, 53, ${Math.min(1.0, 0.45 + intensity * 0.55)})`;
+          } else if (intensity > 0.35) {
+            color = `rgba(14, 203, 129, ${0.3 + intensity * 0.5})`;
+          } else {
+            color = `rgba(80, 70, 150, ${0.2 + intensity * 0.4})`;
+          }
+
+          ctx.fillStyle = color;
+          const barW = Math.max(w * 0.25, w * intensity);
+          ctx.fillRect(w - barW, yPos - barHeight / 2, barW, barHeight);
+        }
+      }
+
+      // 2. Linha do Preço Atual
+      if (currentPrice >= minP && currentPrice <= maxP) {
+        const currY = h - ((currentPrice - minP) / pRange) * h;
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(0, currY);
+        ctx.lineTo(w, currY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "8px JetBrains Mono";
+        ctx.fillText(`ATUAL: $${currentPrice.toFixed(4)}`, 6, currY - 3);
+      }
+
+      // 3. Linha do Alvo Magnético das Baleias
+      if (targetPrice >= minP && targetPrice <= maxP) {
+        const targetY = h - ((targetPrice - minP) / pRange) * h;
+        ctx.strokeStyle = "#FCD535";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(0, targetY);
+        ctx.lineTo(w, targetY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#FCD535";
+        ctx.font = "bold 8.5px JetBrains Mono";
+        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, w - 105, targetY - 3);
+      }
+    }
+
     async function fetchTelemetry() {
       if (isPolling) return;
       isPolling = true;
@@ -1468,18 +1564,28 @@
           cvdBarSell.style.width = `${(100 - buyPct).toFixed(1)}%`;
         }
 
-        // 7. Liquidação Clusters
+        // 7. Liquidação Clusters & HeatMap
         const liqs = data.liquidations || {};
         const liqLong = document.getElementById("liq-long-pool");
         const liqShort = document.getElementById("liq-short-pool");
+        const liqLongVol = document.getElementById("liq-long-vol");
+        const liqShortVol = document.getElementById("liq-short-vol");
+        const targetVal = document.getElementById("heatmap-target-val");
+
         if (liqLong) liqLong.textContent = `$${Number(liqs.long_pool_20x || 0).toFixed(4)}`;
         if (liqShort) liqShort.textContent = `$${Number(liqs.short_pool_20x || 0).toFixed(4)}`;
+        if (liqLongVol) liqLongVol.textContent = `Vol: $${((liqs.lower_total_usd || 0)/1e6).toFixed(2)}M`;
+        if (liqShortVol) liqShortVol.textContent = `Vol: $${((liqs.upper_total_usd || 0)/1e6).toFixed(2)}M`;
+        if (targetVal) targetVal.textContent = `$${Number(liqs.target_price || 0).toFixed(4)} (${liqs.distance_pct || 0}%)`;
 
         const magnetTag = document.getElementById("liq-magnet-tag");
         if (magnetTag) {
-          magnetTag.textContent = (liqs.magnet_target || "SHORT_MAGNET").replace("_", " ");
-          magnetTag.className = `hud-badge ${(liqs.magnet_target || "").includes("SHORT") ? "green" : "gold"}`;
+          const mLabel = (liqs.magnet_target || "BULLISH_SWEEP").replace("_", " ");
+          magnetTag.textContent = mLabel;
+          magnetTag.className = `hud-badge ${(liqs.magnet_target || "").includes("BULLISH") ? "green" : "red"}`;
         }
+
+        renderLiquidationHeatmap(data);
 
         // 8. Whale vs Retail
         const lsrVal = document.getElementById("flow-lsr-val");
