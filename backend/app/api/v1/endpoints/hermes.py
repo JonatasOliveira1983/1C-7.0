@@ -269,7 +269,7 @@ async def laya_kronos_projection_endpoint(symbol: str = "SOLUSDT", side: str = "
     }
 
 @router.get("/laya/360-telemetry", summary="Retorna telemetria 360 graus em tempo real da Laya")
-async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
+async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: Optional[float] = None):
     """
     [V173] Telemetria 360 Institucional da Laya (Concorrente de Alta Velocidade):
     - Executa coletas de dados em paralelo via asyncio.gather (~500ms)
@@ -291,86 +291,48 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
     clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper() + "USDT"
     clean_coin = clean_sym.replace("USDT", "")
 
-    # 1. Coleta concorrente de alta performance blindada com Timeout
-    async def fetch_ob():
-        try:
-            return await okx_rest_service.get_orderbook(clean_sym, limit=12)
-        except Exception:
-            return {}
+    # 1. Coleta 100% em memória O(1) (< 2ms) com background updates não-bloqueantes
+    raw_ob = getattr(okx_ws_public_service, "_orderbooks", {}).get(clean_sym, {})
+    trades = getattr(okx_ws_public_service, "_trades", {}).get(clean_sym, [])
 
-    async def fetch_trades():
-        try:
-            async with httpx.AsyncClient(timeout=1.5, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
-                inst_id = f"{clean_coin}-USDT-SWAP"
-                url = f"https://www.okx.com/api/v5/market/trades?instId={inst_id}&limit=50"
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    d = resp.json()
-                    if d.get("code") == "0":
-                        return d.get("data", [])
-        except Exception:
-            pass
-        try:
-            return await okx_rest_service.get_public_trade_history(clean_sym, limit=50)
-        except Exception:
-            return []
-
-    async def fetch_candles():
-        try:
-            from main import get_candles_proxy
-            data = await get_candles_proxy(symbol=clean_sym, bar="5m", limit=10)
-            if isinstance(data, dict) and data.get("code") == "0" and data.get("data"):
-                return data["data"]
-            elif isinstance(data, list) and len(data) >= 3:
-                return data
-        except Exception:
-            pass
-
-        try:
-            async with httpx.AsyncClient(timeout=2.0, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
-                inst_id = f"{clean_coin}-USDT-SWAP"
-                url_okx = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar=5m&limit=10"
-                resp = await client.get(url_okx)
-                if resp.status_code == 200:
-                    d = resp.json()
-                    if d.get("code") == "0" and d.get("data") and len(d["data"]) >= 3:
-                        return d["data"]
-        except Exception:
-            pass
-        return []
-
-    async def fetch_flow():
-        try:
-            return await laya_flow_service.get_flow_radar(clean_sym)
-        except Exception:
-            return {}
-
-    async def fetch_tickers():
-        cached = getattr(okx_universe_service, "_tickers_cache", {})
-        if cached:
-            return cached
-        try:
-            return await okx_universe_service.sync_tickers()
-        except Exception:
-            return {}
-
+    # Velas em memória
+    raw_candles = []
     try:
-        raw_ob, trades, raw_candles, flow, tickers = await asyncio.wait_for(
-            asyncio.gather(
-                fetch_ob(),
-                fetch_trades(),
-                fetch_candles(),
-                fetch_flow(),
-                fetch_tickers()
-            ),
-            timeout=2.5
-        )
+        from main import _candles_cache
+        cache_key = f"{clean_sym}_5m_80"
+        if cache_key in _candles_cache:
+            cached_obj = _candles_cache[cache_key][1]
+            if isinstance(cached_obj, dict):
+                raw_candles = cached_obj.get("data", [])
+            elif isinstance(cached_obj, list):
+                raw_candles = cached_obj
+        else:
+            from main import get_candles_proxy
+            asyncio.create_task(get_candles_proxy(symbol=clean_sym, bar="5m", limit=80))
     except Exception:
-        raw_ob = {}
-        trades = []
-        raw_candles = []
-        flow = getattr(laya_flow_service, "_cache", {}).get(clean_coin, {}).get("data", {})
-        tickers = getattr(okx_universe_service, "_tickers_cache", {})
+        pass
+
+    # Fluxo em memória (LSR / Sentimento)
+    flow = getattr(laya_flow_service, "_cache", {}).get(clean_coin, {}).get("data", {})
+    if not flow:
+        try:
+            asyncio.create_task(laya_flow_service.get_flow_radar(clean_sym))
+        except Exception:
+            pass
+        flow = {
+            "symbol": clean_sym,
+            "lsr_val": 1.0,
+            "sardinha_status": "Equilíbrio de posicionamento do varejo",
+            "lsr_signal": "NEUTRO"
+        }
+
+    # Tickers em memória
+    tickers = getattr(okx_universe_service, "_tickers_cache", {})
+    if not tickers:
+        try:
+            asyncio.create_task(okx_universe_service.sync_tickers())
+        except Exception:
+            pass
 
     # 2. Farol Macro BTC
     btc_t = tickers.get("BTC-USDT-SWAP", {}) or tickers.get("BTC-USDT", {})
@@ -399,9 +361,17 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
     sym_t = tickers.get(f"{clean_coin}-USDT-SWAP", {}) or tickers.get(f"{clean_coin}-USDT", {})
     current_price = float(sym_t.get("last", 0.0) or sym_t.get("price", 0.0) or 0.0)
     if current_price <= 0:
-        current_price = float(okx_ws_public_service.get_current_price(clean_sym) or 0.0)
+        current_price = float(okx_ws_public_service.get_current_price(clean_sym, max_age_seconds=86400) or 0.0)
     if current_price <= 0:
-        current_price = float(okx_ws_public_service.get_current_price(f"{clean_coin}-USDT-SWAP") or 0.0)
+        current_price = float(okx_ws_public_service.get_current_price(f"{clean_coin}-USDT-SWAP", max_age_seconds=86400) or 0.0)
+    if current_price <= 0:
+        for k in [clean_sym, f"{clean_coin}-USDT-SWAP", f"{clean_coin}-USDT", f"{clean_coin}/USDT"]:
+            p = getattr(okx_ws_public_service, "prices", {}).get(k, 0.0)
+            if p and float(p) > 0:
+                current_price = float(p)
+                break
+    if (current_price <= 0 or current_price == 100.0) and price and float(price) > 0:
+        current_price = float(price)
 
     stats_24h = {
         "high": float(sym_t.get("high24h", 0.0) or 0.0),
@@ -453,20 +423,7 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
         "bias": bias
     }
 
-    # 6. Microestrutura Reativa 5M (Avaliando candles coletados uma única vez)
-    if raw_candles and len(raw_candles) >= 3:
-        short_status = laya_router_service.evaluate_lower_tf_structure(raw_candles, "SHORT")
-        long_status = laya_router_service.evaluate_lower_tf_structure(raw_candles, "LONG")
-    else:
-        short_status = await laya_router_service.check_lower_tf_exhaustion(clean_sym, "SHORT")
-        long_status = await laya_router_service.check_lower_tf_exhaustion(clean_sym, "BUY")
-
-    micro_eval = {
-        "short_status": short_status,
-        "long_status": long_status
-    }
-
-    # 7. Real-Time Liquidation HeatMap & Whale Magnet
+    # 6. Heatmap Primeiro para obter velas e preço consolidados
     try:
         from app.services.coinglass_heatmap_service import coinglass_heatmap_service
         heatmap_data = await coinglass_heatmap_service.get_liquidity_heatmap(
@@ -478,6 +435,26 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT"):
         )
         if current_price <= 0:
             current_price = heatmap_data.get("current_price", 0.0) if heatmap_data.get("current_price", 0.0) > 0 else 100.0
+    except Exception as _e_heat_init:
+        logger.debug(f"[360-TELEMETRY] Init heatmap: {_e_heat_init}")
+        heatmap_data = {}
+
+    # 7. Microestrutura Reativa 5M (Avaliando em memória O(1) sem bloqueio HTTP)
+    eval_candles = raw_candles if (raw_candles and len(raw_candles) >= 3) else heatmap_data.get("candles", [])
+    if eval_candles and len(eval_candles) >= 3:
+        short_status = laya_router_service.evaluate_lower_tf_structure(eval_candles, "SHORT")
+        long_status = laya_router_service.evaluate_lower_tf_structure(eval_candles, "LONG")
+    else:
+        short_status = {"exhaustion_confirmed": False, "is_exhausted": False, "reason": "Sincronizando velas", "metrics": {}}
+        long_status = {"exhaustion_confirmed": False, "is_exhausted": False, "reason": "Sincronizando velas", "metrics": {}}
+
+    micro_eval = {
+        "short_status": short_status,
+        "long_status": long_status
+    }
+
+    # 8. Real-Time Liquidation HeatMap & Whale Magnet Payload
+    try:
         liquidation_clusters = {
             "current_price": current_price,
             "long_pool_20x": heatmap_data["lower_pool"]["peak_price"],

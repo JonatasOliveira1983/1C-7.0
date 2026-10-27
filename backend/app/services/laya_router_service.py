@@ -1497,7 +1497,9 @@ class LayaRouterService:
             "momentum_pct": 0.0, "open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0
         }
 
-        if not candles or len(candles) < 3:
+        if isinstance(candles, dict):
+            candles = candles.get("data", [])
+        if not isinstance(candles, list) or len(candles) < 3:
             return {
                 "is_safe": False,
                 "reason": "DADOS_5M_INSUFICIENTES (Veto preventivo de segurança em alta alavancagem)",

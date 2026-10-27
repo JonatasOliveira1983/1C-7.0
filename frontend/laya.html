@@ -1154,17 +1154,37 @@
     }
 
     // Selecionar Ativo para Inspeção
-    window.selectTitan = function(symbol) {
+    let _currentSelectedPrice = 0.0;
+
+    window.selectTitan = function(symbol, price = 0) {
+      if (currentSelectedSymbol === symbol) return;
       currentSelectedSymbol = symbol;
+      _currentSelectedPrice = Number(price || _lastPriceMap[symbol] || 0);
+
+      // 1. Resposta Visual Instantânea (Zero Latência Percebida)
       document.querySelectorAll(".titan-card").forEach(el => {
         el.classList.toggle("active", el.getAttribute("data-symbol") === symbol);
       });
+
+      const inspectedSym = document.getElementById("inspected-sym");
+      if (inspectedSym) inspectedSym.textContent = symbol;
+      const inspectedInst = document.getElementById("inspected-inst");
+      if (inspectedInst) inspectedInst.textContent = `${symbol.replace("USDT", "")}-USDT-SWAP`;
+
+      const heroPx = document.getElementById("inspected-price");
+      if (heroPx && _currentSelectedPrice > 0) {
+        heroPx.textContent = `$${_currentSelectedPrice.toFixed(_currentSelectedPrice < 1 ? 4 : 2)}`;
+      }
+
       const btnCockpit = document.getElementById("btn-to-cockpit");
       if (btnCockpit) {
         btnCockpit.href = `/cockpit?symbol=${symbol}`;
       }
+
+      // 2. Disparo Imediato com preço conhecido (Sub-Milissegundo)
+      isPolling = false;
+      fetchTelemetry(true);
       loadCandles(symbol);
-      fetchTelemetry();
     };
 
     // Filtro de Categoria dos Titãs
@@ -1290,7 +1310,7 @@
         _lastPriceMap[t.symbol] = t.price;
 
         return `
-          <div class="titan-card ${isActive ? 'active' : ''} ${flashClass}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}')">
+          <div class="titan-card ${isActive ? 'active' : ''} ${flashClass}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}', ${t.price || 0})">
             <div class="titan-heat-bar ${isUp ? 'up' : 'down'}" style="width: ${heatPct}%;"></div>
             <div class="titan-sym-box">
               <span class="titan-rank">#${String(t.rank || 0).padStart(2, '0')}</span>
@@ -1345,21 +1365,31 @@
 
     // Renderiza Canvas Central de Alta Resolução do Mapa de Calor (Estilo Coinglass)
         // Renderiza Canvas Central de Alta Resolução do Mapa de Calor 2D Estilo Coinglass
+        // Renderiza Canvas Central de Alta Resolução 2D (Retina DPR + Anti-Colisão de Texto)
     function renderLiquidationHeatmap(data) {
       window._lastTelemetryData = data;
       const canvas = document.getElementById("laya-central-heatmap");
       if (!canvas) return;
 
+      const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      const w = canvas.width = rect.width > 0 ? Math.floor(rect.width) : 880;
-      const h = canvas.height = 380;
+      const cssW = rect.width > 0 ? rect.width : 880;
+      const cssH = 380;
+
+      // Resolução física Retina/High-DPI
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
 
       const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
 
-      // Fundo escuro Binance Dark / Lamborghini Carbon
+      // Fundo Lamborghini Carbon
       ctx.fillStyle = "#060709";
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, cssW, cssH);
 
       const liqs = data.liquidations || {};
       const matrix2d = liqs.matrix_2d || [];
@@ -1370,8 +1400,9 @@
 
       if (!matrix2d || matrix2d.length === 0 || !yLevels || yLevels.length === 0) {
         ctx.fillStyle = "#848E9C";
-        ctx.font = "11px JetBrains Mono";
-        ctx.fillText("Sincronizando bolsões de liquidez institucional 2D (Coinglass Engine)...", 24, h / 2);
+        ctx.font = "11px 'JetBrains Mono', monospace";
+        ctx.fillText("Sincronizando bolsões de liquidez institucional 2D (Coinglass Engine)...", 24, cssH / 2);
+        ctx.restore();
         return;
       }
 
@@ -1381,10 +1412,10 @@
       const maxP = yLevels[numRows - 1];
       const pRange = Math.max(1e-6, maxP - minP);
 
-      const rightMargin = 120; // Espaço do eixo de preços e perfil acumulado
-      const plotW = w - rightMargin;
+      const rightMargin = 130; // Espaço amplo do eixo de preços e perfil acumulado
+      const plotW = cssW - rightMargin;
       const colW = plotW / numCols;
-      const rowH = h / numRows;
+      const rowH = cssH / numRows;
 
       // 1. LAYER 1: Matriz Bidimensional de Calor (X = Velas no Tempo, Y = Preço)
       for (let t = 0; t < numCols; t++) {
@@ -1396,7 +1427,7 @@
           if (intensity > 0.02) {
             let color;
             if (intensity >= 0.75) {
-              // Mega Cluster Institucional: Ouro Lamborghini Radiante / Amarelo
+              // Mega Cluster Institucional: Ouro Lamborghini Radiante
               color = `rgba(252, 213, 53, ${Math.min(0.95, 0.55 + intensity * 0.45)})`;
             } else if (intensity >= 0.45) {
               // Cluster Pesado: Verde Institucional Binance
@@ -1409,16 +1440,16 @@
               color = `rgba(62, 45, 110, ${0.2 + intensity * 0.4})`;
             }
 
-            const yPos = h - ((yLevels[p] - minP) / pRange) * h - rowH;
+            const yPos = cssH - ((yLevels[p] - minP) / pRange) * cssH - rowH;
             ctx.fillStyle = color;
-            ctx.fillRect(xPos, yPos, colW + 0.9, rowH + 0.9);
+            ctx.fillRect(xPos, yPos, colW + 0.8, rowH + 0.8);
           }
         }
       }
 
       // 2. LAYER 2: Grade Horizontal Suave
       for (let p = 0; p < numRows; p += 6) {
-        const yPos = h - ((yLevels[p] - minP) / pRange) * h;
+        const yPos = cssH - ((yLevels[p] - minP) / pRange) * cssH;
         ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -1432,10 +1463,10 @@
         for (let t = 0; t < candles.length; t++) {
           const c = candles[t];
           const xCenter = t * colW + colW / 2;
-          const oY = h - ((c[1] - minP) / pRange) * h;
-          const hY = h - ((c[2] - minP) / pRange) * h;
-          const lY = h - ((c[3] - minP) / pRange) * h;
-          const cY = h - ((c[4] - minP) / pRange) * h;
+          const oY = cssH - ((c[1] - minP) / pRange) * cssH;
+          const hY = cssH - ((c[2] - minP) / pRange) * cssH;
+          const lY = cssH - ((c[3] - minP) / pRange) * cssH;
+          const cY = cssH - ((c[4] - minP) / pRange) * cssH;
 
           const isBull = c[4] >= c[1];
           const candleColor = isBull ? "rgba(14, 203, 129, 0.85)" : "rgba(246, 70, 93, 0.85)";
@@ -1457,13 +1488,13 @@
       }
 
       // 4. LAYER 4: Coluna do Eixo Direito (Preços e Perfil Acumulado)
-      ctx.fillStyle = "#080B10";
-      ctx.fillRect(plotW, 0, rightMargin, h);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.fillStyle = "#0A0D14";
+      ctx.fillRect(plotW, 0, rightMargin, cssH);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(plotW, 0);
-      ctx.lineTo(plotW, h);
+      ctx.lineTo(plotW, cssH);
       ctx.stroke();
 
       // Perfil de volume de liquidação remanescente no eixo (Histograma Horizontal)
@@ -1471,45 +1502,40 @@
       for (let p = 0; p < numRows; p++) {
         const intensity = latestRow[p] || 0.0;
         if (intensity > 0.05) {
-          const yPos = h - ((yLevels[p] - minP) / pRange) * h - rowH;
-          const barW = Math.min(35, intensity * 35);
-          ctx.fillStyle = intensity > 0.6 ? "rgba(252, 213, 53, 0.5)" : "rgba(14, 203, 129, 0.4)";
+          const yPos = cssH - ((yLevels[p] - minP) / pRange) * cssH - rowH;
+          const barW = Math.min(38, intensity * 38);
+          ctx.fillStyle = intensity > 0.6 ? "rgba(252, 213, 53, 0.6)" : "rgba(14, 203, 129, 0.5)";
           ctx.fillRect(plotW + 2, yPos, barW, rowH);
         }
       }
 
-      // Rótulos de Preço de Referência
+      // Rótulos de Preço de Referência (Fonte Nítida e Alto Contraste)
       const steps = 7;
       for (let s = 0; s <= steps; s++) {
         const pVal = minP + (pRange * s) / steps;
-        const pY = h - (s / steps) * h;
-        ctx.fillStyle = "#848E9C";
-        ctx.font = "8.5px JetBrains Mono";
-        ctx.fillText(`$${pVal.toFixed(4)}`, plotW + 12, Math.min(h - 6, Math.max(12, pY + 3)));
+        const pY = cssH - (s / steps) * cssH;
+        ctx.fillStyle = "#9CA3AF";
+        ctx.font = "9.5px 'JetBrains Mono', monospace";
+        ctx.fillText(`$${pVal.toFixed(4)}`, plotW + 12, Math.min(cssH - 6, Math.max(12, pY + 3)));
       }
 
-      // 5. LAYER 5: Linha e Badge do Preço Atual
+      // 5. LAYER 5: Linhas e Badges do Preço Atual e Ímã com Anti-Colisão
+      let currY = cssH - ((currentPrice - minP) / pRange) * cssH;
+      let targetY = cssH - ((targetPrice - minP) / pRange) * cssH;
+
+      // Linha do Preço Atual (Branca Tracejada)
       if (currentPrice >= minP && currentPrice <= maxP) {
-        const currY = h - ((currentPrice - minP) / pRange) * h;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
         ctx.moveTo(0, currY);
         ctx.lineTo(plotW, currY);
         ctx.stroke();
-
-        ctx.setLineDash([]);
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(plotW + 4, currY - 9, rightMargin - 8, 18);
-        ctx.fillStyle = "#060709";
-        ctx.font = "bold 9px JetBrains Mono";
-        ctx.fillText(`$${currentPrice.toFixed(4)}`, plotW + 10, currY + 3);
       }
 
-      // 6. LAYER 6: Linha, Badge e Vetor do Alvo Magnético das Baleias
+      // Linha do Alvo Magnético das Baleias (Dourada Tracejada)
       if (targetPrice >= minP && targetPrice <= maxP) {
-        const targetY = h - ((targetPrice - minP) / pRange) * h;
         ctx.strokeStyle = "#FCD535";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 4]);
@@ -1517,21 +1543,59 @@
         ctx.moveTo(0, targetY);
         ctx.lineTo(plotW, targetY);
         ctx.stroke();
-
-        ctx.setLineDash([]);
-        ctx.fillStyle = "#FCD535";
-        ctx.fillRect(plotW + 4, targetY - 10, rightMargin - 8, 20);
-        ctx.fillStyle = "#060709";
-        ctx.font = "bold 9px JetBrains Mono";
-        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, plotW + 6, targetY + 3);
-
-        // Indicador de seta de direção magnética no canto superior do gráfico
-        ctx.fillStyle = "#FCD535";
-        ctx.font = "bold 10px JetBrains Mono";
-        const distPct = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(2) : "0.00";
-        const dirLabel = targetPrice >= currentPrice ? `▲ VETOR DE LIQUIDAÇÃO LONG (+${distPct}%)` : `▼ VETOR DE LIQUIDAÇÃO SHORT (${distPct}%)`;
-        ctx.fillText(dirLabel, 16, Math.max(26, Math.min(h - 15, targetY - 6)));
       }
+      ctx.setLineDash([]);
+
+      // Anti-colisão vertical de badges no eixo direito
+      let badgeCurrY = currY;
+      let badgeTargetY = targetY;
+      if (Math.abs(currY - targetY) < 22) {
+        if (targetY <= currY) {
+          badgeTargetY = Math.max(12, targetY - 11);
+          badgeCurrY = Math.min(cssH - 12, currY + 11);
+        } else {
+          badgeTargetY = Math.min(cssH - 12, targetY + 11);
+          badgeCurrY = Math.max(12, currY - 11);
+        }
+      }
+
+      // Badge Preço Atual no Eixo
+      if (currentPrice >= minP && currentPrice <= maxP) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(plotW + 4, badgeCurrY - 9, rightMargin - 8, 18);
+        ctx.fillStyle = "#060709";
+        ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
+        ctx.fillText(`$${currentPrice.toFixed(4)}`, plotW + 10, badgeCurrY + 3.5);
+      }
+
+      // Badge Ímã das Baleias no Eixo
+      if (targetPrice >= minP && targetPrice <= maxP) {
+        ctx.fillStyle = "#FCD535";
+        ctx.fillRect(plotW + 4, badgeTargetY - 10, rightMargin - 8, 20);
+        ctx.fillStyle = "#060709";
+        ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
+        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, plotW + 6, badgeTargetY + 4);
+      }
+
+      // 6. LAYER 6: HUD Chip Dedicado no Top-Left (Evita Sobreposição com Dados)
+      const distPct = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(2) : "0.00";
+      const dirLabel = targetPrice >= currentPrice ? `▲ VETOR DE LIQUIDAÇÃO LONG (+${distPct}%)` : `▼ VETOR DE LIQUIDAÇÃO SHORT (${distPct}%)`;
+
+      ctx.fillStyle = "rgba(10, 14, 20, 0.92)";
+      ctx.strokeStyle = "rgba(252, 213, 53, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(14, 12, 305, 26, 3);
+      } else {
+        ctx.rect(14, 12, 305, 26);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#FCD535";
+      ctx.font = "bold 10px 'JetBrains Mono', monospace";
+      ctx.fillText(dirLabel, 24, 29);
 
       // Sincronizar Header Superior do Cockpit
       const centerTarget = document.getElementById("center-magnet-target");
@@ -1542,14 +1606,17 @@
         centerBadge.textContent = mTarget;
         centerBadge.className = `hud-badge ${(liqs.dominant_magnet || "").includes("BULLISH") ? "green" : "red"}`;
       }
+
+      ctx.restore();
     }
 
-    async function fetchTelemetry() {
-      if (isPolling) return;
+    async function fetchTelemetry(forcePriority = false) {
+      if (isPolling && !forcePriority) return;
       isPolling = true;
 
       try {
-        const res = await fetch(`/api/v1/hermes/laya/360-telemetry?symbol=${currentSelectedSymbol}`);
+        const pxArg = _currentSelectedPrice > 0 ? `&price=${_currentSelectedPrice}` : "";
+        const res = await fetch(`/api/v1/hermes/laya/360-telemetry?symbol=${currentSelectedSymbol}${pxArg}`);
         if (!res.ok) {
           isPolling = false;
           return;
