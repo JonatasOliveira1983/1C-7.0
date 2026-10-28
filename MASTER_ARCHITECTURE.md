@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.7.4 (V174)
+# MASTER_ARCHITECTURE.md — 1Crypten 7.7.7 (V177)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-27. VERSION no codigo: `backend/main.py` VERSION="V174-LIQUIDATION-HEATMAP-WHALE-MAGNET" / DEPLOYMENT_ID="V174_SOVEREIGN_LIQUIDITY_HUNTER". Integracao do Motor de Mapa de Calor de Liquidacoes Coinglass + OKX Deep L2 (coinglass_heatmap_service.py), Extirpacao Definitiva da Contratendencia Cega (desativacao permanente de LAYA_DVWAP_REVERSION), Novo Setup Soberano LAYA_LIQUIDITY_HUNT com Imas de Liquidacao de Baleia (BULLISH_SWEEP / BEARISH_SWEEP), Veto Absoluto de Ima de Liquidez (proibido abrir SHORT com muralha de liquidacao acima), Blindagem Microestrutural 5M sem falsos positivos e Nova Interface Laya 360 com Canvas Nativo de Liquidacao em Tempo Real.*
+*Verificado contra o codigo em 2026-10-27. VERSION no codigo: `backend/main.py` VERSION="V177-COMPOUND-LADDER-SOVEREIGN-FLEET" / DEPLOYMENT_ID="V177_SOVEREIGN_LAYA_COMPOUND". Integracao do Motor de Mapa de Calor de Liquidacoes Coinglass + OKX Deep L2 (coinglass_heatmap_service.py), Extirpacao Definitiva da Contratendencia Cega (desativacao permanente de LAYA_DVWAP_REVERSION), Novo Setup Soberano LAYA_LIQUIDITY_HUNT com Imas de Liquidacao de Baleia (BULLISH_SWEEP / BEARISH_SWEEP), Veto Absoluto de Ima de Liquidez (proibido abrir SHORT com muralha de liquidacao acima), Blindagem Microestrutural 5M sem falsos positivos e Nova Interface Laya 360 com Canvas Nativo de Liquidacao em Tempo Real.*
 
 ---
 
@@ -1061,6 +1061,16 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
 
 
 
+
+51. **[V177-SOVEREIGN-FLEET-PURGE] Purge de 18 Agentes Legados e Unificação Soberana na Laya & Hermes** (2026-10-28):
+    - **Extirpação de Código Zumbi (-8.169 linhas)**:
+        * 18 arquivos de agentes legados deletados de `backend/services/agents/`: `captain.py`, `fleet_audit.py`, `bankroll_guardian.py`, `ambush.py`, `execution_auditor.py`, `flash_agent.py`, `jarvis_brain.py`, `librarian.py`, `librarian_auditor.py`, `macro_analyst.py`, `market_data.py`, `onchain_whale_watcher.py`, `oracle_agent.py`, `quartermaster.py`, `sentiment_specialist.py`, `slot_operator.py`, `trade_analyst.py`, `whale_tracker.py`.
+    - **Desarmamento de 17 Loops de Background Paralelos**:
+        * Desativados em `backend/main.py` todos os loops de polling arcaicos que concorriam com o motor da Laya e causavam timeouts de conexões.
+    - **Desacoplamento Universal de Rotas**:
+        * Todas as rotas de backend (`market.py`, `chat.py`, `system.py`, `admin.py`, `sandbox.py`, `backtest_routes.py`) e serviços core (`bankroll.py`, `sandbox_service.py`, `signal_generator.py`) agora roteiam deterministicamente através dos motores soberanos `LayaRouterService` e `HermesAgent`.
+    - **Ecossistema Soberano Final**:
+        * Apenas 6 componentes soberanos compõem o sistema: `LayaRouterService`, `KronosScorer`, `Flash Agent / SandboxService`, `OpenVikingContextService`, `HermesAgent` (RAG & MCP), `Plutus / DatabaseService`.
 
 ---
 
