@@ -1376,7 +1376,7 @@ class SandboxService:
                             meta = json.loads(meta)
                         except Exception:
                             meta = {}
-                    _m = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
+                    _m = float(meta.get("margin", 100.0) if isinstance(meta, dict) else 100.0)
                     net_trade = (float(getattr(t, "pnl_pct", 0.0) or 0.0) / 100.0) * _m
                     closed_pnl_usd += net_trade
                     fee = float(meta.get("total_fees_usd") or 0.0) if isinstance(meta, dict) else 0.0
@@ -1392,7 +1392,7 @@ class SandboxService:
                             meta = json.loads(meta)
                         except Exception:
                             meta = {}
-                    _m = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
+                    _m = float(meta.get("margin", 100.0) if isinstance(meta, dict) else 100.0)
                     net_trade = (float(getattr(t, "pnl_pct", 0.0) or 0.0) / 100.0) * _m
                     closed_pnl_usd += net_trade
                     fee = float(meta.get("total_fees_usd") or 0.0) if isinstance(meta, dict) else 0.0
@@ -1436,13 +1436,13 @@ class SandboxService:
                 active_trades_for_pnl = await database_service.get_sandbox_trades(active_only=True)
                 active_pnl_usd = 0.0
                 for t in active_trades_for_pnl:
-                    _m = float((t.contract_meta or {}).get("margin", 200.0))
+                    _m = float((t.contract_meta or {}).get("margin", 100.0))
                     active_pnl_usd += (float(t.current_roi or 0.0) / 100.0) * _m
                 
                 try:
                     active_swings = await database_service.get_swing_trades(active_only=True)
                     for t in active_swings:
-                        _m = float((t.contract_meta or {}).get("margin", 200.0))
+                        _m = float((t.contract_meta or {}).get("margin", 100.0))
                         active_pnl_usd += (float(t.current_roi or 0.0) / 100.0) * _m
                 except Exception:
                     pass

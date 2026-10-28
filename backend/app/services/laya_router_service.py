@@ -2605,10 +2605,21 @@ class LayaRouterService:
                 calc_lev = int(target_stop_roi / (stop_dist_pct * 100.0))
                 leverage = 20 if (calc_lev >= 18 or chosen.get("score", 0) >= 90) else 15
 
-                margin = 100.0
+                # [V177-COMPOUND-MILESTONE-LADDER]: Dimensionamento Dinâmico em Degraus de $1.000 (Abordagem B)
+                # Escadinha: $9k -> $90, $10k -> $100, $11k -> $110, $12k -> $120, $15k -> $150
+                # Calculado estritamente sobre o saldo realizado unificado (Never on floating)
+                try:
+                    from services.sandbox_service import sandbox_service
+                    realized_bal = getattr(sandbox_service, "base_balance_cache", 10000.0)
+                except Exception:
+                    realized_bal = 10000.0
+
+                milestone_step = max(5, int(realized_bal // 1000))
+                margin_planned = float(milestone_step * 10.0)
+
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,
-                    margin_usd=margin,
+                    margin_usd=margin_planned,
                     leverage=leverage,
                     price=p
                 )
@@ -2703,7 +2714,7 @@ class LayaRouterService:
                 self._last_traded_pair = clean_sym
                 self.log_thought(
                     clean_sym,
-                    f"COMANDO SOBERANO: Ordem {d} ({strat}) executada em {clean_sym} a ${p:.4f} (Alvo: ${target:.4f}, Stop na Borda H1: ${stop_loss:.4f}). Proteção Smart Money ativada.",
+                    f"COMANDO SOBERANO: Ordem {d} ({strat}) executada em {clean_sym} a ${p:.4f} [Margem: ${margin:.1f} USD • Degrau ${milestone_step*1000}]. Alvo: ${target:.4f}, Stop: ${stop_loss:.4f}.",
                     action="ORDEM_DISPARADA",
                     confidence=chosen["score"]
                 )

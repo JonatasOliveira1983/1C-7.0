@@ -1064,6 +1064,26 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
           - Se `direction == SHORT` e `is_pump_ignition == True`, ordem descartada.
           - Se `direction == LONG` e `is_dump_ignition == True`, ordem descartada.
 
+50. **[V177-COMPOUND-MILESTONE-LADDER] Dimensionamento Dinâmico em Degraus de $1.000 (Abordagem B)** (2026-10-28):
+    - **Fórmula da Escadinha de Milestones (Juros Compostos Anti-Martingale)**:
+        * Em `laya_router_service.py`, a margem por slot escala dinamicamente a cada $1.000 de saldo realizado unificado:
+          $$\text{milestone} = \max\left(5, \, \lfloor \frac{\text{realized\_balance}}{1000} \rfloor\right) \times 1000$$
+          $$\text{margin} = \text{milestone} \times 0.01 = \frac{\text{milestone}}{1000} \times 10.0$$
+        * Escala transparente para auditoria do operador no Cockpit:
+            - $9.000 a $9.999: Margem de $90.00 por slot.
+            - $10.000 a $10.999: Margem de $100.00 por slot.
+            - $11.000 a $11.999: Margem de $110.00 por slot.
+            - $12.000 a $12.999: Margem de $120.00 por slot.
+            - $15.000 a $15.999: Margem de $150.00 por slot.
+            - $20.000 a $20.999: Margem de $200.00 por slot.
+    - **Invariante de Risco Estritamente Constante (8.0% Total)**:
+        * Em qualquer nível da escadinha, a exposição nocional máxima somando os 8 slots é rigorosamente 8.0% do capital de milestone ($8 \times \text{margin} / \text{milestone} = 0.08$).
+    - **Cálculo Baseado em Saldo Realizado (Never on Floating)**:
+        * Apenas lucros encerrados incrementam o degrau de margem. Oscilações de PnL flutuante não expandem posições prematuramente.
+    - **Piso de Segurança Inviolável ($50.00)**:
+        * Garante conformidade técnica com o lote mínimo (`minSz` e `lotSz`) da OKX mesmo em drawdowns profundos.
+
+
 
 
 ---
