@@ -100,9 +100,9 @@
             <span>LAYA 360 (CÉREBRO SOBERANO)</span>
             <span class="sh-badge-gold">360°</span>
           </a>
-          <a href="/observatory" class="sh-link ${activePage === 'observatory' ? 'active' : ''}">
+          <a href="/observatory" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse}
-            <span>OBSERVATÓRIO (TELEMETRIA uPlot)</span>
+            <span>TELEMETRIA (ALTA FREQUÊNCIA 60 FPS)</span>
             <span class="sh-badge-gold">uPlot</span>
           </a>
           <a href="/hermes" class="sh-link ${activePage === 'hermes' ? 'active' : ''}">
@@ -245,8 +245,8 @@
           <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
             ${ICONS.laya} <span>LAYA 360</span>
           </a>
-          <a href="/observatory" class="nav-item ${activePage === 'observatory' ? 'active' : ''}">
-            ${ICONS.pulse} <span>OBSERVATÓRIO</span>
+          <a href="/observatory" class="nav-item ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
+            ${ICONS.pulse} <span>TELEMETRIA</span>
           </a>
           <a href="/plutus" class="nav-item ${activePage === 'plutus' ? 'active' : ''}">
             ${ICONS.plutus} <span>PLUTUS</span>
@@ -559,9 +559,9 @@
           ${ICONS.laya}
           <span>Laya 360</span>
         </a>
-        <a href="/observatory" class="bbar-item ${page === 'observatory' ? 'active' : ''}">
+        <a href="/observatory" class="bbar-item ${(page === 'observatory' || page === 'telemetry') ? 'active' : ''}">
           ${ICONS.pulse}
-          <span>Observatório</span>
+          <span>Telemetria</span>
         </a>
         <a href="/plutus" class="bbar-item ${page === 'plutus' ? 'active' : ''}">
           ${ICONS.plutus}

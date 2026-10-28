@@ -963,6 +963,8 @@ async def get_telemetry_timeseries(limit: int = 1800):
 
 # Special Root Routes (Must stay in main for precedence or special handling)
 if settings.SERVE_STATIC_FRONTEND:
+    @app.get("/telemetry", response_class=HTMLResponse)
+    @app.get("/telemetry/{symbol}", response_class=HTMLResponse)
     @app.get("/observatory", response_class=HTMLResponse)
     @app.get("/observatory/{symbol}", response_class=HTMLResponse)
     async def observatory_page(symbol: str = "AVAXUSDT"):
