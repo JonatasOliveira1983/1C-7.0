@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1CRYPTEN // OBSERVATÓRIO DE TELEMETRIA & ALTA FREQUÊNCIA</title>
+  <title>1Crypten 7.5 - OBSERVATÓRIO DE TELEMETRIA & INFRAESTRUTURA TÁTICA</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- uPlot Local CSS -->
+  <!-- Estilos Canônicos Lamborghini & uPlot -->
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
   <link rel="stylesheet" href="/static/css/uPlot.min.css">
   
   <style>
@@ -47,251 +48,203 @@
       flex-direction: column;
     }
 
-    /* TOP NAVBAR */
-    .topbar {
-      height: 48px;
-      background: #080A0F;
-      border-bottom: 1px solid var(--card-border);
+    /* PANORAMIC HUD INTEGRADO COM A LAYA */
+    .panoramic-subhud {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 20px;
-      flex-shrink: 0;
-    }
-
-    .topbar-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand-tag {
+      background: #080B10;
+      border-bottom: 1px solid var(--card-border);
+      padding: 6px 14px;
+      flex-wrap: wrap;
+      gap: 10px;
       font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      color: var(--accent-gold);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-badge {
       font-size: 10px;
-      font-weight: 700;
-      font-family: var(--font-mono);
-      padding: 3px 8px;
-      border-radius: 3px;
-      background: rgba(14, 203, 129, 0.12);
-      color: var(--accent-green);
-      border: 1px solid rgba(14, 203, 129, 0.3);
+    }
+
+    .hud-stat-box {
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-green);
-      box-shadow: 0 0 8px var(--accent-green);
-      animation: pulse 1.8s infinite ease-in-out;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
-
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .nav-btn {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      padding: 5px 12px;
-      border-radius: 3px;
-      text-decoration: none;
-      transition: all 0.15s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-
-    .btn-gold {
-      background: var(--accent-gold-glow);
-      color: var(--accent-gold);
-      border: 1px solid var(--accent-gold);
-    }
-
-    .btn-gold:hover {
-      background: var(--accent-gold);
-      color: #000;
-    }
-
-    .btn-ghost {
-      background: transparent;
+    .hud-stat-label {
       color: var(--text-muted);
-      border: 1px solid var(--card-border);
+      text-transform: uppercase;
+      font-size: 8.5px;
+      letter-spacing: 0.5px;
     }
 
-    .btn-ghost:hover {
+    .hud-stat-val {
       color: var(--text-main);
-      border-color: #2F3846;
+      font-weight: 700;
     }
 
-    .clock-tag {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-muted);
+    .pill-badge {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
     }
 
-    /* MAIN CONTENT */
-    .container {
-      flex: 1;
-      padding: 16px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      max-width: 1800px;
-      margin: 0 auto;
-      width: 100%;
-    }
+    .pill-gold { background: rgba(252, 213, 53, 0.15); color: #FCD535; border: 1px solid rgba(252, 213, 53, 0.4); }
+    .pill-green { background: rgba(14, 203, 129, 0.15); color: #0ECB81; border: 1px solid rgba(14, 203, 129, 0.4); }
+    .pill-cyan { background: rgba(41, 171, 226, 0.15); color: #29ABE2; border: 1px solid rgba(41, 171, 226, 0.4); }
+    .pill-red { background: rgba(246, 70, 93, 0.15); color: #F6465D; border: 1px solid rgba(246, 70, 93, 0.4); }
 
-    /* HUD CARDS */
-    .hud-grid {
+    /* WIDESCREEN FULL-BLEED GRID */
+    .wide-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-    }
-
-    .hud-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 4px;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      position: relative;
+      grid-template-columns: 310px 1fr 340px;
+      gap: 10px;
+      padding: 10px 14px;
+      flex: 1;
+      width: 100%;
+      height: calc(100vh - 86px);
+      min-height: 0;
       overflow: hidden;
     }
 
-    .hud-card::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 3px;
-      height: 100%;
-      background: var(--card-border);
+    @media (max-width: 1400px) {
+      .wide-grid {
+        grid-template-columns: 280px 1fr 300px;
+      }
     }
 
-    .card-gold::before { background: var(--accent-gold); }
-    .card-cyan::before { background: var(--accent-cyan); }
-    .card-green::before { background: var(--accent-green); }
-    .card-purple::before { background: var(--accent-purple); }
-
-    .hud-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 9px;
-      font-family: var(--font-mono);
-      font-weight: 700;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+    @media (max-width: 1100px) {
+      .wide-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow-y: auto;
+      }
     }
 
-    .hud-main-val {
-      font-family: var(--font-mono);
-      font-size: 22px;
-      font-weight: 800;
-      line-height: 1.1;
-      color: var(--text-main);
-    }
-
-    .hud-sub-val {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
-      display: flex;
-      gap: 10px;
-    }
-
-    .hud-sub-val span strong {
-      color: var(--text-main);
-    }
-
-    /* CHARTS CONTAINER */
-    .charts-grid {
+    /* COLUMNS & PANELS */
+    .col-panel {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
     }
 
-    .chart-panel {
+    .panel-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 4px;
-      padding: 14px 16px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-    }
-
-    .chart-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .chart-title-box {
-      display: flex;
-      align-items: center;
       gap: 8px;
     }
 
-    .chart-title {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: var(--text-main);
-    }
-
-    .chart-subtitle {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .chart-controls {
+    .panel-card-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(27, 35, 45, 0.8);
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* SLOTS IN CUSTODY (LIVE CARDS) */
+    .slots-scroll-list {
+      display: flex;
+      flex-direction: column;
       gap: 6px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .slot-mini-card {
+      background: #06080C;
+      border: 1px solid var(--card-border);
+      border-left: 3px solid var(--accent-gold);
+      border-radius: 3px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      transition: border-color 0.15s ease;
+    }
+
+    .slot-mini-card:hover {
+      border-color: #2F3846;
+    }
+
+    .slot-mini-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slot-sym {
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .slot-pnl {
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .slot-pnl.positive { color: var(--accent-green); }
+    .slot-pnl.negative { color: var(--accent-red); }
+
+    .slot-mini-body {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 8.5px;
+    }
+
+    /* CENTER CHARTS */
+    .charts-main-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .chart-controls-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .tf-btn-group {
+      display: flex;
+      gap: 4px;
     }
 
     .tf-btn {
       font-family: var(--font-mono);
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 2px 7px;
       background: transparent;
       color: var(--text-muted);
       border: 1px solid var(--card-border);
       border-radius: 2px;
       cursor: pointer;
-      transition: all 0.1s ease;
     }
 
     .tf-btn.active, .tf-btn:hover {
@@ -300,242 +253,308 @@
       border-color: var(--accent-gold);
     }
 
-    .uplot-container {
-      width: 100%;
-      height: 230px;
+    .charts-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .single-chart-box {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: #06080C;
+      border: 1px solid rgba(27, 35, 45, 0.7);
+      border-radius: 3px;
+      padding: 6px 10px;
       position: relative;
     }
 
-    /* uPlot Dark Theme Overrides */
-    .uplot {
-      font-family: var(--font-mono) !important;
-    }
-    .u-legend {
-      font-size: 10px !important;
-      color: var(--text-muted) !important;
-    }
-    .u-legend .u-series th {
-      color: var(--text-muted) !important;
-    }
-    .u-cursor-x, .u-cursor-y {
-      border-color: rgba(255, 255, 255, 0.25) !important;
-    }
-    .u-cursor-pt {
-      border: 2px solid var(--accent-gold) !important;
-      background: #000 !important;
-    }
-
-    /* FOOTER */
-    .footer {
-      padding: 12px 20px;
-      background: #080A0F;
-      border-top: 1px solid var(--card-border);
+    .single-chart-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 8.5px;
       color: var(--text-muted);
+      margin-bottom: 4px;
       flex-shrink: 0;
     }
 
-    @media (max-width: 900px) {
-      .hud-grid { grid-template-columns: 1fr; }
-      .uplot-container { height: 190px; }
+    .uplot-frame {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      position: relative;
     }
+
+    /* RIGHT COLUMN - TITANS RADAR */
+    .titans-table-box {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .titans-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+    }
+
+    .titans-table th {
+      text-align: left;
+      padding: 4px 6px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      background: var(--card-bg);
+      z-index: 10;
+    }
+
+    .titans-table td {
+      padding: 5px 6px;
+      border-bottom: 1px solid rgba(27, 35, 45, 0.4);
+      color: var(--text-main);
+    }
+
+    .titans-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* uPlot Tooltip & Legend Overrides */
+    .uplot { font-family: var(--font-mono) !important; }
+    .u-legend { font-size: 9px !important; color: var(--text-muted) !important; }
+    .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
+    .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
   </style>
 </head>
 <body>
 
-  <!-- NAVBAR -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="brand-tag">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FCD535" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-        </svg>
-        1CRYPTEN // OBSERVATÓRIO
+  <!-- Injeção do Shell Unificado (Topbar Canônica, Net Worth & Drawer Lateral) -->
+  <script src="/static/shell.js"></script>
+
+  <!-- SUBHUD PANORÂMICO DE SINCRONIA COM A LAYA -->
+  <div class="panoramic-subhud">
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">FAROL BTC:</span>
+        <span class="hud-stat-val" id="top-btc-val">$91,292.00</span>
+        <span class="pill-badge pill-green" id="top-btc-chg">+0.28%</span>
+        <span class="pill-badge pill-gold" id="top-btc-climate">EXPANSION</span>
       </div>
-      <div class="status-badge">
-        <div class="status-dot"></div>
-        <span>TELEMETRIA UPLOT ATIVA • 60 FPS</span>
+
+      <div style="color:#222;">|</div>
+
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">REGIME LAYA:</span>
+        <span class="pill-badge pill-gold" id="top-laya-mode">MEAN-REVERSION</span>
+        <span class="hud-stat-label" style="margin-left:4px;">ADX:</span>
+        <span class="hud-stat-val" id="top-laya-adx">14.5</span>
+      </div>
+
+      <div style="color:#222;">|</div>
+
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">PROTEÇÃO DE LATÊNCIA:</span>
+        <span class="pill-badge pill-green" id="top-circuit-badge">ANTI-SLIPPAGE OK</span>
       </div>
     </div>
-    <div class="topbar-right">
-      <div class="clock-tag" id="top-clock">--:--:-- UTC</div>
-      <a href="/laya" class="nav-btn btn-ghost">CÉREBRO 360°</a>
-      <a href="/" class="nav-btn btn-gold">COCKPIT PRINCIPAL</a>
+
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">THROUGHPUT REAL:</span>
+        <span class="hud-stat-val" style="color:var(--accent-cyan);" id="top-cur-ticks">-- ticks/s</span>
+      </div>
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">PING OKX:</span>
+        <span class="hud-stat-val" style="color:var(--accent-gold);" id="top-cur-ping">-- ms</span>
+      </div>
     </div>
-  </header>
+  </div>
 
-  <!-- CONTENT -->
-  <main class="container">
-    
-    <!-- HUD CARDS -->
-    <section class="hud-grid">
-      <!-- Card 1: Ping WebSocket OKX -->
-      <div class="hud-card card-gold">
-        <div class="hud-card-header">
-          <span>LATÊNCIA OKX (RTT)</span>
-          <span id="badge-ping-state" style="color:var(--accent-green);">EXCELENTE</span>
-        </div>
-        <div class="hud-main-val" id="val-cur-ping">-- ms</div>
-        <div class="hud-sub-val">
-          <span>MÉDIA 1M: <strong id="val-avg-ping">-- ms</strong></span>
-          <span>PICO 1H: <strong id="val-max-ping">-- ms</strong></span>
-        </div>
-      </div>
+  <!-- WIDESCREEN 3-COLUMN FULL-BLEED GRID -->
+  <main class="wide-grid">
 
-      <!-- Card 2: Throughput Ticks -->
-      <div class="hud-card card-cyan">
-        <div class="hud-card-header">
-          <span>VAZÃO DE FLUXO</span>
-          <span>MENSAGENS/S</span>
-        </div>
-        <div class="hud-main-val" id="val-cur-ticks">-- ticks/s</div>
-        <div class="hud-sub-val">
-          <span>MÉDIA 1M: <strong id="val-avg-ticks">--</strong></span>
-          <span>TOTAL: <strong id="val-total-ticks">--</strong></span>
-        </div>
-      </div>
-
-      <!-- Card 3: Laya Cycle -->
-      <div class="hud-card card-green">
-        <div class="hud-card-header">
-          <span>CICLO LAYA SOBERANA</span>
-          <span>VARREDURA</span>
-        </div>
-        <div class="hud-main-val" id="val-laya-cycle">-- s</div>
-        <div class="hud-sub-val">
-          <span>NEURAL: <strong id="val-laya-neural">-- ms</strong></span>
-          <span>PARES: <strong>507 OKX</strong></span>
-        </div>
-      </div>
-
-      <!-- Card 4: Net Worth -->
-      <div class="hud-card card-gold">
-        <div class="hud-card-header">
-          <span>PATRIMÔNIO LÍQUIDO</span>
-          <span style="color:var(--accent-gold);">SANDBOX SSOT</span>
-        </div>
-        <div class="hud-main-val" id="val-net-worth">$10,969.78</div>
-        <div class="hud-sub-val">
-          <span>PNL FLUTUANTE: <strong id="val-floating-pnl">$0.00</strong></span>
-          <span>ROI: <strong style="color:var(--accent-green);">+9.70%</strong></span>
-        </div>
-      </div>
-
-      <!-- Card 5: Infraestrutura -->
-      <div class="hud-card card-purple">
-        <div class="hud-card-header">
-          <span>RECURSOS UVICORN</span>
-          <span>PID ATIVO</span>
-        </div>
-        <div class="hud-main-val" id="val-ram-mb">-- MB</div>
-        <div class="hud-sub-val">
-          <span>CPU: <strong id="val-cpu-pct">--%</strong></span>
-          <span>UPTIME: <strong id="val-uptime">--s</strong></span>
-        </div>
-      </div>
-
-      <!-- Card 6: Ring Buffer -->
-      <div class="hud-card">
-        <div class="hud-card-header">
-          <span>AMOSTRAGEM CONTÍNUA</span>
-          <span>RING BUFFER</span>
-        </div>
-        <div class="hud-main-val" id="val-buffer-count">3,600 pts</div>
-        <div class="hud-sub-val">
-          <span>INTERVALO: <strong>1.000 ms</strong></span>
-          <span>RESOLUÇÃO: <strong>TICK EXATO</strong></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- CHARTS -->
-    <section class="charts-grid">
+    <!-- COLUNA 1: CONSCIÊNCIA DA LAYA & SLOTS EM CUSTÓDIA DO COCKPIT -->
+    <aside class="col-panel">
       
-      <!-- Chart 1: Latência & Ticks -->
-      <div class="chart-panel">
-        <div class="chart-panel-header">
-          <div class="chart-title-box">
-            <span class="chart-title">LATÊNCIA WEBSOCKET OKX & VAZÃO DE FLUXO (DUAL AXIS)</span>
-            <span class="chart-subtitle">[EIXO ESQUERDO: PING (MS) • EIXO DIREITO: TICKS/S]</span>
-          </div>
-          <div class="chart-controls">
-            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
-            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
-            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
-            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+      <!-- Card A: Custódia Ativa Cockpit -->
+      <div class="panel-card" style="flex: 1 1 55%; min-height: 0;">
+        <div class="panel-card-header">
+          <span>SLOTS EM CUSTÓDIA ATIVA</span>
+          <span class="pill-badge pill-gold" id="slots-count-badge">4 ORDENS</span>
+        </div>
+        
+        <div class="slots-scroll-list" id="slots-active-container">
+          <!-- Carregado dinamicamente -->
+          <div style="color:#555; text-align:center; padding:20px 0; font-family:var(--font-mono); font-size:9px;">
+            SINCRONIZANDO SLOTS DO COCKPIT...
           </div>
         </div>
-        <div id="chart-network" class="uplot-container"></div>
       </div>
 
-      <!-- Chart 2: Laya Cycle & Neural Inference -->
-      <div class="chart-panel">
-        <div class="chart-panel-header">
-          <div class="chart-title-box">
-            <span class="chart-title">PERFORMANCE DE VARREDURA & INFERÊNCIA DA LAYA</span>
-            <span class="chart-subtitle">[EIXO ESQUERDO: CICLO DE ESCANEAMENTO (S) • EIXO DIREITO: LATÊNCIA NEURAL (MS)]</span>
+      <!-- Card B: Parâmetros Táticos de Risco -->
+      <div class="panel-card" style="flex: 1 1 45%; min-height: 0;">
+        <div class="panel-card-header">
+          <span>ESCUDO TÁTICO & REFLEXO LAYA</span>
+          <span class="pill-badge pill-cyan">ATIVO</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; font-family:var(--font-mono); font-size:9px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+            <span style="color:var(--text-muted);">ALAVANCAGEM ISOLADA:</span>
+            <span style="color:var(--text-main); font-weight:700;">15X (ALTCOINS)</span>
           </div>
-          <div class="chart-controls">
-            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
-            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
-            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
-            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+            <span style="color:var(--text-muted);">TETO MARGEM ALOCADA:</span>
+            <span style="color:var(--text-main); font-weight:700;">$4,000.00 USD</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+            <span style="color:var(--text-muted);">TRAIL PROFIT PROGRESSIVO:</span>
+            <span style="color:var(--accent-green); font-weight:700;">NEVER GIVE BACK (5 ESC.)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+            <span style="color:var(--text-muted);">CIRCUIT BREAKER RTT:</span>
+            <span style="color:var(--accent-gold); font-weight:700;">VETO SE PING > 150 MS</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding-bottom:2px;">
+            <span style="color:var(--text-muted);">ANTI-HEDGE SOBERANO:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;">PROIBIDO OPOSIÇÃO</span>
           </div>
         </div>
-        <div id="chart-laya" class="uplot-container"></div>
       </div>
 
-      <!-- Chart 3: Equity Curve -->
-      <div class="chart-panel">
-        <div class="chart-panel-header">
-          <div class="chart-title-box">
-            <span class="chart-title">CURVA CONTÍNUA DE PATRIMÔNIO LÍQUIDO (TICK-A-TICK)</span>
-            <span class="chart-subtitle">[BANCA SIMULADA REALIZADA + FLUTUAÇÃO DE TRAILING STOPS]</span>
-          </div>
-          <div class="chart-controls">
-            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
-            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
-            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
-            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
-          </div>
+    </aside>
+
+    <!-- COLUNA 2: GRÁFICOS UPLOT DE ALTA FREQUÊNCIA (SISMÓGRAFO) -->
+    <section class="charts-main-panel">
+      
+      <div class="chart-controls-bar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-family:var(--font-mono); font-size:11px; font-weight:800; color:var(--text-main);">
+            SISMÓGRAFO DE ALTA FREQUÊNCIA (UPLOT 60 FPS)
+          </span>
+          <span style="font-size:9px; color:var(--text-muted); font-family:var(--font-mono);">
+            [AMOSTRAGEM 1.000 MS CONTÍNUA • BUFFER 3.600 PTS]
+          </span>
         </div>
-        <div id="chart-equity" class="uplot-container"></div>
+
+        <div class="tf-btn-group">
+          <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
+          <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
+          <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
+          <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+        </div>
+      </div>
+
+      <div class="charts-stack">
+        <!-- Gráfico 1: Latência OKX x Throughput Ticks -->
+        <div class="single-chart-box">
+          <div class="single-chart-header">
+            <span>LATÊNCIA WEBSOCKET OKX (MS) & VAZÃO DE FLUXO (TICKS/S)</span>
+            <span>EIXO ESQ: PING (OURO) • EIXO DIR: TICKS/S (CIANO)</span>
+          </div>
+          <div id="chart-network" class="uplot-frame"></div>
+        </div>
+
+        <!-- Gráfico 2: Curva Contínua de Patrimônio Líquido com Flutuação de PnL -->
+        <div class="single-chart-box">
+          <div class="single-chart-header">
+            <span>PATRIMÔNIO LÍQUIDO TICK-A-TICK (NET WORTH + FLUTUAÇÃO DE CUSTÓDIA)</span>
+            <span id="chart-networth-hud" style="color:var(--accent-gold); font-weight:700;">$10,969.78 USD</span>
+          </div>
+          <div id="chart-equity" class="uplot-frame"></div>
+        </div>
+
+        <!-- Gráfico 3: Ciclo de Varredura e Inferência Neural da Laya -->
+        <div class="single-chart-box">
+          <div class="single-chart-header">
+            <span>CICLO DE ESCANEAMENTO DA LAYA (507 PARES) & LATÊNCIA NEURAL</span>
+            <span>EIXO ESQ: CICLO LAYA (VERDE) • EIXO DIR: NEURAL (ROXO)</span>
+          </div>
+          <div id="chart-laya" class="uplot-frame"></div>
+        </div>
       </div>
 
     </section>
+
+    <!-- COLUNA 3: RADAR DOS TITÃS & INFRAESTRUTURA DE PROCESSAMENTO -->
+    <aside class="col-panel">
+      
+      <!-- Card C: Top 10 Titãs da OKX em Monitoramento Laya -->
+      <div class="panel-card" style="flex: 1 1 65%; min-height: 0;">
+        <div class="panel-card-header">
+          <span>RADAR LAYA — TOP 10 TITÃS</span>
+          <span class="pill-badge pill-green">507 SCAN</span>
+        </div>
+
+        <div class="titans-table-box">
+          <table class="titans-table">
+            <thead>
+              <tr>
+                <th>ATIVO</th>
+                <th>POSTURA</th>
+                <th>EXP</th>
+                <th>ROBÔS</th>
+              </tr>
+            </thead>
+            <tbody id="titans-tbody">
+              <tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">SINCRONIZANDO TITÃS...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Card D: Diagnóstico de Recursos Uvicorn -->
+      <div class="panel-card" style="flex: 1 1 35%; min-height: 0;">
+        <div class="panel-card-header">
+          <span>SAÚDE DA INFRAESTRUTURA</span>
+          <span class="pill-badge pill-cyan">UVICORN 8085</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:9px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">TOTAL DE TICKS:</span>
+            <span style="color:var(--text-main); font-weight:700;" id="hud-raw-ticks">--</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">MÉDIA TICKS 1M:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;" id="hud-avg-ticks">--</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">PING MÉDIO 1M:</span>
+            <span style="color:var(--accent-gold); font-weight:700;" id="hud-avg-ping">-- ms</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">PICO LATÊNCIA 1H:</span>
+            <span style="color:var(--accent-red); font-weight:700;" id="hud-max-ping">-- ms</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-muted);">UPTIME DO SERVIÇO:</span>
+            <span style="color:var(--accent-green); font-weight:700;" id="hud-uptime-val">--s</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
 
   </main>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div>1CRYPTEN SOVEREIGN TRADING SYSTEM • OBSERVATÓRIO TELEMÉTRICO</div>
-    <div>SÉRIE TEMPORAL: CANVAS 2D ULTRARRÁPIDO • ZERO LAG GARANTIDO</div>
-  </footer>
 
   <!-- uPlot Local JS -->
   <script src="/static/js/uPlot.iife.min.js"></script>
 
   <script>
-    // ESTADO GLOBAL DO LABORATÓRIO DE TELEMETRIA
     let _activeWindowSeconds = 1800;
     let _uPlotNetwork = null;
-    let _uPlotLaya = null;
     let _uPlotEquity = null;
+    let _uPlotLaya = null;
     let _syncGroup = null;
-
-    function updateClock() {
-      const now = new Date();
-      const el = document.getElementById("top-clock");
-      if (el) {
-        el.textContent = now.toISOString().slice(11, 19) + " UTC";
-      }
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
 
     function setTimeWindow(seconds, btn) {
       _activeWindowSeconds = seconds;
@@ -546,21 +565,21 @@
       fetchTelemetryData();
     }
 
-    // Configuração dos Gráficos com uPlot
+    // Inicialização dos Gráficos com uPlot
     function initUPlots() {
       const elNet = document.getElementById("chart-network");
-      const elLaya = document.getElementById("chart-laya");
       const elEq = document.getElementById("chart-equity");
+      const elLaya = document.getElementById("chart-laya");
 
-      if (!elNet || !elLaya || !elEq) return;
+      if (!elNet || !elEq || !elLaya) return;
 
-      const w = elNet.clientWidth || 1000;
-      const h = elNet.clientHeight || 230;
+      const w = elNet.clientWidth || 800;
+      const h = elNet.clientHeight || 150;
 
-      // Cursor Sync entre todos os gráficos do Observatório
+      // Sincronização de Cursor entre os 3 gráficos uPlot
       _syncGroup = uPlot.sync("observatory-sync");
 
-      // 1. Gráfico de Latência de Rede & Ticks (Dual-Axis)
+      // 1. Gráfico de Latência & Throughput (Dual-Scale)
       const optsNet = {
         width: w,
         height: h,
@@ -577,24 +596,21 @@
           {
             scale: 'x',
             stroke: '#848E9C',
-            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
-            ticks: { stroke: '#848E9C', width: 1 }
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 },
+            font: '9px JetBrains Mono'
           },
           {
             scale: 'ms',
             stroke: '#FCD535',
-            label: 'Latência (ms)',
-            labelFont: '10px JetBrains Mono',
-            font: '10px JetBrains Mono',
-            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 }
+            font: '9px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 }
           },
           {
             side: 1,
             scale: 'ticks',
             stroke: '#29ABE2',
-            label: 'Ticks/s',
-            labelFont: '10px JetBrains Mono',
-            font: '10px JetBrains Mono',
+            font: '9px JetBrains Mono',
             grid: { show: false }
           }
         ],
@@ -602,22 +618,62 @@
           {},
           {
             scale: 'ms',
-            label: 'Ping OKX',
+            label: 'Ping (ms)',
             stroke: '#FCD535',
             width: 1.5,
-            fill: 'rgba(252, 213, 53, 0.06)'
+            fill: 'rgba(252, 213, 53, 0.08)'
           },
           {
             scale: 'ticks',
-            label: 'Vazão (ticks/s)',
+            label: 'Ticks/s',
             stroke: '#29ABE2',
             width: 1.5,
-            fill: 'rgba(41, 171, 226, 0.05)'
+            fill: 'rgba(41, 171, 226, 0.06)'
           }
         ]
       };
 
-      // 2. Gráfico da Laya Soberana (Dual-Axis)
+      // 2. Gráfico de Patrimônio Líquido Tick-a-Tick
+      const optsEq = {
+        width: w,
+        height: h,
+        cursor: {
+          sync: { key: _syncGroup.key },
+          drag: { x: true, y: false }
+        },
+        scales: {
+          x: { time: true },
+          usd: { auto: true }
+        },
+        axes: [
+          {
+            scale: 'x',
+            stroke: '#848E9C',
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 },
+            font: '9px JetBrains Mono'
+          },
+          {
+            scale: 'usd',
+            stroke: '#FCD535',
+            font: '9px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 },
+            values: (u, vals) => vals.map(v => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1}))
+          }
+        ],
+        series: [
+          {},
+          {
+            scale: 'usd',
+            label: 'Net Worth (USD)',
+            stroke: '#FCD535',
+            width: 1.8,
+            fill: 'rgba(252, 213, 53, 0.12)'
+          }
+        ]
+      };
+
+      // 3. Gráfico da Laya Soberana (Varredura x Inferência)
       const optsLaya = {
         width: w,
         height: h,
@@ -634,24 +690,21 @@
           {
             scale: 'x',
             stroke: '#848E9C',
-            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
-            ticks: { stroke: '#848E9C', width: 1 }
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 },
+            font: '9px JetBrains Mono'
           },
           {
             scale: 'sec',
             stroke: '#0ECB81',
-            label: 'Ciclo Scan (s)',
-            labelFont: '10px JetBrains Mono',
-            font: '10px JetBrains Mono',
-            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 }
+            font: '9px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 }
           },
           {
             side: 1,
             scale: 'neural',
             stroke: '#B388FF',
-            label: 'Inferência (ms)',
-            labelFont: '10px JetBrains Mono',
-            font: '10px JetBrains Mono',
+            font: '9px JetBrains Mono',
             grid: { show: false }
           }
         ],
@@ -659,78 +712,44 @@
           {},
           {
             scale: 'sec',
-            label: 'Varredura Laya',
+            label: 'Scan 507 Pares (s)',
             stroke: '#0ECB81',
             width: 1.5,
-            fill: 'rgba(14, 203, 129, 0.06)'
+            fill: 'rgba(14, 203, 129, 0.08)'
           },
           {
             scale: 'neural',
-            label: 'Inferência Neural',
+            label: 'Inferência (ms)',
             stroke: '#B388FF',
             width: 1.5,
-            fill: 'rgba(179, 136, 255, 0.05)'
-          }
-        ]
-      };
-
-      // 3. Gráfico de Patrimônio Líquido
-      const optsEquity = {
-        width: w,
-        height: h,
-        cursor: {
-          sync: { key: _syncGroup.key },
-          drag: { x: true, y: false }
-        },
-        scales: {
-          x: { time: true },
-          usd: { auto: true }
-        },
-        axes: [
-          {
-            scale: 'x',
-            stroke: '#848E9C',
-            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
-            ticks: { stroke: '#848E9C', width: 1 }
-          },
-          {
-            scale: 'usd',
-            stroke: '#FCD535',
-            label: 'Net Worth ($)',
-            labelFont: '10px JetBrains Mono',
-            font: '10px JetBrains Mono',
-            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
-            values: (u, vals) => vals.map(v => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}))
-          }
-        ],
-        series: [
-          {},
-          {
-            scale: 'usd',
-            label: 'Net Worth (USD)',
-            stroke: '#FCD535',
-            width: 2,
-            fill: 'linear-gradient(180deg, rgba(252, 213, 53, 0.2) 0%, rgba(252, 213, 53, 0.0) 100%)'
+            fill: 'rgba(179, 136, 255, 0.06)'
           }
         ]
       };
 
       _uPlotNetwork = new uPlot(optsNet, [[], [], []], elNet);
+      _uPlotEquity = new uPlot(optsEq, [[], []], elEq);
       _uPlotLaya = new uPlot(optsLaya, [[], [], []], elLaya);
-      _uPlotEquity = new uPlot(optsEquity, [[], []], elEq);
 
-      // Redimensionamento responsivo
-      window.addEventListener('resize', () => {
-        const nw = elNet.clientWidth;
-        if (nw > 0) {
-          _uPlotNetwork.setSize({ width: nw, height: h });
-          _uPlotLaya.setSize({ width: nw, height: h });
-          _uPlotEquity.setSize({ width: nw, height: h });
+      // Redimensionamento fluído com observer
+      const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          const nw = entry.contentRect.width;
+          const nh = entry.contentRect.height;
+          if (nw > 50 && nh > 50) {
+            if (_uPlotNetwork && elNet.contains(entry.target)) _uPlotNetwork.setSize({ width: nw, height: nh });
+            if (_uPlotEquity && elEq.contains(entry.target)) _uPlotEquity.setSize({ width: nw, height: nh });
+            if (_uPlotLaya && elLaya.contains(entry.target)) _uPlotLaya.setSize({ width: nw, height: nh });
+          }
         }
       });
+
+      resizeObserver.observe(elNet);
+      resizeObserver.observe(elEq);
+      resizeObserver.observe(elLaya);
     }
 
-    // Coleta Contínua de Telemetria via API
+    // Coleta Contínua de Telemetria e Renderização Tática
     async function fetchTelemetryData() {
       try {
         const [rSummary, rSeries] = await Promise.all([
@@ -738,44 +757,59 @@
           fetch(`/api/telemetry/timeseries?limit=${_activeWindowSeconds}`).then(r => r.json())
         ]);
 
-        // 1. Atualizar HUD Cards
         if (rSummary) {
-          const curPing = rSummary.current_ping_ms || 24;
-          document.getElementById('val-cur-ping').textContent = `${curPing.toFixed(1)} ms`;
-          document.getElementById('val-avg-ping').textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
-          document.getElementById('val-max-ping').textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
+          // 1. Atualizar SubHUD
+          const btc = rSummary.btc_info || {};
+          if (btc.price) document.getElementById('top-btc-val').textContent = `$${Number(btc.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+          if (btc.change_24h !== undefined) {
+            const chgEl = document.getElementById('top-btc-chg');
+            const sign = btc.change_24h >= 0 ? '+' : '';
+            chgEl.textContent = `${sign}${btc.change_24h.toFixed(2)}%`;
+            chgEl.className = `pill-badge ${btc.change_24h >= 0 ? 'pill-green' : 'pill-red'}`;
+          }
+          if (btc.climate) document.getElementById('top-btc-climate').textContent = btc.climate;
 
-          const pingBadge = document.getElementById('badge-ping-state');
-          if (pingBadge) {
-            if (curPing < 50) {
-              pingBadge.textContent = 'EXCELENTE';
-              pingBadge.style.color = 'var(--accent-green)';
-            } else if (curPing < 120) {
-              pingBadge.textContent = 'ESTÁVEL';
-              pingBadge.style.color = 'var(--accent-gold)';
-            } else {
-              pingBadge.textContent = 'ALERTA RTT';
-              pingBadge.style.color = 'var(--accent-red)';
-            }
+          if (rSummary.laya_regime) document.getElementById('top-laya-mode').textContent = rSummary.laya_regime;
+          if (rSummary.laya_adx) document.getElementById('top-laya-adx').textContent = rSummary.laya_adx.toFixed(1);
+
+          const curPing = rSummary.current_ping_ms || 24;
+          document.getElementById('top-cur-ping').textContent = `${curPing.toFixed(1)} ms`;
+          document.getElementById('top-cur-ticks').textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
+
+          const circuitBadge = document.getElementById('top-circuit-badge');
+          if (curPing < 60) {
+            circuitBadge.textContent = 'ANTI-SLIPPAGE OK';
+            circuitBadge.className = 'pill-badge pill-green';
+          } else if (curPing < 120) {
+            circuitBadge.textContent = 'LATÊNCIA ATENÇÃO';
+            circuitBadge.className = 'pill-badge pill-gold';
+          } else {
+            circuitBadge.textContent = 'CIRCUIT BREAKER VETO';
+            circuitBadge.className = 'pill-badge pill-red';
           }
 
-          document.getElementById('val-cur-ticks').textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
-          document.getElementById('val-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0}`;
-          document.getElementById('val-total-ticks').textContent = `${(rSummary.total_raw_ticks || 0).toLocaleString()}`;
+          // 2. Renderizar Slots em Custódia Ativa do Cockpit
+          renderActiveSlots(rSummary.active_slots || []);
 
-          document.getElementById('val-laya-cycle').textContent = `${(rSummary.laya_last_scan_s || 4.2).toFixed(1)} s`;
-          document.getElementById('val-laya-neural').textContent = `${(rSummary.laya_neural_ms || 18.0).toFixed(1)} ms`;
+          // 3. Renderizar Top 10 Titãs
+          renderTitans(rSummary.top_candidates || []);
+
+          // 4. Métricas de Infraestrutura
+          document.getElementById('hud-raw-ticks').textContent = (rSummary.total_raw_ticks || 0).toLocaleString();
+          document.getElementById('hud-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0} ticks/s`;
+          document.getElementById('hud-avg-ping').textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
+          document.getElementById('hud-max-ping').textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
+          document.getElementById('hud-uptime-val').textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
 
           const nw = rSummary.net_worth_usd || 10969.78;
-          document.getElementById('val-net-worth').textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-          document.getElementById('val-floating-pnl').textContent = `$${(rSummary.floating_pnl_usd || 0).toFixed(2)}`;
-
-          document.getElementById('val-ram-mb').textContent = `${(rSummary.memory_rss_mb || 0).toFixed(1)} MB`;
-          document.getElementById('val-cpu-pct').textContent = `${(rSummary.cpu_percent || 0).toFixed(1)}%`;
-          document.getElementById('val-uptime').textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
+          document.getElementById('chart-networth-hud').textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+          
+          if (window.updateShellNetWorth) {
+            window.updateShellNetWorth(nw);
+          }
         }
 
-        // 2. Alimentar Gráficos uPlot
+        // 5. Ingestão uPlot em Alta Frequência
         if (rSeries && rSeries.timestamps && rSeries.timestamps.length > 0) {
           const ts = rSeries.timestamps;
           const pings = rSeries.ws_ping_ms;
@@ -784,28 +818,102 @@
           const neural = rSeries.laya_neural_ms;
           const eq = rSeries.equity;
 
-          document.getElementById('val-buffer-count').textContent = `${ts.length} pts`;
-
-          if (_uPlotNetwork) {
-            _uPlotNetwork.setData([ts, pings, ticks]);
-          }
-          if (_uPlotLaya) {
-            _uPlotLaya.setData([ts, layaC, neural]);
-          }
-          if (_uPlotEquity) {
-            _uPlotEquity.setData([ts, eq]);
-          }
+          if (_uPlotNetwork) _uPlotNetwork.setData([ts, pings, ticks]);
+          if (_uPlotEquity) _uPlotEquity.setData([ts, eq]);
+          if (_uPlotLaya) _uPlotLaya.setData([ts, layaC, neural]);
         }
       } catch (err) {
-        console.warn("[TELEMETRY-OBSERVATORY] Falha ao coletar dados:", err);
+        console.warn("[TELEMETRY-OBSERVATORY] Erro no ciclo de telemetria:", err);
       }
     }
 
-    // Inicialização ao carregar
+    // Renderiza Cards dos Slots em Custódia
+    function renderActiveSlots(slots) {
+      const container = document.getElementById("slots-active-container");
+      const badge = document.getElementById("slots-count-badge");
+      if (!container) return;
+
+      if (badge) badge.textContent = `${slots.length} ORDENS`;
+
+      if (slots.length === 0) {
+        container.innerHTML = `<div style="color:#555; text-align:center; padding:25px 0; font-size:9px;">MESA LIVRE • 0 ORDENS EM CUSTÓDIA</div>`;
+        return;
+      }
+
+      container.innerHTML = slots.map(s => {
+        const sym = (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const side = (s.side || 'BUY').toUpperCase();
+        const isLong = side === 'BUY' || side === 'LONG';
+        const lev = s.leverage || 15;
+        const entry = Number(s.entry_price || 0);
+        const current = Number(s.current_price || entry);
+        const stop = Number(s.current_stop || 0);
+        const pnlUsd = Number(s.pnl_usd || 0);
+        const pnlPct = Number(s.pnl_percent || 0);
+        const pnlSign = pnlPct >= 0 ? '+' : '';
+        const isWin = pnlPct >= 0;
+
+        return `
+          <div class="slot-mini-card" style="border-left-color: ${isLong ? 'var(--accent-green)' : 'var(--accent-red)'}">
+            <div class="slot-mini-header">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="slot-sym">${sym}</span>
+                <span class="pill-badge ${isLong ? 'pill-green' : 'pill-red'}">${isLong ? 'LONG' : 'SHORT'} ${lev}X</span>
+              </div>
+              <div class="slot-pnl ${isWin ? 'positive' : 'negative'}">
+                ${pnlSign}${pnlPct.toFixed(2)}% (${pnlSign}$${Math.abs(pnlUsd).toFixed(2)})
+              </div>
+            </div>
+            <div class="slot-mini-body">
+              <span>ENTRADA: $${entry.toFixed(4)}</span>
+              <span>STOP: $${stop > 0 ? stop.toFixed(4) : '--'}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Renderiza Tabela dos Top Titãs
+    function renderTitans(titans) {
+      const tbody = document.getElementById("titans-tbody");
+      if (!tbody) return;
+
+      if (!titans || titans.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">VARRENDO ESTRUTURAS...</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = titans.map(t => {
+        const sym = (t.clean_sym || t.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const dir = (t.direction || 'HOLD').toUpperCase();
+        const cExp = parseFloat(t['1c_exp'] || 0);
+        const botOn = t.bot_ignition || (cExp >= 70);
+
+        let postureBadge = `<span class="pill-badge pill-gold">MONITOR</span>`;
+        if (dir === 'LONG' || dir === 'BUY') postureBadge = `<span class="pill-badge pill-green">GATILHO LONG</span>`;
+        else if (dir === 'SHORT' || dir === 'SELL') postureBadge = `<span class="pill-badge pill-red">GATILHO SHORT</span>`;
+        else if (botOn) postureBadge = `<span class="pill-badge pill-cyan">IGNIÇÃO</span>`;
+
+        return `
+          <tr>
+            <td style="font-weight:700; color:#fff;">${sym}</td>
+            <td>${postureBadge}</td>
+            <td>${cExp > 0 ? cExp.toFixed(0) : '--'}</td>
+            <td><span style="color:${botOn ? 'var(--accent-green)' : 'var(--text-muted)'}; font-weight:700;">${botOn ? 'ON' : 'OFF'}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Início imediato
     window.addEventListener('DOMContentLoaded', () => {
+      // Registra página ativa no shell
+      if (window.mountLamborghiniShell) {
+        window.mountLamborghiniShell('observatory');
+      }
       initUPlots();
       fetchTelemetryData();
-      setInterval(fetchTelemetryData, 1000); // 1.000 ms = Telemetria contínua
+      setInterval(fetchTelemetryData, 1000); // 1.000 ms contínuo
     });
   </script>
 </body>

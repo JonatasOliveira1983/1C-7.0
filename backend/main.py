@@ -495,6 +495,7 @@ async def lifespan(app: FastAPI):
                                         slots.append(_map_sandbox_trade_to_slot(t, "SCALPING"))
                                     for t in swing:
                                         slots.append(_map_sandbox_trade_to_slot(t, "SWING"))
+                                    _ds._last_active_slots_cache = slots
                                 except Exception as e:
                                     logger.warning(f"[SLOTS-MOONS-BROADCAST] Erro Sandbox PAPER: {e}")
 

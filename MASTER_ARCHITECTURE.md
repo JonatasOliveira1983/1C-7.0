@@ -30,6 +30,7 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
         UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs + 8 Slots Day Trade)"]
+        UI_Observatory["observatory.html (Widescreen 3-Col uPlot 60 FPS + Laya Mind + Slots Live PnL)"]
         UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
         UI_LayaHUD["Laya Sovereign Mind Stream & Solving Orbs"]
         UI_Screener["Screener Modal (Universal 507 Pares / 30 Titãs)"]
@@ -46,7 +47,7 @@ flowchart TD
         R_Intel["/api/v1/market/screener-matrix & /ai-context (1C-EXP & 1C-RANGE)"]
         R_Precision["/api/v1/market/contract-specs (TickSz & LotSz Audit)"]
         R_Heatmap["/api/v1/hermes/laya/liquidation-heatmap (Coinglass Matrix & Whale Magnet)"]
-        R_Heatmap["/api/v1/hermes/laya/liquidation-heatmap (Coinglass Matrix & Whale Magnet)"]
+        R_Telemetry["/api/telemetry/stats & /timeseries (Ring Buffer 3600s + Circuit Breaker)"]
     end
 
     subgraph Protocol_Bridges["Protocol & AI Bridges"]
@@ -67,7 +68,7 @@ flowchart TD
         StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
         SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.5%)"]
         CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
-        CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
+        TelemetryEngine["TelemetryService (Sub-ms Ingestion, Throughput, Net Worth Tick-a-Tick & Sismografo Laya)"]
     end
 
     subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
@@ -139,6 +140,12 @@ flowchart TD
     ScalpLab --> OKXUniverse
     ScalpLab --> DB_SQLite
     DB_SQLite -.-> DB_Postgres
+
+    UI_Observatory --> R_Telemetry
+    R_Telemetry --> TelemetryEngine
+    TelemetryEngine --> OKX_WS
+    TelemetryEngine --> ScalpLab
+    TelemetryEngine --> LayaRouter
 ```
 
 ---
@@ -1071,6 +1078,24 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * Todas as rotas de backend (`market.py`, `chat.py`, `system.py`, `admin.py`, `sandbox.py`, `backtest_routes.py`) e serviços core (`bankroll.py`, `sandbox_service.py`, `signal_generator.py`) agora roteiam deterministicamente através dos motores soberanos `LayaRouterService` e `HermesAgent`.
     - **Ecossistema Soberano Final**:
         * Apenas 6 componentes soberanos compõem o sistema: `LayaRouterService`, `KronosScorer`, `Flash Agent / SandboxService`, `OpenVikingContextService`, `HermesAgent` (RAG & MCP), `Plutus / DatabaseService`.
+
+52. **[V177-TELEMETRY-OBSERVATORY-UPLOT] Observatório Widescreen de Telemetria de Infraestrutura & Consciência Laya (uPlot 60 FPS)** (2026-10-28):
+    - **Layout Widescreen Ultrawide Modular em 3 Colunas (100vw Full-Bleed)**:
+        * Em `frontend/observatory.html` e `backend/app/static/observatory.html`, superada a visualização vertical legada através de um grid CSS responsivo de 3 colunas (`310px 1fr 340px`) com altura calculada (`height: calc(100vh - 86px)`) e zero scrollbars de página.
+        * **SubHUD Tático**: Farol Macro BTC (preço e variação 24h), Regime & ADX da Laya Soberana, Throughput em tempo real (ticks/s), Ping OKX (ms) e status de Circuit Breaker Anti-Slippage.
+    - **Conexão Orgânica Cockpit & Consciência Laya**:
+        * **Coluna 1 (Painel de Custódia em Tempo Real)**: Cards vivos dos 4 slots ativos do Cockpit (`POL`, `SOL`, `TIA`, `UNI`) espelhando alavancagem 15x, preço de entrada, stop loss dinâmico e PnL flutuante ($ e %) atualizado a cada 1 segundo.
+        * **Coluna 2 (Laboratório de 3 Gráficos uPlot Canvas)**:
+            1. *Latência WebSocket OKX vs Vazão de Fluxo*: Escala dupla (ms no eixo esquerdo e ticks/s no direito) com detecção de picos de rede.
+            2. *Performance de Varredura da Laya vs Latência Neural*: Duração do ciclo de varredura dos 507 pares em segundos versus tempo de inferência da Laya.
+            3. *Curva Contínua de Patrimônio Líquido (Tick-a-Tick)*: Reflete a banca realizada do Sandbox consolidada somada à flutuação tick-a-tick dos trailing stops de custódia.
+        * **Coluna 3 (Sismógrafo de Titãs Laya & Vitais Uvicorn)**: Tabela de radar dos 10 Titãs da Laya (Postura `BEARISH/BULLISH/NEUTRAL`, `1C-EXP` e Robôs ON/OFF) combinada com métricas de CPU, RAM e contadores de amostragem do Uvicorn.
+    - **Integração no Shell Universal (`shell.js`)**:
+        * Link `OBSERVATÓRIO (TELEMETRIA uPlot)` injetado no drawer lateral (`app-sidebar`), no header superior para desktop (`desktop-nav`) e na barra de navegação mobile através de `frontend/shell.js` e `backend/app/static/shell.js`.
+    - **Motor de Telemetria Backend (`TelemetryService`)**:
+        * Implementado em `backend/app/services/telemetry_service.py` com buffers circulares (deques de 3.600 amostras a 1s = 1 hora contínua de memória).
+        * Circuit breaker de latência: se o ping da OKX ultrapassar 150ms, alerta de risco de slippage é propagado para o motor de execução.
+        * Fallback resiliente para contadores de CPU/RAM em plataformas sem o pacote opcional `psutil`.
 
 ---
 

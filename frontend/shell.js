@@ -100,6 +100,11 @@
             <span>LAYA 360 (CÉREBRO SOBERANO)</span>
             <span class="sh-badge-gold">360°</span>
           </a>
+          <a href="/observatory" class="sh-link ${activePage === 'observatory' ? 'active' : ''}">
+            ${ICONS.pulse}
+            <span>OBSERVATÓRIO (TELEMETRIA uPlot)</span>
+            <span class="sh-badge-gold">uPlot</span>
+          </a>
           <a href="/hermes" class="sh-link ${activePage === 'hermes' ? 'active' : ''}">
             ${ICONS.hermes}
             <span>HERMES ORCHESTRATOR</span>
@@ -239,6 +244,9 @@
           </a>
           <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
             ${ICONS.laya} <span>LAYA 360</span>
+          </a>
+          <a href="/observatory" class="nav-item ${activePage === 'observatory' ? 'active' : ''}">
+            ${ICONS.pulse} <span>OBSERVATÓRIO</span>
           </a>
           <a href="/plutus" class="nav-item ${activePage === 'plutus' ? 'active' : ''}">
             ${ICONS.plutus} <span>PLUTUS</span>
@@ -550,6 +558,10 @@
         <a href="/laya" class="bbar-item ${page === 'laya' ? 'active' : ''}">
           ${ICONS.laya}
           <span>Laya 360</span>
+        </a>
+        <a href="/observatory" class="bbar-item ${page === 'observatory' ? 'active' : ''}">
+          ${ICONS.pulse}
+          <span>Observatório</span>
         </a>
         <a href="/plutus" class="bbar-item ${page === 'plutus' ? 'active' : ''}">
           ${ICONS.plutus}
