@@ -1052,15 +1052,17 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
             - `LONG`: Exige que o preço esteja na metade inferior da consolidação (`c_range <= 50%` ou `price <= vwap`), vetando compras no topo do range (`c_range > 65%`).
         * Rejeição mínima de pavio em 5M mantida em 25% (`wick_ratio >= 0.25`), garantindo confirmação estrutural do fluxo contra o bolsão de liquidez.
 
-49. **[V176-ANTI-PUMP-VOLUME-SPIKE-GUARD] Filtro Anti-Pump no 1C-EXP e Auditoria de Volume Institucional de 3x em H1** (2026-10-28):
-    - **Auditoria de Volume Anômalo (Spike >= 3.0x)**:
-        * Em `laya_router_service.py`, calcula o volume máximo recente em relação à média histórica dos 10 períodos anteriores (`vol_ratio = max_recent_vol / avg_hist_vol`).
-        * Se `vol_ratio >= 3.0`, o par é marcado com `has_volume_spike = True`.
-    - **Veto Estrito de SHORT em Caçadas de Liquidez (`LAYA_LIQUIDITY_HUNT`)**:
-        * Proibido abrir SHORT se `bot_ignition == True` (robôs ligados), `1c_exp >= 70.0` ou `has_volume_spike == True`.
-        * Elimina o risco de shortar ativos em início de ignição vertical acelerada por baleias (ex: caso BEAT).
+49. **[V176-BILATERAL-SPIKE-GUARD] Auditoria Bilateral de Volume Institucional de 3x em H1 (Anti-Pump & Anti-Dump)** (2026-10-28):
+    - **Auditoria de Volume Anômalo (Spike >= 3.0x & Direção)**:
+        * Em `laya_router_service.py`, calcula a razão de volume em relação à média das últimas 10 velas (`vol_ratio = max_recent_vol / avg_hist_vol`).
+        * Detecta a direção da vela do spike: `BULLISH` (vela verde, compradores ativos) ou `BEARISH` (vela vermelha, vendedores ativos).
+    - **Proteção Bilateral em Caçadas de Liquidez (`LAYA_LIQUIDITY_HUNT`)**:
+        * **Veto Anti-Pump (SHORT)**: Proibido abrir SHORT se `bot_ignition == True`, `1c_exp >= 70.0` ou se houver volume spike $\ge 3	imes$ de alta (`BULLISH`).
+        * **Veto Anti-Dump (LONG)**: Proibido abrir LONG se houver volume spike $\ge 3	imes$ de baixa (`BEARISH`) ou se o preço estiver esticado abaixo da VWAP ($\le -6\%$), impedindo compra de faca caindo.
     - **Trava de Disparo na Lista de Elegíveis (`eligible`)**:
-        * Bloqueio global antes do envio da ordem: se a direção for `SHORT` e houver volume spike ou ignição institucional, a ordem é vetada categoricamente.
+        * Bloqueio global antes do envio da ordem:
+          - Se `direction == SHORT` e `is_pump_ignition == True`, ordem descartada.
+          - Se `direction == LONG` e `is_dump_ignition == True`, ordem descartada.
 
 
 

@@ -2049,16 +2049,22 @@ class LayaRouterService:
             funding_rate = funding_rate_map.get(clean_sym, 0.0)
             atr_pct = self.calculate_atr_pct(h1_candles, price)
 
-            # [V176-ANTI-PUMP-VOLUME-SPIKE]: Auditoria de Volume Institucional em H1
-            # Compara o volume da vela recente com a média dos últimos períodos
+            # [V176-ANTI-PUMP-ANTI-DUMP-VOLUME-SPIKE]: Auditoria Bilateral de Volume Institucional em H1
+            # Compara o volume da vela recente com a média dos últimos períodos e detecta direção (PUMP vs DUMP)
             vol_ratio = 1.0
             has_volume_spike = False
+            spike_direction = "NEUTRAL"
             if h1_candles and len(h1_candles) >= 3:
                 try:
                     sorted_k = sorted(h1_candles, key=lambda c: int(c[0]), reverse=True)
                     recent_vol = float(sorted_k[0][5]) if len(sorted_k[0]) > 5 else 0.0
                     prev_vol = float(sorted_k[1][5]) if len(sorted_k) > 1 and len(sorted_k[1]) > 5 else 0.0
                     max_recent_vol = max(recent_vol, prev_vol)
+                    spike_cand = sorted_k[0] if recent_vol >= prev_vol else sorted_k[1]
+                    c_open = float(spike_cand[1])
+                    c_close = float(spike_cand[4])
+                    spike_direction = "BULLISH" if c_close >= c_open else "BEARISH"
+
                     hist_vols = [float(c[5]) for c in sorted_k[2:12] if len(c) > 5 and float(c[5]) > 0]
                     if hist_vols:
                         avg_hist_vol = sum(hist_vols) / len(hist_vols)
@@ -2210,8 +2216,8 @@ class LayaRouterService:
                     is_pullback_or_edge = (c_range is not None and c_range >= 50.0) or (vwap > 0 and price >= vwap)
                     is_at_support_floor = (c_range is not None and c_range < 35.0)
 
-                    # [V176-OPCAO-B-ANTI-PUMP-GUARD]: Veto estrito de SHORT se houver ignição institucional, 1C-EXP >= 70 ou Volume Spike >= 3x
-                    is_pump_ignition = bot_on or (c_exp is not None and c_exp >= 70.0) or has_volume_spike
+                    # [V176-OPCAO-B-ANTI-PUMP-GUARD]: Veto estrito de SHORT se houver ignição compradora, 1C-EXP >= 70 ou Volume Spike de alta
+                    is_pump_ignition = bot_on or (c_exp is not None and c_exp >= 70.0) or (has_volume_spike and spike_direction == "BULLISH")
 
                     if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor and not is_pump_ignition:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
@@ -2241,7 +2247,10 @@ class LayaRouterService:
                     is_dip_or_edge = (c_range is not None and c_range <= 50.0) or (vwap > 0 and price <= vwap)
                     is_at_resistance_ceiling = (c_range is not None and c_range > 65.0)
 
-                    if is_hunt_zone and is_dip_or_edge and not is_at_resistance_ceiling:
+                    # [V176-ANTI-DUMP-GUARD]: Veto estrito de LONG se houver despejo vertical com Volume Spike de baixa ou queda livre
+                    is_dump_ignition = (has_volume_spike and spike_direction == "BEARISH") or (vwap > 0 and price <= vwap * 0.94)
+
+                    if is_hunt_zone and is_dip_or_edge and not is_at_resistance_ceiling and not is_dump_ignition:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
                         score = 88
                         multi_eval["qualifies"] = True
@@ -2250,6 +2259,9 @@ class LayaRouterService:
                         multi_eval["stop_dist"] = stop_dist
                         multi_eval["target_dist"] = target_dist
                         rationale = f"CAÇADA DE LIQUIDEZ (HUNT LONG): Preço em desconto técnico (1C-Range: {c_range:.0f}%) a favor do Ímã dominante de ${target_vol_m:.1f}M USD em ${target_p:.4f} ({lifecycle_obj.get('distance_pct', 0)}% de espaço)."
+                    elif is_dump_ignition:
+                        multi_eval["qualifies"] = False
+                        rationale = f"VETO ANTI-DUMP (FACA CAINDO): Despejo institucional detectado (Volume {vol_ratio:.1f}x da média em queda). Proibido comprar faca caindo sem absorção."
                     elif is_at_resistance_ceiling:
                         rationale = f"VETO TOPO (1C-Range {c_range:.0f}%): Ímã de ${target_vol_m:.1f}M ACIMA, mas preço na resistência. Proibido comprar topo sem rompimento."
                     else:
@@ -2295,7 +2307,10 @@ class LayaRouterService:
                 "1c_range": c_range,
                 "bot_ignition": bot_on,
                 "has_volume_spike": has_volume_spike,
+                "spike_direction": spike_direction,
                 "vol_ratio": vol_ratio,
+                "is_pump_ignition": (bot_on or (c_exp is not None and c_exp >= 70.0) or (has_volume_spike and spike_direction == "BULLISH")),
+                "is_dump_ignition": ((has_volume_spike and spike_direction == "BEARISH") or (vwap > 0 and price <= vwap * 0.94)),
                 "magnet_direction": dom_magnet,
                 "magnet_region": target_region,
                 "magnet_target": target_p,
@@ -2466,7 +2481,9 @@ class LayaRouterService:
                     and cand.get("direction") == "SHORT"
                 )
                 # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 3 posições ativas do mesmo cluster (8 slots totais)
-                and not (cand.get("direction") == "SHORT" and (cand.get("has_volume_spike") or cand.get("bot_ignition") or cand.get("1c_exp", 0) >= 70.0))
+                # [V176-BILATERAL-SPIKE-GUARD]: Veto de SHORT em PUMP vertical e Veto de LONG em DUMP vertical
+                and not (cand.get("direction") == "SHORT" and cand.get("is_pump_ignition"))
+                and not (cand.get("direction") == "LONG" and cand.get("is_dump_ignition"))
                 # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 3 posições ativas do mesmo cluster (8 slots totais)
                 and not self.is_cluster_limit_reached(cand.get("clean_sym", cand["symbol"]), active_symbols, max_per_cluster=3)
             ]
