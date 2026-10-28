@@ -412,13 +412,24 @@ async def lifespan(app: FastAPI):
                     while True:
                         try:
                             from app.services.laya_router_service import laya_router_service
+                            from app.services.telemetry_service import telemetry_service
+                            t0_laya = time.time()
                             res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=True)
+                            telemetry_service.record_laya_cycle(time.time() - t0_laya)
                             if res.get("order_opened"):
                                 logger.info(f"[LAYA-SOVEREIGN] Ordem autonoma aberta com sucesso: {res.get('best_setup', {}).get('symbol')}")
                         except Exception as e:
                             logger.error(f"[LAYA-SOVEREIGN] Erro na varredura continua: {e}")
                         await asyncio.sleep(30)
                 asyncio.create_task(laya_autonomous_loop())
+
+                # [TELEMETRY] Coletor Continuo de Alta Frequencia em Background (uPlot Ring Buffer)
+                try:
+                    from app.services.telemetry_service import telemetry_service
+                    asyncio.create_task(telemetry_service.start_background_collector())
+                    logger.info("[TELEMETRY] Coletor continuo de alta frequencia disparado.")
+                except Exception as e_telem:
+                    logger.warning(f"[TELEMETRY] Falha ao disparar coletor: {e_telem}")
 
                 # [V110.999] LIVE SLOTS BROADCAST LOOP — Garante que Cockpit veja ordens do Postgres
                 async def slots_broadcast_loop():
@@ -937,6 +948,17 @@ async def cockpit_websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket Error: {e}")
         websocket_service.disconnect(websocket)
+
+# [TELEMETRY] Endpoints de Alta Frequencia para o Observatorio uPlot
+@app.get("/api/telemetry/stats")
+async def get_telemetry_stats():
+    from app.services.telemetry_service import telemetry_service
+    return telemetry_service.get_summary()
+
+@app.get("/api/telemetry/timeseries")
+async def get_telemetry_timeseries(limit: int = 1800):
+    from app.services.telemetry_service import telemetry_service
+    return telemetry_service.get_timeseries_data(limit=limit)
 
 # Special Root Routes (Must stay in main for precedence or special handling)
 if settings.SERVE_STATIC_FRONTEND:

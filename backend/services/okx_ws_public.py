@@ -676,6 +676,11 @@ class OKXWSPublic:
                         try:
                             msg_str = await asyncio.wait_for(ws.recv(), timeout=45.0)
                             self.last_message_time = time.time() * 1000
+                            try:
+                                from app.services.telemetry_service import telemetry_service
+                                telemetry_service.record_ws_tick(1)
+                            except Exception:
+                                pass
                             
                             if msg_str == "pong":
                                 logger.debug("💓 [OKX-WS PUBLIC] Pong recebido.")

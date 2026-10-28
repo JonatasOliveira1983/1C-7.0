@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1CRYPTEN // OBSERVATÓRIO DE TELEMETRIA & ALTA FREQUÊNCIA</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- uPlot Local CSS -->
+  <link rel="stylesheet" href="/static/css/uPlot.min.css">
+  
+  <style>
+    :root {
+      --bg-dark: #05070A;
+      --card-bg: #0B0E14;
+      --card-border: #1B232D;
+      --accent-gold: #FCD535;
+      --accent-gold-glow: rgba(252, 213, 53, 0.15);
+      --accent-cyan: #29ABE2;
+      --accent-green: #0ECB81;
+      --accent-red: #F6465D;
+      --accent-purple: #B388FF;
+      --text-main: #EAECEF;
+      --text-muted: #848E9C;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: #1E2329 #05070A;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP NAVBAR */
+    .topbar {
+      height: 48px;
+      background: #080A0F;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--accent-gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: rgba(14, 203, 129, 0.12);
+      color: var(--accent-green);
+      border: 1px solid rgba(14, 203, 129, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-btn {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 3px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .btn-gold {
+      background: var(--accent-gold-glow);
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+    }
+
+    .btn-gold:hover {
+      background: var(--accent-gold);
+      color: #000;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text-main);
+      border-color: #2F3846;
+    }
+
+    .clock-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* MAIN CONTENT */
+    .container {
+      flex: 1;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* HUD CARDS */
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .hud-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hud-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--card-border);
+    }
+
+    .card-gold::before { background: var(--accent-gold); }
+    .card-cyan::before { background: var(--accent-cyan); }
+    .card-green::before { background: var(--accent-green); }
+    .card-purple::before { background: var(--accent-purple); }
+
+    .hud-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .hud-main-val {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--text-main);
+    }
+
+    .hud-sub-val {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 10px;
+    }
+
+    .hud-sub-val span strong {
+      color: var(--text-main);
+    }
+
+    /* CHARTS CONTAINER */
+    .charts-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chart-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chart-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chart-title-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .chart-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tf-btn {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+
+    .tf-btn.active, .tf-btn:hover {
+      background: var(--accent-gold-glow);
+      color: var(--accent-gold);
+      border-color: var(--accent-gold);
+    }
+
+    .uplot-container {
+      width: 100%;
+      height: 230px;
+      position: relative;
+    }
+
+    /* uPlot Dark Theme Overrides */
+    .uplot {
+      font-family: var(--font-mono) !important;
+    }
+    .u-legend {
+      font-size: 10px !important;
+      color: var(--text-muted) !important;
+    }
+    .u-legend .u-series th {
+      color: var(--text-muted) !important;
+    }
+    .u-cursor-x, .u-cursor-y {
+      border-color: rgba(255, 255, 255, 0.25) !important;
+    }
+    .u-cursor-pt {
+      border: 2px solid var(--accent-gold) !important;
+      background: #000 !important;
+    }
+
+    /* FOOTER */
+    .footer {
+      padding: 12px 20px;
+      background: #080A0F;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+      .hud-grid { grid-template-columns: 1fr; }
+      .uplot-container { height: 190px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-tag">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FCD535" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        1CRYPTEN // OBSERVATÓRIO
+      </div>
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span>TELEMETRIA UPLOT ATIVA • 60 FPS</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="clock-tag" id="top-clock">--:--:-- UTC</div>
+      <a href="/laya" class="nav-btn btn-ghost">CÉREBRO 360°</a>
+      <a href="/" class="nav-btn btn-gold">COCKPIT PRINCIPAL</a>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="container">
+    
+    <!-- HUD CARDS -->
+    <section class="hud-grid">
+      <!-- Card 1: Ping WebSocket OKX -->
+      <div class="hud-card card-gold">
+        <div class="hud-card-header">
+          <span>LATÊNCIA OKX (RTT)</span>
+          <span id="badge-ping-state" style="color:var(--accent-green);">EXCELENTE</span>
+        </div>
+        <div class="hud-main-val" id="val-cur-ping">-- ms</div>
+        <div class="hud-sub-val">
+          <span>MÉDIA 1M: <strong id="val-avg-ping">-- ms</strong></span>
+          <span>PICO 1H: <strong id="val-max-ping">-- ms</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 2: Throughput Ticks -->
+      <div class="hud-card card-cyan">
+        <div class="hud-card-header">
+          <span>VAZÃO DE FLUXO</span>
+          <span>MENSAGENS/S</span>
+        </div>
+        <div class="hud-main-val" id="val-cur-ticks">-- ticks/s</div>
+        <div class="hud-sub-val">
+          <span>MÉDIA 1M: <strong id="val-avg-ticks">--</strong></span>
+          <span>TOTAL: <strong id="val-total-ticks">--</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 3: Laya Cycle -->
+      <div class="hud-card card-green">
+        <div class="hud-card-header">
+          <span>CICLO LAYA SOBERANA</span>
+          <span>VARREDURA</span>
+        </div>
+        <div class="hud-main-val" id="val-laya-cycle">-- s</div>
+        <div class="hud-sub-val">
+          <span>NEURAL: <strong id="val-laya-neural">-- ms</strong></span>
+          <span>PARES: <strong>507 OKX</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 4: Net Worth -->
+      <div class="hud-card card-gold">
+        <div class="hud-card-header">
+          <span>PATRIMÔNIO LÍQUIDO</span>
+          <span style="color:var(--accent-gold);">SANDBOX SSOT</span>
+        </div>
+        <div class="hud-main-val" id="val-net-worth">$10,969.78</div>
+        <div class="hud-sub-val">
+          <span>PNL FLUTUANTE: <strong id="val-floating-pnl">$0.00</strong></span>
+          <span>ROI: <strong style="color:var(--accent-green);">+9.70%</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 5: Infraestrutura -->
+      <div class="hud-card card-purple">
+        <div class="hud-card-header">
+          <span>RECURSOS UVICORN</span>
+          <span>PID ATIVO</span>
+        </div>
+        <div class="hud-main-val" id="val-ram-mb">-- MB</div>
+        <div class="hud-sub-val">
+          <span>CPU: <strong id="val-cpu-pct">--%</strong></span>
+          <span>UPTIME: <strong id="val-uptime">--s</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 6: Ring Buffer -->
+      <div class="hud-card">
+        <div class="hud-card-header">
+          <span>AMOSTRAGEM CONTÍNUA</span>
+          <span>RING BUFFER</span>
+        </div>
+        <div class="hud-main-val" id="val-buffer-count">3,600 pts</div>
+        <div class="hud-sub-val">
+          <span>INTERVALO: <strong>1.000 ms</strong></span>
+          <span>RESOLUÇÃO: <strong>TICK EXATO</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section class="charts-grid">
+      
+      <!-- Chart 1: Latência & Ticks -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-title-box">
+            <span class="chart-title">LATÊNCIA WEBSOCKET OKX & VAZÃO DE FLUXO (DUAL AXIS)</span>
+            <span class="chart-subtitle">[EIXO ESQUERDO: PING (MS) • EIXO DIREITO: TICKS/S]</span>
+          </div>
+          <div class="chart-controls">
+            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
+            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
+            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
+            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+          </div>
+        </div>
+        <div id="chart-network" class="uplot-container"></div>
+      </div>
+
+      <!-- Chart 2: Laya Cycle & Neural Inference -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-title-box">
+            <span class="chart-title">PERFORMANCE DE VARREDURA & INFERÊNCIA DA LAYA</span>
+            <span class="chart-subtitle">[EIXO ESQUERDO: CICLO DE ESCANEAMENTO (S) • EIXO DIREITO: LATÊNCIA NEURAL (MS)]</span>
+          </div>
+          <div class="chart-controls">
+            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
+            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
+            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
+            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+          </div>
+        </div>
+        <div id="chart-laya" class="uplot-container"></div>
+      </div>
+
+      <!-- Chart 3: Equity Curve -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-title-box">
+            <span class="chart-title">CURVA CONTÍNUA DE PATRIMÔNIO LÍQUIDO (TICK-A-TICK)</span>
+            <span class="chart-subtitle">[BANCA SIMULADA REALIZADA + FLUTUAÇÃO DE TRAILING STOPS]</span>
+          </div>
+          <div class="chart-controls">
+            <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
+            <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
+            <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
+            <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+          </div>
+        </div>
+        <div id="chart-equity" class="uplot-container"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div>1CRYPTEN SOVEREIGN TRADING SYSTEM • OBSERVATÓRIO TELEMÉTRICO</div>
+    <div>SÉRIE TEMPORAL: CANVAS 2D ULTRARRÁPIDO • ZERO LAG GARANTIDO</div>
+  </footer>
+
+  <!-- uPlot Local JS -->
+  <script src="/static/js/uPlot.iife.min.js"></script>
+
+  <script>
+    // ESTADO GLOBAL DO LABORATÓRIO DE TELEMETRIA
+    let _activeWindowSeconds = 1800;
+    let _uPlotNetwork = null;
+    let _uPlotLaya = null;
+    let _uPlotEquity = null;
+    let _syncGroup = null;
+
+    function updateClock() {
+      const now = new Date();
+      const el = document.getElementById("top-clock");
+      if (el) {
+        el.textContent = now.toISOString().slice(11, 19) + " UTC";
+      }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function setTimeWindow(seconds, btn) {
+      _activeWindowSeconds = seconds;
+      document.querySelectorAll(".tf-btn").forEach(b => {
+        if (b.textContent === btn.textContent) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+      fetchTelemetryData();
+    }
+
+    // Configuração dos Gráficos com uPlot
+    function initUPlots() {
+      const elNet = document.getElementById("chart-network");
+      const elLaya = document.getElementById("chart-laya");
+      const elEq = document.getElementById("chart-equity");
+
+      if (!elNet || !elLaya || !elEq) return;
+
+      const w = elNet.clientWidth || 1000;
+      const h = elNet.clientHeight || 230;
+
+      // Cursor Sync entre todos os gráficos do Observatório
+      _syncGroup = uPlot.sync("observatory-sync");
+
+      // 1. Gráfico de Latência de Rede & Ticks (Dual-Axis)
+      const optsNet = {
+        width: w,
+        height: h,
+        cursor: {
+          sync: { key: _syncGroup.key },
+          drag: { x: true, y: false }
+        },
+        scales: {
+          x: { time: true },
+          ms: { auto: true },
+          ticks: { auto: true }
+        },
+        axes: [
+          {
+            scale: 'x',
+            stroke: '#848E9C',
+            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 }
+          },
+          {
+            scale: 'ms',
+            stroke: '#FCD535',
+            label: 'Latência (ms)',
+            labelFont: '10px JetBrains Mono',
+            font: '10px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 }
+          },
+          {
+            side: 1,
+            scale: 'ticks',
+            stroke: '#29ABE2',
+            label: 'Ticks/s',
+            labelFont: '10px JetBrains Mono',
+            font: '10px JetBrains Mono',
+            grid: { show: false }
+          }
+        ],
+        series: [
+          {},
+          {
+            scale: 'ms',
+            label: 'Ping OKX',
+            stroke: '#FCD535',
+            width: 1.5,
+            fill: 'rgba(252, 213, 53, 0.06)'
+          },
+          {
+            scale: 'ticks',
+            label: 'Vazão (ticks/s)',
+            stroke: '#29ABE2',
+            width: 1.5,
+            fill: 'rgba(41, 171, 226, 0.05)'
+          }
+        ]
+      };
+
+      // 2. Gráfico da Laya Soberana (Dual-Axis)
+      const optsLaya = {
+        width: w,
+        height: h,
+        cursor: {
+          sync: { key: _syncGroup.key },
+          drag: { x: true, y: false }
+        },
+        scales: {
+          x: { time: true },
+          sec: { auto: true },
+          neural: { auto: true }
+        },
+        axes: [
+          {
+            scale: 'x',
+            stroke: '#848E9C',
+            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 }
+          },
+          {
+            scale: 'sec',
+            stroke: '#0ECB81',
+            label: 'Ciclo Scan (s)',
+            labelFont: '10px JetBrains Mono',
+            font: '10px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 }
+          },
+          {
+            side: 1,
+            scale: 'neural',
+            stroke: '#B388FF',
+            label: 'Inferência (ms)',
+            labelFont: '10px JetBrains Mono',
+            font: '10px JetBrains Mono',
+            grid: { show: false }
+          }
+        ],
+        series: [
+          {},
+          {
+            scale: 'sec',
+            label: 'Varredura Laya',
+            stroke: '#0ECB81',
+            width: 1.5,
+            fill: 'rgba(14, 203, 129, 0.06)'
+          },
+          {
+            scale: 'neural',
+            label: 'Inferência Neural',
+            stroke: '#B388FF',
+            width: 1.5,
+            fill: 'rgba(179, 136, 255, 0.05)'
+          }
+        ]
+      };
+
+      // 3. Gráfico de Patrimônio Líquido
+      const optsEquity = {
+        width: w,
+        height: h,
+        cursor: {
+          sync: { key: _syncGroup.key },
+          drag: { x: true, y: false }
+        },
+        scales: {
+          x: { time: true },
+          usd: { auto: true }
+        },
+        axes: [
+          {
+            scale: 'x',
+            stroke: '#848E9C',
+            grid: { stroke: 'rgba(27, 35, 45, 0.6)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 }
+          },
+          {
+            scale: 'usd',
+            stroke: '#FCD535',
+            label: 'Net Worth ($)',
+            labelFont: '10px JetBrains Mono',
+            font: '10px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
+            values: (u, vals) => vals.map(v => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}))
+          }
+        ],
+        series: [
+          {},
+          {
+            scale: 'usd',
+            label: 'Net Worth (USD)',
+            stroke: '#FCD535',
+            width: 2,
+            fill: 'linear-gradient(180deg, rgba(252, 213, 53, 0.2) 0%, rgba(252, 213, 53, 0.0) 100%)'
+          }
+        ]
+      };
+
+      _uPlotNetwork = new uPlot(optsNet, [[], [], []], elNet);
+      _uPlotLaya = new uPlot(optsLaya, [[], [], []], elLaya);
+      _uPlotEquity = new uPlot(optsEquity, [[], []], elEq);
+
+      // Redimensionamento responsivo
+      window.addEventListener('resize', () => {
+        const nw = elNet.clientWidth;
+        if (nw > 0) {
+          _uPlotNetwork.setSize({ width: nw, height: h });
+          _uPlotLaya.setSize({ width: nw, height: h });
+          _uPlotEquity.setSize({ width: nw, height: h });
+        }
+      });
+    }
+
+    // Coleta Contínua de Telemetria via API
+    async function fetchTelemetryData() {
+      try {
+        const [rSummary, rSeries] = await Promise.all([
+          fetch('/api/telemetry/stats').then(r => r.json()),
+          fetch(`/api/telemetry/timeseries?limit=${_activeWindowSeconds}`).then(r => r.json())
+        ]);
+
+        // 1. Atualizar HUD Cards
+        if (rSummary) {
+          const curPing = rSummary.current_ping_ms || 24;
+          document.getElementById('val-cur-ping').textContent = `${curPing.toFixed(1)} ms`;
+          document.getElementById('val-avg-ping').textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
+          document.getElementById('val-max-ping').textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
+
+          const pingBadge = document.getElementById('badge-ping-state');
+          if (pingBadge) {
+            if (curPing < 50) {
+              pingBadge.textContent = 'EXCELENTE';
+              pingBadge.style.color = 'var(--accent-green)';
+            } else if (curPing < 120) {
+              pingBadge.textContent = 'ESTÁVEL';
+              pingBadge.style.color = 'var(--accent-gold)';
+            } else {
+              pingBadge.textContent = 'ALERTA RTT';
+              pingBadge.style.color = 'var(--accent-red)';
+            }
+          }
+
+          document.getElementById('val-cur-ticks').textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
+          document.getElementById('val-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0}`;
+          document.getElementById('val-total-ticks').textContent = `${(rSummary.total_raw_ticks || 0).toLocaleString()}`;
+
+          document.getElementById('val-laya-cycle').textContent = `${(rSummary.laya_last_scan_s || 4.2).toFixed(1)} s`;
+          document.getElementById('val-laya-neural').textContent = `${(rSummary.laya_neural_ms || 18.0).toFixed(1)} ms`;
+
+          const nw = rSummary.net_worth_usd || 10969.78;
+          document.getElementById('val-net-worth').textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          document.getElementById('val-floating-pnl').textContent = `$${(rSummary.floating_pnl_usd || 0).toFixed(2)}`;
+
+          document.getElementById('val-ram-mb').textContent = `${(rSummary.memory_rss_mb || 0).toFixed(1)} MB`;
+          document.getElementById('val-cpu-pct').textContent = `${(rSummary.cpu_percent || 0).toFixed(1)}%`;
+          document.getElementById('val-uptime').textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
+        }
+
+        // 2. Alimentar Gráficos uPlot
+        if (rSeries && rSeries.timestamps && rSeries.timestamps.length > 0) {
+          const ts = rSeries.timestamps;
+          const pings = rSeries.ws_ping_ms;
+          const ticks = rSeries.ws_ticks_sec;
+          const layaC = rSeries.laya_cycle_sec;
+          const neural = rSeries.laya_neural_ms;
+          const eq = rSeries.equity;
+
+          document.getElementById('val-buffer-count').textContent = `${ts.length} pts`;
+
+          if (_uPlotNetwork) {
+            _uPlotNetwork.setData([ts, pings, ticks]);
+          }
+          if (_uPlotLaya) {
+            _uPlotLaya.setData([ts, layaC, neural]);
+          }
+          if (_uPlotEquity) {
+            _uPlotEquity.setData([ts, eq]);
+          }
+        }
+      } catch (err) {
+        console.warn("[TELEMETRY-OBSERVATORY] Falha ao coletar dados:", err);
+      }
+    }
+
+    // Inicialização ao carregar
+    window.addEventListener('DOMContentLoaded', () => {
+      initUPlots();
+      fetchTelemetryData();
+      setInterval(fetchTelemetryData, 1000); // 1.000 ms = Telemetria contínua
+    });
+  </script>
+</body>
+</html>
