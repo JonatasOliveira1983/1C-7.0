@@ -1052,6 +1052,17 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
             - `LONG`: Exige que o preço esteja na metade inferior da consolidação (`c_range <= 50%` ou `price <= vwap`), vetando compras no topo do range (`c_range > 65%`).
         * Rejeição mínima de pavio em 5M mantida em 25% (`wick_ratio >= 0.25`), garantindo confirmação estrutural do fluxo contra o bolsão de liquidez.
 
+49. **[V176-ANTI-PUMP-VOLUME-SPIKE-GUARD] Filtro Anti-Pump no 1C-EXP e Auditoria de Volume Institucional de 3x em H1** (2026-10-28):
+    - **Auditoria de Volume Anômalo (Spike >= 3.0x)**:
+        * Em `laya_router_service.py`, calcula o volume máximo recente em relação à média histórica dos 10 períodos anteriores (`vol_ratio = max_recent_vol / avg_hist_vol`).
+        * Se `vol_ratio >= 3.0`, o par é marcado com `has_volume_spike = True`.
+    - **Veto Estrito de SHORT em Caçadas de Liquidez (`LAYA_LIQUIDITY_HUNT`)**:
+        * Proibido abrir SHORT se `bot_ignition == True` (robôs ligados), `1c_exp >= 70.0` ou `has_volume_spike == True`.
+        * Elimina o risco de shortar ativos em início de ignição vertical acelerada por baleias (ex: caso BEAT).
+    - **Trava de Disparo na Lista de Elegíveis (`eligible`)**:
+        * Bloqueio global antes do envio da ordem: se a direção for `SHORT` e houver volume spike ou ignição institucional, a ordem é vetada categoricamente.
+
+
 
 ---
 

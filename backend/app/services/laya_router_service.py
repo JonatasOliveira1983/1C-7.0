@@ -2049,6 +2049,26 @@ class LayaRouterService:
             funding_rate = funding_rate_map.get(clean_sym, 0.0)
             atr_pct = self.calculate_atr_pct(h1_candles, price)
 
+            # [V176-ANTI-PUMP-VOLUME-SPIKE]: Auditoria de Volume Institucional em H1
+            # Compara o volume da vela recente com a média dos últimos períodos
+            vol_ratio = 1.0
+            has_volume_spike = False
+            if h1_candles and len(h1_candles) >= 3:
+                try:
+                    sorted_k = sorted(h1_candles, key=lambda c: int(c[0]), reverse=True)
+                    recent_vol = float(sorted_k[0][5]) if len(sorted_k[0]) > 5 else 0.0
+                    prev_vol = float(sorted_k[1][5]) if len(sorted_k) > 1 and len(sorted_k[1]) > 5 else 0.0
+                    max_recent_vol = max(recent_vol, prev_vol)
+                    hist_vols = [float(c[5]) for c in sorted_k[2:12] if len(c) > 5 and float(c[5]) > 0]
+                    if hist_vols:
+                        avg_hist_vol = sum(hist_vols) / len(hist_vols)
+                        if avg_hist_vol > 0:
+                            vol_ratio = round(max_recent_vol / avg_hist_vol, 2)
+                            if vol_ratio >= 3.0:
+                                has_volume_spike = True
+                except Exception as _e_vol:
+                    logger.debug(f"[VOL-SPIKE-CHECK-ERR] {clean_sym}: {_e_vol}")
+
             # [FALLBACK ANTI-ZERO]: Se faltarem candles de H1 (rate limit/timeout), usa faixa de 24h real
             if acc_range.get("resistance_h1", 0.0) <= 0 or acc_range.get("support_h1", 0.0) <= 0:
                 fallback_res = ticker_high_map.get(clean_sym, round(price * 1.015, 4))
@@ -2190,7 +2210,10 @@ class LayaRouterService:
                     is_pullback_or_edge = (c_range is not None and c_range >= 50.0) or (vwap > 0 and price >= vwap)
                     is_at_support_floor = (c_range is not None and c_range < 35.0)
 
-                    if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor:
+                    # [V176-OPCAO-B-ANTI-PUMP-GUARD]: Veto estrito de SHORT se houver ignição institucional, 1C-EXP >= 70 ou Volume Spike >= 3x
+                    is_pump_ignition = bot_on or (c_exp is not None and c_exp >= 70.0) or has_volume_spike
+
+                    if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor and not is_pump_ignition:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
                         score = 88
                         multi_eval["qualifies"] = True
@@ -2199,6 +2222,9 @@ class LayaRouterService:
                         multi_eval["stop_dist"] = stop_dist
                         multi_eval["target_dist"] = target_dist
                         rationale = f"CAÇADA DE LIQUIDEZ (HUNT SHORT): Preço em recuo técnico (1C-Range: {c_range:.0f}%) a favor do Ímã dominante de ${target_vol_m:.1f}M USD em ${target_p:.4f} ({lifecycle_obj.get('distance_pct', 0)}% de espaço)."
+                    elif is_pump_ignition:
+                        multi_eval["qualifies"] = False
+                        rationale = f"VETO ANTI-PUMP 1C-EXP: Ignição institucional detectada (Volume {vol_ratio:.1f}x da média / 1C-EXP {c_exp:.0f} / Robôs ON={bot_on}). Proibido abrir SHORT contra aceleração de baleias."
                     elif is_at_support_floor:
                         rationale = f"VETO FUNDO (1C-Range {c_range:.0f}%): Ímã de ${target_vol_m:.1f}M ABAIXO, mas preço no suporte. Proibido vender fundo sem rompimento."
                     else:
@@ -2268,6 +2294,8 @@ class LayaRouterService:
                 "1c_exp": c_exp,
                 "1c_range": c_range,
                 "bot_ignition": bot_on,
+                "has_volume_spike": has_volume_spike,
+                "vol_ratio": vol_ratio,
                 "magnet_direction": dom_magnet,
                 "magnet_region": target_region,
                 "magnet_target": target_p,
@@ -2437,6 +2465,8 @@ class LayaRouterService:
                     and not btc_intel.get("altcoin_short_allowed", True)
                     and cand.get("direction") == "SHORT"
                 )
+                # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 3 posições ativas do mesmo cluster (8 slots totais)
+                and not (cand.get("direction") == "SHORT" and (cand.get("has_volume_spike") or cand.get("bot_ignition") or cand.get("1c_exp", 0) >= 70.0))
                 # [DESCORRELAÇÃO SETORIAL]: Limita a no máximo 3 posições ativas do mesmo cluster (8 slots totais)
                 and not self.is_cluster_limit_reached(cand.get("clean_sym", cand["symbol"]), active_symbols, max_per_cluster=3)
             ]
