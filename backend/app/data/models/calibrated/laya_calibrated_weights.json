@@ -1,18 +1,63 @@
 {
   "version": "1Crypten-Laya-Calibrated-V1.0",
-  "trained_at": 1792368996.5253959,
-  "total_samples": 24,
+  "trained_at": 1793168525.787348,
+  "total_samples": 50,
   "priors": {
-    "BUY": 0.5417,
-    "SELL": 0.375,
-    "HOLD": 0.0833
+    "BUY": 0.36,
+    "SELL": 0.4,
+    "HOLD": 0.24
   },
   "temperature": 0.85,
   "regime_multipliers": {
     "NEUTRAL": {
-      "sample_count": 24,
-      "avg_pnl_pct": 9.02,
+      "sample_count": 14,
+      "avg_pnl_pct": 5.63,
+      "confidence_multiplier": 1.282
+    },
+    "VOLATILITY_EXPANSION_BREAKOUT": {
+      "sample_count": 4,
+      "avg_pnl_pct": 8.29,
       "confidence_multiplier": 1.35
+    },
+    "BTC_MACRO_DUMP": {
+      "sample_count": 6,
+      "avg_pnl_pct": 0.0,
+      "confidence_multiplier": 1.0
+    },
+    "LONG_LIQUIDATION_BOTTOM": {
+      "sample_count": 4,
+      "avg_pnl_pct": 4.85,
+      "confidence_multiplier": 1.243
+    },
+    "INSTITUTIONAL_ACCUMULATION": {
+      "sample_count": 3,
+      "avg_pnl_pct": 5.28,
+      "confidence_multiplier": 1.264
+    },
+    "RETAIL_TRAP_LONG": {
+      "sample_count": 3,
+      "avg_pnl_pct": 4.2,
+      "confidence_multiplier": 1.21
+    },
+    "INSTITUTIONAL_IGNITION": {
+      "sample_count": 4,
+      "avg_pnl_pct": 8.76,
+      "confidence_multiplier": 1.35
+    },
+    "MEAN_REVERSION_RANGE": {
+      "sample_count": 3,
+      "avg_pnl_pct": 3.08,
+      "confidence_multiplier": 1.154
+    },
+    "BEAR_TREND_ALIGNMENT": {
+      "sample_count": 5,
+      "avg_pnl_pct": 4.99,
+      "confidence_multiplier": 1.25
+    },
+    "NORMAL": {
+      "sample_count": 4,
+      "avg_pnl_pct": 0.0,
+      "confidence_multiplier": 1.0
     }
   },
   "min_score_threshold_buy": 82.0,

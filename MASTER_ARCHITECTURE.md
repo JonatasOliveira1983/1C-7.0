@@ -1025,6 +1025,34 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
     - **Interface Cockpit Atualizada**:
         * Badge dourado de precisão vetorial `ALT IGNITION` exibido em tempo real nas posições disparadas pela tríplice confluência.
 
+47. **[V174-ENCRYPTOS-LIQUIDITY-ZONES] Motor de 3 Zonas de Liquidez, Heatmap O(1) e Régua Tática no Cockpit 360** (2026-10-27):
+    - **Máquina de Estados de 3 Zonas (classify_liquidity_lifecycle)**:
+        * Implementada em coinglass_heatmap_service.py governada pela distância até o bolsão de liquidao dominante:
+            1. **ZONA 1 (HUNT - Atração Ativa)**: Distância >= 1.5% -> Entrada a favor do ímã permitida (alvo no bolsão).
+            2. **ZONA 2 (DEAD_ZONE - Veto de Entrada)**: Distncia entre 0.3% e 1.5% -> Veto total de novas entradas para impedir compras atrasadas no topo/fundo.
+            3. **ZONA 3 (EXHAUSTION - Varredura & Reversão)**: Distncia < 0.3% -> Gatilho de reversão pós-varredura institucional condicionado a pavio de absorção >= 30% (TICK_REJECTION_INDEX).
+    - **Régua Tática e Stepper Dinmico na UI da Laya**:
+        * Rgua vetorial de 3 segmentos renderizada diretamente no canvas de alta resolução Retina.
+        * HUD Chip expandido no topo esquerdo do gráfico com vetor de liquidao, badge da zona atual e ação recomendada em tempo real.
+        * Stepper de 3 estágios (1. CAÇADA ▶ 2. VETO ▶ 3. SWEEP) sincronizado na barra de título do gráfico.
+    - **Telemetria Instantânea em Memória (< 3ms)**:
+        * Endpoint /api/v1/hermes/laya/360-telemetry devolvendo o bloco canônico liquidations.lifecycle.
+
+48. **[V175-WS-DYNAMIC-SYNC-IMMEDIATE-PRICE-GUARD] Sincronização Dinâmica WebSocket, Guarda Imediata de Stop e Filtros de Pullback** (2026-10-28):
+    - **Sincronização Dinâmica WebSocket (`okx_ws_public_service.sync_topics`)**:
+        * Toda ordem ativa no Sandbox ou em REAL é automaticamente inscrita no WebSocket público da OKX durante o loop de monitoramento de 1 segundo.
+        * Elimina chamadas REST síncronas para ticker no loop de inspeção, neutralizando erros de HTTP 429 e latência de rede.
+        * Resilient fallback: caso o preço em tempo real retorne 0.0, o sistema recorre ao cache local de preços (`_last_prices`), impedindo o congelamento de ordens com `ACTION=SKIP`.
+    - **Guarda Imediata de Preço de Stop (RAM O(1) Sub-5ms)**:
+        * Implementada em `sandbox_service.py` (`[V175-IMMEDIATE-PRICE-GUARD]`): se `direction == LONG` e `current_price <= stop_loss`, ou se `direction == SHORT` e `current_price >= stop_loss`, `stop_hit` é acionado imediatamente em memória.
+        * Garante execução atômica do Trailing Stop e Stop Loss sem depender de requisições de rede secundárias no momento do toque.
+    - **Filtro de Pullback Intra-Range & Rejeição Mínima de 25%**:
+        * Em regime `MEAN_REVERSION` (ADX < 20), proibidas entradas cegas a mercado:
+            - `SHORT`: Exige que o preço esteja na metade superior da consolidação (`c_range >= 50%` ou `price >= vwap`), vetando entradas vendidas estritamente no fundo do range (`c_range < 35%`).
+            - `LONG`: Exige que o preço esteja na metade inferior da consolidação (`c_range <= 50%` ou `price <= vwap`), vetando compras no topo do range (`c_range > 65%`).
+        * Rejeição mínima de pavio em 5M mantida em 25% (`wick_ratio >= 0.25`), garantindo confirmação estrutural do fluxo contra o bolsão de liquidez.
+
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*

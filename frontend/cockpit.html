@@ -3740,15 +3740,30 @@
         cardBorder = 'rgba(246,70,93,0.35)';
         metricRight = 'GATILHO';
       } else if (botOn || cExp >= 70) {
-        // IGNICAO / BREAKOUT MOMENTUM
-        postureLabel = 'IGNICAO LONG';
-        readinessScore = Math.min(96, Math.max(baseScore, Math.round(cExp)));
-        barColor = '#29ABE2';
-        barFillGrad = 'linear-gradient(90deg, rgba(41,171,226,0.2), rgba(41,171,226,0.9))';
-        textColor = '#29ABE2';
-        cardBorder = 'rgba(41,171,226,0.35)';
-        metricRight = `EXP ${cExp.toFixed(0)}`;
-        strategyLabel = 'BREAKOUT EXP';
+        // IGNICAO / BREAKOUT MOMENTUM — CONFLUENTE COM O ÍMÃ DE LIQUIDEZ (V174)
+        const isMagnetBelow = (cand.magnet_region === 'ABAIXO') || (cand.magnet_direction === 'BEARISH_SWEEP');
+        const isMagnetAbove = (cand.magnet_region === 'ACIMA') || (cand.magnet_direction === 'BULLISH_SWEEP');
+        const isShort = isMagnetBelow || (rawDir === 'SHORT') || (cRange >= 65);
+
+        if (isShort) {
+          postureLabel = 'IGNIÇÃO SHORT';
+          readinessScore = Math.min(96, Math.max(baseScore, Math.round(cExp)));
+          barColor = '#F6465D';
+          barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
+          textColor = '#F6465D';
+          cardBorder = 'rgba(246,70,93,0.4)';
+          metricRight = cand.magnet_volume_m ? `$${cand.magnet_volume_m}M` : `EXP ${cExp.toFixed(0)}`;
+          strategyLabel = 'BREAKOUT SHORT';
+        } else {
+          postureLabel = 'IGNIÇÃO LONG';
+          readinessScore = Math.min(96, Math.max(baseScore, Math.round(cExp)));
+          barColor = '#0ECB81';
+          barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
+          textColor = '#0ECB81';
+          cardBorder = 'rgba(14,203,129,0.4)';
+          metricRight = cand.magnet_volume_m ? `$${cand.magnet_volume_m}M` : `EXP ${cExp.toFixed(0)}`;
+          strategyLabel = 'BREAKOUT LONG';
+        }
       } else if (cRange >= 65) {
         // EXAUSTAO NO TOPO DO CANAL (TESTANDO RESISTENCIA) -> MIRA SHORT
         postureLabel = 'MIRA SHORT';

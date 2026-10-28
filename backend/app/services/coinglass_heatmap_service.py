@@ -215,24 +215,24 @@ class CoinglassHeatmapService:
 
         # 5. Determinação do Ímã Magnético Dominante
         imbalance_ratio = (upper_volume / max(1.0, lower_volume))
-        if imbalance_ratio >= 1.12:
+        if upper_volume >= lower_volume:
             magnet_direction = "BULLISH_SWEEP"
             target_price = upper_peak_price
-            target_volume = upper_peak_vol
+            target_peak_volume = upper_peak_vol
+            target_total_volume = upper_volume
+            target_region = "ACIMA"
+            target_region_label = "MURALHA SUPERIOR (SHORTS EM RISCO)"
             distance_pct = round(((upper_peak_price - current_price) / current_price) * 100.0, 2)
-            rationale = f"Muralha de liquidação de vendidos em ${upper_peak_price:.4f} (${upper_peak_vol/1e6:.2f}M USD). Ímã puxando preço para cima."
-        elif imbalance_ratio <= 0.88:
+            rationale = f"Muralha de liquidação de vendidos ACIMA DO PREÇO em ${upper_peak_price:.4f} (${upper_volume/1e6:.2f}M USD total / ${upper_peak_vol/1e6:.2f}M pico). Ímã puxando preço para cima."
+        else:
             magnet_direction = "BEARISH_SWEEP"
             target_price = lower_peak_price
-            target_volume = lower_peak_vol
+            target_peak_volume = lower_peak_vol
+            target_total_volume = lower_volume
+            target_region = "ABAIXO"
+            target_region_label = "MURALHA INFERIOR (LONGS EM RISCO)"
             distance_pct = round(((current_price - lower_peak_price) / current_price) * 100.0, 2)
-            rationale = f"Muralha de liquidação de comprados em ${lower_peak_price:.4f} (${lower_peak_vol/1e6:.2f}M USD). Ímã puxando preço para baixo."
-        else:
-            magnet_direction = "NEUTRAL_EQUILIBRIUM"
-            target_price = upper_peak_price if upper_volume >= lower_volume else lower_peak_price
-            target_volume = max(upper_peak_vol, lower_peak_vol)
-            distance_pct = round(abs(target_price - current_price) / current_price * 100.0, 2)
-            rationale = "Liquidação equilibrada em ambos os lados."
+            rationale = f"Muralha de liquidação de comprados ABAIXO DO PREÇO em ${lower_peak_price:.4f} (${lower_volume/1e6:.2f}M USD total / ${lower_peak_vol/1e6:.2f}M pico). Ímã puxando preço para baixo."
 
         # 6. Normalização rápida
         max_cell_vol = max(1.0, max(max(row) for row in matrix_2d))
@@ -249,6 +249,15 @@ class CoinglassHeatmapService:
                 "intensity": round(min(1.0, v / max_cell_vol), 3)
             })
 
+        # 7. Ciclo de Liquidez em 3 Zonas (Metodologia Encryptos V174)
+        lifecycle = self.classify_liquidity_lifecycle(
+            current_price=current_price,
+            target_price=target_price,
+            magnet_direction=magnet_direction,
+            target_volume_usd=target_total_volume,
+            target_peak_usd=target_peak_volume
+        )
+
         return {
             "symbol": norm_sym,
             "current_price": current_price,
@@ -259,22 +268,112 @@ class CoinglassHeatmapService:
             "matrix_2d": matrix_2d_norm,
             "max_volume_usd": round(max_cell_vol, 2),
             "upper_pool": {
+                "region": "ACIMA",
+                "region_label": "MURALHA SUPERIOR (SHORTS EM RISCO)",
                 "peak_price": round(upper_peak_price, 4),
                 "total_volume_usd": round(upper_volume, 2),
                 "peak_volume_usd": round(upper_peak_vol, 2)
             },
             "lower_pool": {
+                "region": "ABAIXO",
+                "region_label": "MURALHA INFERIOR (LONGS EM RISCO)",
                 "peak_price": round(lower_peak_price, 4),
                 "total_volume_usd": round(lower_volume, 2),
                 "peak_volume_usd": round(lower_peak_vol, 2)
             },
             "dominant_magnet": magnet_direction,
             "target_price": round(target_price, 4),
-            "target_volume_usd": round(target_volume, 2),
+            "target_volume_usd": round(target_total_volume, 2),
+            "target_peak_volume_usd": round(target_peak_volume, 2),
+            "target_region": target_region,
+            "target_region_label": target_region_label,
             "distance_pct": distance_pct,
             "rationale": rationale,
+            "lifecycle": lifecycle,
             "heat_matrix": heat_matrix_linear,
             "updated_at": time.time()
+        }
+
+    def classify_liquidity_lifecycle(
+        self,
+        current_price: float,
+        target_price: float,
+        magnet_direction: str = "BULLISH_SWEEP",
+        target_volume_usd: float = 0.0,
+        target_peak_usd: float = 0.0
+    ) -> Dict[str, Any]:
+        """
+        Classifica o ciclo operacional em 3 zonas determinísticas (Metodologia Encryptos V174):
+        - ZONA 1 (HUNT): Distância >= 1.5% -> Entrada a favor do ímã permitida
+        - ZONA 2 (DEAD_ZONE): 0.3% <= Distância < 1.5% -> Veto de entrada (risco de falso rompimento)
+        - ZONA 3 (EXHAUSTION): Distância < 0.3% -> Gatilho de reversão pós-varredura institucional
+        """
+        if current_price <= 0:
+            current_price = 1.0
+
+        dist_pct = round(abs(target_price - current_price) / current_price * 100.0, 2)
+        is_bullish = (magnet_direction == "BULLISH_SWEEP") or (target_price > current_price)
+        target_region = "ACIMA" if target_price >= current_price else "ABAIXO"
+        target_region_label = "MURALHA SUPERIOR (SHORTS EM RISCO)" if target_region == "ACIMA" else "MURALHA INFERIOR (LONGS EM RISCO)"
+        vol_formatted = f"${target_volume_usd/1e6:.2f}M USD" if target_volume_usd > 0 else ""
+        peak_formatted = f"${target_peak_usd/1e6:.2f}M USD" if target_peak_usd > 0 else ""
+
+        if dist_pct >= 1.5:
+            zone_id = "HUNT"
+            zone_label = "ZONA 1: CAÇADA ATIVA"
+            zone_desc = f"Atração magnética forte ({dist_pct:.2f}% de espaço em {target_region}). Setup: seguir o ímã."
+            action_allowed = "ENTRY_FAVOR"
+            action_label = "LONG A FAVOR DO ÍMÃ" if is_bullish else "SHORT A FAVOR DO ÍMÃ"
+            action_color = "#00E676"  # Verde Neon institucional
+            zone_color = "#00E676"
+        elif dist_pct >= 0.3:
+            zone_id = "DEAD_ZONE"
+            zone_label = "ZONA 2: VETO DE ENTRADA"
+            zone_desc = f"Proximidade perigosa do bolsão {target_region} ({dist_pct:.2f}%). Risco de topo/fundo e falso rompimento."
+            action_allowed = "VETO_ENTRY"
+            action_label = "VETO DE ENTRADA (ZONA MORTA)"
+            action_color = "#FFD600"  # Âmbar Lamborghini
+            zone_color = "#FFD600"
+        else:
+            zone_id = "EXHAUSTION"
+            zone_label = "ZONA 3: SWEEP / ABSORÇÃO"
+            zone_desc = f"Bolsão {target_region} atingido/varrido ({dist_pct:.2f}%). Aguardar pavio >= 30% para gatilho de reversão."
+            action_allowed = "REVERSAL_TRIGGER"
+            action_label = "GATILHO DE REVERSÃO (PREPARAR CONTRA-ATAQUE)"
+            action_color = "#00F0FF"  # Ciano Elétrico
+            zone_color = "#00F0FF"
+
+        # Limites numéricos para desenho e projeção
+        if target_price >= current_price:
+            hunt_bound = round(target_price * 0.985, 4)
+            dead_bound = round(target_price * 0.997, 4)
+            exhaustion_bound = round(target_price * 1.01, 4)
+        else:
+            hunt_bound = round(target_price * 1.015, 4)
+            dead_bound = round(target_price * 1.003, 4)
+            exhaustion_bound = round(target_price * 0.99, 4)
+
+        return {
+            "zone_id": zone_id,
+            "zone_label": zone_label,
+            "zone_desc": zone_desc,
+            "zone_color": zone_color,
+            "action_allowed": action_allowed,
+            "action_label": action_label,
+            "action_color": action_color,
+            "distance_pct": dist_pct,
+            "target_region": target_region,
+            "target_region_label": target_region_label,
+            "target_volume_usd": target_volume_usd,
+            "target_volume_formatted": vol_formatted,
+            "target_peak_usd": target_peak_usd,
+            "target_peak_formatted": peak_formatted,
+            "hunt_bound": hunt_bound,
+            "dead_bound": dead_bound,
+            "exhaustion_bound": exhaustion_bound,
+            "target_price": round(target_price, 4),
+            "current_price": round(current_price, 4),
+            "magnet_direction": magnet_direction
         }
 
 coinglass_heatmap_service = CoinglassHeatmapService()

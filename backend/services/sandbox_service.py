@@ -167,11 +167,18 @@ class SandboxService:
             self._last_price_cache_ts[symbol] = time.time()
             return rest_price
 
-        # 3. Cache local (ate 30s de idade — [V136.2] reduzido de 60s)
+        # 3. Cache local (resiliente — evita congelamento do trailing stop por rate limit REST)
         last_price = self._last_price_cache.get(symbol, 0.0)
-        last_ts = self._last_price_cache_ts.get(symbol, 0.0)
-        if last_price > 0 and (time.time() - last_ts) < 30.0:
+        if last_price > 0:
             return last_price
+
+        # 4. Fallback ao WebSocket global
+        try:
+            ws_p = getattr(okx_ws_public_service, "prices", {}).get(symbol.replace(".P", "").upper(), 0.0)
+            if ws_p and float(ws_p) > 0:
+                return float(ws_p)
+        except Exception:
+            pass
 
         return 0.0
 
@@ -1512,6 +1519,16 @@ class SandboxService:
                     await asyncio.sleep(1.0)
                     continue
 
+                # [V175-WS-DYNAMIC-SYNC] Garante que TODOS os trades em custódia ativa estejam no WebSocket da OKX
+                try:
+                    active_syms = [t.symbol for t in active_trades if getattr(t, "symbol", None)]
+                    current_ws_set = {s.replace(".P", "").upper() for s in getattr(okx_ws_public_service, "active_symbols", [])}
+                    missing_ws = [s for s in active_syms if s.replace(".P", "").upper() not in current_ws_set]
+                    if missing_ws:
+                        asyncio.create_task(okx_ws_public_service.sync_topics(active_syms))
+                except Exception as _sync_err:
+                    logger.debug(f"[SANDBOX-WS-SYNC-ERR] {_sync_err}")
+
                 for trade in active_trades:
                     try:
                         await self._process_trade_tick(trade)
@@ -1533,6 +1550,9 @@ class SandboxService:
 
     async def _process_trade_tick(self, trade):
         """Processa um tick de UM trade — paridade com FlashAgent._process_slot."""
+        if trade.status != "ACTIVE" or trade.closed_at is not None:
+            return
+
         symbol = trade.symbol
         side = "Buy" if trade.direction == "LONG" else "Sell"
         entry_price = float(trade.entry_price)
@@ -1758,13 +1778,22 @@ class SandboxService:
 
         if stop_price > 0:
             stop_hit = await self._check_stop_hit(side, stop_price, symbol)
+            # [V175-IMMEDIATE-PRICE-GUARD] Fallback imediato se current_price já cruzou o stop
+            if not stop_hit and current_price > 0:
+                is_long_dir = str(side).lower() in ("buy", "long", "b")
+                is_short_dir = str(side).lower() in ("sell", "short", "s")
+                if is_long_dir and current_price <= stop_price:
+                    stop_hit = True
+                elif is_short_dir and current_price >= stop_price:
+                    stop_hit = True
+
             if stop_hit:
                 # [V119] Sem confirmações REST lentas para o Sandbox. Fecha instantaneamente!
-                current_price = stop_price
+                exit_price = current_price if current_price > 0 else stop_price
+                current_price = exit_price
                 current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
                 is_closed = True
                 should_run_blocklist = True
-                exit_price = stop_price
                 closed_at = time.time()
                 status = "CLOSED_STOP"
 

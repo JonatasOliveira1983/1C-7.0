@@ -295,6 +295,15 @@ async def _tool_viking_commit_lesson(category: str, title: str, content: str) ->
         return {"status": "error", "message": f"Erro OpenViking commit: {str(e)}"}
 
 
+async def _tool_get_liquidity_zones_heatmap(symbol: str = "SOLUSDT") -> Dict[str, Any]:
+    """Retorna o mapa de calor de liquidação 2D, ímã de baleia e classificação das 3 zonas Encryptos (Hunt, Dead Zone, Exhaustion)."""
+    try:
+        from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+        return await coinglass_heatmap_service.get_liquidity_heatmap(symbol)
+    except Exception as e:
+        return {"status": "error", "message": f"Erro Liquidity Heatmap: {str(e)}"}
+
+
 # Register tools on MCP server if active
 if mcp is not None:
     try:
@@ -368,7 +377,12 @@ if mcp is not None:
             """Grava um aprendizado permanente no grafo OpenViking e persiste no Obsidian Vault."""
             return await _tool_viking_commit_lesson(category, title, content)
             
-        logger.info("✅ [MCP] 14 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo OpenViking Context Database).")
+        @mcp.tool()
+        async def get_liquidity_zones_heatmap(symbol: str = "SOLUSDT") -> Dict[str, Any]:
+            """Retorna o mapa de calor de liquidação 2D e classificação das 3 zonas Encryptos (Hunt >= 1.5%, Dead Zone 0.3%-1.5%, Exhaustion < 0.3%)."""
+            return await _tool_get_liquidity_zones_heatmap(symbol)
+
+        logger.info("✅ [MCP] 15 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo OpenViking & Liquidity Zones Encryptos).")
     except Exception as _e_reg:
         logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
 
@@ -400,7 +414,8 @@ def get_asgi_app():
                             {"name": "viking_tree", "description": "Navigates OpenViking virtual filesystem tree (viking://)."},
                             {"name": "viking_read", "description": "Reads OpenViking node with progressive disclosure (L0 abstract, L1 overview, L2 detail)."},
                             {"name": "viking_search", "description": "Searches rules, cases and patterns in OpenViking context database."},
-                            {"name": "viking_commit_lesson", "description": "Persists an episodic memory lesson to OpenViking and Obsidian Vault."}
+                            {"name": "viking_commit_lesson", "description": "Persists an episodic memory lesson to OpenViking and Obsidian Vault."},
+                            {"name": "get_liquidity_zones_heatmap", "description": "Returns 2D liquidation heatmap, whale magnets and 3-zone Encryptos classification (Hunt, Dead Zone, Exhaustion)."}
                         ]
                     })
                 _mcp_asgi_app.routes.append(Route("/tools", _list_tools_endpoint, methods=["GET"]))

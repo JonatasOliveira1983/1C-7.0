@@ -1335,7 +1335,7 @@ class LayaRouterService:
         clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper()
         now = time.time()
         self._symbol_cooldowns[clean] = now + cooldown_seconds
-        logger.info(f"🛡️ [LAYA-COOLDOWN] {clean} em quarentena por {cooldown_seconds}s (2h) após Stop Loss")
+        logger.info(f"️ [LAYA-COOLDOWN] {clean} em quarentena por {cooldown_seconds}s (2h) após Stop Loss")
 
         # Circuit Breaker Direcional (2 stops recentes na mesma direção travam a direção inteira por 1h)
         dir_clean = direction.upper() if direction else "LONG"
@@ -1359,7 +1359,7 @@ class LayaRouterService:
         self._global_stop_history = [t for t in self._global_stop_history if now - t <= 5400]
         if len(self._global_stop_history) >= 3:
             self._global_circuit_breaker_until = max(self._global_circuit_breaker_until, now + 2700)
-            logger.warning(f"🚨 [LAYA-GLOBAL-CIRCUIT-BREAKER] 3 stops recentes no mercado! Resfriamento global ativado por 45 minutos (2700s).")
+            logger.warning(f" [LAYA-GLOBAL-CIRCUIT-BREAKER] 3 stops recentes no mercado! Resfriamento global ativado por 45 minutos (2700s).")
             self.log_thought(
                 "CIRCUIT_BREAKER",
                 f"DEFESA ANTI-TILT ATIVADA: 3 stops recentes no mercado em <90min. Novas entradas congeladas por 45min para resfriamento de banca.",
@@ -1370,7 +1370,7 @@ class LayaRouterService:
         consec_dir_stops = [s for s in self._direction_stops if s["direction"] == dir_clean]
         if len(consec_dir_stops) >= 2:
             self._direction_cooldowns[dir_clean] = now + 3600
-            logger.warning(f"🚨 [LAYA-CIRCUIT-BREAKER] {len(consec_dir_stops)} stops seguidos em {dir_clean}! Entradas {dir_clean} bloqueadas por 60 minutos para proteção de capital.")
+            logger.warning(f" [LAYA-CIRCUIT-BREAKER] {len(consec_dir_stops)} stops seguidos em {dir_clean}! Entradas {dir_clean} bloqueadas por 60 minutos para proteção de capital.")
             self.log_thought(
                 "CIRCUIT_BREAKER",
                 f"DEFESA ATIVADA: 2 stops seguidos em {dir_clean}. Entradas {dir_clean} travadas por 60min contra sangria do mercado.",
@@ -1474,7 +1474,7 @@ class LayaRouterService:
             if weights_file.exists():
                 with open(weights_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    logger.info(f"🧠 [LAYA] Pesos calibrados carregados do Fine-Tuning: v{data.get('version')}")
+                    logger.info(f" [LAYA] Pesos calibrados carregados do Fine-Tuning: v{data.get('version')}")
                     return data
         except Exception as e:
             logger.debug(f"[LAYA] Sem pesos calibrados customizados: {e}")
@@ -1546,7 +1546,7 @@ class LayaRouterService:
             wick_ratio = upper_wick_ratio
             is_green_expansion = (cl_curr >= o_curr) and (wick_ratio < 0.25)
 
-            # 1. TICK_REJECTION_INDEX (Pavio superior de exaustão obrigatório)
+            # 1. TICK_REJECTION_INDEX (Pavio superior de exaustão >= 15%)
             if is_green_expansion:
                 return {
                     "is_safe": False,
@@ -1555,18 +1555,18 @@ class LayaRouterService:
                 }
 
             # 2. MICRO_ACCELERATION_BRAKE (Anti-Locomotiva sem exaustão)
-            if total_gain >= 0.015 and wick_ratio < 0.35:
+            if total_gain >= 0.025 and wick_ratio < 0.25:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_LOCOMOTIVA_ACELERADA (Alta agressiva de +{total_gain*100:.1f}% sem recuo em 5M. Proibido vender locomotiva)",
                     "metrics": metrics
                 }
 
-            # 3. MSB_CONFIRMATION: Não vender se vela estiver no topo sem pavio de rejeição real (mesmo se for vermelha momentânea)
-            if h_curr >= h1 * 0.999 and wick_ratio < 0.30 and cl_curr >= l1:
+            # 3. MSB_CONFIRMATION: Não vender se vela estiver no topo sem pavio de rejeição real
+            if h_curr >= h1 * 0.999 and wick_ratio < 0.25 and cl_curr >= l1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M sustentando topo em ${h_curr:.4f} sem pavio de rejeição ({wick_ratio*100:.1f}% vs min 30%). Aguardar confirmação real)",
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M sustentando topo em ${h_curr:.4f} sem pavio de rejeição ({wick_ratio*100:.1f}% vs min 25%). Aguardar confirmação real)",
                     "metrics": metrics
                 }
 
@@ -1574,7 +1574,7 @@ class LayaRouterService:
             wick_ratio = lower_wick_ratio
             is_red_expansion = (cl_curr <= o_curr) and (wick_ratio < 0.25)
 
-            # 1. TICK_REJECTION_INDEX (Pavio inferior de absorção obrigatório)
+            # 1. TICK_REJECTION_INDEX (Pavio inferior de absorção >= 15%)
             if is_red_expansion:
                 return {
                     "is_safe": False,
@@ -1583,7 +1583,7 @@ class LayaRouterService:
                 }
 
             # 2. MICRO_ACCELERATION_BRAKE (Anti-Queda Livre sem absorção)
-            if total_drop >= 0.015 and wick_ratio < 0.35:
+            if total_drop >= 0.025 and wick_ratio < 0.25:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_LOCOMOTIVA_ACELERADA (Queda agressiva de -{total_drop*100:.1f}% sem respiro em 5M. Proibido comprar faca caindo)",
@@ -1591,10 +1591,10 @@ class LayaRouterService:
                 }
 
             # 3. MSB_CONFIRMATION: Não comprar se vela estiver na mínima sem absorção real
-            if l_curr <= l1 * 1.001 and wick_ratio < 0.30 and cl_curr <= h1:
+            if l_curr <= l1 * 1.001 and wick_ratio < 0.25 and cl_curr <= h1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f} sem absorção ({wick_ratio*100:.1f}% vs min 30%). Aguardar absorção do fundo local)",
+                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f} sem absorção ({wick_ratio*100:.1f}% vs min 25%). Aguardar absorção do fundo local)",
                     "metrics": metrics
                 }
 
@@ -1643,6 +1643,16 @@ class LayaRouterService:
                             raw_candles = [[str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])] for k in b_data]
         except Exception as _e_ltf:
             logger.debug(f"[LOWER-TF] Erro ao consultar candles 5M para {symbol}: {_e_ltf}")
+
+        if not raw_candles:
+            try:
+                from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+                cached_heat = coinglass_heatmap_service._cache.get(clean, {}).get("data", {})
+                heat_candles = cached_heat.get("candles", [])
+                if heat_candles and len(heat_candles) >= 3:
+                    raw_candles = heat_candles
+            except Exception:
+                pass
 
         if not raw_candles:
             return {
@@ -2091,6 +2101,25 @@ class LayaRouterService:
 
             intel_tag = f"[ROBÔS ON • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]" if bot_on else f"[ROBÔS OFF • 1C-EXP {c_exp:.0f} • 1C-RANGE {c_range:.0f}%]"
 
+            # [V174-CONFLUENCIA-IMA-INTEGRADA] Consulta Imediata ao Mapa de Calor 2D
+            heat = {}
+            target_region = "NEUTRAL"
+            dom_magnet = "NEUTRAL"
+            target_p = 0.0
+            target_vol_m = 0.0
+            lifecycle_obj = {}
+            try:
+                from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+                heat = await coinglass_heatmap_service.get_liquidity_heatmap(sym, current_price=price)
+                dom_magnet = heat.get("dominant_magnet", "NEUTRAL_EQUILIBRIUM")
+                target_p = float(heat.get("target_price") or 0.0)
+                target_vol = float(heat.get("target_volume_usd") or 0.0)
+                target_vol_m = round(target_vol / 1e6, 2)
+                target_region = heat.get("target_region") or ("ACIMA" if target_p > price else "ABAIXO")
+                lifecycle_obj = heat.get("lifecycle") or {}
+            except Exception as _heat_e:
+                logger.debug(f"[HEATMAP-CANDIDATE-ERR] {clean_sym}: {_heat_e}")
+
             # Avaliação Multi-Setup Integrada com Blindagem Anti-Faca (Robôs On & C-EXP)
             multi_eval = self.evaluate_multi_setup_opportunity(
                 symbol=clean_sym,
@@ -2113,6 +2142,17 @@ class LayaRouterService:
             rationale = multi_eval["rationale"]
             strat_name = multi_eval.get("strategy", "LAYA_SMART_MONEY_H1")
 
+            # [CONFLUENCIA ESTRITA AO IMA DE LIQUIDEZ]
+            if multi_eval["qualifies"]:
+                if direction == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO"):
+                    multi_eval["qualifies"] = False
+                    direction = "SHORT"
+                    rationale = f"VETO ÍMÃ: LONG abortado: muralha de ${target_vol_m:.1f}M ABAIXO em ${target_p:.4f} puxando o preço. Preparando SHORT."
+                elif direction == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_region == "ACIMA"):
+                    multi_eval["qualifies"] = False
+                    direction = "LONG"
+                    rationale = f"VETO ÍMÃ: SHORT abortado: muralha de ${target_vol_m:.1f}M ACIMA em ${target_p:.4f} puxando o preço. Preparando LONG."
+
             if multi_eval["qualifies"]:
                 stop_loss = multi_eval["stop_loss"]
                 target = multi_eval["target"]
@@ -2134,14 +2174,70 @@ class LayaRouterService:
                     confidence=score
                 )
             else:
-                stop_loss = round(price * 0.995, 4)
-                target = round(price * 1.035, 4)
-                stop_dist = 0.005
-                target_dist = 0.035
+                # [V174-LIQUIDITY-HUNT-EXECUTION]: Caçada Soberana de Liquidez com Validação Técnica de Borda/Pullback
+                is_hunt_zone = (lifecycle_obj.get("zone_id") == "HUNT") and ((lifecycle_obj.get("distance_pct") or 0.0) >= 1.5)
+
+                # Alinha a direção do radar à atração dominante do Ímã
+                if target_region == "ABAIXO" or dom_magnet == "BEARISH_SWEEP":
+                    direction = "SHORT"
+                    target = target_p if target_p > 0 else round(price * 0.965, 4)
+                    stop_loss = round(price * 1.025, 4)
+                    target_dist = round(abs(price - target) / price, 4)
+                    stop_dist = 0.025
+
+                    # [FILTRO TÉCNICO DE BORDA / PULLBACK PARA SHORT]:
+                    # Exige que o preço esteja em recuo/pullback (c_range >= 50% ou acima da VWAP) e NUNCA no fundo (c_range < 35%)
+                    is_pullback_or_edge = (c_range is not None and c_range >= 50.0) or (vwap > 0 and price >= vwap)
+                    is_at_support_floor = (c_range is not None and c_range < 35.0)
+
+                    if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor:
+                        strat_name = "LAYA_LIQUIDITY_HUNT"
+                        score = 88
+                        multi_eval["qualifies"] = True
+                        multi_eval["stop_loss"] = stop_loss
+                        multi_eval["target"] = target
+                        multi_eval["stop_dist"] = stop_dist
+                        multi_eval["target_dist"] = target_dist
+                        rationale = f"CAÇADA DE LIQUIDEZ (HUNT SHORT): Preço em recuo técnico (1C-Range: {c_range:.0f}%) a favor do Ímã dominante de ${target_vol_m:.1f}M USD em ${target_p:.4f} ({lifecycle_obj.get('distance_pct', 0)}% de espaço)."
+                    elif is_at_support_floor:
+                        rationale = f"VETO FUNDO (1C-Range {c_range:.0f}%): Ímã de ${target_vol_m:.1f}M ABAIXO, mas preço no suporte. Proibido vender fundo sem rompimento."
+                    else:
+                        rationale = f"ÍMÃ DE BAIXA ({target_region}): Muralha de ${target_vol_m:.1f}M USD em ${target_p:.4f} puxando o preço. Aguardando pullback para vender caro."
+                elif target_region == "ACIMA" or dom_magnet == "BULLISH_SWEEP":
+                    direction = "LONG"
+                    target = target_p if target_p > 0 else round(price * 1.035, 4)
+                    stop_loss = round(price * 0.975, 4)
+                    target_dist = round(abs(target - price) / price, 4)
+                    stop_dist = 0.025
+
+                    # [FILTRO TÉCNICO DE BORDA / DIP PARA LONG]:
+                    # Exige que o preço esteja em desconto (c_range <= 50% ou abaixo da VWAP) e NUNCA no topo (c_range > 65%)
+                    is_dip_or_edge = (c_range is not None and c_range <= 50.0) or (vwap > 0 and price <= vwap)
+                    is_at_resistance_ceiling = (c_range is not None and c_range > 65.0)
+
+                    if is_hunt_zone and is_dip_or_edge and not is_at_resistance_ceiling:
+                        strat_name = "LAYA_LIQUIDITY_HUNT"
+                        score = 88
+                        multi_eval["qualifies"] = True
+                        multi_eval["stop_loss"] = stop_loss
+                        multi_eval["target"] = target
+                        multi_eval["stop_dist"] = stop_dist
+                        multi_eval["target_dist"] = target_dist
+                        rationale = f"CAÇADA DE LIQUIDEZ (HUNT LONG): Preço em desconto técnico (1C-Range: {c_range:.0f}%) a favor do Ímã dominante de ${target_vol_m:.1f}M USD em ${target_p:.4f} ({lifecycle_obj.get('distance_pct', 0)}% de espaço)."
+                    elif is_at_resistance_ceiling:
+                        rationale = f"VETO TOPO (1C-Range {c_range:.0f}%): Ímã de ${target_vol_m:.1f}M ACIMA, mas preço na resistência. Proibido comprar topo sem rompimento."
+                    else:
+                        rationale = f"ÍMÃ DE ALTA ({target_region}): Muralha de ${target_vol_m:.1f}M USD em ${target_p:.4f} puxando o preço. Aguardando recuo para comprar barato."
+                else:
+                    stop_loss = round(price * 0.995, 4)
+                    target = round(price * 1.035, 4)
+                    stop_dist = 0.005
+                    target_dist = 0.035
+
                 self.log_thought(
                     clean_sym,
                     f"{intel_tag} {clean_sym} - {rationale}",
-                    action="IGNICAO_RADAR" if bot_on else "RADAR_WAIT",
+                    action="LIQUIDITY_HUNT_GATILHO" if multi_eval.get("qualifies") else ("IGNICAO_RADAR" if bot_on else "RADAR_WAIT"),
                     confidence=score
                 )
 
@@ -2172,6 +2268,11 @@ class LayaRouterService:
                 "1c_exp": c_exp,
                 "1c_range": c_range,
                 "bot_ignition": bot_on,
+                "magnet_direction": dom_magnet,
+                "magnet_region": target_region,
+                "magnet_target": target_p,
+                "magnet_volume_m": target_vol_m,
+                "lifecycle": lifecycle_obj,
                 "confluence": {},
                 "leverage_cap": 50.0,
                 "rationale": rationale,
@@ -2298,13 +2399,13 @@ class LayaRouterService:
         # O lucro realizado é protegido dinamicamente pelo Piso Soberano (Never Give Back),
         # garantindo que o sistema continue abrindo trades excelentes sem congelamento de slots.
         if daily_profit_pct > 0:
-            self.log_thought("SISTEMA", f"🏛️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
+            self.log_thought("SISTEMA", f"️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
 
         order_opened = None
         # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
         if self.is_global_circuit_breaker_active():
             rem_freeze = int(getattr(self, "_global_circuit_breaker_until", 0.0) - time.time())
-            self.log_thought("CIRCUIT_BREAKER", f"🛡️ [ANTI-TILT ATIVO]: Resfriamento global de banca ativo ({rem_freeze}s restantes). Novas ordens congeladas.", action="GLOBAL_FREEZE", confidence=99)
+            self.log_thought("CIRCUIT_BREAKER", f"️ [ANTI-TILT ATIVO]: Resfriamento global de banca ativo ({rem_freeze}s restantes). Novas ordens congeladas.", action="GLOBAL_FREEZE", confidence=99)
             force_open_if_empty = False
 
         # Permite ate max_allowed_slots ordens ativas simultaneas respeitando a blindagem diária
@@ -2318,18 +2419,20 @@ class LayaRouterService:
                 and not self.is_symbol_in_cooldown(cand.get("clean_sym", ""))
                 and not self.is_direction_in_cooldown(cand.get("direction", ""))
                 and cand["score"] >= effective_min_score
-                # [FAROL MACRO VETO NO DISPARO]: Veta compras se BTC caindo e veta vendas se BTC subindo
-                and not (btc_trend_bias < -0.4 and cand.get("direction") == "LONG")
-                and not (btc_trend_bias > 1.0 and cand.get("direction") == "SHORT")
+                # [FAROL MACRO VETO NO DISPARO]: Veta compras se BTC caindo e veta vendas se BTC subindo (exceto Caçada Soberana de Liquidez)
+                and not (cand.get("strategy") != "LAYA_LIQUIDITY_HUNT" and btc_trend_bias < -0.4 and cand.get("direction") == "LONG")
+                and not (cand.get("strategy") != "LAYA_LIQUIDITY_HUNT" and btc_trend_bias > 1.0 and cand.get("direction") == "SHORT")
                 # [ENCRYPTOS CLIMA VETO]: Veta compras em altcoins se BTC.D drenando, veta vendas se Altcoin Expansion
                 and not (
-                    "BTC" not in cand.get("clean_sym", "").upper()
+                    cand.get("strategy") != "LAYA_LIQUIDITY_HUNT"
+                    and "BTC" not in cand.get("clean_sym", "").upper()
                     and btc_intel
                     and not btc_intel.get("altcoin_long_allowed", True)
                     and cand.get("direction") == "LONG"
                 )
                 and not (
-                    "BTC" not in cand.get("clean_sym", "").upper()
+                    cand.get("strategy") != "LAYA_LIQUIDITY_HUNT"
+                    and "BTC" not in cand.get("clean_sym", "").upper()
                     and btc_intel
                     and not btc_intel.get("altcoin_short_allowed", True)
                     and cand.get("direction") == "SHORT"
@@ -2354,35 +2457,57 @@ class LayaRouterService:
                 cand_sym = cand["symbol"]
                 cand_dir = cand["direction"]
 
-                # [V174-LIQUIDITY-MAGNET-VETO]: Veta qualquer ordem contra muralha de liquidação pesada
+                # [V174-LIQUIDITY-MAGNET-VETO]: Veta qualquer ordem contra muralha de liquidação pesada e ZONA MORTA
                 try:
                     from app.services.coinglass_heatmap_service import coinglass_heatmap_service
-                    heat = await coinglass_heatmap_service.get_liquidity_heatmap(cand_sym)
-                    if cand_dir == "SHORT" and heat.get("dominant_magnet") == "BULLISH_SWEEP" and heat.get("upper_pool", {}).get("total_volume_usd", 0) > 800_000:
+                    cand_p = float(cand.get("price") or 0.0)
+                    heat = await coinglass_heatmap_service.get_liquidity_heatmap(cand_sym, current_price=cand_p)
+                    dom_magnet = heat.get("dominant_magnet")
+                    target_reg = heat.get("target_region") or ("ACIMA" if heat.get("target_price", 0) > cand_p else "ABAIXO")
+                    lifecycle = heat.get("lifecycle") or {}
+                    zone_id = lifecycle.get("zone_id", "")
+
+                    # 1. Veto da ZONA MORTA (anti-armadilha e falso rompimento entre 0.3% e 1.5%)
+                    if zone_id == "DEAD_ZONE":
                         self.log_thought(
                             cand.get("clean_sym", cand_sym),
-                            f"🛡️ [VETO ÍMÃ DE LIQUIDEZ]: SHORT proibido: muralha de ${heat['upper_pool']['total_volume_usd']/1e6:.2f}M acima em ${heat['target_price']:.4f} atraindo o preço.",
-                            action="VETO_IMA_LIQUIDEZ",
-                            confidence=95
+                            f"️ [VETO ZONA MORTA]: Entrada {cand_dir} bloqueada: preço a {lifecycle.get('distance_pct', 0)}% do bolsão ({zone_id}). Alto risco de falso rompimento.",
+                            action="VETO_ZONA_MORTA",
+                            confidence=96
                         )
                         continue
-                    elif cand_dir == "LONG" and heat.get("dominant_magnet") == "BEARISH_SWEEP" and heat.get("lower_pool", {}).get("total_volume_usd", 0) > 800_000:
+
+                    # 2. Veto Direcional do Ímã: NUNCA operar contra a atração do maior pool
+                    # Se bolsão dominante está ACIMA / BULLISH_SWEEP -> Proibido SHORT!
+                    if cand_dir == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_reg == "ACIMA"):
+                        vol_m = heat.get("target_volume_usd", 0) / 1e6
                         self.log_thought(
                             cand.get("clean_sym", cand_sym),
-                            f"🛡️ [VETO ÍMÃ DE LIQUIDEZ]: LONG proibido: muralha de ${heat['lower_pool']['total_volume_usd']/1e6:.2f}M abaixo em ${heat['target_price']:.4f} atraindo o preço.",
+                            f"️ [VETO ÍMÃ DE LIQUIDEZ]: SHORT proibido: muralha dominante de ${vol_m:.2f}M ACIMA DO PREÇO em ${heat.get('target_price', 0):.4f} atraindo o preço.",
                             action="VETO_IMA_LIQUIDEZ",
-                            confidence=95
+                            confidence=98
                         )
                         continue
-                except Exception:
-                    pass
+
+                    # Se bolsão dominante está ABAIXO / BEARISH_SWEEP -> Proibido LONG!
+                    if cand_dir == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_reg == "ABAIXO"):
+                        vol_m = heat.get("target_volume_usd", 0) / 1e6
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"️ [VETO ÍMÃ DE LIQUIDEZ]: LONG proibido: muralha dominante de ${vol_m:.2f}M ABAIXO DO PREÇO em ${heat.get('target_price', 0):.4f} atraindo o preço.",
+                            action="VETO_IMA_LIQUIDEZ",
+                            confidence=98
+                        )
+                        continue
+                except Exception as heat_err:
+                    logger.debug(f"[LAYA-VETO-HEATMAP-ERR] {heat_err}")
 
                 # [V169-TF-MENORES]: Verifica exaustão e ausência de faca caindo em 5m antes do disparo
                 ltf_check = await self.check_lower_tf_exhaustion(cand_sym, cand_dir)
                 if not ltf_check.get("is_safe", True):
                     self.log_thought(
                         cand.get("clean_sym", cand_sym),
-                        f"🛡️ [VETO TF MENOR]: Ordem {cand_dir} bloqueada: {ltf_check.get('reason')}",
+                        f"️ [VETO TF MENOR]: Ordem {cand_dir} bloqueada: {ltf_check.get('reason')}",
                         action="VETO_TF_MENOR",
                         confidence=92
                     )

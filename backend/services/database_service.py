@@ -1248,6 +1248,9 @@ class DatabaseService:
             try:
                 obj = await session.get(SandboxTrade, trade_id)
                 if obj:
+                    # Invariante: uma trade fechada nunca pode ser reaberta por tick atrasado
+                    if obj.status != "ACTIVE" and data.get("status") == "ACTIVE":
+                        return False
                     for k, v in data.items():
                         if hasattr(obj, k):
                             setattr(obj, k, v)

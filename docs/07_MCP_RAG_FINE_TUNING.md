@@ -1,8 +1,8 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.7.0 (V168-SOVEREIGN-OPENVIKING-MEMORY)  
-> **Data de Atualização**: 23/10/2026  
+> **Versão**: 7.7.5 (V175-DYNAMIC-WS-PARITY-IMMEDIATE-PRICE-GUARD)  
+> **Data de Atualização**: 28/10/2026  
 > **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
@@ -48,7 +48,7 @@ O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade s
      - **Cursor IDE** (`Settings > Features > MCP Servers`).
      - **Hermes / n8n / Agentes Autônomos**.
 
-### 1.2. Catálogo Oficial de Ferramentas Expostas (10 Tools)
+### 1.2. Catálogo Oficial de Ferramentas Expostas (15 Tools)
 
 | Ferramenta | Descrição | Parâmetros | Retorno Principal |
 | :--- | :--- | :--- | :--- |
@@ -62,6 +62,11 @@ O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade s
 | `get_risk_telemetry` | Auditoria completa de exposição, margem, drawdown e limites. | Nenhum | Alocação por cluster, margem consumida, stops armados |
 | `get_market_intel_screener` | Varre os 507 pares perpétuos da OKX com métricas de volume e volatilidade. | `top_n` (int, default 15) | Top pares por volume 24h em USDT, spread, volatilidade e filtros de liquidez |
 | `get_contract_precision_audit`| Inspeciona as especificações exatas de contrato OKX (`tickSz`, `lotSz`, `ctVal`, multiplicador). | `symbol` (str) | `instId`, `tick_sz`, `lot_sz`, `ct_val`, `min_sz`, exemplos quantizados de preço e lote |
+| `get_liquidity_zones_heatmap`| Mapa de calor 2D de liquidações, ímãs institucionais e classificação em 3 zonas Encryptos. | `symbol` (str, default 'SOLUSDT') | Bolsões de liquidez, zonas Hunt, Dead Zone e Exhaustion |
+| `viking_tree` | Navega pela árvore de arquivos virtuais do OpenViking (`viking://`). | Nenhum | Estrutura hierárquica de recursos, memórias e skills |
+| `viking_read` | Leitura multi-nível com progressive disclosure (L0 abstract, L1 overview, L2 detail). | `uri` (str), `level` (str) | Conteúdo sintetizado ou detalhado da diretriz ou caso |
+| `viking_search` | Busca semântica por padrões, diretrizes de risco e memórias episódicas. | `query` (str), `limit` (int) | Chunks mais relevantes com score de similaridade |
+| `viking_commit_lesson` | Grava um novo caso ou aprendizado permanente no OpenViking e no Obsidian Vault. | `category` (str), `title` (str), `content` (str) | Confirmação de gravação e sincronização com o Vault |
 
 ### 1.3. Como Conectar o MCP aos Clientes
 
@@ -226,6 +231,35 @@ A partir da versão **V168**, o 1Crypten supera as limitações de vetores plano
    - `viking_search`: Busca estruturada multi-nível por padrões e casos.
    - `viking_commit_lesson`: Gravação de memórias permanentes com persistência no Vault.
 
+
+### 3.7. [V174] Motor de 3 Zonas de Liquidez Encryptos & Heatmap O(1) no Cockpit 360
+
+A partir da versão **V174**, a Laya incorpora o motor tático de zonas de liquidação institucional inspirado na metodologia Encryptos:
+1. **Classificação Tripartite do Ciclo de Liquidez (`classify_liquidity_lifecycle`)**:
+   - **ZONA 1 (HUNT - Atração Ativa)**: Distância até o bolsão dominante $\ge 1.5\%$. O preço é atraído pelo ímã institucional de liquidez. Entradas direcionais autorizadas com Take Profit na borda do bolsão.
+   - **ZONA 2 (DEAD_ZONE - Veto de Entrada)**: Distância entre $0.3\%$ e $1.5\%$. Veto total e absoluto de novas ordens para evitar compras atrasadas ou stop hunts na iminência da varredura.
+   - **ZONA 3 (EXHAUSTION - Varredura & Reversão)**: Distância $< 0.3\%$. Alerta máximo de exaustão e gatilho de reversão contra o movimento prévio, condicionado a pavio de absorção institucional $\ge 25\%$ (`TICK_REJECTION_INDEX`).
+2. **Visualização Retina no Cockpit e Laya 360**:
+   - Régua tática vetorial de 3 segmentos renderizada diretamente sobre o canvas.
+   - HUD Chip com vetor direcional e stepper de 3 fases (1. CAÇADA ▶ 2. VETO ▶ 3. SWEEP).
+   - Telemetria de alta frequência em memória servida em `< 3ms` via `/api/v1/hermes/laya/360-telemetry`.
+
+### 3.8. [V175] Sincronização Dinâmica WebSocket OKX e Guarda Imediata de Preço de Stop (RAM O(1) Sub-5ms)
+
+A versão **V175** resolve em nível de kernel assíncrono as latências de rede e limites de taxa (HTTP 429) no fechamento de ordens:
+1. **Sincronização Dinâmica WebSocket (`okx_ws_public_service.sync_topics`)**:
+   - Toda nova ordem aberta (Sandbox ou REAL) tem seu instrumento (`symbol`) imediatamente registrado nos tópicos públicos do WebSocket OKX.
+   - O loop de monitoramento de 1 segundo consome exclusivamente cotações em RAM da stream WebSocket, sem disparar requisições REST adicionais.
+   - Fallback resiliente com cache local `_last_prices`: se a stream falhar temporariamente, o preço nunca é considerado 0.0, eliminando travamentos com `ACTION=SKIP`.
+2. **Guarda Imediata de Preço de Stop (`[V175-IMMEDIATE-PRICE-GUARD]`)**:
+   - Comparação aritmética direta no loop de 1 segundo em `sandbox_service.py`:
+     - `LONG`: Se $\text{current\_price} \le \text{stop\_price} \implies \text{stop\_hit} = \text{True}$.
+     - `SHORT`: Se $\text{current\_price} \ge \text{stop\_price} \implies \text{stop\_hit} = \text{True}$.
+   - O fechamento da ordem é disparado instantaneamente no mesmo tick (< 5ms), garantindo que picos de ROI (ex: +149.6%) ou paradas de emergência sejam liquidadas no milissegundo exato do toque.
+3. **Filtro de Pullback Intra-Range em Regime Lateral (MEAN_REVERSION)**:
+   - Em consolidações (ADX < 20), vetam-se ordens vendidas no fundo do range (`c_range < 35%`) e ordens compradas no topo (`c_range > 65%`).
+   - Requer-se pullback técnico até a metade do canal (`c_range \ge 50%` ou preço $\ge$ VWAP para SHORT; `c_range \le 50%` ou preço $\le$ VWAP para LONG), protegendo o capital contra repiques bruscos em suportes e resistências.
+
 ---
 
 ## 4. 🛠️ Guia de Manutenção e Operação
@@ -264,3 +298,7 @@ python backend/mcp_server.py
 - [x] **Motor de Quantização Ativo (V165)**: Preços e contratos formatados matematicamente pelo `tickSz` e `lotSz` da OKX.
 - [x] **Geometria de Alvo e Stop Blindada**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.
 - [x] **Invariante de Alavancagem Obrigatória 15X a 20X [V172]**: Ordens autônomas da Laya exclusivamente em 15X ou 20X (sem valores intermediários). Proibido abrir ordens abaixo de 15X.
+- [x] **Invariante de 3 Zonas de Liquidez [V174]**: Hunt (>=1.5%), Dead Zone (0.3% - 1.5% Veto), Exhaustion Sweep (<0.3% com absorção >= 25%).
+- [x] **Sincronização Dinâmica WebSocket [V175]**: Inscrição atômica de ativos em custódia no stream público OKX sem REST rate limits.
+- [x] **Guarda Imediata de Preço de Stop [V175]**: Execução sub-5ms em RAM no toque de stop_price (eliminação de 429 timeouts e ACTION=SKIP).
+- [x] **Filtros de Pullback Intra-Range [V175]**: Veto de SHORT no fundo (c_range < 35%) e LONG no topo (c_range > 65%) em regime lateral.

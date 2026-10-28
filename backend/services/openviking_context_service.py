@@ -128,7 +128,7 @@ class OpenVikingContextService:
             "INVARIANTE DE ALAVANCAGEM OBRIGATÓRIA (15X A 20X):\n"
             "1. Faixa Soberana: Toda ordem autônoma aberta pela Laya deve operar exclusivamente com 15X ou 20X.\n"
             "2. Proibição Absoluta: Nenhuma ordem pode ser aberta com alavancagem inferior a 15X (veto irrestrito a 5x, 8x, 9x, 10x).\n"
-            "3. Clamp Matemático: leverage = 20 if (calc_lev >= 18 or chosen.get("score", 0) >= 90) else 15 em backend/app/services/laya_router_service.py.\n"
+            "3. Clamp Matemático: leverage = 20 if (calc_lev >= 18 or chosen.get('score', 0) >= 90) else 15 em backend/app/services/laya_router_service.py.\n"
             "4. Stop ROI Estrutural: target_stop_roi = 35.0 (~ -30% a -38% ROI) ancorado na distância estrutural de preço."
         )
         self.nodes[uri_lev] = VikingNode(
@@ -249,6 +249,23 @@ class OpenVikingContextService:
             l2_detail=l1_hedge,
             tags=["patterns", "trading", "anti_hedge"],
         )
+        # V175: WebSocket Dynamic Sync & Immediate Price Guard
+        uri_v175_pat = "viking://user/memories/patterns/v175_dynamic_ws_price_guard"
+        l0_v175_pat = "V175: Sincronizacao Dinamica WebSocket OKX e Guarda Imediata de Preco de Stop (RAM O(1) Sub-5ms) com Filtro de Pullback Intra-Range."
+        l1_v175_pat = (
+            "INVARIANTES DE MONITORAMENTO E STOP IMEDIATO (V175):\n"
+            "• Sincronizacao Dinamica WebSocket: Toda ordem aberta adiciona seu par automaticamente ao okx_ws_public_service.sync_topics(), eliminando chamadas REST sincronas que geravam 429.\n"
+            "• Guarda Imediata de Stop (Sub-5ms): Comparacao matematica instantanea no loop de 1s (Long <= stop_price, Short >= stop_price) que aciona stop_hit sem aguardar chamadas REST secundarias.\n"
+            "• Filtro de Pullback Intra-Range: Em consolidacao/reversao a media, SHORT requer pullback estrutural (c_range >= 50% ou preco >= vwap; veto em c_range < 35%), e LONG requer dip (c_range <= 50% ou preco <= vwap; veto em c_range > 65%)."
+        )
+        self.nodes[uri_v175_pat] = VikingNode(
+            uri=uri_v175_pat,
+            title="V175: Sincronizacao Dinamica WebSocket & Guarda Imediata de Stop",
+            l0_abstract=l0_v175_pat,
+            l1_overview=l1_v175_pat,
+            l2_detail=l1_v175_pat,
+            tags=["patterns", "trading", "websocket", "stop_loss", "pullback", "guard", "v175"],
+        )
 
         # Semântica PAPER vs REAL
         uri_balance = "viking://user/memories/patterns/unified_balance"
@@ -308,6 +325,41 @@ class OpenVikingContextService:
                     l1_overview=l1,
                     l2_detail=content,
                     tags=["resources", "architecture", "master"],
+                )
+
+                # V174: Liquidity Zones & Encryptos Methodology
+                uri_v174 = "viking://resources/architecture/v174_liquidity_zones"
+                l0_v174 = "V174: Motor de 3 Zonas de Liquidez Encryptos (Hunt >= 1.5%, Dead Zone 0.3%-1.5%, Exhaustion < 0.3%) e Heatmap O(1) na Laya 360."
+                l1_v174 = (
+                    "METODOLOGIA ENCRYPTOS (CICLO EM 3 ZONAS):\n"
+                    "1. ZONA 1 (HUNT - Atração Ativa): Distância >= 1.5% -> Entrada a favor do ímã permitida (Take Profit na borda do bolsão).\n"
+                    "2. ZONA 2 (DEAD_ZONE - Veto de Entrada): Distância 0.3% a 1.5% -> Veto estrito de novas entradas para neutralizar falso rompimento.\n"
+                    "3. ZONA 3 (EXHAUSTION - Varredura & Reversão): Distância < 0.3% -> Gatilho de reversão imediata condicionado a pavio >= 30% (TICK_REJECTION_INDEX)."
+                )
+                self.nodes[uri_v174] = VikingNode(
+                    uri=uri_v174,
+                    title="V174: Ciclo de 3 Zonas de Liquidez & Metodologia Encryptos",
+                    l0_abstract=l0_v174,
+                    l1_overview=l1_v174,
+                    l2_detail=l1_v174 + "\n\nImplementado em backend/app/services/coinglass_heatmap_service.py e renderizado no Canvas Retina da Laya 360.",
+                    tags=["resources", "architecture", "v174", "encryptos", "liquidity", "heatmap"]
+                )
+                # V175: WebSocket Dynamic Sync & Immediate Price Guard
+                uri_v175 = "viking://resources/architecture/v175_ws_sync_immediate_price_guard"
+                l0_v175 = "V175: Sincronizacao Dinamica WebSocket OKX e Guarda Imediata de Preco de Stop (RAM O(1) Sub-5ms) com Filtro de Pullback Intra-Range."
+                l1_v175 = (
+                    "INVARIANTES DE MONITORAMENTO E STOP IMEDIATO (V175):\n"
+                    "1. Sincronizacao Dinamica WebSocket: Toda ordem aberta adiciona seu par automaticamente ao okx_ws_public_service.sync_topics(), eliminando chamadas REST sincronas que geravam 429.\n"
+                    "2. Guarda Imediata de Stop (Sub-5ms): Comparacao matematica instantanea no loop de 1s (Long <= stop_price, Short >= stop_price) que aciona stop_hit sem aguardar chamadas REST secundarias.\n"
+                    "3. Filtro de Pullback Intra-Range: Em consolidacao/reversao a media, SHORT requer pullback estrutural (c_range >= 50% ou preco >= vwap; veto em c_range < 35%), e LONG requer dip (c_range <= 50% ou preco <= vwap; veto em c_range > 65%)."
+                )
+                self.nodes[uri_v175] = VikingNode(
+                    uri=uri_v175,
+                    title="V175: Sincronizacao Dinamica WebSocket & Guarda Imediata de Stop",
+                    l0_abstract=l0_v175,
+                    l1_overview=l1_v175,
+                    l2_detail=l1_v175 + "\n\nImplementado em backend/services/sandbox_service.py e backend/app/services/laya_router_service.py.",
+                    tags=["resources", "architecture", "v175", "websocket", "stop_loss", "pullback", "guard"]
                 )
             except Exception:
                 pass

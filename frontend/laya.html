@@ -56,12 +56,13 @@
 
     /* Layout Container */
     .laya-container {
-      max-width: 1920px;
+      width: 100%;
+      max-width: 99vw;
       margin: 0 auto;
-      padding: 10px 14px 60px 14px;
+      padding: 6px 12px 40px 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     /* Panoramic HUD */
@@ -168,7 +169,7 @@
     /* 3-Column Grid */
     .laya-grid {
       display: grid;
-      grid-template-columns: 295px minmax(0, 1fr) 385px;
+      grid-template-columns: 310px minmax(0, 1fr) 420px;
       gap: 10px;
       align-items: start;
     }
@@ -304,6 +305,12 @@
     .titan-card.active {
       background: rgba(252, 213, 53, 0.08);
       border-left: 3px solid var(--gold);
+    }
+
+    .titan-card.holding-glow {
+      box-shadow: 0 0 12px rgba(252, 213, 53, 0.45);
+      border: 1px solid rgba(252, 213, 53, 0.9) !important;
+      background: #141208 !important;
     }
 
     .titan-heat-bar {
@@ -894,27 +901,126 @@
           <div style="display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 8.5px;">
             <span style="color: var(--text-muted);">ÍMÃ BALEIA: <strong id="center-magnet-target" style="color: var(--gold);">---</strong></span>
             <span id="center-magnet-badge" class="hud-badge gold" style="font-size: 8px; padding: 1px 6px;">BULLISH SWEEP</span>
+            <!-- Ciclo de Liquidez 3 Zonas (Metodologia Encryptos) -->
+            <div id="liquidity-cycle-stepper" style="display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 2px;">
+              <span id="step-hunt" style="font-size: 7.5px; padding: 1px 5px; border-radius: 1px; color: #00E676; font-weight: 700; background: rgba(0,230,118,0.15); border: 1px solid rgba(0,230,118,0.4);">1. CAÇADA</span>
+              <span style="color: rgba(255,255,255,0.25); font-size: 7px;">▶</span>
+              <span id="step-dead" style="font-size: 7.5px; padding: 1px 5px; border-radius: 1px; color: #64748B; font-weight: 600;">2. VETO</span>
+              <span style="color: rgba(255,255,255,0.25); font-size: 7px;">▶</span>
+              <span id="step-exhaustion" style="font-size: 7.5px; padding: 1px 5px; border-radius: 1px; color: #64748B; font-weight: 600;">3. SWEEP</span>
+            </div>
           </div>
         </div>
 
         <!-- Central Stage Canvas Container -->
-        <div id="central-stage-wrapper" style="position: relative; width: 100%; height: 380px; background: #040507; overflow: hidden;">
+        <div id="central-stage-wrapper" style="position: relative; width: 100%; height: 430px; background: #040507; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;">
           <!-- High-Res Liquidation HeatMap Canvas -->
-          <canvas id="laya-central-heatmap" width="900" height="380" style="width: 100%; height: 380px; display: block;"></canvas>
+          <canvas id="laya-central-heatmap" width="900" height="430" style="width: 100%; height: 430px; display: block;"></canvas>
           
           <!-- LightweightCharts 5M Container (Hidden by default in HeatMap mode) -->
-          <div id="laya-chart-container" style="display: none; width: 100%; height: 380px; position: absolute; top: 0; left: 0; background: #060709;"></div>
+          <div id="laya-chart-container" style="display: none; width: 100%; height: 430px; position: absolute; top: 0; left: 0; background: #060709;"></div>
 
-          <!-- HeatMap HUD Legend Overlay -->
-          <div id="heatmap-hud-overlay" style="position: absolute; top: 10px; left: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 8.5px;">
-            <div style="background: rgba(6,7,9,0.85); padding: 4px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; backdrop-filter: blur(4px);">
-              <span style="color: var(--text-muted);">DENSIDADE DE LIQUIDAÇÃO INSTITUCIONAL (COINGLASS MODEL)</span>
-              <div style="display: flex; gap: 12px; margin-top: 4px; font-size: 8px;">
-                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:8px; height:8px; background:#FCD535; border-radius:1px;"></span> INTENSIDADE ALTA (&gt;$1.0M)</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:8px; height:8px; background:#0ECB81; border-radius:1px;"></span> MÉDIA ($300K-$1M)</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:8px; height:8px; background:#4A3F80; border-radius:1px;"></span> BAIXA (&lt;$300K)</span>
+          <!-- HeatMap HUD Legend Overlay (Posicionada no canto inferior esquerdo para não cobrir o HUD Superior) -->
+          <div id="heatmap-hud-overlay" style="position: absolute; bottom: 10px; left: 14px; pointer-events: none; display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 8px;">
+            <div style="background: rgba(6,7,9,0.88); padding: 3px 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; backdrop-filter: blur(4px);">
+              <span style="color: var(--text-muted); font-size: 7.5px;">DENSIDADE DE LIQUIDAÇÃO INSTITUCIONAL (COINGLASS MODEL)</span>
+              <div style="display: flex; gap: 10px; margin-top: 3px; font-size: 7.5px;">
+                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:7px; height:7px; background:#FCD535; border-radius:1px;"></span> ALTA (&gt;$1.0M)</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:7px; height:7px; background:#0ECB81; border-radius:1px;"></span> MÉDIA ($300K-$1M)</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:7px; height:7px; background:#4A3F80; border-radius:1px;"></span> BAIXA (&lt;$300K)</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Painel Tático das 3 Zonas de Liquidez Encryptos (Preenchimento do Espaço Central) -->
+        <div class="panel" style="margin-top: 8px;">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="panel-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+              <span>METODOLOGIA ENCRYPTOS :: MATRIZ TÁTICA DAS 3 ZONAS DE LIQUIDEZ</span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 8.5px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span>PREÇO: <strong id="zone-panel-price" style="color: #FFF;">---</strong></span>
+              <span style="color: rgba(255,255,255,0.2);">➔</span>
+              <span>ÍMÃ: <strong id="zone-panel-target" style="color: var(--gold);">---</strong></span>
+              <span id="zone-panel-region" class="hud-badge" style="font-size: 7.5px; padding: 1px 6px; background: rgba(252,213,53,0.12); color: var(--gold); border: 1px solid rgba(252,213,53,0.4); font-weight: 700;">REGIÃO: ---</span>
+              <span id="zone-panel-volume" class="hud-badge" style="font-size: 7.5px; padding: 1px 6px; background: rgba(0,230,118,0.12); color: #00E676; border: 1px solid rgba(0,230,118,0.4); font-weight: 700;">POOL: ---</span>
+              <span id="zone-panel-dist" class="hud-badge gold" style="font-size: 7.5px; padding: 1px 5px;">---%</span>
+            </div>
+          </div>
+
+          <div class="panel-body" style="display: flex; flex-direction: column; gap: 8px; padding: 10px;">
+            
+            <!-- Régua Linear do Espectro de Distância -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 2px;">
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 8px; margin-bottom: 5px;">
+                <span style="color: #00E676; font-weight: 700;">ZONA 1: CAÇADA ATIVA (&ge; 1.5%)</span>
+                <span style="color: #FFD600; font-weight: 700;">ZONA 2: VETO DE ENTRADA (0.3% a 1.5%)</span>
+                <span style="color: #00F0FF; font-weight: 700;">ZONA 3: SWEEP / REVERSÃO (&lt; 0.3%)</span>
+              </div>
+              <div style="position: relative; width: 100%; height: 7px; background: #0A0E17; border-radius: 3px; overflow: hidden; display: flex;">
+                <div style="width: 55%; height: 100%; background: linear-gradient(90deg, rgba(0,230,118,0.25), rgba(0,230,118,0.7));"></div>
+                <div style="width: 32%; height: 100%; background: linear-gradient(90deg, rgba(255,214,0,0.3), rgba(255,214,0,0.75));"></div>
+                <div style="width: 13%; height: 100%; background: linear-gradient(90deg, rgba(0,240,255,0.4), rgba(0,240,255,0.9));"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 7.5px; color: var(--text-muted); margin-top: 4px;">
+                <span>Atração direcional institucional a favor do bolsão</span>
+                <span>Proibido comprar no topo / vender no fundo</span>
+                <span>Absorção institucional e pavio de rejeição</span>
+              </div>
+            </div>
+
+            <!-- Cards Detalhados das 3 Zonas em Grid Triplo -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              
+              <!-- Card 1: Caçada Ativa -->
+              <div id="card-zone-hunt" style="background: rgba(8,12,18,0.85); border: 1px solid rgba(0,230,118,0.3); border-radius: 3px; padding: 8px; display: flex; flex-direction: column; gap: 4px; transition: all 0.25s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-family: var(--font-mono); font-size: 8.5px; font-weight: 800; color: #00E676;">1. CAÇADA ATIVA</span>
+                  <span id="badge-card-hunt" style="font-size: 7px; font-family: var(--font-mono); padding: 1px 4px; border-radius: 1px; background: rgba(0,230,118,0.2); color: #00E676; font-weight: 700;">ATIVO</span>
+                </div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #FFFFFF;" id="card-hunt-action">Seguir o Ímã</div>
+                <div style="font-size: 8px; color: var(--text-muted); line-height: 1.3;">
+                  Espaço assimétrico livre (&ge; 1.5%). Alvo na borda do bolsão de liquidação.
+                </div>
+                <div style="margin-top: auto; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 7.5px; color: #94A3B8;">
+                  STOP: <span style="color: #FFF;">Fundo/Topo 5M</span> | CONDUTA: <span style="color: #00E676; font-weight: 700;">LIBERADO</span>
+                </div>
+              </div>
+
+              <!-- Card 2: Zona Morta (Veto) -->
+              <div id="card-zone-dead" style="background: rgba(8,12,18,0.85); border: 1px solid rgba(255,214,0,0.15); border-radius: 3px; padding: 8px; display: flex; flex-direction: column; gap: 4px; transition: all 0.25s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-family: var(--font-mono); font-size: 8.5px; font-weight: 800; color: #FFD600;">2. ZONA MORTA</span>
+                  <span id="badge-card-dead" style="font-size: 7px; font-family: var(--font-mono); padding: 1px 4px; border-radius: 1px; background: rgba(255,255,255,0.05); color: #64748B; font-weight: 700;">STANDBY</span>
+                </div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #FFD600;" id="card-dead-action">Veto de Entrada</div>
+                <div style="font-size: 8px; color: var(--text-muted); line-height: 1.3;">
+                  Proximidade perigosa do bolsão (0.3% a 1.5%). Risco iminente de falso rompimento.
+                </div>
+                <div style="margin-top: auto; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 7.5px; color: #94A3B8;">
+                  REGRA: <span style="color: #FFD600;">Anti-Sardinha</span> | CONDUTA: <span style="color: #F6465D; font-weight: 700;">BLOQUEADO</span>
+                </div>
+              </div>
+
+              <!-- Card 3: Sweep & Reversão -->
+              <div id="card-zone-exhaustion" style="background: rgba(8,12,18,0.85); border: 1px solid rgba(0,240,255,0.15); border-radius: 3px; padding: 8px; display: flex; flex-direction: column; gap: 4px; transition: all 0.25s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-family: var(--font-mono); font-size: 8.5px; font-weight: 800; color: #00F0FF;">3. SWEEP & REVERSÃO</span>
+                  <span id="badge-card-exhaustion" style="font-size: 7px; font-family: var(--font-mono); padding: 1px 4px; border-radius: 1px; background: rgba(255,255,255,0.05); color: #64748B; font-weight: 700;">STANDBY</span>
+                </div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #00F0FF;" id="card-exhaustion-action">Contra-Ataque</div>
+                <div style="font-size: 8px; color: var(--text-muted); line-height: 1.3;">
+                  Varredura completa da muralha (&lt; 0.3%). Aguarda absorção (pavio &ge; 30%) para reversão.
+                </div>
+                <div style="margin-top: auto; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 7.5px; color: #94A3B8;">
+                  GATILHO: <span style="color: #00F0FF;">Pavio &ge; 30%</span> | STOP: <span style="color: #FFF;">Ponta do Pavio</span>
+                </div>
+              </div>
+
+            </div>
+
           </div>
         </div>
 
@@ -1309,16 +1415,19 @@
         }
         _lastPriceMap[t.symbol] = t.price;
 
+        const isHolding = !!t.is_holding;
         return `
-          <div class="titan-card ${isActive ? 'active' : ''} ${flashClass}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}', ${t.price || 0})">
+          <div class="titan-card ${isActive ? 'active' : ''} ${isHolding ? 'holding-glow' : ''} ${flashClass}" data-symbol="${t.symbol}" onclick="selectTitan('${t.symbol}', ${t.price || 0})">
             <div class="titan-heat-bar ${isUp ? 'up' : 'down'}" style="width: ${heatPct}%;"></div>
             <div class="titan-sym-box">
-              <span class="titan-rank">#${String(t.rank || 0).padStart(2, '0')}</span>
-              <span class="titan-sym">${t.symbol.replace("USDT", "")}</span>
-              ${t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : ''}
+              <span class="titan-rank" style="${isHolding ? 'color: var(--gold); font-weight: 800;' : ''}">#${String(t.rank || 0).padStart(2, '0')}</span>
+              <span class="titan-sym" style="${isHolding ? 'color: var(--gold); font-weight: 800;' : ''}">${t.symbol.replace("USDT", "")}</span>
+              ${isHolding 
+                ? `<span style="background:var(--gold); color:#000; font-weight:800; font-size:7px; padding:1px 5px; border-radius:2px; letter-spacing:0.3px;">ATIVA ${t.holding_side || 'LONG'} ${t.holding_lev || 20}X (${t.holding_pnl_pct >= 0 ? '+' : ''}${t.holding_pnl_pct}%)</span>` 
+                : (t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : '')}
             </div>
             <div class="titan-val-box">
-              <span class="titan-px">$${Number(t.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+              <span class="titan-px" style="${isHolding ? 'color: var(--gold); font-weight: 800;' : ''}">$${Number(t.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
               <span class="titan-chg ${isUp ? 'up' : 'down'}">${isUp ? '+' : ''}${Number(t.change_24h || 0).toFixed(2)}%</span>
             </div>
           </div>
@@ -1374,7 +1483,7 @@
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
       const cssW = rect.width > 0 ? rect.width : 880;
-      const cssH = 380;
+      const cssH = 430;
 
       // Resolução física Retina/High-DPI
       canvas.width = Math.floor(cssW * dpr);
@@ -1568,43 +1677,251 @@
         ctx.fillText(`$${currentPrice.toFixed(4)}`, plotW + 10, badgeCurrY + 3.5);
       }
 
-      // Badge Ímã das Baleias no Eixo
+      // Identificação precisa do volume do pool e região (Metodologia Encryptos V174)
+      const targetVolUSD = liqs.target_volume_usd || (targetPrice >= currentPrice ? (liqs.upper_pool?.total_volume_usd || 0) : (liqs.lower_pool?.total_volume_usd || 0));
+      const targetVolFormatted = targetVolUSD >= 1e6 ? `$${(targetVolUSD / 1e6).toFixed(2)}M USD` : (targetVolUSD >= 1e3 ? `$${(targetVolUSD / 1e3).toFixed(1)}k USD` : "");
+      const isAbove = targetPrice >= currentPrice;
+      const regionText = isAbove ? "ACIMA DO PREÇO" : "ABAIXO DO PREÇO";
+      const regionTag = isAbove ? "ACIMA" : "ABAIXO";
+      const regionWallLabel = isAbove ? "MURALHA SUPERIOR (SHORTS EM RISCO)" : "MURALHA INFERIOR (LONGS EM RISCO)";
+
+      // Badge Ímã das Baleias no Eixo (com Região e Volume em Milhões)
       if (targetPrice >= minP && targetPrice <= maxP) {
         ctx.fillStyle = "#FCD535";
-        ctx.fillRect(plotW + 4, badgeTargetY - 10, rightMargin - 8, 20);
+        ctx.fillRect(plotW + 2, badgeTargetY - 13, rightMargin - 4, 26);
         ctx.fillStyle = "#060709";
-        ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
-        ctx.fillText(`ÍMÃ: $${targetPrice.toFixed(4)}`, plotW + 6, badgeTargetY + 4);
+        ctx.font = "bold 8.5px 'JetBrains Mono', monospace";
+        ctx.fillText(`ÍMÃ [${regionTag}]: $${targetPrice.toFixed(4)}`, plotW + 5, badgeTargetY - 1);
+        ctx.font = "bold 8px 'JetBrains Mono', monospace";
+        ctx.fillText(`POOL: ${targetVolFormatted || "$200M+"}`, plotW + 5, badgeTargetY + 9);
       }
 
-      // 6. LAYER 6: HUD Chip Dedicado no Top-Left (Evita Sobreposição com Dados)
-      const distPct = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(2) : "0.00";
-      const dirLabel = targetPrice >= currentPrice ? `▲ VETOR DE LIQUIDAÇÃO LONG (+${distPct}%)` : `▼ VETOR DE LIQUIDAÇÃO SHORT (${distPct}%)`;
+      // 6. LAYER 6: Ciclo de Liquidez em 3 Zonas (Metodologia Encryptos V174)
+      const lifecycle = liqs.lifecycle || (function() {
+        const dPct = currentPrice > 0 ? Math.abs((targetPrice - currentPrice) / currentPrice * 100) : 0;
+        const isUp = targetPrice >= currentPrice;
+        if (dPct >= 1.5) {
+          return {
+            zone_id: "HUNT",
+            zone_label: "ZONA 1: CAÇADA ATIVA",
+            zone_color: "#00E676",
+            action_label: isUp ? "LONG A FAVOR DO ÍMÃ" : "SHORT A FAVOR DO ÍMÃ",
+            action_color: "#00E676",
+            distance_pct: dPct
+          };
+        } else if (dPct >= 0.3) {
+          return {
+            zone_id: "DEAD_ZONE",
+            zone_label: "ZONA 2: VETO DE ENTRADA",
+            zone_color: "#FFD600",
+            action_label: "VETO DE ENTRADA (ZONA MORTA)",
+            action_color: "#FFD600",
+            distance_pct: dPct
+          };
+        } else {
+          return {
+            zone_id: "EXHAUSTION",
+            zone_label: "ZONA 3: SWEEP / ABSORÇÃO",
+            zone_color: "#00F0FF",
+            action_label: "GATILHO DE REVERSÃO (PREPARAR CONTRA-ATAQUE)",
+            action_color: "#00F0FF",
+            distance_pct: dPct
+          };
+        }
+      })();
 
-      ctx.fillStyle = "rgba(10, 14, 20, 0.92)";
-      ctx.strokeStyle = "rgba(252, 213, 53, 0.4)";
-      ctx.lineWidth = 1;
+      const distPct = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(2) : "0.00";
+      const dirArrow = targetPrice >= currentPrice ? "▲" : "▼";
+      const dirText = targetPrice >= currentPrice ? `LONG (+${distPct}%)` : `SHORT (${distPct}%)`;
+
+      // 6.1 Régua Tática das 3 Zonas no Lado Direito do Plot
+      if (Math.abs(currY - targetY) > 28) {
+        const bracketX = plotW - 6;
+        const topY = Math.min(currY, targetY);
+        const botY = Math.max(currY, targetY);
+        const zoneH = botY - topY;
+
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(bracketX, topY);
+        ctx.lineTo(bracketX, botY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (targetPrice > currentPrice) {
+          // Preço embaixo, Ímã no topo
+          ctx.strokeStyle = "#00E676"; // Z1 Hunt
+          ctx.beginPath();
+          ctx.moveTo(bracketX - 4, botY);
+          ctx.lineTo(bracketX, botY);
+          ctx.lineTo(bracketX, botY - zoneH * 0.55);
+          ctx.stroke();
+
+          ctx.strokeStyle = "#FFD600"; // Z2 Dead Zone
+          ctx.beginPath();
+          ctx.moveTo(bracketX, botY - zoneH * 0.55);
+          ctx.lineTo(bracketX, botY - zoneH * 0.88);
+          ctx.stroke();
+
+          ctx.strokeStyle = "#00F0FF"; // Z3 Exhaustion / Sweep
+          ctx.beginPath();
+          ctx.moveTo(bracketX, botY - zoneH * 0.88);
+          ctx.lineTo(bracketX, topY);
+          ctx.lineTo(bracketX - 4, topY);
+          ctx.stroke();
+        } else {
+          // Preço no topo, Ímã embaixo
+          ctx.strokeStyle = "#00E676";
+          ctx.beginPath();
+          ctx.moveTo(bracketX - 4, topY);
+          ctx.lineTo(bracketX, topY);
+          ctx.lineTo(bracketX, topY + zoneH * 0.55);
+          ctx.stroke();
+
+          ctx.strokeStyle = "#FFD600";
+          ctx.beginPath();
+          ctx.moveTo(bracketX, topY + zoneH * 0.55);
+          ctx.lineTo(bracketX, topY + zoneH * 0.88);
+          ctx.stroke();
+
+          ctx.strokeStyle = "#00F0FF";
+          ctx.beginPath();
+          ctx.moveTo(bracketX, topY + zoneH * 0.88);
+          ctx.lineTo(bracketX, botY);
+          ctx.lineTo(bracketX - 4, botY);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 6.2 HUD Chip Superior Esquerdo Expandido com Status das 3 Zonas (Ultra-Nítido e Sem Colisão)
+      const hudBoxW = 560;
+      const hudBoxH = 46;
+      ctx.fillStyle = "rgba(8, 12, 18, 0.95)";
+      ctx.strokeStyle = lifecycle.zone_color || "#FCD535";
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.roundRect(14, 12, 305, 26, 3);
+        ctx.roundRect(14, 10, hudBoxW, hudBoxH, 3);
       } else {
-        ctx.rect(14, 12, 305, 26);
+        ctx.rect(14, 10, hudBoxW, hudBoxH);
       }
       ctx.fill();
       ctx.stroke();
 
+      // Linha 1 do HUD: Vetor com Região Explícita e Volume em Milhões + Badge da Zona
       ctx.fillStyle = "#FCD535";
-      ctx.font = "bold 10px 'JetBrains Mono', monospace";
-      ctx.fillText(dirLabel, 24, 29);
+      ctx.font = "bold 9.5px 'JetBrains Mono', monospace";
+      ctx.fillText(`${dirArrow} ÍMÃ [${regionText}]: $${targetPrice.toFixed(4)} (${targetVolFormatted})`, 24, 24);
 
-      // Sincronizar Header Superior do Cockpit
+      ctx.fillStyle = lifecycle.zone_color || "#00E676";
+      ctx.font = "bold 9px 'JetBrains Mono', monospace";
+      ctx.fillText(`[${lifecycle.zone_label}]`, 375, 24);
+
+      // Linha 2 do HUD: Ação Tática e Região da Muralha
+      ctx.fillStyle = "#94A3B8";
+      ctx.font = "8px 'JetBrains Mono', monospace";
+      ctx.fillText("DIRETRIZ:", 24, 40);
+
+      ctx.fillStyle = lifecycle.action_color || "#FFFFFF";
+      ctx.font = "bold 8.5px 'JetBrains Mono', monospace";
+      ctx.fillText(`${lifecycle.action_label} | ${regionWallLabel}`, 82, 40);
+
+      // 6.3 Sincronizar Header Superior do Cockpit e Stepper de 3 Zonas
       const centerTarget = document.getElementById("center-magnet-target");
-      if (centerTarget) centerTarget.textContent = `$${targetPrice.toFixed(4)}`;
+      if (centerTarget) centerTarget.textContent = `$${targetPrice.toFixed(4)} (${targetVolFormatted})`;
       const centerBadge = document.getElementById("center-magnet-badge");
       if (centerBadge) {
-        const mTarget = (liqs.dominant_magnet || "BULLISH_SWEEP").replace("_", " ");
-        centerBadge.textContent = mTarget;
-        centerBadge.className = `hud-badge ${(liqs.dominant_magnet || "").includes("BULLISH") ? "green" : "red"}`;
+        centerBadge.textContent = `${regionText} (${targetVolFormatted})`;
+        centerBadge.className = `hud-badge ${isAbove ? "green" : "red"}`;
+      }
+
+      // Sincronizar Painel Tático Inferior das 3 Zonas
+      const pPrice = document.getElementById("zone-panel-price");
+      if (pPrice) pPrice.textContent = `$${currentPrice.toFixed(4)}`;
+      const pTarget = document.getElementById("zone-panel-target");
+      if (pTarget) pTarget.textContent = `$${targetPrice.toFixed(4)}`;
+      const pDist = document.getElementById("zone-panel-dist");
+      if (pDist) pDist.textContent = `${distPct}%`;
+      const pRegion = document.getElementById("zone-panel-region");
+      if (pRegion) {
+        pRegion.textContent = `REGIÃO: ${regionText}`;
+        pRegion.style.color = isAbove ? "#00E676" : "#F6465D";
+      }
+      const pVolume = document.getElementById("zone-panel-volume");
+      if (pVolume) {
+        pVolume.textContent = `POOL: ${targetVolFormatted}`;
+      }
+
+      const cardHuntAction = document.getElementById("card-hunt-action");
+      if (cardHuntAction) cardHuntAction.textContent = `Seguir o Ímã (${targetVolFormatted})`;
+
+      const cardHunt = document.getElementById("card-zone-hunt");
+      const cardDead = document.getElementById("card-zone-dead");
+      const cardExhaust = document.getElementById("card-zone-exhaustion");
+      const bHunt = document.getElementById("badge-card-hunt");
+      const bDead = document.getElementById("badge-card-dead");
+      const bExhaust = document.getElementById("badge-card-exhaustion");
+
+      if (cardHunt && cardDead && cardExhaust) {
+        cardHunt.style.borderColor = "rgba(0, 230, 118, 0.15)";
+        cardHunt.style.boxShadow = "none";
+        if (bHunt) { bHunt.textContent = "STANDBY"; bHunt.style.background = "rgba(255,255,255,0.05)"; bHunt.style.color = "#64748B"; }
+
+        cardDead.style.borderColor = "rgba(255, 214, 0, 0.15)";
+        cardDead.style.boxShadow = "none";
+        if (bDead) { bDead.textContent = "STANDBY"; bDead.style.background = "rgba(255,255,255,0.05)"; bDead.style.color = "#64748B"; }
+
+        cardExhaust.style.borderColor = "rgba(0, 240, 255, 0.15)";
+        cardExhaust.style.boxShadow = "none";
+        if (bExhaust) { bExhaust.textContent = "STANDBY"; bExhaust.style.background = "rgba(255,255,255,0.05)"; bExhaust.style.color = "#64748B"; }
+
+        if (lifecycle.zone_id === "HUNT") {
+          cardHunt.style.borderColor = "#00E676";
+          cardHunt.style.boxShadow = "0 0 14px rgba(0, 230, 118, 0.25)";
+          if (bHunt) { bHunt.textContent = "ATIVO AGORA"; bHunt.style.background = "rgba(0,230,118,0.2)"; bHunt.style.color = "#00E676"; }
+        } else if (lifecycle.zone_id === "DEAD_ZONE") {
+          cardDead.style.borderColor = "#FFD600";
+          cardDead.style.boxShadow = "0 0 14px rgba(255, 214, 0, 0.25)";
+          if (bDead) { bDead.textContent = "VETO ATIVO"; bDead.style.background = "rgba(255,214,0,0.2)"; bDead.style.color = "#FFD600"; }
+        } else {
+          cardExhaust.style.borderColor = "#00F0FF";
+          cardExhaust.style.boxShadow = "0 0 14px rgba(0, 240, 255, 0.25)";
+          if (bExhaust) { bExhaust.textContent = "SWEEP DETECTADO"; bExhaust.style.background = "rgba(0,240,255,0.2)"; bExhaust.style.color = "#00F0FF"; }
+        }
+      }
+
+      // Sincronizar Stepper de 3 Zonas na Barra de Título
+      const sHunt = document.getElementById("step-hunt");
+      const sDead = document.getElementById("step-dead");
+      const sExhaust = document.getElementById("step-exhaustion");
+      if (sHunt && sDead && sExhaust) {
+        sHunt.style.background = "transparent";
+        sHunt.style.border = "1px solid transparent";
+        sHunt.style.color = "#64748B";
+        sDead.style.background = "transparent";
+        sDead.style.border = "1px solid transparent";
+        sDead.style.color = "#64748B";
+        sExhaust.style.background = "transparent";
+        sExhaust.style.border = "1px solid transparent";
+        sExhaust.style.color = "#64748B";
+
+        if (lifecycle.zone_id === "HUNT") {
+          sHunt.style.background = "rgba(0, 230, 118, 0.18)";
+          sHunt.style.border = "1px solid rgba(0, 230, 118, 0.5)";
+          sHunt.style.color = "#00E676";
+        } else if (lifecycle.zone_id === "DEAD_ZONE") {
+          sDead.style.background = "rgba(255, 214, 0, 0.18)";
+          sDead.style.border = "1px solid rgba(255, 214, 0, 0.5)";
+          sDead.style.color = "#FFD600";
+        } else {
+          sExhaust.style.background = "rgba(0, 240, 255, 0.18)";
+          sExhaust.style.border = "1px solid rgba(0, 240, 255, 0.5)";
+          sExhaust.style.color = "#00F0FF";
+        }
       }
 
       ctx.restore();

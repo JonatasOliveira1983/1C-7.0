@@ -466,6 +466,11 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
             "magnet_target": heatmap_data["dominant_magnet"],
             "target_price": heatmap_data["target_price"],
             "target_volume_usd": heatmap_data["target_volume_usd"],
+            "target_peak_volume_usd": heatmap_data.get("target_peak_volume_usd", 0.0),
+            "target_region": heatmap_data.get("target_region", "ABAIXO" if heatmap_data.get("target_price", 0) < current_price else "ACIMA"),
+            "target_region_label": heatmap_data.get("target_region_label", ""),
+            "upper_pool": heatmap_data.get("upper_pool"),
+            "lower_pool": heatmap_data.get("lower_pool"),
             "distance_pct": heatmap_data["distance_pct"],
             "rationale": heatmap_data["rationale"],
             "heat_matrix": heatmap_data["heat_matrix"],
@@ -474,7 +479,8 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
             "y": heatmap_data.get("y", []),
             "range_high": heatmap_data.get("range_high", 0.0),
             "range_low": heatmap_data.get("range_low", 0.0),
-            "max_volume_usd": heatmap_data.get("max_volume_usd", 0.0)
+            "max_volume_usd": heatmap_data.get("max_volume_usd", 0.0),
+            "lifecycle": heatmap_data.get("lifecycle")
         }
     except Exception as _e_heat:
         logger.debug(f"[360-TELEMETRY] Erro heatmap: {_e_heat}")
@@ -496,13 +502,35 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
             "heat_matrix": [],
             "matrix_2d": [],
             "candles": [],
-            "y": []
+            "y": [],
+            "lifecycle": coinglass_heatmap_service.classify_liquidity_lifecycle(current_price, round(p * 1.038, 4), "BULLISH_SWEEP")
         }
 
-    # 8. Top 30 Universe Titans List (Leitura Ultra Rápida em Memória O(1))
+    # 8. Top 30 Universe Titans List (Sincronizado com Custódia Ativa e Ranking Laya)
     titans_list = []
     try:
-        raw_titans = getattr(okx_universe_service, "_titans_30_altcoins", [])
+        from services.database_service import database_service
+        active_trades = []
+        try:
+            active_trades = await database_service.get_sandbox_trades(active_only=True)
+        except Exception:
+            pass
+
+        holding_map = {}
+        for at in active_trades:
+            raw_sym = getattr(at, "symbol", "")
+            c_sym = raw_sym.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "") + "USDT"
+            holding_map[c_sym] = {
+                "side": getattr(at, "direction", "LONG"),
+                "leverage": getattr(at, "leverage", 20),
+                "pnl_pct": getattr(at, "pnl_pct", 0.0) or getattr(at, "current_roi", 0.0),
+                "entry_price": getattr(at, "entry_price", 0.0),
+                "strategy": getattr(at, "strategy", "SMART_MONEY")
+            }
+
+        candidate_setups = getattr(laya_router_service, "candidate_setups", {}) or {}
+
+        raw_titans = list(getattr(okx_universe_service, "_titans_30_altcoins", []))
         if not raw_titans:
             raw_titans = [
                 "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "SUI-USDT-SWAP", "AVAX-USDT-SWAP",
@@ -513,7 +541,14 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
                 "BCH-USDT-SWAP", "UNI-USDT-SWAP", "AAVE-USDT-SWAP", "CRV-USDT-SWAP", "TIA-USDT-SWAP"
             ]
 
-        for idx, inst_id in enumerate(raw_titans[:30]):
+        # Injetar ordens ativas em custódia no topo da lista
+        all_insts = list(raw_titans)
+        for h_sym in holding_map.keys():
+            h_inst = f"{h_sym.replace('USDT', '')}-USDT-SWAP"
+            if h_inst not in all_insts:
+                all_insts.insert(0, h_inst)
+
+        for idx, inst_id in enumerate(all_insts):
             cp = inst_id.replace("-USDT-SWAP", "").replace("USDT", "") + "USDT"
             coin = cp.replace("USDT", "")
             tick_match = tickers.get(inst_id, {}) or tickers.get(f"{coin}-USDT-SWAP", {}) or tickers.get(f"{coin}-USDT", {})
@@ -523,6 +558,11 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
             chg = float(tick_match.get("change24h_pct", 0.0) or tick_match.get("change_24h", 0.0) or 0.0)
             vol = float(tick_match.get("volume_24h_usd", 0.0) or 0.0)
 
+            is_holding = cp in holding_map
+            cand = candidate_setups.get(cp) or candidate_setups.get(coin) or {}
+            c_score = float(cand.get("score", 50.0))
+            c_posture = cand.get("direction", "HOLD")
+
             titans_list.append({
                 "rank": idx + 1,
                 "symbol": cp,
@@ -531,8 +571,29 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
                 "change_24h": round(chg, 2),
                 "volume_usd": vol,
                 "bot_ignition": vol > 5_000_000.0 or (cp in ("SOLUSDT", "SUIUSDT", "DOGEUSDT")),
-                "is_active": (cp == clean_sym)
+                "is_active": (cp == clean_sym),
+                "is_holding": is_holding,
+                "holding_side": holding_map.get(cp, {}).get("side", "LONG") if is_holding else None,
+                "holding_lev": holding_map.get(cp, {}).get("leverage", 20) if is_holding else None,
+                "holding_pnl_pct": round(holding_map.get(cp, {}).get("pnl_pct", 0.0), 2) if is_holding else None,
+                "conviction_score": c_score,
+                "posture": c_posture
             })
+
+        # Ordenar: 1º Posições em Custódia (Ouro), 2º Convicção Laya, 3º Volume
+        titans_list.sort(
+            key=lambda x: (
+                1000 if x.get("is_holding") else 0,
+                x.get("conviction_score", 0),
+                x.get("volume_usd", 0)
+            ),
+            reverse=True
+        )
+
+        for i, item in enumerate(titans_list[:30]):
+            item["rank"] = i + 1
+        titans_list = titans_list[:30]
+
     except Exception as _e_titans:
         logger.debug(f"[360-TELEMETRY] Erro universo titas: {_e_titans}")
 
