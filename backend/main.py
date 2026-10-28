@@ -265,8 +265,6 @@ async def lifespan(app: FastAPI):
                 telegram_service.start_polling_task()
 
                 logger.info("Step 3.0: Sovereign Agent Fleet Active")
-            except Exception as e:
-                logger.error(f"Step 3: Agent sync error: {e}")
 
                 async def threshold_calibration_loop():
                     while True:
