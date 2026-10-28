@@ -3,29 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Crypten 7.5 - OBSERVATÓRIO DE TELEMETRIA & INFRAESTRUTURA TÁTICA</title>
+  <title>1Crypten // Observatório de Telemetria e Infraestrutura</title>
   
+  <!-- Fontes Oficiais Binance / Lamborghini -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Estilos Canônicos Lamborghini & uPlot -->
+  <!-- Estilos Canônicos do Sistema & uPlot -->
   <link rel="stylesheet" href="/static/css/lamborghini.css">
   <link rel="stylesheet" href="/static/css/uPlot.min.css">
-  
+
   <style>
     :root {
       --bg-dark: #05070A;
       --card-bg: #0B0E14;
       --card-border: #1B232D;
-      --accent-gold: #FCD535;
-      --accent-gold-glow: rgba(252, 213, 53, 0.15);
-      --accent-cyan: #29ABE2;
-      --accent-green: #0ECB81;
-      --accent-red: #F6465D;
-      --accent-purple: #B388FF;
       --text-main: #EAECEF;
       --text-muted: #848E9C;
+      --accent-gold: #FCD535;
+      --accent-gold-glow: rgba(252, 213, 53, 0.15);
+      --accent-green: #0ECB81;
+      --accent-red: #F6465D;
+      --accent-cyan: #29ABE2;
+      --accent-purple: #B388FF;
       --font-mono: 'JetBrains Mono', monospace;
       --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
     }
@@ -38,28 +39,32 @@
       scrollbar-color: #1E2329 #05070A;
     }
 
-    body {
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
       background-color: var(--bg-dark);
       color: var(--text-main);
       font-family: var(--font-sans);
-      overflow-x: hidden;
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     /* PANORAMIC HUD INTEGRADO COM A LAYA */
     .panoramic-subhud {
+      flex-shrink: 0;
+      height: 38px;
+      max-height: 38px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       background: #080B10;
       border-bottom: 1px solid var(--card-border);
-      padding: 6px 14px;
-      flex-wrap: wrap;
-      gap: 10px;
+      padding: 0 14px;
       font-family: var(--font-mono);
       font-size: 10px;
+      box-sizing: border-box;
+      z-index: 10;
     }
 
     .hud-stat-box {
@@ -89,19 +94,22 @@
 
     .pill-gold { background: rgba(252, 213, 53, 0.15); color: #FCD535; border: 1px solid rgba(252, 213, 53, 0.4); }
     .pill-green { background: rgba(14, 203, 129, 0.15); color: #0ECB81; border: 1px solid rgba(14, 203, 129, 0.4); }
-    .pill-cyan { background: rgba(41, 171, 226, 0.15); color: #29ABE2; border: 1px solid rgba(41, 171, 226, 0.4); }
     .pill-red { background: rgba(246, 70, 93, 0.15); color: #F6465D; border: 1px solid rgba(246, 70, 93, 0.4); }
+    .pill-cyan { background: rgba(41, 171, 226, 0.15); color: #29ABE2; border: 1px solid rgba(41, 171, 226, 0.4); }
+    .pill-purple { background: rgba(179, 136, 255, 0.15); color: #B388FF; border: 1px solid rgba(179, 136, 255, 0.4); }
 
-    /* WIDESCREEN FULL-BLEED GRID */
+    /* WIDESCREEN 3-COLUMN FULL-BLEED GRID */
     .wide-grid {
       display: grid;
       grid-template-columns: 310px 1fr 340px;
       gap: 10px;
-      padding: 10px 14px;
+      padding: 8px 12px 10px 12px;
       flex: 1;
       width: 100%;
-      height: calc(100vh - 86px);
       min-height: 0;
+      height: calc(100vh - 56px - 38px);
+      max-height: calc(100vh - 56px - 38px);
+      box-sizing: border-box;
       overflow: hidden;
     }
 
@@ -111,21 +119,14 @@
       }
     }
 
-    @media (max-width: 1100px) {
-      .wide-grid {
-        grid-template-columns: 1fr;
-        height: auto;
-        overflow-y: auto;
-      }
-    }
-
     /* COLUMNS & PANELS */
     .col-panel {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
       height: 100%;
       min-height: 0;
+      max-height: 100%;
       overflow: hidden;
     }
 
@@ -133,19 +134,21 @@
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 4px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .panel-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 6px;
+      padding-bottom: 5px;
       border-bottom: 1px solid rgba(27, 35, 45, 0.8);
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
       font-family: var(--font-mono);
       letter-spacing: 0.5px;
@@ -158,10 +161,11 @@
     .slots-scroll-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       overflow-y: auto;
       flex: 1;
       min-height: 0;
+      padding-right: 2px;
     }
 
     .slot-mini-card {
@@ -169,12 +173,13 @@
       border: 1px solid var(--card-border);
       border-left: 3px solid var(--accent-gold);
       border-radius: 3px;
-      padding: 8px 10px;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       font-family: var(--font-mono);
       font-size: 9px;
+      flex-shrink: 0;
       transition: border-color 0.15s ease;
     }
 
@@ -189,13 +194,13 @@
     }
 
     .slot-sym {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 800;
       color: #fff;
     }
 
     .slot-pnl {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 800;
     }
 
@@ -206,7 +211,7 @@
       display: flex;
       justify-content: space-between;
       color: var(--text-muted);
-      font-size: 8.5px;
+      font-size: 8px;
     }
 
     /* CENTER CHARTS */
@@ -214,13 +219,16 @@
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 4px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
       height: 100%;
       min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
       flex: 1;
+      box-sizing: border-box;
     }
 
     .chart-controls-bar {
@@ -228,6 +236,7 @@
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      height: 22px;
     }
 
     .tf-btn-group {
@@ -237,9 +246,9 @@
 
     .tf-btn {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 700;
-      padding: 2px 7px;
+      padding: 2px 6px;
       background: transparent;
       color: var(--text-muted);
       border: 1px solid var(--card-border);
@@ -256,21 +265,27 @@
     .charts-stack {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       flex: 1;
       min-height: 0;
+      max-height: calc(100% - 28px);
+      overflow: hidden;
     }
 
     .single-chart-box {
-      flex: 1;
+      flex: 1 1 0;
       min-height: 0;
+      height: calc((100% - 12px) / 3);
+      max-height: calc((100% - 12px) / 3);
       display: flex;
       flex-direction: column;
       background: #06080C;
       border: 1px solid rgba(27, 35, 45, 0.7);
       border-radius: 3px;
-      padding: 6px 10px;
+      padding: 4px 8px;
+      overflow: hidden;
       position: relative;
+      box-sizing: border-box;
     }
 
     .single-chart-header {
@@ -280,14 +295,19 @@
       font-family: var(--font-mono);
       font-size: 8.5px;
       color: var(--text-muted);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       flex-shrink: 0;
+      height: 14px;
+      line-height: 14px;
     }
 
     .uplot-frame {
       flex: 1;
       width: 100%;
       min-height: 0;
+      height: calc(100% - 16px);
+      max-height: calc(100% - 16px);
+      overflow: hidden;
       position: relative;
     }
 
@@ -307,7 +327,7 @@
 
     .titans-table th {
       text-align: left;
-      padding: 4px 6px;
+      padding: 3px 5px;
       color: var(--text-muted);
       border-bottom: 1px solid var(--card-border);
       font-weight: 700;
@@ -318,7 +338,7 @@
     }
 
     .titans-table td {
-      padding: 5px 6px;
+      padding: 4px 5px;
       border-bottom: 1px solid rgba(27, 35, 45, 0.4);
       color: var(--text-main);
     }
@@ -329,7 +349,8 @@
 
     /* uPlot Tooltip & Legend Overrides */
     .uplot { font-family: var(--font-mono) !important; }
-    .u-legend { font-size: 9px !important; color: var(--text-muted) !important; }
+    .u-legend { font-size: 8px !important; color: var(--text-muted) !important; padding: 0 4px !important; }
+    .u-legend th, .u-legend td { padding: 1px 3px !important; }
     .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
     .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
   </style>
@@ -341,12 +362,12 @@
 
   <!-- SUBHUD PANORÂMICO DE SINCRONIA COM A LAYA -->
   <div class="panoramic-subhud">
-    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
       <div class="hud-stat-box">
         <span class="hud-stat-label">FAROL BTC:</span>
-        <span class="hud-stat-val" id="top-btc-val">$91,292.00</span>
+        <span class="hud-stat-val" style="color:#fff;" id="top-btc-val">$91,292.70</span>
         <span class="pill-badge pill-green" id="top-btc-chg">+0.28%</span>
-        <span class="pill-badge pill-gold" id="top-btc-climate">EXPANSION</span>
+        <span class="pill-badge pill-gold" id="top-btc-climate">ALTCOIN_EXPANSION</span>
       </div>
 
       <div style="color:#222;">|</div>
@@ -354,19 +375,19 @@
       <div class="hud-stat-box">
         <span class="hud-stat-label">REGIME LAYA:</span>
         <span class="pill-badge pill-gold" id="top-laya-mode">MEAN-REVERSION</span>
-        <span class="hud-stat-label" style="margin-left:4px;">ADX:</span>
+        <span class="hud-stat-label" style="margin-left:2px;">ADX:</span>
         <span class="hud-stat-val" id="top-laya-adx">14.5</span>
       </div>
 
       <div style="color:#222;">|</div>
 
       <div class="hud-stat-box">
-        <span class="hud-stat-label">PROTEÇÃO DE LATÊNCIA:</span>
+        <span class="hud-stat-label">LATÊNCIA:</span>
         <span class="pill-badge pill-green" id="top-circuit-badge">ANTI-SLIPPAGE OK</span>
       </div>
     </div>
 
-    <div style="display:flex; align-items:center; gap:12px;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
       <div class="hud-stat-box">
         <span class="hud-stat-label">THROUGHPUT REAL:</span>
         <span class="hud-stat-val" style="color:var(--accent-cyan);" id="top-cur-ticks">-- ticks/s</span>
@@ -384,11 +405,11 @@
     <!-- COLUNA 1: CONSCIÊNCIA DA LAYA & SLOTS EM CUSTÓDIA DO COCKPIT -->
     <aside class="col-panel">
       
-      <!-- Card A: Custódia Ativa Cockpit -->
-      <div class="panel-card" style="flex: 1 1 55%; min-height: 0;">
+      <!-- Card A: Custódia Ativa Cockpit (Flexível com Scroll) -->
+      <div class="panel-card" style="flex: 1 1 0; min-height: 0;">
         <div class="panel-card-header">
           <span>SLOTS EM CUSTÓDIA ATIVA</span>
-          <span class="pill-badge pill-gold" id="slots-count-badge">4 ORDENS</span>
+          <span class="pill-badge pill-gold" id="slots-count-badge">0 ORDENS</span>
         </div>
         
         <div class="slots-scroll-list" id="slots-active-container">
@@ -399,31 +420,31 @@
         </div>
       </div>
 
-      <!-- Card B: Parâmetros Táticos de Risco -->
-      <div class="panel-card" style="flex: 1 1 45%; min-height: 0;">
+      <!-- Card B: Parâmetros Táticos de Risco (Tamanho Fixo Seguro) -->
+      <div class="panel-card" style="flex: 0 0 auto;">
         <div class="panel-card-header">
           <span>ESCUDO TÁTICO & REFLEXO LAYA</span>
           <span class="pill-badge pill-cyan">ATIVO</span>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:8px; font-family:var(--font-mono); font-size:9px;">
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:8.5px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">ALAVANCAGEM ISOLADA:</span>
             <span style="color:var(--text-main); font-weight:700;">15X (ALTCOINS)</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">TETO MARGEM ALOCADA:</span>
             <span style="color:var(--text-main); font-weight:700;">$4,000.00 USD</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">TRAIL PROFIT PROGRESSIVO:</span>
             <span style="color:var(--accent-green); font-weight:700;">NEVER GIVE BACK (5 ESC.)</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">CIRCUIT BREAKER RTT:</span>
             <span style="color:var(--accent-gold); font-weight:700;">VETO SE PING > 150 MS</span>
           </div>
-          <div style="display:flex; justify-content:space-between; padding-bottom:2px;">
+          <div style="display:flex; justify-content:space-between;">
             <span style="color:var(--text-muted);">ANTI-HEDGE SOBERANO:</span>
             <span style="color:var(--accent-cyan); font-weight:700;">PROIBIDO OPOSIÇÃO</span>
           </div>
@@ -437,11 +458,11 @@
       
       <div class="chart-controls-bar">
         <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-family:var(--font-mono); font-size:11px; font-weight:800; color:var(--text-main);">
+          <span style="font-family:var(--font-mono); font-size:10.5px; font-weight:800; color:var(--text-main);">
             SISMÓGRAFO DE ALTA FREQUÊNCIA (UPLOT 60 FPS)
           </span>
-          <span style="font-size:9px; color:var(--text-muted); font-family:var(--font-mono);">
-            [AMOSTRAGEM 1.000 MS CONTÍNUA • BUFFER 3.600 PTS]
+          <span style="font-size:8.5px; color:var(--text-muted); font-family:var(--font-mono);">
+            [AMOSTRAGEM 1.000 MS • BUFFER 3.600 PTS]
           </span>
         </div>
 
@@ -487,8 +508,8 @@
     <!-- COLUNA 3: RADAR DOS TITÃS & INFRAESTRUTURA DE PROCESSAMENTO -->
     <aside class="col-panel">
       
-      <!-- Card C: Top 10 Titãs da OKX em Monitoramento Laya -->
-      <div class="panel-card" style="flex: 1 1 65%; min-height: 0;">
+      <!-- Card C: Top 10 Titãs da OKX em Monitoramento Laya (Flexível com Scroll) -->
+      <div class="panel-card" style="flex: 1 1 0; min-height: 0;">
         <div class="panel-card-header">
           <span>RADAR LAYA — TOP 10 TITÃS</span>
           <span class="pill-badge pill-green">507 SCAN</span>
@@ -511,27 +532,27 @@
         </div>
       </div>
 
-      <!-- Card D: Diagnóstico de Recursos Uvicorn -->
-      <div class="panel-card" style="flex: 1 1 35%; min-height: 0;">
+      <!-- Card D: Diagnóstico de Recursos Uvicorn (Tamanho Fixo Seguro) -->
+      <div class="panel-card" style="flex: 0 0 auto;">
         <div class="panel-card-header">
           <span>SAÚDE DA INFRAESTRUTURA</span>
           <span class="pill-badge pill-cyan">UVICORN 8085</span>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:9px;">
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+        <div style="display:flex; flex-direction:column; gap:5px; font-family:var(--font-mono); font-size:8.5px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
             <span style="color:var(--text-muted);">TOTAL DE TICKS:</span>
             <span style="color:var(--text-main); font-weight:700;" id="hud-raw-ticks">--</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
             <span style="color:var(--text-muted);">MÉDIA TICKS 1M:</span>
             <span style="color:var(--accent-cyan); font-weight:700;" id="hud-avg-ticks">--</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
             <span style="color:var(--text-muted);">PING MÉDIO 1M:</span>
             <span style="color:var(--accent-gold); font-weight:700;" id="hud-avg-ping">-- ms</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
             <span style="color:var(--text-muted);">PICO LATÊNCIA 1H:</span>
             <span style="color:var(--accent-red); font-weight:700;" id="hud-max-ping">-- ms</span>
           </div>
@@ -565,6 +586,14 @@
       fetchTelemetryData();
     }
 
+    function getFrameDimensions(el) {
+      if (!el) return { w: 600, h: 160 };
+      const rect = el.getBoundingClientRect();
+      const w = Math.floor(rect.width) || el.clientWidth || 600;
+      const h = Math.floor(rect.height) || el.clientHeight || 160;
+      return { w: Math.max(100, w), h: Math.max(50, h) };
+    }
+
     // Inicialização dos Gráficos com uPlot
     function initUPlots() {
       const elNet = document.getElementById("chart-network");
@@ -573,45 +602,64 @@
 
       if (!elNet || !elEq || !elLaya) return;
 
-      const w = elNet.clientWidth || 800;
-      const h = elNet.clientHeight || 150;
+      const dimNet = getFrameDimensions(elNet);
+      const dimEq = getFrameDimensions(elEq);
+      const dimLaya = getFrameDimensions(elLaya);
 
       // Sincronização de Cursor entre os 3 gráficos uPlot
       _syncGroup = uPlot.sync("observatory-sync");
 
       // 1. Gráfico de Latência & Throughput (Dual-Scale)
       const optsNet = {
-        width: w,
-        height: h,
+        width: dimNet.w,
+        height: dimNet.h,
         cursor: {
           sync: { key: _syncGroup.key },
           drag: { x: true, y: false }
         },
         scales: {
           x: { time: true },
-          ms: { auto: true },
-          ticks: { auto: true }
+          ms: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) return [0, Math.max(50, (max || 20) * 2)];
+              const pad = Math.max(5, (max - min) * 0.2);
+              return [Math.max(0, Math.floor(min - pad)), Math.ceil(max + pad)];
+            }
+          },
+          ticks: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) return [0, Math.max(100, (max || 50) * 2)];
+              return [0, Math.ceil(max * 1.25)];
+            }
+          }
         },
         axes: [
           {
             scale: 'x',
             stroke: '#848E9C',
+            space: 50,
             grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
             ticks: { stroke: '#848E9C', width: 1 },
-            font: '9px JetBrains Mono'
+            font: '8.5px JetBrains Mono'
           },
           {
             scale: 'ms',
+            space: 35,
             stroke: '#FCD535',
-            font: '9px JetBrains Mono',
-            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 }
+            font: '8.5px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 },
+            values: (u, vals) => vals.map(v => v.toFixed(0) + 'ms')
           },
           {
             side: 1,
             scale: 'ticks',
+            space: 35,
             stroke: '#29ABE2',
-            font: '9px JetBrains Mono',
-            grid: { show: false }
+            font: '8.5px JetBrains Mono',
+            grid: { show: false },
+            values: (u, vals) => vals.map(v => v.toFixed(0) + '/s')
           }
         ],
         series: [
@@ -635,28 +683,40 @@
 
       // 2. Gráfico de Patrimônio Líquido Tick-a-Tick
       const optsEq = {
-        width: w,
-        height: h,
+        width: dimEq.w,
+        height: dimEq.h,
         cursor: {
           sync: { key: _syncGroup.key },
           drag: { x: true, y: false }
         },
         scales: {
           x: { time: true },
-          usd: { auto: true }
+          usd: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) {
+                const base = min || 10969.78;
+                return [base - 200, base + 200];
+              }
+              const pad = Math.max(50, (max - min) * 0.15);
+              return [min - pad, max + pad];
+            }
+          }
         },
         axes: [
           {
             scale: 'x',
+            space: 50,
             stroke: '#848E9C',
             grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
             ticks: { stroke: '#848E9C', width: 1 },
-            font: '9px JetBrains Mono'
+            font: '8.5px JetBrains Mono'
           },
           {
             scale: 'usd',
+            space: 35,
             stroke: '#FCD535',
-            font: '9px JetBrains Mono',
+            font: '8.5px JetBrains Mono',
             grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 },
             values: (u, vals) => vals.map(v => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1}))
           }
@@ -675,37 +735,54 @@
 
       // 3. Gráfico da Laya Soberana (Varredura x Inferência)
       const optsLaya = {
-        width: w,
-        height: h,
+        width: dimLaya.w,
+        height: dimLaya.h,
         cursor: {
           sync: { key: _syncGroup.key },
           drag: { x: true, y: false }
         },
         scales: {
           x: { time: true },
-          sec: { auto: true },
-          neural: { auto: true }
+          sec: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) return [0, Math.max(100, (max || 80) * 1.5)];
+              return [0, Math.max(60, Math.ceil(max * 1.25))];
+            }
+          },
+          neural: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) return [0, Math.max(50, (max || 20) * 2)];
+              return [0, Math.max(30, Math.ceil(max * 1.3))];
+            }
+          }
         },
         axes: [
           {
             scale: 'x',
+            space: 50,
             stroke: '#848E9C',
             grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
             ticks: { stroke: '#848E9C', width: 1 },
-            font: '9px JetBrains Mono'
+            font: '8.5px JetBrains Mono'
           },
           {
             scale: 'sec',
+            space: 35,
             stroke: '#0ECB81',
-            font: '9px JetBrains Mono',
-            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 }
+            font: '8.5px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 },
+            values: (u, vals) => vals.map(v => v.toFixed(0) + 's')
           },
           {
             side: 1,
             scale: 'neural',
+            space: 35,
             stroke: '#B388FF',
-            font: '9px JetBrains Mono',
-            grid: { show: false }
+            font: '8.5px JetBrains Mono',
+            grid: { show: false },
+            values: (u, vals) => vals.map(v => v.toFixed(0) + 'ms')
           }
         ],
         series: [
@@ -731,22 +808,33 @@
       _uPlotEquity = new uPlot(optsEq, [[], []], elEq);
       _uPlotLaya = new uPlot(optsLaya, [[], [], []], elLaya);
 
-      // Redimensionamento fluído com observer
-      const resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries) {
-          const nw = entry.contentRect.width;
-          const nh = entry.contentRect.height;
-          if (nw > 50 && nh > 50) {
-            if (_uPlotNetwork && elNet.contains(entry.target)) _uPlotNetwork.setSize({ width: nw, height: nh });
-            if (_uPlotEquity && elEq.contains(entry.target)) _uPlotEquity.setSize({ width: nw, height: nh });
-            if (_uPlotLaya && elLaya.contains(entry.target)) _uPlotLaya.setSize({ width: nw, height: nh });
+      // Redimensionamento blindado com debounce sem loop de feedback
+      let _resizeTimer = null;
+      const resizeAll = () => {
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+          if (elNet && _uPlotNetwork) {
+            const d = getFrameDimensions(elNet);
+            _uPlotNetwork.setSize({ width: d.w, height: d.h });
           }
-        }
-      });
+          if (elEq && _uPlotEquity) {
+            const d = getFrameDimensions(elEq);
+            _uPlotEquity.setSize({ width: d.w, height: d.h });
+          }
+          if (elLaya && _uPlotLaya) {
+            const d = getFrameDimensions(elLaya);
+            _uPlotLaya.setSize({ width: d.w, height: d.h });
+          }
+        }, 60);
+      };
 
-      resizeObserver.observe(elNet);
-      resizeObserver.observe(elEq);
-      resizeObserver.observe(elLaya);
+      window.addEventListener('resize', resizeAll);
+
+      const panel = document.querySelector('.charts-main-panel');
+      if (panel && window.ResizeObserver) {
+        const ro = new ResizeObserver(() => resizeAll());
+        ro.observe(panel);
+      }
     }
 
     // Coleta Contínua de Telemetria e Renderização Tática
