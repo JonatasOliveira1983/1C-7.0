@@ -30,6 +30,7 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
         UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs + 8 Slots Day Trade)"]
+        UI_Plutus["plutus.html (Método ARCA Renda Perpétua + 100% Widescreen Universal Shell)"]
         UI_Observatory["observatory.html (Widescreen 3-Col uPlot 60 FPS + Laya Mind + Slots Live PnL)"]
         UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
         UI_LayaHUD["Laya Sovereign Mind Stream & Solving Orbs"]
@@ -1096,6 +1097,20 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * Implementado em `backend/app/services/telemetry_service.py` com buffers circulares (deques de 3.600 amostras a 1s = 1 hora contínua de memória).
         * Circuit breaker de latência: se o ping da OKX ultrapassar 150ms, alerta de risco de slippage é propagado para o motor de execução.
         * Fallback resiliente para contadores de CPU/RAM em plataformas sem o pacote opcional `psutil`.
+
+53. **[V177-AUTONOMOUS-HERMES-EXECUTIVE-AUDIT-SKILL] Protocolo de Auditoria Forense Autônoma e Briefing Executivo sem Prints** (2026-10-28):
+    - **Metodologia de 4 Camadas (Processo, Caixa, Prova, Conserto)**:
+        * Em `.agents/skills/auditoria_executiva_mesa_hermes/`, implementada a arquitetura autônoma que liberta o operador humano da necessidade de enviar prints de tela para obter diagnósticos da mesa.
+        * **Processo (`SKILL.md`)**: Roteiro de 5 passos na ordem canônica do olhar do operador: Banca Soberana -> Radiografia de Custódia -> Autópsia Forense de Fechamentos -> Infraestrutura e Reflexo da Laya -> Veredito do Estado da Arte.
+        * **Caixa de Ferramentas (`arquivos/`)**: Template rígido parametrizado com lacunas entre colchetes (`modelo-briefing-executivo.md`), regras estritas de tom (`regras-de-tom-e-formato.md`) com zero emojis e veto absoluto a adjetivos vagos.
+        * **As 7 Provas Factuais do Estado da Arte**: O Hermes só pode assinar *"Mesa 100% estável e prosperando. Zero intervenção necessária"* se comprovar matematicamente no centavo contra logs e SQLite: Prova da Banca Realizada, Prova da Margem por Slot ($100), Prova Anti-Hedge, Prova do Never Give Back, Prova da Quarentena de 2h, Prova de Latência OKX (< 120ms) e Prova de Contrato Físico (`ctVal`).
+        * **Diário de Lições e Evolução Contínua (`notas.md`)**: Registro dos 4 fantasmas do passado blindados permanentemente contra regressões.
+    - **Mapeamento OpenViking & RAG**:
+        * A Skill é mapeada deterministicamente no sistema de arquivos virtual em `viking://agent/skills/auditoria_executiva_mesa_hermes`.
+        * Indexação semântica no RAG (`RAGService`) com 425 chunks ativos e sincronização episódica com o Obsidian Vault (`vault_galaxy/journal/2026-10-28.md`).
+    - **Padronização Widescreen da Página Plutus (`/plutus`)**:
+        * Removido cabeçalho estático legado e injetado o Shell Universal (`shell.js`) com Drawer Lateral e Net Worth em tempo real.
+        * Layout expandido para 100% Full-Bleed sem barras pretas laterais em monitores ultrawide.
 
 ---
 
