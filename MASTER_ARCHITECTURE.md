@@ -448,45 +448,21 @@ Swing 2H usa `SignalGenerator.analyze_m30_swing()` (reusa DVAP/MOLA/FAS/LRT + TR
 
 ## 7. Stack de Agentes / Servicos (`backend/services/agents/` + `backend/services/`)
 
-### 7.1 Decisao & risco
-- **CaptainAgent** (`agents/captain.py`) — despachante, quality gate, consenso de frota.
-- **OracleAgent** (`agents/oracle_agent.py`) — regime de mercado (ADX), estabilizacao 150s.
-- **FlashAgent** (`agents/flash_agent.py`) — motor da escadinha, ciclo 1s.
-- **BankrollGuardian** (`agents/bankroll_guardian.py`) — autorizacao de trade. **[V127]** Em PAPER, `evaluate_bank_health` fonteia `equity`/`saldo_real_okx` a partir da **Banca Simulada Consolidada do Sandbox** (`get_sandbox_unified_balance`) — e esse `equity` e o *Net Worth* exibido no Cockpit em PAPER (ver Secao 8.6). Em REAL, `equity` vem do saldo real da OKX.
-- **SlotOperator** (`agents/slot_operator.py`) — observador/failsafe, ciclo 3s.
-- **Bankroll** (`services/bankroll.py`) — abertura/gestao de posicao real.
+### 7.1 Ecossistema Soberano Atual (V177)
+- **LayaRouterService** (`backend/app/services/laya_router_service.py`) — Motor Soberano unificado de varredura (507 pares), confluencia de Liquidity Zones / Volume Spike / DVWAP e execucao autonoma continua.
+- **KronosScorer** (`backend/services/kronos_scorer.py`) — Scoring de conviccao temporal IA.
+- **Flash Agent / SandboxService** (`backend/services/sandbox_service.py`) — Trailing stops em 5 escadinhas progressivas ("Never Give Back") e gerenciamento de posicoes ativas.
+- **OpenVikingContextService** (`backend/app/services/openviking_context_service.py`) — Memoria episodica e tracking de licoes de mercado.
+- **HermesAgent** (`backend/services/agents/hermes_agent.py`) — Compliance, telemetria, RAG semantico e supervisao MCP 2.x.
+- **Plutus / DatabaseService** (`backend/services/database_service.py`) — Camada unica de persistencia relacional SQLite/Postgres.
+- **AIService** (`backend/services/agents/ai_service.py`) — Wrapper de inferencia LLM (Gemini, DeepSeek, OpenAI).
 
-### 7.2 Sinal
-- **SandboxSwingService** (`services/sandbox_swing_service.py`) — motor Swing Lab 2H (scan 30min, Zero-Risk Stacking cap 2, 15 slots total).
-- **SandboxScalpingEngine** (`services/sandbox_scalping_engine.py`) — motor Scalping Lab (VWAP SNIPER, scan 30s).
-- **SignalGenerator** (`services/signal_generator.py`) — motor principal de estrategias.
-- **AmbushAgent** (`agents/ambush.py`) — entrada Fibonacci (timeout 30min).
-- **WhaleTracker** (`agents/whale_tracker.py`) — fluxo institucional CVD/OI (whale pulse >= 150k).
-- **OnChainWhaleWatcher** (`agents/onchain_whale_watcher.py`) — hot wallets (>$500k USDT / 200 ETH).
+### 7.2 Agentes Legados Descomissionados (V177 Purge)
+Em conformidade com a simplificacao arquitetural V177, 18 agentes legados foram removidos do disco e seus loops desativados:
+- `captain.py`, `fleet_audit.py`, `bankroll_guardian.py`, `ambush.py`, `execution_auditor.py`, `flash_agent.py`, `jarvis_brain.py`, `librarian.py`, `librarian_auditor.py`, `macro_analyst.py`, `market_data.py`, `onchain_whale_watcher.py`, `oracle_agent.py`, `quartermaster.py`, `sentiment_specialist.py`, `slot_operator.py`, `trade_analyst.py`, `whale_tracker.py`.
+- Todas as rotas FastAPI (`market.py`, `chat.py`, `system.py`, `admin.py`, `sandbox.py`, `backtest_routes.py`) foram desacopladas para rotear exclusivamente pela Laya Soberana e Hermes.
 
-### 7.3 Analise
-- **MacroAnalyst** (`agents/macro_analyst.py`) — risco macro BTC (Pearson panic >0.8 + BTC <-2%).
-- **Librarian** (`agents/librarian.py`) — DNA do ativo/rankings (ciclo 2h).
-- **LibrarianAuditor** (`agents/librarian_auditor.py`) — ajuste de bias (ciclo 4h, range 0.5–1.2).
-- **TradeAnalyst** (`agents/trade_analyst.py`) — autopsia pos-trade (ciclo 30min).
-- **SentimentSpecialist** (`agents/sentiment_specialist.py`) — LS-Ratio + Funding (sem LLM).
-
-### 7.4 Infra
-- **FleetAudit** (`agents/fleet_audit.py`) — reconciliacao 20s, Early ROI Panic (-80% em <300s).
-- **KronosScorer** (`services/kronos_scorer.py`) — **[V134-NOVO]** Servico de scoring de conviccao via series temporais. Usa Kronos-mini (4.1M params, CPU, contexto 2048) da Microsoft/Tsinghua (AAAI 2026). Funciona como uma 5a dimensao no consenso de frota do CaptainAgent, com peso de 18% no unified_score. Opera em dois modos:
-  - **Modo REAL** (com `pip install kronos-forecast torch`): inferencia com Kronos-mini, preve direcao das proximas 12 velas, calcula conviccao baseada em alinhamento de direcao + dispersao entre trajetorias.
-  - **Modo FALLBACK** (sem PyTorch): usa regressao linear simples nos closes — leve, rapido, sempre disponivel.
-  - Cache por simbolo com TTL 60s. Timeout de 5s por predicao. Fallback automatico para score=50 se falhar.
-  - Config: `KRONOS_ENABLED`, `KRONOS_MODEL_NAME`, `KRONOS_SCORE_WEIGHT` (0.18), `KRONOS_INTERVAL` ("5"), `KRONOS_CACHE_TTL`(60), `KRONOS_TIMEOUT`(5.0), `KRONOS_FALLBACK_SCORE`(50).
-- **Quartermaster** (`agents/quartermaster.py`) — leverage por wick: SMOOTH(<0.45,50x) / JUMPY(0.45–0.70,20x) / EXTREME(>0.70,10x).
-- **HermesAgent** (`agents/hermes_agent.py`) — compliance/telemetria/chat; le este arquivo + `vault_galaxy/`.
-- **JarvisBrain** (`agents/jarvis_brain.py`) — chat multi-dimensao (10 dimensoes).
-- **AIService** (`agents/ai_service.py`) — cascade DeepSeek → Gemini → OpenRouter.
-- **ExecutionAuditorAgent** (`agents/execution_auditor.py`) — sentinel de execucao: sanitiza chaves de preco, valida contratos OKX, forca leverage, alerta no Firebase.
-- **PhaseDetector** (`services/phase_detector.py`) — deteccao de Fase 1 (acumulacao) e Fase 2 (compressao) para antecipar explosoes.
-- **PortfolioGuardian** (`services/portfolio_guardian.py`), **SentinelAuditor** (`services/sentinel_auditor.py`) — iniciados no startup.
-
-Iniciados no startup (`backend/main.py`): phase_detector, okx_ws_public/service, fleet_audit, hermes_agent, signal_generator (loops), captain, flash_agent, librarian, trade_analyst, portfolio_guardian, sentinel_auditor, sandbox_service, sandbox_swing_service, sandbox_scalping_engine.
+Iniciados no startup (`backend/main.py`): okx_ws_public_service, telegram_service, hermes_agent, laya_autonomous_loop, slots_broadcast_loop, sentinel_auditor, sandbox_service, sandbox_swing_service.
 
 ---
 

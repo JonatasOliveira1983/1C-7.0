@@ -11,7 +11,7 @@ from services.okx_rest import okx_rest_service
 from services.okx_ws_public import okx_ws_public_service
 from services.vault_service import vault_service
 from services.execution_protocol import execution_protocol
-from services.agents.oracle_agent import oracle_agent
+# oracle_agent decommissioned
 from services.phase_detector import phase_detector
 from config import settings
 
@@ -594,23 +594,7 @@ class SignalGenerator:
                         if cache and (time.time() - cache["updated_at"]) < 300:
                             consensus = cache["data"]
                         else:
-                            from services.agents.captain import captain_agent
-                            # [V125 Failsafe Timeout] Evita congelamento se os agentes do kernel demorarem a responder
-                            try:
-                                consensus = await asyncio.wait_for(
-                                    captain_agent._get_fleet_consensus({
-                                        "symbol": symbol,
-                                        "side": sig.get("side", "Buy"),
-                                        "score": sig.get("score", 70)
-                                    }),
-                                    timeout=3.0
-                                )
-                            except asyncio.TimeoutError:
-                                logger.warning(f"⏱️ [FLEET-TIMEOUT] Timeout de 3s na consulta do consenso para {symbol}. Usando fallback neutro.")
-                                consensus = {
-                                    "unified_confidence": 50,
-                                    "intel": {"macro": 50, "micro": 50, "smc": 50, "onchain": 50}
-                                }
+                            consensus = {"unified_confidence": 50, "intel": {"macro": 50, "micro": 50, "smc": 50, "onchain": 50}}
                             self.radar_consensus_cache[symbol] = {"data": consensus, "updated_at": time.time()}
                         
                         sig["unified_confidence"] = consensus.get("unified_confidence", 50)
@@ -708,16 +692,7 @@ class SignalGenerator:
             d_active = [sig for sig in signals[:10] if sig.get("decorrelation", {}).get("is_active")]
             avg_d_score = sum(d_scores) / len(d_scores) if d_scores else 0
             
-            # [V110.172] BTC Dominance — valor real via Oracle (era mockado com random!)
-            try:
-                from services.agents.oracle_agent import oracle_agent
-                _oracle_ctx = await oracle_agent.get_context()
-                mock_dom = _oracle_ctx.get("dominance", 0.0)
-                if mock_dom <= 0:
-                    from services.agents.macro_analyst import macro_analyst
-                    mock_dom = getattr(macro_analyst, '_dom_cache', 58.0) or 58.0
-            except Exception:
-                mock_dom = 58.0
+            mock_dom = 58.0
             
             # [V110.950] Calculate Global Heat Index (Average velocity of monitored symbols)
             try:
@@ -1041,7 +1016,7 @@ class SignalGenerator:
 
             # 🆕 [V110.32.1] Sync and Validate with Oracle Agent
             try:
-                from services.agents.oracle_agent import oracle_agent
+                # oracle_agent decommissioned
                 oracle_payload = {"last_adx_calc_at": time.time()}
                 if symbol == "BTCUSDT.P":
                     oracle_payload["btc_adx"] = adx
@@ -1440,7 +1415,7 @@ class SignalGenerator:
             
             # [V110.35.0] Sync BTC Direction with Oracle
             try:
-                from services.agents.oracle_agent import oracle_agent
+                # oracle_agent decommissioned
                 if direction != 'NEUTRAL': # Don't sync neutral to prevent panic kills
                     await oracle_agent.update_market_data("signal_generator", {"btc_direction": direction})
             except Exception as e:
@@ -2764,12 +2739,8 @@ class SignalGenerator:
                     oracle_context=oracle_ctx
                 )
 
-                # 🆕 [V110.999] BTC CLIMATE & TSUNAMI DETECTOR
-                try:
-                    from services.agents.macro_analyst import macro_analyst
-                    btc_dominance = await macro_analyst._get_btc_dominance()
-                except Exception:
-                    btc_dominance = 58.0
+                # BTC CLIMATE & TSUNAMI DETECTOR
+                btc_dominance = 58.0
                 
                 if btc_dominance <= 0:
                     btc_dominance = 58.0
@@ -2864,8 +2835,7 @@ class SignalGenerator:
                     if self.system_state != "PAUSED" or (time.time() * 1000 - self.last_state_update > 30000):
                         self.system_state = "PAUSED"
                         self.last_state_update = time.time() * 1000
-                        from services.agents.captain import captain_agent
-                        lr = getattr(captain_agent, 'last_reconciliation_time', 0)
+                        lr = int(time.time() * 1000)
                         await firebase_service.update_system_state("PAUSED", 0, reason, protocol="Sniper V15.1", last_reconciliation=lr)
                         logger.info(f"🔴 V15.1: System → PAUSED ({reason})")
                     await asyncio.sleep(5) 
@@ -2881,8 +2851,7 @@ class SignalGenerator:
                     self.system_state = "SCANNING"
                     self.system_message = desired_scanning_msg
                     self.last_state_update = time.time() * 1000
-                    from services.agents.captain import captain_agent
-                    lr = getattr(captain_agent, 'last_reconciliation_time', 0)
+                    lr = int(time.time() * 1000)
                     await firebase_service.update_system_state("SCANNING", occupied_count, desired_scanning_msg, protocol="Sniper V15.1", last_reconciliation=lr)
                     logger.info(f"[STAGE-0] V15.1: System -> SCANNING ({desired_scanning_msg})")
 
@@ -2895,8 +2864,7 @@ class SignalGenerator:
                     if self.system_state != "MONITORING" or (time.time() - self.last_state_update > 30):
                         self.system_state = "MONITORING"
                         self.last_state_update = time.time()
-                        from services.agents.captain import captain_agent
-                        lr = getattr(captain_agent, 'last_reconciliation_time', 0)
+                        lr = int(time.time() * 1000)
                         await firebase_service.update_system_state("MONITORING", occupied_count, self.system_message, protocol="Sniper V15.1", last_reconciliation=lr)
                         logger.info(f"[STAGE-0] V15.1: MONITORING (4/4 slots ocupados). Scan CONTINUO ativo para o Radar.")
                 

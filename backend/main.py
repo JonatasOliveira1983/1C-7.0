@@ -94,9 +94,7 @@ okx_rest_service = None
 okx_ws_public_service = None
 bankroll_manager = None
 redis_service = None
-captain_agent = None  # V12.2: Standardized global
 globals()['sig_gen'] = None        # V12.2: Standardized global
-globals()['oracle_agent'] = None   # V110.32.1: Oracle Global
 
 import logging.handlers
 # Setup logging
@@ -125,7 +123,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Initializing 1CRYPTEN SPACE {VERSION}...")
     
     async def start_services():
-        global sovereign_service, database_service, websocket_service, okx_rest_service, okx_ws_public_service, bankroll_manager, redis_service, captain_agent, sig_gen
+        global sovereign_service, database_service, websocket_service, okx_rest_service, okx_ws_public_service, bankroll_manager, redis_service, sig_gen
         
         logger.info("Step 0: Loading services (slow-walk mode)...")
         try:
@@ -244,114 +242,28 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning(f"Step 2: Symbol fetch scheduled (Background): {e}")
 
-            logger.info("Step 3: Activating Agents...")
+            logger.info("Step 3: Activating Sovereign Agents (Hermes & Telegram)...")
             try:
-                from services.agents.captain import captain_agent as captain_module
                 from services.signal_generator import signal_generator as sig_gen_module
-                
-                # Assign to globals defined at module level
-                globals()['captain_agent'] = captain_module
                 globals()['sig_gen'] = sig_gen_module
-                
-                from services.agents.fleet_audit import fleet_audit
-                
-                from services.agents.macro_analyst import macro_analyst
-                from services.agents.whale_tracker import whale_tracker
-                from services.agents.onchain_whale_watcher import on_chain_whale_watcher
-                from services.agents.sentiment_specialist import sentiment_specialist
-                from services.agents.librarian import librarian_agent
-                # [V124.7] BlitzSniperAgent removido — substituido por SignalGenerator.analyze_m30_swing()
 
-                # 🆕 [V4.0 DECENTRALIZATION] Slot Operator Agents (The New Core)
-                # [V111.0] Os primeiros 4 agentes de slot ficam em memória ativa para monitoramento rápido
-                # Slots adicionais (5-40) são gerenciados diretamente via DB sem agente dedicado em memória
-                from services.agents.slot_operator import SlotOperatorAgent
-                _initial_slot_agents = min(4, settings.MAX_SLOTS)
-                for sid in range(1, _initial_slot_agents + 1):
-                    agent = SlotOperatorAgent(sid)
-                    await kernel.register_agent(agent)
-                    await agent.start()
-                    logger.info(f"🚀 [SLOT-{sid}] Agente de Operação ONLINE — Monitoramento isolado ativo.")
-                logger.info(f"🎯 [V111.0] Pool de {_initial_slot_agents} agentes ativos. Sistema suporta até {settings.MAX_SLOTS} slots simultâneos.")
-
-                # 🆕 [V110.32.1] Oracle Agent - Data Integrity Guard
-                from services.agents.oracle_agent import oracle_agent
-                await oracle_agent.initialize()
-                await kernel.register_agent(oracle_agent)
-                
-                # 🆕 [V110.113] Threshold Calibrator - Auto-calibration
-                from services.threshold_calibrator import threshold_calibrator
-                await threshold_calibrator.initialize()
-                if threshold_calibrator.enabled:
-                    logger.info("📊 [V110.113] Threshold Calibrator ENABLED - Auto-calibration active")
-                else:
-                    logger.info("📊 [V110.113] Threshold Calibrator DISABLED - Using static thresholds")
-
-                await kernel.register_agent(captain_agent)
-                await kernel.register_agent(fleet_audit)
-                await fleet_audit.start() # [V110.656] Inicia Auditoria e Proteção Panic
-                
-                await kernel.register_agent(macro_analyst)
-                await kernel.register_agent(whale_tracker)
-                await kernel.register_agent(sentiment_specialist)
-                
-                await kernel.register_agent(librarian_agent)
-                
-                # Harvester Ceifeiro consolidated into FlashAgent
-                pass
-                
-                # 🔥 [V5.4.0] HeatMonitor Agent - Ignition & Flow Intelligence
-                try:
-                    from services.agents.heat_monitor import heat_monitor_agent
-                    await kernel.register_agent(heat_monitor_agent)
-                    asyncio.create_task(heat_monitor_agent.run_monitoring_loop())
-                    logger.info("🔥 [V5.4.0] HeatMonitor ONLINE — Monitoramento de Ignição ativo.")
-                except ImportError as ie:
-                    logger.warning(f"⚠️ [V5.4.0] HeatMonitor Agent not found, skipping: {ie}")
-
-                # 🆕 [HERMES] Compliance & Telemetry Agent — DESABILITADO V120.4
+                # [HERMES] Compliance & Telemetry Agent
                 try:
                     from services.agents.hermes_agent import hermes_agent
                     await kernel.register_agent(hermes_agent)
                     await hermes_agent.start()
-                    logger.info("🟢 [HERMES] Compliance & Telemetry Agent ONLINE — Monitorando docs vs código vs runtime.")
+                    logger.info("[HERMES] Compliance & Telemetry Agent ONLINE - Monitorando docs vs codigo vs runtime.")
                 except Exception as hermes_agent_err:
-                    logger.warning(f"⚠️ [HERMES] Agent desabilitado: {hermes_agent_err}")
+                    logger.warning(f"[HERMES] Agent aviso: {hermes_agent_err}")
 
-                # 🧬 [V5.5.0] Sniper Sieve - O Funil de 200 Ativos
-                try:
-                    from services.agents.sieve_agent import sieve_agent
-                    asyncio.create_task(sieve_agent.run_sieve_loop())
-                    logger.info("🧬 [V5.5.0] Sniper Sieve ONLINE — Varredura de 200 pares ativa (20x-50x).")
-                except ImportError as ie:
-                    logger.warning(f"⚠️ [V5.5.0] Sniper Sieve Agent not found, skipping: {ie}")
-
-                logger.info("Step 3.0: [V110.240] AIOS Kernel — Fleet Active 🚀")
-
-                # [HERMES TELEGRAM] Integração nativa de Telegram
+                # [HERMES TELEGRAM] Integracao nativa de Telegram
                 from services.telegram_service import telegram_service
                 telegram_service.start_polling_task()
 
-                # Start Core Loops
-                asyncio.create_task(sig_gen._sync_radar_rtdb()) # [V15.7.6] Initial sync
-                asyncio.create_task(sig_gen.monitor_and_generate())
-                asyncio.create_task(sig_gen.track_outcomes())
-                asyncio.create_task(sig_gen.radar_loop())
-                asyncio.create_task(captain_agent.monitor_signals())
-                # ⚡ [V1.0] FLASH AGENT: Motor ultrarrápido de Escadinha e Emancipação (a cada 1s)
-                try:
-                    from services.agents.flash_agent import flash_agent
-                    await kernel.register_agent(flash_agent)
-                    await flash_agent.start()
-                    logger.info("⚡ [FLASH] Agente Flash ONLINE — Escadinha e Emancipação ultrarrápidas ativas!")
-                except Exception as e:
-                    logger.warning(f"⚠️ [FLASH] Erro ao iniciar FlashAgent: {e}")
-                # asyncio.create_task(captain_agent.monitor_active_positions_loop()) # [V4.0] Desativado em favor dos SlotOperatorAgents
-                asyncio.create_task(librarian_agent.run_loop())
-                
+                logger.info("Step 3.0: Sovereign Agent Fleet Active")
+            except Exception as e:
+                logger.error(f"Step 3: Agent sync error: {e}")
 
-                
-                # 🆕 [V110.113] Threshold Calibration Loop
                 async def threshold_calibration_loop():
                     while True:
                         try:
@@ -390,10 +302,7 @@ async def lifespan(app: FastAPI):
                             logger.debug(f"[PHASE-DETECTOR] Collect error: {e}")
                 asyncio.create_task(phase_detector_collect_loop())
                 
-                # [V27.2] Trade Analyst - Performance Intelligence (KEPT)
-                from services.agents.trade_analyst import trade_analyst
-                await kernel.register_agent(trade_analyst)
-                asyncio.create_task(trade_analyst.start_loop())
+                # Trade Analyst decommissioned - performance tracked directly via DatabaseService
                 
                 # 3.1: V5.2.3: Initial Sync - Ensure Vault and Banca are aligned with history
                 async def initial_sync():
@@ -430,45 +339,18 @@ async def lifespan(app: FastAPI):
                                 # [V16.3.1] Read consolidated cached metrics from OKX WS Public to prevent duplicate REST calls.
                                 pass
                                 
-                                # 🆕 [V110.175] FEED THE ORACLE: Alimenta o oráculo com dados reais do WebSocket
-                                if oracle_agent:
-                                    await oracle_agent.update_market_data("okx_ws_public", {
-                                        "btc_price": okx_ws_public_service.btc_price,
-                                        "btc_adx": okx_ws_public_service.btc_adx,
-                                        "btc_variation_1h": okx_ws_public_service.btc_variation_1h,
-                                        "btc_variation_24h": okx_ws_public_service.btc_variation_24h,
-                                        "btc_variation_15m": okx_ws_public_service.btc_variation_15m
-                                    })
+                                pass
 
                                 # Sync to RTDB for immediate UI update
                                 if sig_gen:
-                                    # 🆕 [V110.32.1] Fetch Validated Context from Oracle
-                                    oracle_ctx = {}
-                                    if oracle_agent:
-                                        oracle_ctx = oracle_agent.get_validated_context()
-                                        # Use Oracle ADX if available to ensure "Amnesia Guard" consistency in UI
-                                        current_adx = oracle_ctx.get("btc_adx", getattr(okx_ws_public_service, 'btc_adx', 20.0))
-                                    else:
-                                        current_adx = getattr(okx_ws_public_service, 'btc_adx', 20.0)
-                                    
-                                    # Fallback final para evitar "..."
+                                    current_adx = getattr(okx_ws_public_service, 'btc_adx', 20.0)
                                     if not current_adx or current_adx < 0.1:
                                         current_adx = 20.0
-
-                                    # 🆕 [V110.33] Fetch BTC Dominance from Macro Analyst
-                                    current_dominance = 0.0
-                                    try:
-                                        from services.agents.macro_analyst import macro_analyst
-                                        current_dominance = await macro_analyst._get_btc_dominance()
-                                        # Sync dominance to Oracle for LKG persistence
-                                        if oracle_agent and current_dominance > 0:
-                                            await oracle_agent.update_market_data("macro_analyst", {"dominance": current_dominance})
-                                    except Exception as dom_err:
-                                        logger.error(f"Error fetching dominance: {dom_err}")
-
+                                    current_dominance = 58.0
                                     btc_var_15m = getattr(okx_ws_public_service, 'btc_variation_15m', 0.0)
-                                    btc_var_1h = okx_ws_public_service.btc_variation_1h
-                                    captain_direction = getattr(captain_agent, 'last_decision', "LATERAL")
+                                    btc_var_1h = getattr(okx_ws_public_service, 'btc_variation_1h', 0.0)
+                                    captain_direction = "LATERAL"
+                                    oracle_ctx = {}
 
                                     # [V5.5.0] Calculate Global Heat Index (Average velocity of monitored symbols)
                                     try:

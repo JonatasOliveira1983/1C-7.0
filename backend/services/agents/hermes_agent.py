@@ -51,6 +51,40 @@ class HermesAgent(AIOSAgent):
     4. Emitir notificações via WebSocket para o PWA
     """
     
+    DIMENSIONS = {
+        "TRADER_ELITE": {
+            "name": "Protocolo Shadow / Sniper",
+            "triggers": ["shadow", "sniper", "trade", "posicao", "posicoes", "pnl", "gain", "loss", "setup", "operar", "entrada"],
+            "instruction": "Especialista letal no Protocolo Shadow e Sniper Elite. Foco em execucao tecnica e ROI."
+        },
+        "FINANCE_LEGACY": {
+            "name": "Gestao de Fortuna",
+            "triggers": ["patrimonio", "fortuna", "investimento", "legado", "banca", "saque", "cofre", "seguranca"],
+            "instruction": "Foco em construcao de riqueza a longo prazo, protecao de capital e o futuro da familia."
+        },
+        "STOIC_MENTOR": {
+            "name": "Filosofia e Psicologia",
+            "triggers": ["ansiedade", "ansioso", "medo", "estresse", "estressado", "disciplina", "foco", "calma", "psicologico", "emocional"],
+            "instruction": "Mentor estoico. Foco em controle emocional e disciplina inabalavel."
+        },
+        "FAMILY_GUARDIAN": {
+            "name": "Guardiao da Familia",
+            "triggers": ["familia", "fabiana", "pedro", "livia", "filhos", "esposa", "casa", "futuro"],
+            "instruction": "Protetor do legado familiar (Fabiana, Pedro Kalel e Livia)."
+        }
+    }
+
+    @classmethod
+    def detect_dimensions(cls, text: str) -> list:
+        if not text:
+            return []
+        lower = text.lower()
+        active = []
+        for dim, info in cls.DIMENSIONS.items():
+            if any(t in lower for t in info.get("triggers", [])):
+                active.append(dim)
+        return active
+
     def __init__(self):
         super().__init__(
             agent_id="agent-hermes",
@@ -101,11 +135,7 @@ class HermesAgent(AIOSAgent):
         except Exception:
             self._deepseek = None
         
-        try:
-            from services.agents.jarvis_brain import jarvis_brain
-            self._jarvis_brain = jarvis_brain
-        except Exception:
-            self._jarvis_brain = None
+        self._jarvis_brain = None
         
         # Initialize DeepSeek
         if self._deepseek and not self._deepseek._initialized:
@@ -528,9 +558,7 @@ class HermesAgent(AIOSAgent):
         await self._lazy_load_deps()
         
         # 1. Detect dimensions
-        active_dims = []
-        if self._jarvis_brain:
-            active_dims = self._jarvis_brain.detect_dimensions(user_message)
+        active_dims = self.detect_dimensions(user_message)
         
         # 2. Check if it's a compliance query
         compliance_context = None
@@ -825,7 +853,7 @@ class HermesAgent(AIOSAgent):
         if active_dims:
             dim_names = []
             for d in active_dims:
-                dim_info = self._jarvis_brain.DIMENSIONS.get(d, {}) if self._jarvis_brain else {}
+                dim_info = self.DIMENSIONS.get(d, {})
                 dim_names.append(dim_info.get("name", d))
             system += f"\n\nDimensões pessoais detectadas: {', '.join(dim_names)}\n"
         if wiki_context:

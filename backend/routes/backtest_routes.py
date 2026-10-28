@@ -7,7 +7,6 @@ from typing import List, Optional
 
 from services.backtest import data_extractor
 from services.backtest.engine import backtest_engine
-from services.agents.librarian import librarian_agent
 
 logger = logging.getLogger("BacktestRoutes")
 router = APIRouter(prefix="/api/backtest", tags=["Backtest"])
@@ -136,15 +135,10 @@ async def run_backtest(req: BacktestRunRequest):
 
 @router.get("/rankings")
 async def get_librarian_rankings():
-    """Returns the latest rankings from the Librarian Agent."""
-    # V110.33.0: Se o ranking final estiver vazio, retorna o progresso 'ao vivo'
-    rankings = librarian_agent.rankings
-    if not rankings and librarian_agent.live_rankings:
-        rankings = sorted(librarian_agent.live_rankings.values(), key=lambda x: x.get('win_rate', 0), reverse=True)
-
+    """Returns the latest rankings (Librarian Agent superseded by Laya Matrix)."""
     return {
         "status": "success",
-        "rankings": rankings,
-        "sector_analysis": librarian_agent.sector_insights,
-        "last_study": librarian_agent.last_study_time
+        "rankings": [],
+        "sector_analysis": {},
+        "last_study": 0
     }

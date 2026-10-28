@@ -236,9 +236,8 @@ async def get_sandbox_stats():
         # Tentar buscar o regime atual
         current_regime = "NEUTRAL"
         try:
-            from services.agents.captain import captain_agent
-            if hasattr(captain_agent, 'btc_market_regime'):
-                current_regime = captain_agent.btc_market_regime.get("direction", "NEUTRAL")
+            from app.services.laya_router_service import laya_router_service
+            current_regime = getattr(laya_router_service, "regime_mode", "NEUTRAL")
         except Exception:
             pass
 

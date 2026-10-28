@@ -538,19 +538,6 @@ class OKXWSPublic:
                 c24_prev = float(btc_24h[1][4])
                 self.btc_variation_24h = ((c24_latest - c24_prev) / c24_prev) * 100
 
-            # 🆕 [V110.32.1] Sync with Oracle Agent
-            try:
-                from services.agents.oracle_agent import oracle_agent
-                await oracle_agent.update_market_data("okx_ws_public", {
-                    "btc_price": self.btc_price,
-                    "btc_variation_1h": self.btc_variation_1h,
-                    "btc_variation_15m": self.btc_variation_15m,
-                    "btc_variation_24h": self.btc_variation_24h,
-                    "btc_adx": self.btc_adx
-                })
-            except Exception as oracle_err:
-                logger.error(f"Error syncing with Oracle from WS: {oracle_err}")
-
             # V15.7.4: Sync with Sniper Pulse (Every 60s)
             if now - self.last_atr_update > 60: 
                 

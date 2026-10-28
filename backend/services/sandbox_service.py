@@ -15,6 +15,68 @@ proj_service = OrderProjectionService()
 
 
 class SandboxService:
+    @staticmethod
+    def sanitize_signal(raw_signal: dict) -> dict:
+        symbol = str(raw_signal.get("symbol", "")).upper().strip()
+        direction = str(raw_signal.get("direction", "")).upper().strip()
+        if direction in ["BUY", "LONG"]:
+            direction = "LONG"
+        elif direction in ["SELL", "SHORT"]:
+            direction = "SHORT"
+
+        entry_price = float(
+            raw_signal.get("price") or 
+            raw_signal.get("entry_price") or 
+            raw_signal.get("entry_price_signal") or 
+            raw_signal.get("currentPrice") or 
+            0.0
+        )
+        if entry_price <= 0.0 and symbol:
+            try:
+                from services.okx_ws_public import okx_ws_public_service
+                entry_price = okx_ws_public_service.get_current_price(symbol)
+            except Exception:
+                entry_price = 0.0
+
+        stop_price = float(
+            raw_signal.get("stop_loss") or 
+            raw_signal.get("stop_price") or 
+            raw_signal.get("sl") or 
+            0.0
+        )
+
+        return {
+            "symbol": symbol,
+            "direction": direction,
+            "entry_price": entry_price,
+            "stop_price": stop_price,
+            "strategy": raw_signal.get("strategy", "UNKNOWN"),
+            "valid": bool(symbol and direction and entry_price > 0.0)
+        }
+
+    async def validate_order(self, symbol: str, direction: str, entry_price: float, stop_price: float, balance: float, leverage: float = 15.0) -> dict:
+        import math
+        from services.okx_service import okx_service
+        try:
+            details = await okx_service.get_instrument_details(symbol)
+            ct_val = float(details.get("ctVal", "1.0"))
+            lot_size = float(details.get("lotSize", "1.0"))
+            min_sz = float(details.get("minSz", "1.0"))
+            tick_size = float(details.get("tickSize", "0.01"))
+            raw_margin = (balance * 0.40) / 16.0
+            margin = max(0.50, min(1.00, round(raw_margin, 2)))
+            raw_qty = (margin * leverage) / (entry_price * ct_val) if entry_price > 0 else 0
+            qty = float(math.floor(raw_qty / lot_size) * lot_size) if lot_size > 0 else raw_qty
+            if qty < min_sz:
+                qty = min_sz
+            actual_notional = qty * entry_price * ct_val
+            actual_margin_required = actual_notional / leverage if leverage > 0 else 0
+            if actual_margin_required > balance:
+                return {"valid": False, "reason": "Margem excede saldo disponível"}
+            return {"valid": True, "qty": qty, "margin": margin, "notional": actual_notional}
+        except Exception as err:
+            return {"valid": False, "reason": str(err)}
+
     def __init__(self):
         self.is_running = False
         self._loop_task = None
@@ -611,15 +673,7 @@ class SandboxService:
             except Exception as e:
                 logger.warning(f"Erro ao verificar blocklist: {e}")
 
-            # [V119] Check de Segurança do Librarian DNA (Evita Memecoins, perdas consecutivas e excesso de alavancagem)
-            try:
-                from services.agents.librarian import librarian_agent
-                lib_dna = await librarian_agent.get_asset_dna(symbol)
-                if lib_dna.get("status") == "REJECTED":
-                    logger.warning(f"🛡️ [SANDBOX-LIBRARIAN-BLOCK] {symbol} negado pelo Librarian DNA: {lib_dna.get('reason')} - {lib_dna.get('advice')}")
-                    continue
-            except Exception as lib_err:
-                logger.warning(f"[SANDBOX-LIBRARIAN] Falha ao consultar Librarian DNA para {symbol}: {lib_err}")
+# Librarian check decommissioned - superseded by Laya sovereign filters
 
             macro_trend = "BULLISH"
             decor_bypass = False
@@ -720,8 +774,7 @@ class SandboxService:
             # SHORTs não têm proteção equivalente mas o sandbox é simulação — sem risco real.
             # O MACRO-BLOCK original (V115) ainda roda no sistema real (FlashAgent/Captain).
 
-            from services.agents.execution_auditor import execution_auditor_agent
-            sanitized = await execution_auditor_agent.sanitize_signal(sig)
+            sanitized = self.sanitize_signal(sig)
             if not sanitized.get("valid"):
                 logger.debug(f"🧪 [SANDBOX-NO-PRICE] {symbol} sem preço válido após auditoria — descartado")
                 continue
@@ -1018,8 +1071,7 @@ class SandboxService:
                             return
 
                         # 2. Validar e calibrar ordem usando o Sentinela (ExecutionAuditorAgent)
-                        from services.agents.execution_auditor import execution_auditor_agent
-                        audit_res = await execution_auditor_agent.validate_order(
+                        audit_res = await self.validate_order(
                             symbol=symbol,
                             direction=direction,
                             entry_price=entry_price,

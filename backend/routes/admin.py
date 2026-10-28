@@ -141,13 +141,20 @@ async def admin_nuclear_reset(admin: User = Depends(check_admin_role)):
         report.append(f"Pending slots limpos: {old_pending} locks removidos.")
         report.append(f"Recent openings limpos: {old_recent} cooldowns removidos.")
 
-        # 2.1. Limpar travas voláteis do Capitão
+        # 2.1. Limpar travas voláteis da Laya Soberana
         try:
-            from services.agents.captain import captain_agent
-            captain_snapshot = captain_agent.reset_runtime_state()
-            report.append(f"Capitão destravado: {captain_snapshot}")
+            from app.services.laya_router_service import laya_router_service
+            laya_router_service._symbol_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_cooldowns"):
+                laya_router_service._direction_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_stops"):
+                laya_router_service._direction_stops.clear()
+            if hasattr(laya_router_service, "_global_stop_history"):
+                laya_router_service._global_stop_history.clear()
+            laya_router_service._global_circuit_breaker_until = 0.0
+            report.append("Laya Soberana destravada e cooldowns zerados.")
         except Exception as e:
-            report.append(f"Capitão runtime reset parcial: {e}")
+            report.append(f"Laya runtime reset parcial: {e}")
         
         # 3. Persistir estado zerado no Firestore (via firebase_service.update_paper_state)
         try:

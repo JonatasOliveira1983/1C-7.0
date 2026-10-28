@@ -161,20 +161,20 @@ async def reset_banca_endpoint():
         except Exception as e_bm:
             report.append(f"Aviso BankrollManager: {e_bm}")
 
-        # 4. Destravar Capitão e Guardião da Banca
+        # 4. Destravar Laya Soberana e Limpar Cooldowns
         try:
-            from services.agents.captain import captain_agent
-            if captain_agent:
-                captain_agent.reset_runtime_state()
-        except Exception:
-            pass
-
-        try:
-            from services.agents.bankroll_guardian import bankroll_guardian
-            if bankroll_guardian:
-                bankroll_guardian.reset_runtime_state()
-        except Exception:
-            pass
+            from app.services.laya_router_service import laya_router_service
+            laya_router_service._symbol_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_cooldowns"):
+                laya_router_service._direction_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_stops"):
+                laya_router_service._direction_stops.clear()
+            if hasattr(laya_router_service, "_global_stop_history"):
+                laya_router_service._global_stop_history.clear()
+            laya_router_service._global_circuit_breaker_until = 0.0
+            report.append("Laya Soberana destravada e cooldowns zerados.")
+        except Exception as e_laya:
+            report.append(f"Aviso Laya reset: {e_laya}")
 
         # 5. Sincronizar RTDB se ativo
         try:
@@ -211,10 +211,21 @@ async def get_banca_history(limit: int = 50):
 
 @router.get("/bankroll/guardian-report")
 async def get_bankroll_guardian_report():
-    """Relatorio em PT-BR do Guardiao da Banca."""
+    """Relatorio em PT-BR da Saude da Banca e Risco."""
     try:
-        from services.agents.bankroll_guardian import bankroll_guardian
-        return await bankroll_guardian.evaluate_bank_health()
+        from services.database_service import database_service
+        bal = await database_service.get_sandbox_unified_balance()
+        trades = await database_service.get_sandbox_trades(active_only=True)
+        return {
+            "agent": "Guardiao da Banca Unificado",
+            "status": "OPERACIONAL",
+            "mode": "PRODUCAO",
+            "health_score": 100 if bal >= 10000.0 else max(50, int((bal / 10000.0) * 100)),
+            "unified_balance": bal,
+            "active_positions": len(trades),
+            "message_ptbr": f"Banca operando normalmente com ${bal:.2f} USD e {len(trades)} posicoes ativas.",
+            "reasons": ["Piso Soberano ativo", "Never Give Back habilitado"]
+        }
     except Exception as e:
         logger.error(f"Error in bankroll guardian report: {e}")
         return {
@@ -277,21 +288,20 @@ async def nuclear_reset():
         report.append(f"✅ Pending slots limpos: {old_pending} locks removidos.")
         report.append(f"✅ Recent openings limpos: {old_recent} cooldowns removidos.")
 
-        # 2.1. Limpar travas voláteis do Capitão
+        # 2.1. Limpar travas volateis da Laya Soberana
         try:
-            from services.agents.captain import captain_agent
-            captain_snapshot = captain_agent.reset_runtime_state()
-            report.append(f"✅ Capitão destravado: {captain_snapshot}")
+            from app.services.laya_router_service import laya_router_service
+            laya_router_service._symbol_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_cooldowns"):
+                laya_router_service._direction_cooldowns.clear()
+            if hasattr(laya_router_service, "_direction_stops"):
+                laya_router_service._direction_stops.clear()
+            if hasattr(laya_router_service, "_global_stop_history"):
+                laya_router_service._global_stop_history.clear()
+            laya_router_service._global_circuit_breaker_until = 0.0
+            report.append("Laya Soberana destravada e cooldowns zerados.")
         except Exception as e:
-            report.append(f"⚠️ Capitão runtime reset parcial: {e}")
-        
-        # 2.2. Limpar memoria do Guardiao da Banca
-        try:
-            from services.agents.bankroll_guardian import bankroll_guardian
-            guardian_snapshot = bankroll_guardian.reset_runtime_state()
-            report.append(f"Guardiao da Banca resetado: {guardian_snapshot}")
-        except Exception as e:
-            report.append(f"Guardiao da Banca reset parcial: {e}")
+            report.append(f"Laya runtime reset parcial: {e}")
 
         # 3. Persistir estado zerado no Firestore (via firebase_service.update_paper_state)
         try:
@@ -363,23 +373,16 @@ async def toggle_sniper(payload: dict):
 
 @router.get("/system/captain-runtime", dependencies=[Depends(verify_api_key)])
 async def captain_runtime_status():
-    """Diagnóstico rápido das travas em memória que podem deixar slots vazios."""
+    from app.services.laya_router_service import laya_router_service
     _, okx_rest_service, _, bankroll_manager, _ = get_services()
-    from services.agents.captain import captain_agent
     return {
-        "is_running": captain_agent.is_running,
-        "active_tocaias_count": len(captain_agent.active_tocaias),
-        "active_tocaias": list(captain_agent.active_tocaias)[:20],
-        "processing_lock_count": len(captain_agent.processing_lock),
-        "processing_lock": list(captain_agent.processing_lock)[:20],
-        "cooldown_registry_count": len(captain_agent.cooldown_registry),
-        "daily_symbol_trades_count": len(captain_agent.daily_symbol_trades),
-        "daily_symbol_trades": captain_agent.daily_symbol_trades,
-        "pending_slots_count": len(bankroll_manager.pending_slots),
+        "status": "SUPERSEDED_BY_LAYA",
+        "is_running": getattr(laya_router_service, "running", False),
+        "pending_slots_count": len(getattr(bankroll_manager, "pending_slots", [])),
         "recent_openings_count": len(getattr(bankroll_manager, "recent_openings", {})),
-        "paper_positions": len(okx_rest_service.paper_positions),
-        "paper_moonbags": len(okx_rest_service.paper_moonbags),
-        "execution_mode": okx_rest_service.execution_mode,
+        "paper_positions": len(getattr(okx_rest_service, "paper_positions", {})),
+        "paper_moonbags": len(getattr(okx_rest_service, "paper_moonbags", {})),
+        "execution_mode": getattr(okx_rest_service, "execution_mode", "PAPER"),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
 

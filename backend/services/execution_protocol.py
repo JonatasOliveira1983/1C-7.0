@@ -428,15 +428,9 @@ class ExecutionProtocol:
         # UNIT 3: >= 300% ROI -> SL em +270% + Moonbag Condicional via Ceifeiro
         # Breakeven Adaptativo: RETEST_HEAVY/EXTREME wick -> mais folego antes do BE
         if slot_type == "BLITZ_30M":
-            # Wick-Adaptive Breakeven via Librarian DNA
-            try:
-                from services.agents.librarian import librarian_agent
-                blitz_dna = await librarian_agent.get_asset_dna(symbol)
-                wick_mult = float(blitz_dna.get("wick_multiplier", 1.0))
-                is_retest_heavy = blitz_dna.get("is_retest_heavy", False)
-            except Exception:
-                wick_mult = 1.0
-                is_retest_heavy = False
+            # Wick-Adaptive Breakeven default
+            wick_mult = 1.0
+            is_retest_heavy = False
 
             if wick_mult >= 3.0 or is_retest_heavy:
                 breakeven_blitz = 60.0  # Pavio extremo ou retest: folego maximo

@@ -150,9 +150,8 @@ async def verify_api_key(x_api_key: str = Header(None)):
 
 def get_services():
     from services.agents.ai_service import ai_service
-    from services.agents.jarvis_brain import jarvis_brain
     from services.firebase_service import firebase_service
-    return ai_service, jarvis_brain, firebase_service
+    return ai_service, None, firebase_service
 
 
 # ============================================================
@@ -208,17 +207,7 @@ async def hermes_chat(payload: dict):
     # Fallback: AIService com system prompt Hermes completo
     try:
         from services.agents.ai_service import ai_service
-        from services.agents.jarvis_brain import jarvis_brain
-        
-        active_dims = jarvis_brain.detect_dimensions(user_msg)
         system = HERMES_SYSTEM_PROMPT
-        
-        if active_dims:
-            dim_names = []
-            for d in active_dims:
-                dim_info = jarvis_brain.DIMENSIONS.get(d, {})
-                dim_names.append(dim_info.get("name", d))
-            system += f"\n\nDimensões pessoais detectadas: {', '.join(dim_names)}\n"
 
         # Tenta carregar divergências de compliance
         try:
@@ -297,54 +286,46 @@ async def hermes_status():
 
 @router.post("/chat", dependencies=[Depends(rate_limit)])
 async def chat_with_captain(payload: dict):
-    ai_service, jarvis_brain, _ = get_services()
+    ai_service, _, _ = get_services()
     user_msg = payload.get("message", "")
-    use_hermes = payload.get("hermes", False)
     via = payload.get("via", "text")
     if not user_msg:
         raise HTTPException(status_code=400, detail="Mensagem vazia")
 
-    # [HERMES] Se flagged, usa HermesAgent ou fallback com system prompt completo
-        if use_hermes:
-            try:
-                from services.agents.hermes_agent import hermes_agent
-                result = await hermes_agent.handle_chat_query(user_msg, via=via)
-                return {
-                    "response": result.get("response", "Interferência no sinal..."),
-                    "context": result.get("context", {}),
-                    "hermes": True
-                }
-            except Exception as e:
-                logger.warning(f"⚠️ Hermes chat (flag) falhou, usando fallback: {e}")
-                # Fallback direto com system prompt
-                system = HERMES_FALLBACK_PROMPT
-                response = await ai_service.generate_content(prompt=user_msg, system_instruction=system)
-                return {
-                    "response": response or "Interferência no sinal...",
-                    "context": {},
-                    "hermes": True
-                }
-
-    # Standard: JarvisBrain detecta dimensões pessoais
-    active_dims = jarvis_brain.detect_dimensions(user_msg)
-    
-    if jarvis_brain.is_simple_greeting(user_msg):
-        synthesis = "Você é o JARVIS, assistente de elite do Almirante. Responda de forma natural e amigável."
-    else:
-        synthesis = jarvis_brain.get_synthesis_instruction(active_dims)
-    
-    response = await ai_service.generate_content(prompt=user_msg, system_instruction=synthesis)
-    return {"response": response or "Interferência no sinal...", "context": {"active_dimensions": active_dims}}
+    try:
+        from services.agents.hermes_agent import hermes_agent
+        result = await hermes_agent.handle_chat_query(user_msg, via=via)
+        return {
+            "response": result.get("response", "Interferência no sinal..."),
+            "context": result.get("context", {}),
+            "hermes": True
+        }
+    except Exception as e:
+        logger.warning(f"Hermes chat falhou, usando fallback direto: {e}")
+        system = HERMES_FALLBACK_PROMPT
+        response = await ai_service.generate_content(prompt=user_msg, system_instruction=system)
+        return {
+            "response": response or "Interferência no sinal...",
+            "context": {},
+            "hermes": True
+        }
 
 
 @router.post("/chat/manual")
 async def chat_manual(payload: dict):
-    ai_service, jarvis_brain, _ = get_services()
+    ai_service, _, _ = get_services()
     user_msg = payload.get("text", "")
-    active_dims = jarvis_brain.detect_dimensions(user_msg)
-    synthesis = jarvis_brain.get_synthesis_instruction(active_dims)
-    response = await ai_service.generate_content(prompt=user_msg, system_instruction=synthesis)
-    return {"response": response, "dimensions": active_dims}
+    if not user_msg:
+        return {"response": "Mensagem vazia", "dimensions": []}
+    try:
+        from services.agents.hermes_agent import hermes_agent
+        result = await hermes_agent.handle_chat_query(user_msg)
+        return {"response": result.get("response", ""), "dimensions": []}
+    except Exception as e:
+        logger.warning(f"Chat manual fallback: {e}")
+        system = HERMES_FALLBACK_PROMPT
+        response = await ai_service.generate_content(prompt=user_msg, system_instruction=system)
+        return {"response": response or "Interferência no sinal...", "dimensions": []}
 
 
 @router.post("/chat/reset", dependencies=[Depends(verify_api_key)])

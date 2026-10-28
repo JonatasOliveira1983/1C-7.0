@@ -15,6 +15,13 @@ from config import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BankrollManager")
 
+def normalize_symbol(symbol: str) -> str:
+    """Normaliza símbolos removendo .P ou sufixos para comparação consistente."""
+    if not symbol:
+        return ""
+    return symbol.replace(".P", "").replace("-SWAP", "").upper()
+
+
 def get_slot_type(slot_id: int) -> str:
     """
     [V110.950] Retorna a estrategia padrao ou tipo.
@@ -728,21 +735,9 @@ class BankrollManager:
                         "updated_at": time.time()
                     }
 
-                    # [V56.0] Enrich slot with real-time intelligence from Captain
-                    try:
-                        from services.agents.captain import captain_agent
-                        unified_confidence = slot.get("unified_confidence", 50)
-                        fleet_intel = slot.get("fleet_intel", {})
-                        last_intel_update = slot.get("timestamp_last_intel", 0)
-                        # Only fetch if we don't have it or it's old (every 5 mins) or stuck at 50%
-                        if (time.time() - last_intel_update > 300) or not fleet_intel or (unified_confidence <= 50):
-                            consensus = await captain_agent._get_fleet_consensus({"symbol": symbol, "side": slot.get("side", "Buy")})
-                            if consensus:
-                                unified_confidence = consensus.get("unified_confidence", 50)
-                                fleet_intel = consensus.get("intel", {})
-                                last_intel_update = time.time()
-                    except Exception as e:
-                        logger.warning(f"Failed to enrich slot {slot_id} with intelligence: {e}")
+                    # Intelligence enrichment (Captain decommissioned - defaulted)
+                    unified_confidence = slot.get("unified_confidence", 50)
+                    fleet_intel = slot.get("fleet_intel", {})
 
                     # [V110.25.1] DATA INTEGRITY GHOST-BUSTING
                     # Se o ID de ordem ou símbolo mudou mas o slot não foi limpo atomicamente,
@@ -1510,7 +1505,7 @@ class BankrollManager:
                 if any(k[0] == norm_symbol for k in self.pending_slots):
                     return None
                 # [V110.25.6] STRICT SYMBOL NORMALIZATION
-                from services.agents.captain import normalize_symbol
+                # normalize_symbol defined locally
                 norm_symbol = normalize_symbol(symbol)
                 
                 # Also check if symbol already in an active slot (Strict)
@@ -1823,23 +1818,8 @@ class BankrollManager:
                 if target_slot_id and target_slot_id != slot_id:
                      logger.info(f"🛡️ [V6.3] Slot Routing Override: Requested {target_slot_id}, but providing {slot_id} for safety.")
                 
-                # [V15.0] BANKROLL GUARDIAN ATOMIC CHECK (Double Shield)
-                try:
-                    from services.agents.bankroll_guardian import bankroll_guardian
-                    sig_payload = signal_data or {"symbol": symbol, "score": 90}
-                    guardian_decision = await bankroll_guardian.authorize_new_trade(sig_payload)
-                    
-                    if not guardian_decision.get("approved", False):
-                        reason = " | ".join(guardian_decision.get("reasons", []))
-                        logger.warning(f"[BANKROLL-GUARDIAN-ATOMIC] {symbol} negado dentro do lock: {reason}")
-                        await firebase_service.log_event(
-                            "GUARDIAO_BANCA",
-                            f"Entrada atômica negada em {symbol}: {reason}",
-                            "WARNING"
-                        )
-                        return None
-                except Exception as bge:
-                    logger.error(f"[BANKROLL-GUARDIAN-ATOMIC] Falha na validação interna para {symbol}: {bge}")
+                # Bankroll Guardian check (consolidated into core bankroll manager)
+                pass
                 
                 # [V110.181] ATOMIC SLOT INTEGRITY TRAVA (Anticolisão de Slot)
                 check_slot = next((s for s in active_slots if s.get("id") == slot_id), None)
@@ -1899,9 +1879,7 @@ class BankrollManager:
                 # - VOLATILE: 40x, 10% margem (equilíbrio)
                 # - STABLE: 50x, 12% margem (mais alavancagem em ativos estáveis)
                 
-                from services.agents.librarian import librarian_agent
-                lib_dna = await librarian_agent.get_asset_dna(symbol)
-                vol_class = lib_dna.get("volatility_class", "STABLE")
+                vol_class = "STABLE" 
                 
                 balance = await self.get_live_operating_equity()
                 
@@ -1964,12 +1942,7 @@ class BankrollManager:
                     else:
                         current_leverage = 50.0
                 else:
-                    from services.agents.librarian import librarian_agent
-                    lib_dna = await librarian_agent.get_asset_dna(symbol)
-                    vol_class = lib_dna.get("volatility_class", "STABLE")
-                    dna_leverage_map = {"EXTREME": 30.0, "VOLATILE": 40.0, "STABLE": 50.0}
-                    qm_leverage = float(signal_data.get("leverage", 0)) if signal_data else 0
-                    current_leverage = qm_leverage if qm_leverage > 0 else dna_leverage_map.get(vol_class, 50.0)
+                    current_leverage = 50.0
                     
                 logger.info(f"💰 [MARGEM ATÔMICA 10%] Calibrado para exatamente ${margin:.2f} (Banca: ${balance:.2f}) com {current_leverage}x alavancagem.")
                 

@@ -21,12 +21,11 @@ def get_services():
         services[2] = firebase_service
         from services.signal_generator import signal_generator
         services[3] = signal_generator
-        from services.agents.captain import captain_agent
-        services[4] = captain_agent
-        from services.agents.oracle_agent import oracle_agent
-        services[5] = oracle_agent
+        # Captain and Oracle agents decommissioned in V177 - replaced by Laya Sovereign & Hermes
+        services[4] = None
+        services[5] = None
     except Exception as e:
-        logger.error(f"❌ Error loading one or more services in Market Route: {e}")
+        logger.error(f"Error loading one or more services in Market Route: {e}")
         # We continue with what we have instead of returning all as None
         
     return tuple(services)
@@ -120,15 +119,7 @@ async def get_radar_librarian():
 
 @router.get("/captain/tocaias")
 async def get_captain_tocaias():
-    try:
-        _, _, _, _, captain_agent, _ = get_services()
-        if not captain_agent: return {"active": []}
-        raw_tocaias = getattr(captain_agent, 'active_tocaias', set())
-        norm_tocaias = [s.replace(".P", "").replace(".p", "").upper() for s in raw_tocaias]
-        return {"active": norm_tocaias}
-    except Exception as e:
-        logger.error(f"Error in /api/captain/tocaias: {e}")
-        return {"active": []}
+    return {"active": [], "status": "SUPERSEDED_BY_LAYA_LIQUIDITY_HUNT"}
 
 @router.get("/trend/{symbol}")
 async def get_trend_analysis(symbol: str):
@@ -179,7 +170,7 @@ async def get_system_state():
         
     try:
         # [V20.0] Safe Access to main variables to avoid circular imports during startup
-        okx_rest_service, okx_ws_public_service, firebase_service, signal_generator, captain_agent, oracle_agent = get_services()
+        okx_rest_service, okx_ws_public_service, firebase_service, signal_generator, _, _ = get_services()
         target_sig_gen = signal_generator
         
         # Safe Fallback values
@@ -194,24 +185,12 @@ async def get_system_state():
                 btc_price = okx_ws_public_service.get_current_price("BTCUSDT")
                 btc_var_1h = getattr(okx_ws_public_service, 'btc_variation_1h', 0)
                 btc_cvd = okx_ws_public_service.get_cvd_score("BTCUSDT")
+                btc_adx = getattr(okx_ws_public_service, 'btc_adx', 20.0)
             except Exception as btc_err:
                 logger.warning(f"Error fetching BTC telemetry: {btc_err}")
 
-        # 🆕 [V110.32.1] Fetch Oracle Context for REST Fallback
         oracle_status = "SECURE"
         stabilization_progress = 1.0
-        if oracle_agent:
-            try:
-                oracle_ctx = oracle_agent.get_validated_context()
-                oracle_status = oracle_ctx.get("status", "SECURE")
-                # Progress calculation: 150s base
-                uptime = time.time() - oracle_agent.boot_time
-                stabilization_progress = min(1.0, uptime / 150.0) if oracle_status == "STABILIZING" else 1.0
-                # Override ADX with Oracle validated ADX for consistency
-                btc_adx = oracle_ctx.get("btc_adx", btc_adx)
-                btc_dominance = oracle_ctx.get("dominance", btc_dominance)
-            except Exception as orc_err:
-                logger.warning(f"Error fetching Oracle context: {orc_err}")
 
         is_thinking = False
         if firebase_service and firebase_service.rtdb:
@@ -249,7 +228,7 @@ async def get_system_state():
             "oracle_status": oracle_status,
             "oracle_message": oracle_status,
             "stabilization_progress": stabilization_progress,
-            "last_reconciliation": getattr(captain_agent, 'last_reconciliation_time', 0) * 1000 if captain_agent else 0,
+            "last_reconciliation": int(time.time() * 1000),
             "btc_price": btc_price, 
             "btc_variation_1h": btc_var_1h, 
             "btc_variation_24h": getattr(okx_ws_public_service, 'btc_variation_24h', 0) if okx_ws_public_service else 0,
