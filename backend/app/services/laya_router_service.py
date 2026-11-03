@@ -2594,7 +2594,7 @@ class LayaRouterService:
         async def _safe_kline(p):
             async with sem_kline:
                 try:
-                    res = await asyncio.wait_for(okx_rest_service.get_klines(p, interval="60", limit=48), timeout=2.5)
+                    res = await asyncio.wait_for(okx_rest_service.get_klines(p, interval="60", limit=48), timeout=5.0)
                     if res:
                         return res
                 except Exception:
@@ -2602,7 +2602,7 @@ class LayaRouterService:
                 # Fallback instantâneo para klines da Binance pública se OKX demorar
                 try:
                     clean = p.replace("-USDT-SWAP", "USDT")
-                    async with httpx.AsyncClient(timeout=2.0) as client:
+                    async with httpx.AsyncClient(timeout=3.5) as client:
                         r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=1h&limit=48")
                         if r_b.status_code == 200:
                             raw = r_b.json()
@@ -3222,16 +3222,31 @@ class LayaRouterService:
                 clean_name = cand.get("clean_sym", cand_sym)
                 cand_kline = klines_h1_map.get(clean_name) or klines_h1_map.get(cand_sym) or []
 
-                # Se klines não estavam no cache, busca sob demanda com contingência total
+                # Se klines não estavam no cache, busca sob demanda com contingência total (OKX 6.0s + Binance fallback)
                 if not cand_kline or len(cand_kline) < 6:
                     try:
                         from services.okx_rest import okx_rest_service
-                        cand_kline = await asyncio.wait_for(okx_rest_service.get_klines(cand_sym, interval="60", limit=48), timeout=2.5)
+                        cand_kline = await asyncio.wait_for(okx_rest_service.get_klines(cand_sym, interval="60", limit=48), timeout=6.0)
                         if cand_kline:
                             klines_h1_map[clean_name] = cand_kline
                             klines_h1_map[cand_sym] = cand_kline
                     except Exception as k_err:
-                        logger.debug(f"[SOVEREIGN-GATE] Erro ao buscar klines sob demanda para {cand_sym}: {k_err}")
+                        logger.debug(f"[SOVEREIGN-GATE] Erro ao buscar klines OKX para {cand_sym}: {k_err}")
+
+                    # Fallback imediato Binance pública se OKX falhar ou demorar
+                    if not cand_kline or len(cand_kline) < 6:
+                        try:
+                            clean_b = cand_sym.replace("-USDT-SWAP", "USDT").replace(".P", "")
+                            async with httpx.AsyncClient(timeout=3.5) as client:
+                                r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean_b}&interval=1h&limit=48")
+                                if r_b.status_code == 200:
+                                    raw = r_b.json()
+                                    cand_kline = [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                                    if cand_kline:
+                                        klines_h1_map[clean_name] = cand_kline
+                                        klines_h1_map[cand_sym] = cand_kline
+                        except Exception as b_err:
+                            logger.debug(f"[SOVEREIGN-GATE] Erro fallback Binance para {cand_sym}: {b_err}")
 
                 # [INVARIANTE SOBERANA INVIOLÁVEL 2H SMA BRUNO AGUIAR + ENCRYPTOS]
                 # Nenhuma estratégia pode operar contra a tendência do timeframe 2H!
