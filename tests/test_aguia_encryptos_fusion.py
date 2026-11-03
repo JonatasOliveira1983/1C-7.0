@@ -141,6 +141,78 @@ def test_bruno_aguiar_cross_margin_sizing_math():
     assert liquid_cushion == 9400.0 # 94% livre para garantir que o preço de liquidação fique 40% a 60% de distância
 
 
+
+
+def test_macro_2h_sma_sovereign_gate_vetoes_counter_trend():
+    """Valida que NENHUMA estratégia pode abrir LONG quando a SMA 2H é de baixa (SMA 8 < 21), nem SHORT quando é de alta."""
+    # 1. Simula ativo em forte queda (como MON: SMA 8 abaixo de SMA 21 no 2H)
+    candles_bearish_1h = []
+    for i in range(30):
+        # Preço caindo de 2.0 para 1.0
+        p = 2.0 - (i * 0.03)
+        candles_bearish_1h.append([
+            str(i * 3600000),
+            str(p + 0.01),
+            str(p + 0.02),
+            str(p - 0.01),
+            str(p),
+            "1000"
+        ])
+
+    # Tenta romper para cima no H1 com parâmetros válidos
+    res_long = laya_router_service.evaluate_multi_setup_opportunity(
+        symbol="MONUSDT",
+        current_price=1.10,
+        acc_range={
+            "is_consolidating": True,
+            "resistance_h1": 1.05,
+            "support_h1": 0.95
+        },
+        lsr=1.0,
+        oi_delta_pct=5.0,
+        btc_trend_bias=0.0,
+        candles_1h=candles_bearish_1h
+    )
+
+    # O gate 2H DEVE VETAR O LONG!
+    assert res_long["qualifies"] is False
+    assert res_long["direction"] == "HOLD"
+    assert "VETO SOBERANO SMA 2H" in res_long.get("rationale", "")
+
+    # 2. Simula ativo em forte alta (SMA 8 acima de SMA 21 no 2H)
+    candles_bullish_1h = []
+    for i in range(30):
+        p = 1.0 + (i * 0.03)
+        candles_bullish_1h.append([
+            str(i * 3600000),
+            str(p - 0.01),
+            str(p + 0.02),
+            str(p - 0.01),
+            str(p),
+            "1000"
+        ])
+
+    # Tenta romper para baixo no H1 com parâmetros válidos
+    res_short = laya_router_service.evaluate_multi_setup_opportunity(
+        symbol="SOLUSDT",
+        current_price=0.90,
+        acc_range={
+            "is_consolidating": True,
+            "resistance_h1": 1.05,
+            "support_h1": 0.95
+        },
+        lsr=1.0,
+        oi_delta_pct=5.0,
+        btc_trend_bias=0.0,
+        candles_1h=candles_bullish_1h
+    )
+
+    # O gate 2H DEVE VETAR O SHORT!
+    assert res_short["qualifies"] is False
+    assert res_short["direction"] == "HOLD"
+    assert "VETO SOBERANO SMA 2H" in res_short.get("rationale", "")
+
+
 if __name__ == "__main__":
     test_parse_candle_dict_and_list()
     print("PASS: test_parse_candle_dict_and_list")

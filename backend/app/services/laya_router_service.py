@@ -1400,6 +1400,36 @@ class LayaRouterService:
             cand_dir = setup_res.get("direction")
             is_btc_symbol = "BTC" in symbol.upper()
 
+            # [INVARIANTE SOBERANA 2H SMA BRUNO AGUIAR + ENCRYPTOS]
+            if candles_1h and len(candles_1h) >= 6 and not is_btc_symbol:
+                c2h = self.aggregate_1h_to_2h(candles_1h)
+                sma_info = self.calculate_sma_cross_2h(c2h)
+                macro_dir = sma_info.get("direction")
+                if macro_dir == "SHORT" and cand_dir == "LONG":
+                    return {
+                        "qualifies": False,
+                        "direction": "HOLD",
+                        "score": 0,
+                        "strategy": "VETO_MACRO_SMA_2H",
+                        "stop_loss": 0.0,
+                        "target": 0.0,
+                        "stop_dist": 0.0,
+                        "target_dist": 0.0,
+                        "rationale": f"[VETO SOBERANO SMA 2H]: Proibido abrir LONG em {symbol}. SMA 8 (${sma_info['sma8']}) abaixo da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de baixa macro estrita. Proibido comprar faca caindo contra o macro."
+                    }
+                elif macro_dir == "LONG" and cand_dir == "SHORT":
+                    return {
+                        "qualifies": False,
+                        "direction": "HOLD",
+                        "score": 0,
+                        "strategy": "VETO_MACRO_SMA_2H",
+                        "stop_loss": 0.0,
+                        "target": 0.0,
+                        "stop_dist": 0.0,
+                        "target_dist": 0.0,
+                        "rationale": f"[VETO SOBERANO SMA 2H]: Proibido abrir SHORT em {symbol}. SMA 8 (${sma_info['sma8']}) acima da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de alta macro estrita. Proibido vender locomotiva contra o macro."
+                    }
+
             # [ENCRYPTOS MACRO CLIMATE INTELLIGENCE]:
             # Avalia Dominância do BTC (BTC.D) e clima de mercado para altcoins
             if btc_intel and not is_btc_symbol:
@@ -2689,7 +2719,18 @@ class LayaRouterService:
 
                 # Alinha a direção do radar à atração dominante do Ímã
                 if target_region == "ABAIXO" or dom_magnet == "BEARISH_SWEEP":
-                    direction = "SHORT"
+                    # [INVARIANTE SOBERANA 2H SMA]: Proibição estrita de caçar liquidez de baixa se o macro 2H for de alta!
+                    _h1_cand = klines_h1_map.get(clean_sym, [])
+                    _sma_macro_dir = None
+                    if _h1_cand and len(_h1_cand) >= 6:
+                        _c2h = self.aggregate_1h_to_2h(_h1_cand)
+                        _sma_info = self.calculate_sma_cross_2h(_c2h)
+                        _sma_macro_dir = _sma_info.get("direction")
+                    
+                    if _sma_macro_dir == "LONG":
+                        is_hunt_zone = False
+                        is_pullback_or_edge = False
+                    direction = "SHORT" 
                     target = target_p if (target_p > 0 and target_p < price) else round(price * 0.965, 4)
                     stop_loss = round(price * 1.025, 4)
                     target_dist = round(abs(price - target) / price, 4)
@@ -2720,7 +2761,18 @@ class LayaRouterService:
                     else:
                         rationale = f"ÍMÃ DE BAIXA ({target_region}): Muralha de ${target_vol_m:.1f}M USD em ${target_p:.4f} puxando o preço. Aguardando pullback para vender caro."
                 elif target_region == "ACIMA" or dom_magnet == "BULLISH_SWEEP":
-                    direction = "LONG"
+                    # [INVARIANTE SOBERANA 2H SMA]: Proibição estrita de caçar liquidez de alta se o macro 2H for de queda!
+                    _h1_cand = klines_h1_map.get(clean_sym, [])
+                    _sma_macro_dir = None
+                    if _h1_cand and len(_h1_cand) >= 6:
+                        _c2h = self.aggregate_1h_to_2h(_h1_cand)
+                        _sma_info = self.calculate_sma_cross_2h(_c2h)
+                        _sma_macro_dir = _sma_info.get("direction")
+                    
+                    if _sma_macro_dir == "SHORT":
+                        is_hunt_zone = False
+                        is_dip_or_edge = False
+                    direction = "LONG" 
                     target = target_p if target_p > 0 else round(price * 1.035, 4)
                     stop_loss = round(price * 0.975, 4)
                     target_dist = round(abs(target - price) / price, 4)
@@ -3042,6 +3094,31 @@ class LayaRouterService:
             for cand in eligible:
                 cand_sym = cand["symbol"]
                 cand_dir = cand["direction"]
+                cand_kline = klines_h1_map.get(cand.get("clean_sym", cand_sym)) or []
+
+                # [INVARIANTE SOBERANA INVIOLÁVEL 2H SMA BRUNO AGUIAR + ENCRYPTOS]
+                # Nenhuma estratégia pode operar contra a tendência do timeframe 2H!
+                if cand_kline and len(cand_kline) >= 6 and not ("BTC" in cand_sym.upper()):
+                    c2h = self.aggregate_1h_to_2h(cand_kline)
+                    sma_info = self.calculate_sma_cross_2h(c2h)
+                    macro_dir = sma_info.get("direction")
+
+                    if macro_dir == "SHORT" and cand_dir == "LONG":
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"⛔ [VETO SOBERANO SMA 2H]: LONG bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']}) abaixo da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de queda macro estrita. Proibido comprar faca caindo contra o macro.",
+                            action="VETO_MACRO_SMA_2H",
+                            confidence=99
+                        )
+                        continue
+                    elif macro_dir == "LONG" and cand_dir == "SHORT":
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"⛔ [VETO SOBERANO SMA 2H]: SHORT bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']}) acima da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de alta macro estrita. Proibido vender locomotiva contra o macro.",
+                            action="VETO_MACRO_SMA_2H",
+                            confidence=99
+                        )
+                        continue
 
                 # [V174-LIQUIDITY-MAGNET-VETO]: Veta qualquer ordem contra muralha de liquidação pesada e ZONA MORTA
                 try:

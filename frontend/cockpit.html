@@ -3406,8 +3406,9 @@
 
       // Update Modal Header
       title.textContent = `DOSSIÊ FORENSE: ${symbol} (${t.id})`;
+      const lev = (meta && meta.leverage) ? meta.leverage : (t.leverage || 50);
       badgeDir.className = isLong ? 'badge-up' : 'badge-down';
-      badgeDir.textContent = `${direction} 15X • ${status}`;
+      badgeDir.textContent = `${direction} ${Math.round(lev)}X • ${status}`;
 
       btnChart.onclick = () => {
         setChartSymbol(0, symbol);
@@ -3422,7 +3423,7 @@
             <span class="audit-kpi-label">Ativo & Operação</span>
             <div class="audit-kpi-val">${symbol}</div>
             <div style="font-size: 11px; color: ${isLong ? '#00E676' : '#FF1744'}; font-weight: 700;">
-              ${direction} • 15X ISOLADA
+              ${direction} • ${Math.round(lev)}X CRUZADA
             </div>
           </div>
 
