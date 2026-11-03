@@ -2461,7 +2461,7 @@ class LayaRouterService:
             valid_candidates.append((momentum_score, a))
 
         valid_candidates.sort(key=lambda x: x[0], reverse=True)
-        deep_dive_assets = [item[1] for item in valid_candidates[:12]]
+        deep_dive_assets = [item[1] for item in valid_candidates[:30]]
         if not deep_dive_assets:
             deep_dive_assets = assets[:6]
 
@@ -2727,7 +2727,9 @@ class LayaRouterService:
                         _sma_info = self.calculate_sma_cross_2h(_c2h)
                         _sma_macro_dir = _sma_info.get("direction")
                     
+                    _macro_vetoed = False
                     if _sma_macro_dir == "LONG":
+                        _macro_vetoed = True
                         is_hunt_zone = False
                         is_pullback_or_edge = False
                     direction = "SHORT" 
@@ -2744,7 +2746,7 @@ class LayaRouterService:
                     # [V176-OPCAO-B-ANTI-PUMP-GUARD]: Veto estrito de SHORT se houver ignição compradora genuína
                     is_pump_ignition = (has_volume_spike and spike_direction == "BULLISH") or (c_exp is not None and c_exp >= 70.0 and change_24h > 1.5)
 
-                    if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor and not is_pump_ignition:
+                    if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor and not is_pump_ignition and not _macro_vetoed:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
                         score = 88
                         multi_eval["qualifies"] = True
@@ -2769,7 +2771,9 @@ class LayaRouterService:
                         _sma_info = self.calculate_sma_cross_2h(_c2h)
                         _sma_macro_dir = _sma_info.get("direction")
                     
+                    _macro_vetoed = False
                     if _sma_macro_dir == "SHORT":
+                        _macro_vetoed = True
                         is_hunt_zone = False
                         is_dip_or_edge = False
                     direction = "LONG" 
@@ -2786,7 +2790,7 @@ class LayaRouterService:
                     # [V176-ANTI-DUMP-GUARD]: Veto estrito de LONG se houver despejo vertical com Volume Spike de baixa ou queda livre
                     is_dump_ignition = (has_volume_spike and spike_direction == "BEARISH") or (vwap > 0 and price <= vwap * 0.94)
 
-                    if is_hunt_zone and is_dip_or_edge and not is_at_resistance_ceiling and not is_dump_ignition:
+                    if is_hunt_zone and is_dip_or_edge and not is_at_resistance_ceiling and not is_dump_ignition and not _macro_vetoed:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
                         score = 88
                         multi_eval["qualifies"] = True
@@ -3094,27 +3098,49 @@ class LayaRouterService:
             for cand in eligible:
                 cand_sym = cand["symbol"]
                 cand_dir = cand["direction"]
-                cand_kline = klines_h1_map.get(cand.get("clean_sym", cand_sym)) or []
+                clean_name = cand.get("clean_sym", cand_sym)
+                cand_kline = klines_h1_map.get(clean_name) or klines_h1_map.get(cand_sym) or []
+
+                # Se klines não estavam no cache, busca sob demanda com contingência total
+                if not cand_kline or len(cand_kline) < 6:
+                    try:
+                        from services.okx_rest import okx_rest_service
+                        cand_kline = await asyncio.wait_for(okx_rest_service.get_klines(cand_sym, interval="60", limit=48), timeout=2.5)
+                        if cand_kline:
+                            klines_h1_map[clean_name] = cand_kline
+                            klines_h1_map[cand_sym] = cand_kline
+                    except Exception as k_err:
+                        logger.debug(f"[SOVEREIGN-GATE] Erro ao buscar klines sob demanda para {cand_sym}: {k_err}")
 
                 # [INVARIANTE SOBERANA INVIOLÁVEL 2H SMA BRUNO AGUIAR + ENCRYPTOS]
                 # Nenhuma estratégia pode operar contra a tendência do timeframe 2H!
-                if cand_kline and len(cand_kline) >= 6 and not ("BTC" in cand_sym.upper()):
+                if not ("BTC" in cand_sym.upper()):
+                    # REGRA FAIL-CLOSED: Se klines não estão disponíveis, VETA IMEDIATAMENTE!
+                    if not cand_kline or len(cand_kline) < 6:
+                        self.log_thought(
+                            clean_name,
+                            f"⛔ [VETO SOBERANO SMA 2H]: Klines 2H indisponíveis para {cand_sym}. Proibido operar sem confirmação macro do timeframe 2H.",
+                            action="VETO_SEM_KLINES_2H",
+                            confidence=99
+                        )
+                        continue
+
                     c2h = self.aggregate_1h_to_2h(cand_kline)
                     sma_info = self.calculate_sma_cross_2h(c2h)
                     macro_dir = sma_info.get("direction")
 
                     if macro_dir == "SHORT" and cand_dir == "LONG":
                         self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"⛔ [VETO SOBERANO SMA 2H]: LONG bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']}) abaixo da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de queda macro estrita. Proibido comprar faca caindo contra o macro.",
+                            clean_name,
+                            f"⛔ [VETO SOBERANO SMA 2H]: LONG bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']:.4f}) abaixo da SMA 21 (${sma_info['sma21']:.4f}) no 2H indica tendência de queda macro estrita. Proibido comprar faca caindo contra o macro.",
                             action="VETO_MACRO_SMA_2H",
                             confidence=99
                         )
                         continue
                     elif macro_dir == "LONG" and cand_dir == "SHORT":
                         self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"⛔ [VETO SOBERANO SMA 2H]: SHORT bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']}) acima da SMA 21 (${sma_info['sma21']}) no 2H indica tendência de alta macro estrita. Proibido vender locomotiva contra o macro.",
+                            clean_name,
+                            f"⛔ [VETO SOBERANO SMA 2H]: SHORT bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']:.4f}) acima da SMA 21 (${sma_info['sma21']:.4f}) no 2H indica tendência de alta macro estrita. Proibido vender locomotiva contra o macro.",
                             action="VETO_MACRO_SMA_2H",
                             confidence=99
                         )
