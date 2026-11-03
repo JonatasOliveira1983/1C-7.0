@@ -1774,16 +1774,18 @@ class SandboxService:
 
         is_ignition = strat_class in ("ALT_PUMP_IGNITION", "LAYA_LIQUIDITY_HUNT", "EXPLOSION_RUNNER") or "IGNITION" in str(strat_class).upper()
 
-        # [V183-FAST-BREAKEVEN-PROTECTION]: Breakeven ágil em +10% ROI (apenas 0.66% de preço a 15x)
-        # Impede que trades vencedores (+12% a +15%) revertam e virem prejuízo
-        breakeven_trigger = 8.0
-        breakeven_target_stop = 3.0
+        # [V187.3-NET-BREAKEVEN-PROTECTION]: O Stop do Breakeven DEVE cobrir 100% das taxas OKX e slippage
+        # Garantindo matematicamente lucro líquido positivo (Net PnL > 0)
+        operational_cost_roi = (0.0010 + 0.0003) * float(leverage) * 100.0  # 6.5% a 50x, 2.6% a 20x
+        min_net_buffer_roi = 1.5  # Garante pelo menos +1.5% de ROI liquido ($1.50 numa margem de $100)
+        breakeven_target_stop = max(3.0, round(operational_cost_roi + min_net_buffer_roi, 1))
+        breakeven_trigger = max(10.0, round(breakeven_target_stop + 3.0, 1))
 
         if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
             updated_stop_roi = breakeven_target_stop
             updated_level_name = "GARANTIA_LUCRO_TAXAS"
             updated_phase = "ESCADINHA"
-            history.append(f"Garantia {breakeven_trigger:.0f} ({updated_level_name}) ativada: max_roi={max_roi:.1f}% -> stop subiu para {breakeven_target_stop:.1f}% ROI")
+            history.append(f"Garantia {breakeven_trigger:.0f} ({updated_level_name}) ativada: max_roi={max_roi:.1f}% -> stop subiu para {breakeven_target_stop:.1f}% ROI (Lucro Liquido Garantido)")
             logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Garantia {breakeven_trigger:.0f}: stop movido para {breakeven_target_stop:.1f}% ROI")
 
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)

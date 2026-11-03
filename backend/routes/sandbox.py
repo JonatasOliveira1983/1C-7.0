@@ -105,7 +105,7 @@ async def get_unified_sandbox_state():
             "allocated_margin_usd": round(allocated_margin, 2),
             "allocation_percent": round(allocation_pct, 1),
             "max_margin_usd": round(BANCA_BASE * 0.40, 2),
-            "max_slots": 20,
+            "max_slots": 8,
             # [V163] Delta Direcional e Transparência de Custos OKX
             "total_fees_paid_usd": round(getattr(sandbox_service, "total_fees_paid_cache", 0.0), 2),
             "total_gross_pnl_usd": round(getattr(sandbox_service, "total_gross_pnl_cache", 0.0), 2),

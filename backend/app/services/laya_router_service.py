@@ -480,7 +480,7 @@ class LayaRouterService:
         rationale = (
             f"FUSAO AGUIA-ENCRYPTOS: SMA 8 (${sma_cross['sma8']:.4f}) {'acima da' if direction == 'LONG' else 'abaixo da'} "
             f"SMA 21 (${sma_cross['sma21']:.4f}) no 2H [{cross_type}]. "
-            f"Robos ON (1C-EXP {c_exp_val:.0f}) e Vela 5M confirmada. Executando 50X Margem Cruzada ($60)."
+            f"Robos ON (1C-EXP {c_exp_val:.0f}) e Vela 5M confirmada. Executando 50X Margem Cruzada ($100)."
         )
 
         return {
@@ -2979,7 +2979,7 @@ class LayaRouterService:
 
         daily_profit_pct = ((current_sandbox_balance - 10000.0) / 10000.0) * 100.0
         # [V187-BRUNO-AGUIAR-SLOTS] 10 Slots de Fusão Soberana ($60 cada = $600 alocado / 6% de risco total da banca)
-        max_allowed_slots = 10
+        max_allowed_slots = 8
         effective_min_score = self.MIN_ENTRY_SCORE
 
         # [V170.1-CAPITAL-FLOW] A Laya mantém operação institucional contínua em 8 slots (Score >= 85%).
@@ -3235,7 +3235,7 @@ class LayaRouterService:
 
                 # 2. Margem por Slot: 0.6% da banca realizada ($60 numa banca de $10.000)
                 # 10 slots = $600 em risco (6% total), mantendo 94% liquida como colchao contra liquidacao
-                margin_planned = max(20.0, round(realized_bal * 0.006, 2))
+                margin_planned = 100.0
 
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,

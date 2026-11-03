@@ -61,7 +61,7 @@ ORDER_STOP_LADDER_IGNITION: List[StopLevel] = [
 ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
     # [V149-PROFITABILITY] Escadinha calibrada para R:R positivo (Payoff > 2.0:1)
     # Nível 1 dispara em +10.0% ROI para evitar asfixia por spread e travar +2.0%
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 8.0, 3.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 10.0, 2.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "LUCRO_SUBSTANTIVO_LAYA", 18.0, 8.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 30.0, 18.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 45.0, 32.0, "PROFIT_LOCK"),
@@ -69,7 +69,7 @@ ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
     # [V170-SUPER-RUNNERS] Expansão infinita institucional: se o trade romper em super-tendência, a Escadinha surfa até 1200%+
     StopLevel("ESCADINHA", "LUCRO_GARANTIDO_100", 100.0, 80.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "SUCESSO_TOTAL", 130.0, 110.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "ALVO_150", 150.0, 110.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_150", 150.0, 125.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "WAVE", 200.0, 150.0, "TRAIL_LOCK"),
     StopLevel("TRAILING", "ROCKET", 300.0, 220.0, "TRAIL_LOCK"),
     StopLevel("TRAILING", "STAR", 400.0, 280.0, "TRAIL_LOCK"),
@@ -126,7 +126,7 @@ ORDER_STOP_LADDER_TRENDING: List[StopLevel] = [
     StopLevel("ESCADINHA", "LUCRO_ALTO", 80.0, 60.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "LUCRO_GARANTIDO_100", 100.0, 80.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "SUCESSO_TOTAL", 130.0, 110.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "ALVO_150", 150.0, 110.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_150", 150.0, 125.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "WAVE", 200.0, 150.0, "TRAIL_LOCK"),
     StopLevel("TRAILING", "ROCKET", 300.0, 220.0, "TRAIL_LOCK"),
     StopLevel("TRAILING", "STAR", 400.0, 280.0, "TRAIL_LOCK"),
