@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.7.7 (V177)
+# MASTER_ARCHITECTURE.md — 1Crypten 7.8.0 (V182 - SWEEP & FLIP & SUPER-RUNNERS)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-27. VERSION no codigo: `backend/main.py` VERSION="V177-COMPOUND-LADDER-SOVEREIGN-FLEET" / DEPLOYMENT_ID="V177_SOVEREIGN_LAYA_COMPOUND". Integracao do Motor de Mapa de Calor de Liquidacoes Coinglass + OKX Deep L2 (coinglass_heatmap_service.py), Extirpacao Definitiva da Contratendencia Cega (desativacao permanente de LAYA_DVWAP_REVERSION), Novo Setup Soberano LAYA_LIQUIDITY_HUNT com Imas de Liquidacao de Baleia (BULLISH_SWEEP / BEARISH_SWEEP), Veto Absoluto de Ima de Liquidez (proibido abrir SHORT com muralha de liquidacao acima), Blindagem Microestrutural 5M sem falsos positivos e Nova Interface Laya 360 com Canvas Nativo de Liquidacao em Tempo Real.*
+*Verificado contra o codigo em 2026-10-30. VERSION no codigo: `backend/main.py` VERSION="V178-SNIPER-DISCIPLINE-TURNAROUND". Extirpacao completa de LAYA_BEARISH_BREAKDOWN (proibido vender suporte/fundo em 1C-Range < 45%), Restauração estrita da postura Sniper de Pullback (SHORT apenas em 1C-Range >= 50% ou acima da VWAP a favor do Ímã do Heatmap), Circuit Breaker Direcional persistente em SQLite local_sniper.db (2 stops na mesma direção travam novas entradas por 45 minutos), Confirmação de Absorção Microestrutural 5M com pavio >= 25% e Turnaround empírico comprovado no Cockpit ($10.147,13 / +1,47%).*
 
 ---
 
@@ -316,6 +316,36 @@ Protege lucros contra devolução total (impede que trades de +30% voltem para o
 Acima de 1200% ROI (APEX): niveis `ULTRA_*` a cada +200% ROI, stop = gatilho − 200%.
 
 `ORDER_STOP_LADDER` (sem sufixo) e um alias de `TRENDING` para compatibilidade com o compliance do Hermes.
+
+### 3.7 `ORDER_STOP_LADDER_IGNITION` (Super-Runners & Ignição Altcoin) [V181]
+Escadinha exclusiva para estratégias de ignição e expansão institucional (`ALT_PUMP_IGNITION`, `LAYA_LIQUIDITY_HUNT`, `LAYA_SWEEP_AND_FLIP`).
+Evita o sufocamento precoce por ruído de microestrutura 5M, conferindo fôlego para o ativo surfar tendências explosivas:
+| Gatilho ROI | Stop ROI | Nome | Status |
+|---|---|---|---|
+| 16.0% | +3.5% | GARANTIA_TAXAS_IGNITION | RISCO_ZERO (Cobre taxas e dá folga) |
+| 30.0% | +18.0% | LUCRO_CONFIRMADO | PROFIT_LOCK (+US$ 18 garantidos) |
+| 50.0% | +35.0% | EXPANSAO_ALVO | PROFIT_LOCK (+US$ 35 garantidos) |
+| 80.0% | +60.0% | SUPER_PUMP_80 | PROFIT_LOCK (+US$ 60 garantidos) |
+| 120.0% | +95.0% | SUPER_PUMP_120 | PROFIT_LOCK (+US$ 95 garantidos) |
+| 200.0% | +160.0% | PUMP_LENDARIO_200 | PROFIT_LOCK |
+| 350.0% | +280.0% | MOON_RUNNER_350 | TRAIL_LOCK |
+| 500.0% | +420.0% | SUPERNOVA_500 | TRAIL_LOCK |
+| 1000.0% | +850.0% | GOD_MODE_1000 | TRAIL_LOCK |
+
+### 3.8 Time-Stop Preventivo Anti-Sangria (45 Minutos) [V181]
+- Se um trade de ignição não demonstrar força e permanecer estagnado por mais de **45 minutos (2700s)** com `ROI <= -8.0%` e pico inferior a `+6.0%`:
+  - O motor encerra preventivamente a mercado com status `CLOSED_TIME_STOP`.
+  - Estanca as perdas em cerca de **-US$ 8 a -US$ 10**, impedindo que a posição sangre passivamente até o stop cheio de -21%.
+
+### 3.9 Protocolo Sweep & Flip e Colheita no Topo [V182]
+Mecanismo de captura dupla de liquidez em ciclos de exaustão institucional de Smart Money:
+1. **Identificação de Sweep**: Quando uma ordem ativa em LONG atinge expansão (`max_roi >= 18%` ou `pnl >= 15%`) e o micro-timeframe 5M imprime pavio superior pronunciado ($\ge 35\%$) com vela fechando para baixo (`cl <= o`), confirmando rejeição de topo.
+2. **Confirmação do Ímã**: O Heatmap de Liquidação da OKX/Coinglass confirma muralha de liquidez institucional dominante posicionada **ABAIXO** do preço.
+3. **Colheita de Lucro (`CLOSED_SWEEP_HARVEST`)**: A posição de LONG é encerrada a mercado no pico, travando os lucros máximos de topo.
+4. **Virada de Mão (`LAYA_SWEEP_AND_FLIP`)**: A Laya abre imediatamente um SHORT no mesmo par:
+   - **Stop Loss Cirúrgico**: Posicionado 1 tick acima da máxima do pavio do sweep (~0.8% a 1.2% de distância).
+   - **Take Profit**: Projetado no bolsão de liquidação dominante inferior.
+   - **Relação R:R**: $\ge 3:1$ a $4:1$.
 
 ### 3.7 Proteções Adicionais (Scalping/Swing/Laya Sandbox)
 
@@ -1111,6 +1141,86 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
     - **Padronização Widescreen da Página Plutus (`/plutus`)**:
         * Removido cabeçalho estático legado e injetado o Shell Universal (`shell.js`) com Drawer Lateral e Net Worth em tempo real.
         * Layout expandido para 100% Full-Bleed sem barras pretas laterais em monitores ultrawide.
+
+
+54. **[V183-BREAKEVEN-10-AND-LEVERAGE-15-20X] Calibração de Breakeven a +10% ROI, Time-Stop Universal e Alavancagem 15x/20x** (2026-11-01):
+    - **Breakeven Antecipado em +10.0% ROI (sandbox_service.py & order_projection_service.py)**:
+        * O gatilho de ativação do Breakeven foi calibrado de +16.0% para **+10.0% ROI**, movendo imediatamente o stop para **+2.5% ROI** (garantindo o pagamento integral das comissões OKX e lucro líquido positivo).
+        * A 15x de alavancagem, +10.0% ROI exige apenas 0.66% de variação de preço a favor, blindando o capital contra reversões institucionais precoces.
+        * O trailing stop Never Give Back preserva 100% da capacidade de surfar tendências longas (escadinha de 50% do pico de lucro até 1.000% ROI).
+    - **Time-Stop Universal sem Brechas de Retorno**:
+        * Removida a trava nd max_roi < 6.0. Qualquer operação com mais de 45 minutos de duração que esteja operando em prejuízo ($\le -8.0\%$ ROI) é liquidada imediatamente a mercado (CLOSED_TIME_STOP), eliminando o sangramento lento de posições exauridas.
+    - **Restauração de Alavancagem 15x Padrão e 20x com Stop Curto (laya_router_service.py)**:
+        * Alavancagem padronizada em 15x para ordens padrão e 20x para operações de alta convicção institucional (score >= 95).
+        * Distância de stop inicial calibrada para 1.2% a 1.4% de variação de preço (stop ROI máximo entre -18% e -20%), mantendo a integridade da banca mesmo em stops cheios.
+
+
+55. **[V184-OPTIMAL-BREAKEVEN-8-AND-PROFIT-STOP-3] Calibração Ótima de Breakeven em +8.0% ROI e Stop Garantido em +3.0% ROI** (2026-11-02):
+    - **Gatilho de Breakeven em +8.0% ROI (`sandbox_service.py` & `order_projection_service.py`)**:
+        * Redução do gatilho de +10.0% para **+8.0% ROI** (+0.40% de movimento de preço a 20x ou +0.53% a 15x).
+        * Garante que impulsos de alta que atingem +8% a +9.5% ROI (como a anomalia do CORE a +9.43%) ativem imediatamente a blindagem de capital.
+    - **Stop Móvel Garantido em +3.0% ROI**:
+        * Stop ajustado de +2.5% para **+3.0% ROI** ao disparar o Breakeven.
+        * Absorve integralmente os custos operacionais da OKX (Taker 0.05% abertura + 0.05% fechamento + slippage 0.03% = 2.60% ROI a 20x) e ainda gera um retorno líquido positivo de **+0.40% na banca**, garantindo lucro real mesmo em reversões de mercado.
+
+
+56. **[V185-SCORE-85-EXPANSION] Ativação Operacional em Score >= 85% e Alavancagem Proporcional** (2026-11-02):
+    - **Abertura do Filtro de Entrada (`laya_router_service.py`)**:
+        * Redução do limiar mínimo de execução autônoma de `score >= 90` para **`score >= 85`** (`MIN_ENTRY_SCORE = 85`).
+        * Aumenta a vazão e amostragem de altcoins em aceleração institucional inicial nos 507 contratos OKX.
+    - **Blindagem Matemática Integrada**:
+        * Protegido pelo Breakeven V184 (+8.0% ROI / Stop em +3.0% ROI) e Time-Stop de 45 minutos.
+        * **Alavancagem Proporcional**:
+            - Score 85 a 94: operam em **15x** (seguro e elástico, Breakeven com +0.53% de preço).
+            - Score >= 95: operam em **20x** (convicção máxima da Laya, Breakeven com +0.40% de preço).
+
+
+57. **[V186-PARIDADE-EXECUCAO-STOP-OKX] Paridade Estrita de Execução de Stop Loss e Trailing Stop no Sandbox** (2026-11-02):
+    - **Eliminação de Slippage Duplo e Preço de Polling Atrasado (`sandbox_service.py`)**:
+        * Correção do cálculo de saída em `stop_hit`: ao violar o stop móvel ou de perda, a execução base ocorre exatamente no `stop_price` configurado na exchange (`exit_price = stop_price if stop_price > 0 else current_price`), espelhando a ordem condicional nativa da OKX.
+        * O slippage a mercado e as comissões Taker (0.05% abertura + 0.05% fechamento + 0.03% slippage) continuam sendo rigorosamente deduzidos na fórmula matemática `operational_cost_roi`.
+        * Elimina a anomalia onde ordens protegidas em Breakeven (+3.0% ROI) fechavam artificialmente negativas devido ao intervalo de amostragem (polling) do WebSocket.
+    - **Evidência Empírica TDD**:
+        * Teste unitário automatizado em `tests/test_v186_stop_execution_parity.py` validado com 100% de sucesso.
+
+
+
+58. **[V187-FUSAO-AGUIA-ENCRYPTOS-SOBERANA] Fusao Soberana Aguia (Bruno Aguiar) + Encryptos (Phenix)** (2026-11-03):
+    - **Metodologia Bruno Aguiar (Aguia Spread)**:
+        * **Timeframe Soberano 2H**: SMA 8 (Branca) vs SMA 21 (Amarela). Alinhamento ou cruzamento no 2H define a direcao macro inegociavel da tendencia.
+        * **Gatilho de Entrada 5M**: Confirmacao na vela de 5 minutos a favor da direcao sem veto do Guardiao de Microestrutura.
+        * **Gestao de Risco de Alta Alavancagem e Margem Cruzada**: 50x de alavancagem em Margem Cruzada (Cross Margin), alocando estritamente **0.6% de margem por operacao** ($60 numa banca de $10.000).
+        * **10 Slots Operacionais ($600 = 6% de risco total da banca)**: 94% ($9.400) do capital permanece 100% liquido como colchao de colateral unificado, empurrando o preco de liquidacao para 40% a 60% de distancia do preco de entrada.
+        * **Breakeven Ultra-Rapido a 50x**: Com apenas +0.16% de movimento de preco favoravel, a operacao atinge +8.0% ROI e ativa o Breakeven (+3.0% ROI garantido), tornando o trade livre de risco imediatamente.
+    - **Filtro Antifraude Encryptos (Phenix)**:
+        * O setup so e acionado se houver confluencia com fluxo institucional real: `1C-EXP >= 70` ou Robos Institucionais Ligados (`bot_ignition = True`) e Farol do BTC favoravel. Elimina whipsaws e entradas em moedas sem liquidez.
+    - **Telemetria Laya 360 (`/laya`) e Cockpit (`/`)**:
+        * Painel visual dedicado exibindo: SMA 8 2H, SMA 21 2H, Status de Cruzamento/Alinhamento, Gatilho 5M e Racional de Fusao.
+    - **Validacao Empirica TDD**:
+        * Teste unitario e de confluencia automatizado em `tests/test_aguia_encryptos_fusion.py` com 6 testes aprovados com 100% de sucesso.
+
+
+59. **[V187.2-UNIFIED-BRUNO-PHENIX-RISK-ENGINE] Gestao de Risco Unificada com Alavancagem Maxima da Moeda e Margem 0.6%** (2026-11-03):
+    - **Alavancagem Maxima Permitida pela OKX com Teto em 50x**:
+        * A alavancagem para qualquer operacao (seja Fusao direta ou antecipacao por Cacada de Liquidez / Rompimento H1) e calculada dinamicamente: `leverage = min(50.0, okx_universe_service.get_max_leverage(sym))`.
+        * Se o ativo permite ate 10x, 20x ou 25x (como LAB, AKE, BEAT), abre na alavancagem maxima dele; se permite 50x, 75x ou 100x (como SOL, XRP, SUI, DOGE, PEPE), crava no teto de 50x.
+    - **Margem Fixa Padronizada de 0.6% ($60 em Banca de $10.000)**:
+        * Todas as ordens operam com alocacao estrita de 0.6% da banca por slot, permitindo ate 10 slots simultaneos (6% de risco total da banca em Margem Cruzada e 94% de colateral liquido).
+    - **Sinergia Antecipacao (Phenix) + Confirmacao (Bruno Aguiar)**:
+        * A Laya pode antecipar a entrada pelo Ima de Liquidez ou Gatilho 5M antes do cruzamento da SMA 2H; quando o Breakeven protege o trade a risco zero, o trade surfa a grande tendencia macro quando as SMAs 2H finalmente cruzam.
+
+
+60. **[V187.3-COCKPIT-SMA-2H-UI-ALIGNMENT] Alinhamento Visual do Cockpit: SMA 8/21 nos 4 Gráficos, Timeframe 2H e Monitor de Banca Unificado** (2026-11-03):
+    - **Médias Móveis Visuais nos 4 Gráficos Nativos (LightweightCharts)**:
+        * Implementação das linhas de SMA 8 (Branca `#FFFFFF`, largura 1.5) e SMA 21 (Amarela `#F0B90B`, largura 1.5) com cálculo vetorial instantâneo (`computeSMA`) renderizado em todos os 4 gráficos (G1, G2, G3, G4) em modos Solo, Dual e Quad.
+        * Atualização em tempo real via WebSocket OKX (`candle2H` / canal ativo) mantendo as médias dinamicamente atualizadas a cada tick de preço.
+    - **Timeframe 2H Integrado no Cockpit e Backend**:
+        * Inclusão do seletor `2H` nos cabeçalhos dos 4 gráficos (`data-tf="120"`).
+        * Rota `/api/candles` em `backend.main` mapeada com suporte nativo a `bar=2H` para OKX SWAP e Binance Fallback (`2h`).
+    - **Card de Banca Soberana e Gestão de Risco Alinhado ao Sistema Bruno + Phenix**:
+        * Badge: `ATÉ 50X CRUZADA` (substituindo o antigo `15X ISOLADA`).
+        * Monitor de Slots: `0 / 10 ATIVOS` com subtítulo dinâmico `(MAX $600 • $60/ORDEM • 6% RISCO | 94% LIVRE)`.
+        * Teto de Risco da Mesa: `RISK: 0% / 6%` (substituindo o teto genérico de 40%).
 
 ---
 

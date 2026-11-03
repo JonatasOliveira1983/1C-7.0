@@ -267,6 +267,29 @@ class OpenVikingContextService:
             tags=["patterns", "trading", "websocket", "stop_loss", "pullback", "guard", "v175"],
         )
 
+        # V187: Fusao Soberana Aguia (Bruno Aguiar) + Encryptos (Phenix)
+        uri_v187_pat = "viking://user/memories/patterns/aguia_encryptos_fusion"
+        l0_v187_pat = "V187: Fusao Soberana Aguia (Bruno Aguiar) + Encryptos (Phenix) com SMA 8/21 2H, Gatilho 5M, Alavancagem Dinamica ate 50x em Margem Cruzada e Risco 0.6% por Ordem (Max 10 Slots = 6% da Banca)."
+        l1_v187_pat = (
+            "FUSAO AGUIA + ENCRYPTOS (V187):\n"
+            "• Timeframe 2H Soberano: SMA 8 (Branca) vs SMA 21 (Amarela) define a direcao macro inegociavel.\n"
+            "• Gatilho de Entrada 5M: Confirmacao na vela de 5 minutos alinhada a tendencia sem veto de microestrutura.\n"
+            "• Margem Cruzada & Alavancagem Dinamica ate 50x: leverage = min(50.0, max_coin_lev); margem fixa de 0.6% da banca por ordem ($60 em $10k).\n"
+            "• 10 Slots Operacionais = 6% de Risco Total: 94% do capital permanece como colateral liquido livre.\n"
+            "• Sinergia de Antecipacao: Laya antecipa entradas por cacada de liquidez / rompimento H1 antes do cruzamento 2H; Breakeven em +8% ROI blinda o trade a risco zero (+3% ROI garantido)."
+        )
+        self.nodes[uri_v187_pat] = VikingNode(
+            uri=uri_v187_pat,
+            title="V187: Fusao Soberana Aguia (Bruno Aguiar) + Encryptos (Phenix)",
+            l0_abstract=l0_v187_pat,
+            l1_overview=l1_v187_pat,
+            l2_detail=l1_v187_pat,
+            tags=["patterns", "trading", "aguia_fusion", "bruno_aguiar", "encryptos", "cross_margin", "sma_2h", "v187"],
+        )
+
+        # Semântica PAPER vs REAL
+        uri_balance = "viking://user/memories/patterns/unified_balance"
+
         # Semântica PAPER vs REAL
         uri_balance = "viking://user/memories/patterns/unified_balance"
         l0_balance = "Semântica PAPER vs REAL: Em PAPER o Cockpit espelha a Banca Simulada Realizada; em REAL conecta diretamente à OKX."

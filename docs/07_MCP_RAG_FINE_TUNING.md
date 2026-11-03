@@ -260,6 +260,35 @@ A versão **V175** resolve em nível de kernel assíncrono as latências de rede
    - Em consolidações (ADX < 20), vetam-se ordens vendidas no fundo do range (`c_range < 35%`) e ordens compradas no topo (`c_range > 65%`).
    - Requer-se pullback técnico até a metade do canal (`c_range \ge 50%` ou preço $\ge$ VWAP para SHORT; `c_range \le 50%` ou preço $\le$ VWAP para LONG), protegendo o capital contra repiques bruscos em suportes e resistências.
 
+
+### 3.9. [V187] Fusão Soberana Águia (Bruno Aguiar) + Encryptos (Phenix) & Alinhamento Visual 2H
+
+A versão **V187** formaliza a fusão entre a análise de tendência macro via médias móveis rápidas da metodologia Águia e os filtros institucionais de fluxo da Encryptos:
+
+1. **Invariante de Tendência Macro 2H (SMA 8 x SMA 21)**:
+   - **SMA 8 (Branca)** vs **SMA 21 (Amarela)** calculadas no timeframe de 2 Horas (120m).
+   - Se SMA 8 > SMA 21 $\implies$ Viés Direcional Soberano `LONG`.
+   - Se SMA 8 < SMA 21 $\implies$ Viés Direcional Soberano `SHORT`.
+   - Cruzamento visual iminente ou consolidado define a postura inegociável da mesa.
+
+2. **Gatilho de Entrada 5M Sem Veto de Microestrutura**:
+   - A entrada de alta alavancagem ocorre com o fechamento da vela de 5 minutos alinhada à direção da tendência 2H.
+   - Veto rigoroso caso a vela 5M atual esteja em esticamento contra o movimento ou absorvendo fluxo oposto.
+
+3. **Gestão de Risco de Alta Alavancagem em Margem Cruzada (Cross Margin)**:
+   - **Alavancagem Dinâmica até 50x**: $	ext{leverage} = \min(50.0, 	ext{max\_coin\_leverage})$. Se a moeda aceitar até 20x (ex: LAB, W), usa 20x; se aceitar 50x, 75x ou 100x (ex: SOL, BTC, DOGE), crava em 50x.
+   - **Alocação Fixa de 0.6% por Posição**: Em uma banca de \$10.000,00, cada ordem aloca rigorosamente \$60,00 de margem inicial.
+   - **10 Slots Operacionais Simultâneos = 6% de Risco Máximo**: A exposição máxima total da frota é limitada a 6% (\$600,00), mantendo 94% (\$9.400,00) de colateral líquido livre na exchange para ancorar o preço de liquidação.
+   - **Breakeven Relâmpago a 50x**: Com apenas $+0.16\%$ de variação de preço favorável, o trade atinge $+8.0\%$ de ROI e ativa o Breakeven com $+3.0\%$ de ROI garantido, tornando a posição livre de risco.
+
+4. **Sinergia Tática (Antecipação Encryptos + Confirmação Águia)**:
+   - A Laya pode antecipar posições por Caçada de Liquidez (`LAYA_LIQUIDITY_HUNT`) ou Rompimento H1 (`LAYA_SMART_MONEY_H1`) antes do cruzamento das SMAs de 2H. Uma vez blindadas a risco zero pelo Breakeven, as posições surfam o grande movimento direcional quando as SMAs 2H confirmam o cruzamento.
+
+5. **Cockpit UI Alinhado ao Padrão 2H**:
+   - Monitor Multi-Gráfico exibe os 4 gráficos nativos configurados por padrão em **2H**.
+   - Linhas vetoriais de **SMA 8 (Branca)** e **SMA 21 (Amarela)** renderizadas sobre os candles com legendas ativas.
+   - Card de Banca Soberana com badge `ATÉ 50X CRUZADA`, monitor de slots `X / 10 ATIVOS`, subtítulo dinâmico `MAX $600 • $60/ORDEM • 6% RISCO | 94% LIVRE` e teto de risco calibrado em `RISK: X% / 6%`.
+
 ---
 
 ## 4. 🛠️ Guia de Manutenção e Operação

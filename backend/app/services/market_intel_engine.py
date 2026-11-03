@@ -141,8 +141,21 @@ class MarketIntelEngine:
         )
 
         # Detecção de Ignição de Robôs Institucionais
-        bot_ignition = exp_score >= 70.0 and vol24h >= 1_000_000.0
-        if exp_score >= 80.0:
+        # a) Ignição por Compressão / Mola (Expansão Iminente)
+        is_squeeze_ignition = exp_score >= 70.0 and vol24h >= 1_000_000.0
+        # b) Ignição por Despejo / Tendência Institucional de Venda (Breakdown em Queda)
+        is_bearish_breakdown_ignition = (
+            vol24h >= 10_000_000.0
+            and change_24h <= -1.5
+            and ("BLOODBATH" in btc_climate or "SHORT" in btc_climate or "CORRECTION" in btc_climate or range_level <= 35.0)
+        )
+        bot_ignition = is_squeeze_ignition or is_bearish_breakdown_ignition
+
+        if is_bearish_breakdown_ignition:
+            bot_status = "DESPEJO INSTITUCIONAL (ROBÔS SHORT ON)"
+            setup = "BEARISH_BREAKDOWN"
+            action = "SHORT"
+        elif exp_score >= 80.0:
             bot_status = "EXPANSÃO INSTITUCIONAL MÁXIMA"
         elif exp_score >= 70.0:
             bot_status = "IGNIÇÃO DE ROBÔS DETECTADA"
@@ -151,19 +164,20 @@ class MarketIntelEngine:
         else:
             bot_status = "FLUXO RESIDUAL/LATERAL"
 
-        # Setup inferido
-        if range_level <= 15.0:
-            setup = "RANGE_FLOOR_REVERSAL"
-            action = "LONG"
-        elif range_level >= 85.0:
-            setup = "RANGE_CEILING_REVERSAL"
-            action = "SHORT" if "SHORT" not in btc_climate else "HOLD"
-        elif exp_score >= 70.0:
-            setup = "MOMENTO_MOLA_COMPRESSION"
-            action = "LONG" if change_24h >= 0 else "SHORT"
-        else:
-            setup = "ACCUMULATION_CONSOLIDATION"
-            action = "HOLD"
+        # Setup inferido (quando não for bearish breakdown)
+        if not is_bearish_breakdown_ignition:
+            if range_level <= 15.0:
+                setup = "RANGE_FLOOR_REVERSAL"
+                action = "LONG"
+            elif range_level >= 85.0:
+                setup = "RANGE_CEILING_REVERSAL"
+                action = "SHORT" if "SHORT" not in btc_climate else "HOLD"
+            elif exp_score >= 70.0:
+                setup = "MOMENTO_MOLA_COMPRESSION"
+                action = "LONG" if change_24h >= 0 else "SHORT"
+            else:
+                setup = "ACCUMULATION_CONSOLIDATION"
+                action = "HOLD"
 
         return {
             "symbol": symbol,
@@ -197,14 +211,25 @@ class MarketIntelEngine:
         """
         active_assets = []
 
+        FORBIDDEN_BASE = {
+            "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
+            "PENGU", "TRUTH", "WAL", "TURBO", "BRETT", "POPCAT", "MOG", "CAT", "FARTCOIN", "USELESS", "CASHCAT",
+            "MUBARAK", "TRUMP", "WLFI", "RSR", "ONE", "RVN", "STRK",
+            "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"
+        }
+
         for inst_id, t_data in tickers_cache.items():
             if not inst_id.endswith("-USDT-SWAP"):
                 continue
             if exclude_btc and inst_id.startswith("BTC"):
                 continue
 
+            base = inst_id.split("-")[0].upper()
+            if base in FORBIDDEN_BASE or "SATS" in base:
+                continue
+
             last_px = float(t_data.get("last", 0.0) or 0.0)
-            if last_px <= 0:
+            if last_px < 0.01:
                 continue
 
             vol_usd = float(t_data.get("volume_24h_usd", t_data.get("volCcy24h", 0.0)) or 0.0)

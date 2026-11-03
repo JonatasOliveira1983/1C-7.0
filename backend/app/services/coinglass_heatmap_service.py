@@ -36,6 +36,19 @@ class CoinglassHeatmapService:
         norm_sym = self._normalize_symbol(symbol)
         now = time.time()
 
+        if not passed_candles:
+            try:
+                from main import _candles_cache
+                cache_key = f"{norm_sym}_5m_80"
+                if cache_key in _candles_cache:
+                    cached_obj = _candles_cache[cache_key][1]
+                    if isinstance(cached_obj, dict):
+                        passed_candles = cached_obj.get("data", [])
+                    elif isinstance(cached_obj, list):
+                        passed_candles = cached_obj
+            except Exception:
+                pass
+
         cached = self._cache.get(norm_sym)
         if cached and (now - cached.get("_cached_at", 0)) < self._cache_ttl:
             # Se o preço passado for válido e diferente do cache, atualiza dinamicamente

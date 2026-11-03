@@ -41,17 +41,12 @@ class OKXUniverseService:
         
         # [V160] Cesta Canônica Soberana das Top 30 Altcoins de Elite Institucional da OKX (Zero BTC para trade)
         self._titans_30_altcoins = [
-            # Top Tier L1 Consagradas & Bluechips (11)
-            "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "SUI-USDT-SWAP", "AVAX-USDT-SWAP",
-            "ADA-USDT-SWAP", "XRP-USDT-SWAP", "LINK-USDT-SWAP", "DOT-USDT-SWAP", "SEI-USDT-SWAP", "TON-USDT-SWAP",
-            # Layer 2 & Rollups (5)
-            "ARB-USDT-SWAP", "OP-USDT-SWAP", "ZK-USDT-SWAP", "XPL-USDT-SWAP", "POL-USDT-SWAP",
-            # DeFi & Oráculos de Topo (7)
-            "UNI-USDT-SWAP", "AAVE-USDT-SWAP", "MKR-USDT-SWAP", "PYTH-USDT-SWAP", "ONDO-USDT-SWAP", "INJ-USDT-SWAP", "PENDLE-USDT-SWAP",
-            # IA, DePIN & Big Data (5)
-            "RENDER-USDT-SWAP", "FET-USDT-SWAP", "TIA-USDT-SWAP", "ICP-USDT-SWAP", "AR-USDT-SWAP",
-            # Liquidez Consagrada (2)
-            "DOGE-USDT-SWAP", "LTC-USDT-SWAP"
+            "APR-USDT-SWAP", "PARTI-USDT-SWAP", "AKE-USDT-SWAP", "IRYS-USDT-SWAP", "BEAT-USDT-SWAP",
+            "BICO-USDT-SWAP", "XDP-USDT-SWAP", "HUMA-USDT-SWAP", "ENA-USDT-SWAP", "ZK-USDT-SWAP",
+            "INIT-USDT-SWAP", "W-USDT-SWAP", "WLD-USDT-SWAP", "CAP-USDT-SWAP", "ARB-USDT-SWAP",
+            "ADA-USDT-SWAP", "XPL-USDT-SWAP", "AXIS-USDT-SWAP", "BLEND-USDT-SWAP", "MERL-USDT-SWAP",
+            "MON-USDT-SWAP", "SAND-USDT-SWAP", "XRP-USDT-SWAP", "CORE-USDT-SWAP", "CHIP-USDT-SWAP",
+            "HBAR-USDT-SWAP", "CT-USDT-SWAP", "DOS-USDT-SWAP", "LAB-USDT-SWAP", "NIGHT-USDT-SWAP"
         ]
 
         # [V160] Cesta Canônica Imutável dos 10 Titãs de Elite Institucional da OKX
@@ -242,6 +237,19 @@ class OKXUniverseService:
                 logger.debug(f"[OKX-UNIVERSE] Erro ao obter tickers de {url}: {e}")
 
         return self._tickers_cache
+
+    def get_max_leverage(self, symbol: str) -> float:
+        """[V187.2] Retorna a alavancagem maxima real que a OKX autoriza para o contrato."""
+        specs = self.get_specs(symbol)
+        lev = float(specs.get("maxLeverage", 0.0) or 0.0)
+        if lev > 0:
+            return lev
+        clean = symbol.upper().replace("-USDT-SWAP", "").replace("USDT", "")
+        if clean in ("BTC", "ETH", "SOL", "XRP", "SUI", "AVAX"):
+            return 100.0
+        elif clean in ("DOGE", "PEPE", "SHIB", "ADA", "LINK", "NEAR", "APT"):
+            return 50.0
+        return 20.0
 
     def get_specs(self, symbol: str) -> Dict[str, Any]:
         """Retorna as especificações de contrato reais de qualquer moeda."""
@@ -434,61 +442,28 @@ class OKXUniverseService:
             tick_sz=tick_sz
         )
 
-    async def get_tradable_universe(
+    async def get_institutional_universe(
         self,
         limit: int = 30,
-        min_volume_usd: float = 3_000_000.0,
+        min_volume_usd: float = 15_000_000.0,
+        min_price: float = 0.01,
         exclude_btc: bool = True
     ) -> List[Dict[str, Any]]:
         """
-        [V160] Retorna a cesta oficial dos Top 30 Titãs Altcoins de elite institucional da OKX.
-        O BTC é excluído da lista de execução de ordens por atuar exclusivamente como Oráculo Macro.
-        Combina o catálogo oficial com os preços em tempo real, filtrando 100% de tokens ruidosos.
+        [V178] UNIVERSO INSTITUCIONAL DE ELITE (507 PARES OKX):
+        Fonte ÚNICA de verdade para Cockpit, Laya 360 e Motor Autônomo.
+        - Filtro 1: Volume real 24h >= $15M USD (apenas ativos de alta liquidez institucional)
+        - Filtro 2: Preço mínimo >= $0.01 (veto a satoshis e memecoins de microcentavos como PUMP)
+        - Filtro 3: Governança estrita anti-memecoins, ações e commodities sintéticas
+        - Ordenação: Maior Volume Institucional 24h com desempate por amplitude direcional (|change_24h|)
         """
+        now = time.time()
+        if hasattr(self, "_inst_univ_cache") and self._inst_univ_cache and (now - getattr(self, "_last_inst_univ_ts", 0.0) < 15.0):
+            return self._inst_univ_cache[:limit]
+
         await self.sync_instruments()
         await self.sync_tickers()
 
-        universe = []
-        if limit <= 10:
-            target_core = [c for c in self._titans_10 if not (exclude_btc and c.startswith("BTC"))]
-        elif limit <= 30:
-            target_core = [c for c in self._titans_30_altcoins if not (exclude_btc and c.startswith("BTC"))]
-        else:
-            target_core = [c for c in self._core_assets if not (exclude_btc and c.startswith("BTC"))]
-
-        seen = set()
-        for core_id in target_core:
-            if exclude_btc and core_id.startswith("BTC"):
-                continue
-            if core_id in self._tickers_cache and core_id in self._instruments_cache:
-                t = self._tickers_cache[core_id]
-                s = self._instruments_cache[core_id]
-                if t.get("last", 0.0) > 0:
-                    seen.add(core_id)
-                    universe.append({
-                        "symbol": core_id,
-                        "pair": s["pair"],
-                        "clean_sym": s["pair"],
-                        "price": t["last"],
-                        "high_24h": t["high24h"],
-                        "low_24h": t["low24h"],
-                        "change_24h": t["change24h_pct"],
-                        "volume_24h_usd": t["volume_24h_usd"],
-                        "ctVal": s["ctVal"],
-                        "tickSize": s["tickSize"],
-                        "lotSize": s["lotSize"],
-                        "minSz": s["minSz"],
-                        "is_core": True
-                    })
-
-        # Adiciona os demais ativos com maior volume 24h apenas se forem institucionais
-        other_tickers = [
-            t for inst_id, t in self._tickers_cache.items()
-            if inst_id not in seen and inst_id in self._instruments_cache and t.get("last", 0.0) > 0
-        ]
-        other_tickers.sort(key=lambda x: x.get("volume_24h_usd", 0.0), reverse=True)
-
-        # Governança: Filtra Memecoins, BTC benchmark, tokens de pó e derivativos de ações/commodities
         FORBIDDEN_BASE = {
             "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
             "PENGU", "TRUTH", "WAL", "TURBO", "BRETT", "POPCAT", "MOG", "CAT", "FARTCOIN", "USELESS", "CASHCAT",
@@ -496,36 +471,63 @@ class OKXUniverseService:
             "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"
         }
 
-        for t in other_tickers:
-            if len(universe) >= limit:
-                break
-            inst_id = t["instId"]
-            base_coin = inst_id.split("-")[0].upper()
-            if base_coin in FORBIDDEN_BASE or "SATS" in base_coin or t.get("last", 0.0) < 0.05:
+        candidates = []
+        for inst_id, t in self._tickers_cache.items():
+            if not inst_id.endswith("-USDT-SWAP"):
+                continue
+            if exclude_btc and inst_id.startswith("BTC"):
+                continue
+            base = inst_id.split("-")[0].upper()
+            if base in FORBIDDEN_BASE or "SATS" in base:
                 continue
 
-            s = self._instruments_cache[inst_id]
-            if t.get("volume_24h_usd", 0.0) < min_volume_usd:
+            last_px = float(t.get("last", 0.0) or 0.0)
+            if last_px < min_price:
                 continue
-            universe.append({
+
+            vol_usd = float(t.get("volume_24h_usd", 0.0) or t.get("volCcy24h", 0.0) or 0.0)
+            if vol_usd < min_volume_usd:
+                continue
+
+            s = self._instruments_cache.get(inst_id)
+            pair_name = s["pair"] if s else inst_id.replace("-USDT-SWAP", "USDT")
+            chg = float(t.get("change24h_pct", 0.0) or t.get("change_24h", 0.0) or 0.0)
+
+            candidates.append({
                 "symbol": inst_id,
-                "pair": s["pair"],
-                "clean_sym": s["pair"],
-                "price": t["last"],
-                "high_24h": t["high24h"],
-                "low_24h": t["low24h"],
-                "change_24h": t["change24h_pct"],
-                "volume_24h_usd": t["volume_24h_usd"],
-                "ctVal": s["ctVal"],
-                "tickSize": s["tickSize"],
-                "lotSize": s["lotSize"],
-                "minSz": s["minSz"],
-                "is_core": False
+                "pair": pair_name,
+                "clean_sym": pair_name,
+                "price": last_px,
+                "high_24h": float(t.get("high24h", last_px) or last_px),
+                "low_24h": float(t.get("low24h", last_px) or last_px),
+                "change_24h": round(chg, 2),
+                "volume_24h_usd": vol_usd,
+                "ctVal": s.get("ctVal", 1.0) if s else 1.0,
+                "tickSize": s.get("tickSize", 0.0001) if s else 0.0001,
+                "lotSize": s.get("lotSize", 1.0) if s else 1.0,
+                "minSz": s.get("minSz", 1.0) if s else 1.0,
+                "is_core": True,
+                "is_institutional": True
             })
 
-        # Ordena a cesta de ativos por volume e relevância de mercado
-        universe.sort(key=lambda x: x.get("volume_24h_usd", 0.0), reverse=True)
-        return universe[:limit]
+        # Ordena por Volume Institucional (como APR em primeiro) com desempate por amplitude
+        candidates.sort(key=lambda x: (x["volume_24h_usd"], abs(x["change_24h"])), reverse=True)
+        self._inst_univ_cache = candidates
+        self._last_inst_univ_ts = now
+        return candidates[:limit]
+
+    async def get_tradable_universe(
+        self,
+        limit: int = 30,
+        min_volume_usd: float = 15_000_000.0,
+        exclude_btc: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Delega diretamente para o universo institucional canônico de 507 pares."""
+        return await self.get_institutional_universe(
+            limit=limit,
+            min_volume_usd=min_volume_usd,
+            exclude_btc=exclude_btc
+        )
 
 
 okx_universe_service = OKXUniverseService()

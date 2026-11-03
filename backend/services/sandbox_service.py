@@ -1462,6 +1462,79 @@ class SandboxService:
             logger.error(f"[SANDBOX-RECALC] Erro ao recalcular saldo fechado base: {e}")
             return self.base_balance_cache
 
+    async def close_active_trade(self, trade_id: str, reason: str = "CLOSED_SWEEP_HARVEST", exit_price: Optional[float] = None) -> bool:
+        """[V182-SWEEP-AND-FLIP] Encerra ativamente uma ordem com colheita no topo ou evento estrutural."""
+        try:
+            from services.database_service import database_service
+            from services.order_projection_service import proj_service
+            trades = await database_service.get_sandbox_trades(active_only=True)
+            target = None
+            for t in trades:
+                if t.id == trade_id:
+                    target = t
+                    break
+            if not target:
+                return False
+
+            p = exit_price or await self._get_current_price(target.symbol)
+            if not p or p <= 0:
+                p = float(target.current_price or target.entry_price)
+
+            entry_p = float(target.entry_price)
+            side = "buy" if target.direction == "LONG" else "sell"
+            meta = dict(target.contract_meta or {})
+            leverage = float(meta.get("leverage") or 12.0)
+            margin = float(meta.get("margin", 100.0))
+
+            exit_roi = proj_service.calculate_roi(entry_p, p, side, leverage)
+            operational_cost_roi = 0.0013 * leverage * 100.0
+            final_pnl = round(exit_roi - operational_cost_roi, 4)
+
+            notional = round(margin * leverage, 2)
+            fee_open = round(notional * 0.0005, 2)
+            fee_close = round(notional * 0.0005, 2)
+            slippage = round(notional * 0.0003, 2)
+            total_fees = round(fee_open + fee_close + slippage, 2)
+            net_usd = round((final_pnl / 100.0) * margin, 2)
+
+            meta.update({
+                "margin": margin,
+                "leverage": leverage,
+                "notional_usd": notional,
+                "net_roi": final_pnl,
+                "net_pnl_usd": net_usd,
+                "total_fees_usd": total_fees
+            })
+
+            flash_state = dict(target.flash_state or {})
+            history = list(flash_state.get("history") or [])
+            history.append(f"[{reason}] Colheita executada a ${p:.4f} com {final_pnl:+.1f}% ROI (+${net_usd:+.2f}).")
+            flash_state["history"] = history
+            flash_state["active_level"] = reason
+
+            payload = {
+                "closed_at": time.time(),
+                "current_price": p,
+                "current_roi": exit_roi,
+                "pnl_pct": final_pnl,
+                "status": reason,
+                "flash_state": flash_state,
+                "contract_meta": meta
+            }
+
+            await database_service.update_sandbox_trade(target.id, payload)
+            await self.recalculate_realized_balance()
+            try:
+                from routes.sandbox import invalidate_unified_state_cache
+                invalidate_unified_state_cache()
+            except Exception:
+                pass
+            logger.info(f"🌾 [SANDBOX-HARVEST] {target.symbol} {target.direction} colhido no topo com {final_pnl:+.1f}% ROI (+${net_usd:+.2f}) [{reason}]")
+            return True
+        except Exception as e:
+            logger.error(f"[SANDBOX-CLOSE-ACTIVE-ERR] {e}")
+            return False
+
     async def _price_update_loop(self):
         """
         Loop de 1s que monitora stops com a mesma logica robusta do FlashAgent:
@@ -1699,11 +1772,12 @@ class SandboxService:
         slot_type = getattr(trade, 'slot_type', '') or ''
         is_swing = (slot_type == 'SWING' or strat_class in ('VELOCITY FLOW', 'ALPHA SHIELD', 'DECOR SHADOW', 'LAYA_SMART_MONEY_H1'))
 
-        # [V169-NEVER-GIVE-BACK] Breakeven com lucro real digno:
-        # Só ativa Risco Zero quando o trade tiver se desenvolvido (> +12.0% ROI)
-        # Trava o stop em +5.0% ROI (cobre integralmente taxas e slippage da OKX ~1.95%, garantindo lucro líquido de +3.05% ROI)
-        breakeven_trigger = 12.0
-        breakeven_target_stop = 5.0
+        is_ignition = strat_class in ("ALT_PUMP_IGNITION", "LAYA_LIQUIDITY_HUNT", "EXPLOSION_RUNNER") or "IGNITION" in str(strat_class).upper()
+
+        # [V183-FAST-BREAKEVEN-PROTECTION]: Breakeven ágil em +10% ROI (apenas 0.66% de preço a 15x)
+        # Impede que trades vencedores (+12% a +15%) revertam e virem prejuízo
+        breakeven_trigger = 8.0
+        breakeven_target_stop = 3.0
 
         if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
             updated_stop_roi = breakeven_target_stop
@@ -1715,11 +1789,12 @@ class SandboxService:
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
 
-        # [V162-SNIPER-UNSTRANGLE] GARANTIA_TRAIL institucional — só aciona acima de +14.0% ROI
-        # Dá espaço técnico para a operação respirar e buscar alvos de +25%, +35%, +50% ROI sem ser sufocada no ruído
-        if max_roi >= 14.0:
-            trail_stop_roi = max(5.0, round(max_roi * 0.65, 1))
-            trail_pct_label = "65%"
+        # [V181-SUPER-RUNNERS-TRAIL] Trailing institucional com respiro amplo:
+        # Para ignição/runners, só aciona acima de +35.0% ROI para não asfixiar o movimento
+        trail_min_trigger = 35.0 if is_ignition else 14.0
+        if max_roi >= trail_min_trigger:
+            trail_stop_roi = max(18.0 if is_ignition else 5.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.65, 1))
+            trail_pct_label = "75%" if is_ignition else "65%"
 
             if trail_stop_roi > updated_stop_roi:
                 updated_stop_roi = trail_stop_roi
@@ -1841,13 +1916,26 @@ class SandboxService:
 
             if stop_hit:
                 # [V119] Sem confirmações REST lentas para o Sandbox. Fecha instantaneamente!
-                exit_price = current_price if current_price > 0 else stop_price
+                # [V186-PARIDADE-EXECUCAO-STOP-OKX]: Stop Loss e Trailing Stop disparam no stop_price configurado
+                exit_price = stop_price if stop_price > 0 else current_price
                 current_price = exit_price
                 current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
                 is_closed = True
                 should_run_blocklist = True
                 closed_at = time.time()
                 status = "CLOSED_STOP"
+
+        # [V181-TIME-STOP-PREVENTIVO] Corta falsas ignições antes que sangrem até o stop total (-21% ROI)
+        trade_age = time.time() - float(trade.opened_at or time.time())
+        if not is_closed and is_ignition and trade_age > 2700 and current_roi <= -8.0:
+            exit_price = current_price
+            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
+            is_closed = True
+            should_run_blocklist = True
+            closed_at = time.time()
+            status = "CLOSED_TIME_STOP"
+            history.append(f"[TIME-STOP] Falha de ignicao apos {int(trade_age/60)}min (ROI={current_roi:.1f}%). Abortado preventivamente para evitar stop maximo.")
+            logger.warning(f"⏱️ [SANDBOX-TIME-STOP] {symbol} cortado preventivamente aos {int(trade_age/60)}min com ROI={current_roi:.1f}% (evitou stop de -21%)")
 
         # 12. Atualizar flash state
         flash_state.update({
@@ -1992,11 +2080,14 @@ class SandboxService:
                 
                 asyncio.create_task(execute_real_mirror_close())
 
-            status = "CLOSED_TRAILING" if final_pnl > 0 else "CLOSED_SL"
+            if status != "CLOSED_TIME_STOP":
+                status = "CLOSED_TRAILING" if final_pnl > 0 else "CLOSED_SL"
             update_payload["status"] = status
 
             if status == "CLOSED_TRAILING":
                 history.append(f"[TRAILING] Stop atingido em {exit_price} — fechado lucrativo com +{final_pnl:.1f}% ROI")
+            elif status == "CLOSED_TIME_STOP":
+                history.append(f"[TIME-STOP] Posição encerrada preventivamente aos {int(trade_age/60)}min com {final_pnl:.1f}% ROI (perda mitigada)")
             else:
                 history.append(f"Stop atingido em {exit_price} (SL configurado em {stop_price})")
                 # [V162-COOLDOWN-FIX] Quarentena canônica rigorosa de 2 horas (7200s) pós-Stop Loss

@@ -28,7 +28,7 @@ class StopLevel:
 ORDER_STOP_LADDER_RANGING: List[StopLevel] = [
     # [V119] Escadinha RANGING Progressiva e Acelerada (Calibrada)
     # Folga maior para evitar violinada precoce no lucro pequeno (+6% trigger, stop +1.5% break-even)
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 8.0, 2.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 8.0, 3.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "GARANTIA_LUCRO_CURTO", 12.0, 5.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "GARANTIA_LUCRO_MEDIO", 20.0, 10.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "GARANTIA_LUCRO_ALTO", 32.0, 18.0, "RISCO_ZERO"),
@@ -38,16 +38,30 @@ ORDER_STOP_LADDER_RANGING: List[StopLevel] = [
 
 ORDER_STOP_LADDER_SCALPING: List[StopLevel] = [
     # [V146-SCALPING] Scalping calibrado para 15x com folga real e lucro substantivo
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 10.0, 2.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 8.0, 3.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 18.0, 8.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 30.0, 18.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "TRAILING_SCALP", 45.0, 32.0, "PROFIT_LOCK"),
 ]
 
+ORDER_STOP_LADDER_IGNITION: List[StopLevel] = [
+    # [V181-EXPLOSION-RUNNERS] Escadinha Oficial para Moedas em Ignicao e Explosao (Alt Pump / Whale Ignition)
+    # Permite respiracao ampla de 1.3% a 1.5% de preco antes do Breakeven para nao estopar em recuo normal
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_IGNITION", 8.0, 3.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_CONFIRMADO", 30.0, 18.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "EXPANSAO_ALVO", 50.0, 35.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUPER_PUMP_80", 80.0, 60.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUPER_PUMP_120", 120.0, 95.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "PUMP_LENDARIO_200", 200.0, 160.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "MOON_RUNNER_350", 350.0, 280.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "SUPERNOVA_500", 500.0, 420.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "GOD_MODE_1000", 1000.0, 850.0, "TRAIL_LOCK"),
+]
+
 ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
     # [V149-PROFITABILITY] Escadinha calibrada para R:R positivo (Payoff > 2.0:1)
     # Nível 1 dispara em +10.0% ROI para evitar asfixia por spread e travar +2.0%
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 10.0, 2.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 8.0, 3.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "LUCRO_SUBSTANTIVO_LAYA", 18.0, 8.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 30.0, 18.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 45.0, 32.0, "PROFIT_LOCK"),
@@ -211,7 +225,17 @@ class OrderProjectionService:
         is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW", "LAYA_SMART_MONEY_H1")
         is_scalping = strategy_class == "VWAP SNIPER" or slot_type == "SCALPING"
         
-        if is_laya_reversion:
+        is_ignition = strategy_class in (
+            "ALT_PUMP_IGNITION",
+            "LAYA_LIQUIDITY_HUNT",
+            "EXPLOSION_RUNNER",
+            "LAYA_SWEEP_AND_FLIP",
+            "MOMENTUM_BREAKOUT"
+        ) or "IGNITION" in str(strategy_class).upper()
+
+        if is_ignition:
+            ladder = list(ORDER_STOP_LADDER_IGNITION)
+        elif is_laya_reversion:
             ladder = list(ORDER_STOP_LADDER_LAYA_REVERSION)
         elif is_swing and is_ranging:
             ladder = list(ORDER_STOP_LADDER_SWING_LATERAL)
@@ -226,7 +250,7 @@ class OrderProjectionService:
         highest_trigger = max(level.trigger_roi for level in ladder)
         target_ceiling = max(highest_trigger, roi_percent + 400.0)
         
-        if is_ranging:
+        if is_ranging and not locals().get("is_ignition", False):
             # Em Ranging, acima de 20% ROI, a escada sobe dinamicamente de 1 em 1%
             # [V124.6] Swing (BLITZ_30M) usa trailing gap maior (10%) para evitar saída prematura
             trailing_gap = 10.0 if slot_type in ("BLITZ_30M",) else 5.0

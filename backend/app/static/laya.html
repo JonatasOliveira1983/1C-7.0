@@ -837,6 +837,42 @@
           </div>
         </div>
 
+                <!-- [V187] FUSAO AGUIA (BRUNO AGUIAR) + ENCRYPTOS (PHENIX) STATUS STRIP -->
+        <div class="aguia-fusion-strip" id="aguia-fusion-strip" style="background: rgba(18, 22, 31, 0.95); border: 1px solid rgba(240, 185, 11, 0.25); border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold);"></span>
+              <span style="font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px;">
+                FUSAO SOBERANA: AGUIA 2H (BRUNO) + ENCRYPTOS (PHENIX)
+              </span>
+            </div>
+            <div id="aguia-fusion-badge">
+              <span class="hud-badge gold" style="font-size: 9px; padding: 2px 8px;">50X CRUZADA | $60</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-family: var(--font-mono); font-size: 10.5px;">
+            <div style="background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase;">SMA 8 2H (Branca)</div>
+              <div id="fusion-sma8-val" style="font-weight: 800; color: #FFFFFF; font-size: 12px;">$--.--</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase;">SMA 21 2H (Amarela)</div>
+              <div id="fusion-sma21-val" style="font-weight: 800; color: #F0B90B; font-size: 12px;">$--.--</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase;">Cruzamento / Tendencia</div>
+              <div id="fusion-cross-status" style="font-weight: 800; color: var(--green); font-size: 12px;">ALINHADO</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase;">Gatilho 5M (Vela Fechada)</div>
+              <div id="fusion-trigger-5m" style="font-weight: 800; color: var(--green); font-size: 12px;">CONFIRMADO</div>
+            </div>
+          </div>
+          <div id="fusion-rationale-text" style="font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); line-height: 1.4;">
+            Aguardando sincronizacao de metricas do ativo...
+          </div>
+        </div>
+
         <!-- L2 Orderbook Imbalance Radar -->
         <div class="obi-strip">
           <div class="obi-header">
@@ -1367,7 +1403,7 @@
         let actCls = "";
         if (act.includes("VETO")) { cls = "veto"; actCls = "veto"; }
         else if (act.includes("ABSOR") || act.includes("ORDEM")) { cls = "absorpcao"; actCls = "absorpcao"; }
-        else if (act.includes("GATILHO") || act.includes("IGNICAO")) { cls = "gatilho"; actCls = "gatilho"; }
+        else if (act.includes("GATILHO") || act.includes("IGNICAO") || act.includes("AGUIA") || act.includes("FUSION")) { cls = "gatilho"; actCls = "gatilho"; }
 
         return `
           <div class="thought-item ${cls}">
@@ -2065,6 +2101,35 @@
           const isExp = (shortStatus.reason || "").includes("EXPANSAO");
           meterMsb.textContent = isExp ? "EXPANSÃO ATIVA" : "CONSOLIDADO";
           meterMsb.style.color = isExp ? "var(--red)" : "var(--green)";
+        }
+
+                // [V187] Atualizar Painel de Fusao Aguia + Encryptos
+        const fusionData = data.aguia_fusion || {};
+        const sma8El = document.getElementById("fusion-sma8-val");
+        const sma21El = document.getElementById("fusion-sma21-val");
+        const crossEl = document.getElementById("fusion-cross-status");
+        const trig5mEl = document.getElementById("fusion-trigger-5m");
+        const ratEl = document.getElementById("fusion-rationale-text");
+
+        if (sma8El && fusionData.sma8) {
+          sma8El.textContent = `$${Number(fusionData.sma8).toFixed(fusionData.sma8 < 1 ? 4 : 2)}`;
+        }
+        if (sma21El && fusionData.sma21) {
+          sma21El.textContent = `$${Number(fusionData.sma21).toFixed(fusionData.sma21 < 1 ? 4 : 2)}`;
+        }
+        if (crossEl) {
+          const cType = fusionData.cross_type || "NEUTRAL";
+          const dir = fusionData.direction || "HOLD";
+          crossEl.textContent = `${dir} (${cType})`;
+          crossEl.style.color = dir === "LONG" ? "var(--green)" : (dir === "SHORT" ? "var(--red)" : "var(--gold)");
+        }
+        if (trig5mEl) {
+          const isConf = fusionData.trigger_5m_confirmed !== false;
+          trig5mEl.textContent = isConf ? "CONFIRMADO" : "AGUARDANDO";
+          trig5mEl.style.color = isConf ? "var(--green)" : "var(--gold)";
+        }
+        if (ratEl && fusionData.rationale) {
+          ratEl.textContent = fusionData.rationale;
         }
 
         // 5. Orderbook L2 (OBI)

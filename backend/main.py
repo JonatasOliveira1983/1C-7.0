@@ -414,7 +414,7 @@ async def lifespan(app: FastAPI):
                             from app.services.laya_router_service import laya_router_service
                             from app.services.telemetry_service import telemetry_service
                             t0_laya = time.time()
-                            res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=True)
+                            res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=False)
                             telemetry_service.record_laya_cycle(time.time() - t0_laya)
                             if res.get("order_opened"):
                                 logger.info(f"[LAYA-SOVEREIGN] Ordem autonoma aberta com sucesso: {res.get('best_setup', {}).get('symbol')}")
@@ -841,11 +841,12 @@ async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int
 
     clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
     client = _get_candles_client()
+    okx_bar = "2H" if bar in ("2H", "120", "2h") else ("1H" if bar in ("1H", "60", "1h") else bar)
 
     # 1. Tentativa Primária: OKX SWAP Perpétuo
     try:
         inst_id = f"{clean.replace('USDT', '')}-USDT-SWAP"
-        url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+        url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={okx_bar}&limit={limit}"
         resp = await client.get(url)
         if resp.status_code == 200:
             data = resp.json()
@@ -858,7 +859,7 @@ async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int
     # 2. Tentativa Secundária: OKX Spot
     try:
         spot_id = f"{clean.replace('USDT', '')}-USDT"
-        url_spot = f"https://www.okx.com/api/v5/market/candles?instId={spot_id}&bar={bar}&limit={limit}"
+        url_spot = f"https://www.okx.com/api/v5/market/candles?instId={spot_id}&bar={okx_bar}&limit={limit}"
         resp_spot = await client.get(url_spot)
         if resp_spot.status_code == 200:
             data_spot = resp_spot.json()
@@ -870,7 +871,7 @@ async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int
 
     # 3. Tentativa Terciária: Binance Futures (Sub-milissegundo para SOL, BTC, ETH, etc.)
     try:
-        bin_bar = "1h" if bar in ("1H", "60") else ("15m" if bar == "15m" else ("5m" if bar == "5m" else "1m"))
+        bin_bar = "2h" if bar in ("2H", "120", "2h") else ("1h" if bar in ("1H", "60") else ("15m" if bar == "15m" else ("5m" if bar == "5m" else "1m")))
         url_bin = f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval={bin_bar}&limit={limit}"
         resp_bin = await client.get(url_bin)
         if resp_bin.status_code == 200:

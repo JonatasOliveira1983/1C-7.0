@@ -1,18 +1,18 @@
 {
   "version": "1Crypten-Laya-Calibrated-V1.0",
-  "trained_at": 1793196220.1707497,
-  "total_samples": 21,
+  "trained_at": 1793682229.3677866,
+  "total_samples": 26,
   "priors": {
-    "BUY": 0.1429,
-    "SELL": 0.8095,
-    "HOLD": 0.0476
+    "BUY": 0.2308,
+    "SELL": 0.3462,
+    "HOLD": 0.4231
   },
   "temperature": 0.85,
   "regime_multipliers": {
     "NEUTRAL": {
-      "sample_count": 21,
-      "avg_pnl_pct": 40.53,
-      "confidence_multiplier": 1.35
+      "sample_count": 26,
+      "avg_pnl_pct": 0.37,
+      "confidence_multiplier": 1.019
     }
   },
   "min_score_threshold_buy": 82.0,

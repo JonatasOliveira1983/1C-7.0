@@ -530,7 +530,14 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
 
         candidate_setups = getattr(laya_router_service, "candidate_setups", {}) or {}
 
-        raw_titans = list(getattr(okx_universe_service, "_titans_30_altcoins", []))
+        # [V178] Universo Institucional Canônico de 507 Pares (Mesma Lista Cockpit + Laya 360)
+        try:
+            inst_universe = await okx_universe_service.get_institutional_universe(limit=30, min_volume_usd=15_000_000.0, exclude_btc=True)
+            raw_titans = [item["symbol"] for item in inst_universe]
+        except Exception:
+            raw_titans = []
+        if not raw_titans:
+            raw_titans = list(getattr(okx_universe_service, "_titans_30_altcoins", []))
         if not raw_titans:
             raw_titans = [
                 "ETH-USDT-SWAP", "SOL-USDT-SWAP", "NEAR-USDT-SWAP", "SUI-USDT-SWAP", "AVAX-USDT-SWAP",
@@ -597,6 +604,48 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
     except Exception as _e_titans:
         logger.debug(f"[360-TELEMETRY] Erro universo titas: {_e_titans}")
 
+    # 9. [V187-BRUNO-PHENIX-FUSION]: Telemetria da Fusão Águia + Encryptos (2H SMA 8x21 + 5M Gatilho)
+    fusion_info = {}
+    try:
+        cand_fusion = candidate_setups.get(clean_sym) or candidate_setups.get(clean_coin) or {}
+        if cand_fusion.get("aguia_fusion") or cand_fusion.get("strategy") == "LAYA_AGUIA_FUSION":
+            fusion_info = {
+                "active": True,
+                "strategy": "LAYA_AGUIA_FUSION",
+                "direction": cand_fusion.get("direction", "NEUTRAL"),
+                "cross_type": cand_fusion.get("cross_type", "NEUTRAL"),
+                "sma8": cand_fusion.get("sma8_2h", 0.0),
+                "sma21": cand_fusion.get("sma21_2h", 0.0),
+                "diff_pct": cand_fusion.get("diff_pct", 0.0),
+                "leverage": 50.0,
+                "margin_planned": 60.0,
+                "trigger_5m_confirmed": cand_fusion.get("candle_5m_confirmed", True),
+                "rationale": cand_fusion.get("rationale", "")
+            }
+        else:
+            # Fallback calculando ao vivo a partir dos klines em memória se disponível
+            h1_cand = laya_router_service.whale_flow_cache.get(clean_sym, {}).get("klines_h1") or []
+            if not h1_cand:
+                h1_cand = await okx_rest_service.get_klines(clean_sym.replace("USDT", "-USDT-SWAP"), interval="60", limit=48)
+            if h1_cand:
+                c2h = laya_router_service.aggregate_1h_to_2h(h1_cand)
+                sma_info = laya_router_service.calculate_sma_cross_2h(c2h)
+                fusion_info = {
+                    "active": sma_info.get("direction") in ("LONG", "SHORT"),
+                    "strategy": "LAYA_AGUIA_FUSION",
+                    "direction": sma_info.get("direction", "NEUTRAL"),
+                    "cross_type": sma_info.get("cross_type", "NEUTRAL"),
+                    "sma8": sma_info.get("sma8", 0.0),
+                    "sma21": sma_info.get("sma21", 0.0),
+                    "diff_pct": sma_info.get("diff_pct", 0.0),
+                    "leverage": 50.0,
+                    "margin_planned": 60.0,
+                    "trigger_5m_confirmed": True,
+                    "rationale": f"SMA 8 (${sma_info.get('sma8',0):.4f}) vs SMA 21 (${sma_info.get('sma21',0):.4f}) 2H [{sma_info.get('cross_type')}]."
+                }
+    except Exception as _e_f:
+        logger.debug(f"[360-FUSION-ERR] {_e_f}")
+
     return {
         "symbol": clean_sym,
         "current_price": current_price,
@@ -609,6 +658,7 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
         "flow": flow,
         "liquidations": liquidation_clusters,
         "titans": titans_list,
+        "aguia_fusion": fusion_info,
         "timestamp": time.time()
     }
 
