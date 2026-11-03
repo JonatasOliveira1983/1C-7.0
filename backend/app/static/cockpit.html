@@ -1803,8 +1803,8 @@
       }
       const side = (slot.side || slot.direction || 'BUY').toUpperCase();
       const isLong = side === 'BUY' || side === 'LONG';
-      let stop = Number(slot.current_stop || slot.stop_loss || 0);
-      let target = Number(slot.target_price || slot.target || 0);
+      let stop = Number(slot.current_stop || slot.stop_loss || (slot.projection && (slot.projection.current_stop || slot.projection.recommended_stop)) || 0);
+      let target = Number(slot.target_price || slot.target || (slot.projection && slot.projection.target_price) || 0);
       if (stop <= 0 && entry > 0) {
         stop = isLong ? entry * 0.988 : entry * 1.012;
       }
@@ -1814,8 +1814,8 @@
       const pnlPct = Number(slot.pnl_percent !== undefined ? slot.pnl_percent : (slot.current_roi !== undefined ? slot.current_roi : 0));
 
       let status = slot.status_risco || 'ORDEM ATIVA';
-      const isProfitLocked = isLong ? (stop > entry * 1.002) : (stop < entry * 0.998);
-      const isRiskFree = !isProfitLocked && (Math.abs(stop - entry) / entry < 0.0025);
+      const isProfitLocked = isLong ? (stop > entry) : (stop < entry);
+      const isRiskFree = isProfitLocked || (Math.abs(stop - entry) / entry < 0.0005);
 
       if (pnlPct >= 1.5 || isProfitLocked) status = 'TRAILING PROFIT';
       else if (pnlPct >= 0.5 || isRiskFree) status = 'PROTEGIDA (BE)';
@@ -1892,16 +1892,8 @@
       }
 
       let safeStop = ns;
-      if (safeStop && !isNaN(safeStop) && safeStop > 0) {
-        // Se ainda em risco inicial (nao travado em lucro)
-        const isLocked = isLong ? (safeStop > ne * 1.002) : (safeStop < ne * 0.998);
-        if (!isLocked) {
-          if (!isLong && safeStop <= ne) {
-            safeStop = Number((ne * 1.012).toFixed(6));
-          } else if (isLong && safeStop >= ne) {
-            safeStop = Number((ne * 0.988).toFixed(6));
-          }
-        }
+      if (!safeStop || isNaN(safeStop) || safeStop <= 0) {
+        safeStop = isLong ? Number((ne * 0.988).toFixed(6)) : Number((ne * 1.012).toFixed(6));
       }
 
       // 1. Linha de ENTRADA (Gold)
@@ -1937,9 +1929,9 @@
       let finalStatus = statusTag || 'ATIVA';
       if (safeStop && !isNaN(safeStop) && safeStop > 0) {
         try {
+          const isProfitLocked = isLong ? (safeStop > ne) : (safeStop < ne);
+          const isRiskFree = isProfitLocked || (Math.abs(safeStop - ne) / ne < 0.0005);
           const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-          const isProfitLocked = isLong ? (safeStop > ne * 1.002) : (safeStop < ne * 0.998);
-          const isRiskFree = !isProfitLocked && (Math.abs(safeStop - ne) / ne < 0.0025);
           
           let slColor = '#FF1744';
           let slTitle = `STOP LOSS (${stopPct}%)`;
