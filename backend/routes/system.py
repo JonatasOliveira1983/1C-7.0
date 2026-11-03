@@ -171,6 +171,10 @@ async def reset_banca_endpoint():
                 laya_router_service._direction_stops.clear()
             if hasattr(laya_router_service, "_global_stop_history"):
                 laya_router_service._global_stop_history.clear()
+            if hasattr(laya_router_service, "_symbol_last_profit"):
+                laya_router_service._symbol_last_profit.clear()
+            if hasattr(laya_router_service, "_last_traded_pair_ts"):
+                laya_router_service._last_traded_pair_ts.clear()
             laya_router_service._global_circuit_breaker_until = 0.0
             report.append("Laya Soberana destravada e cooldowns zerados.")
         except Exception as e_laya:
