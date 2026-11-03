@@ -401,6 +401,114 @@ class LayaRouterService:
             "diff_pct": diff_pct
         }
 
+    def classify_macro_market_regime(
+        self,
+        btc_sma_info: Dict[str, Any],
+        btc_dominance: float = 58.0,
+        btc_dominance_trend: str = "NEUTRAL"
+    ) -> Dict[str, Any]:
+        """
+        [V188-MACRO-REGIME-CLASSIFIER]
+        Classifica a mare global do mercado cripto a partir da estrutura do BTC no 2H e Dominancia.
+        """
+        btc_dir = (btc_sma_info or {}).get("direction", "NEUTRAL")
+        
+        if btc_dir == "SHORT":
+            direction = "BEAR"
+            is_expansion = btc_dominance >= 58.0 or str(btc_dominance_trend).upper() == "UP"
+            regime = "BTC_BEAR_EXPANSION" if is_expansion else "BTC_BEAR_CHOP"
+            allow_alt_shorts = True
+            allow_alt_longs = False
+        elif btc_dir == "LONG":
+            direction = "BULL"
+            regime = "BTC_BULL_RUSH"
+            allow_alt_shorts = False
+            allow_alt_longs = True
+        else:
+            direction = "NEUTRAL"
+            regime = "CHOP"
+            allow_alt_shorts = True
+            allow_alt_longs = True
+
+        return {
+            "direction": direction,
+            "regime": regime,
+            "btc_direction": btc_dir,
+            "btc_dominance": btc_dominance,
+            "allow_alt_shorts": allow_alt_shorts,
+            "allow_alt_longs": allow_alt_longs
+        }
+
+    def is_decorrelated_outlier(self, decorr_info: Dict[str, Any]) -> bool:
+        """
+        [V188-DECORRELATED-OUTLIER-DETECTOR]
+        Identifica moedas que se desgrudam do BTC com forca propria (10-15% do mercado).
+        Criterios: Baixa correlacao (<0.35 ou is_decorrelated True) E explosao de volume (vol_ratio >= 2.5x ou volume_spike).
+        """
+        if not decorr_info or not isinstance(decorr_info, dict):
+            return False
+            
+        is_dec = bool(decorr_info.get("is_decorrelated", False))
+        corr = float(decorr_info.get("correlation", 1.0))
+        vol_ratio = float(decorr_info.get("vol_ratio", 1.0))
+        vol_spike = bool(decorr_info.get("volume_spike", False))
+        confidence = float(decorr_info.get("confidence", 0.0))
+
+        has_decorrelation = is_dec or corr < 0.35 or confidence >= 60.0
+        has_abnormal_volume = vol_ratio >= 2.5 or vol_spike
+
+        return bool(has_decorrelation and has_abnormal_volume)
+
+    def validate_structural_reversal_2h(
+        self,
+        sma_info: Dict[str, Any],
+        current_price: float,
+        direction: str
+    ) -> Dict[str, Any]:
+        """
+        [V188-ANTI-KNIFE-STRUCTURAL-VALIDATION]
+        Valida quebra oficial de estrutura no 2H antes de autorizar qualquer reversao:
+        - Para LONG: SMA 8 DEVE estar >= SMA 21 no 2H E preco corrente acima da SMA 21.
+        - Para SHORT: SMA 8 DEVE estar <= SMA 21 no 2H E preco corrente abaixo da SMA 21.
+        Proibe sumariamente adivinhacao de fundo (comprar faca caindo como AEON/MON antes do pivo).
+        """
+        macro_dir = (sma_info or {}).get("direction", "HOLD")
+        sma21 = float((sma_info or {}).get("sma21", 0.0))
+        sma8 = float((sma_info or {}).get("sma8", 0.0))
+
+        norm_dir = str(direction).upper()
+
+        if norm_dir in ("LONG", "BUY"):
+            if macro_dir == "SHORT" or (sma21 > 0 and current_price < sma21) or (sma8 < sma21):
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO ANTI-FACA: Sem rompimento oficial 2H (SMA 8 ${sma8:.4f} < SMA 21 ${sma21:.4f} ou preco ${current_price:.4f} abaixo da media). Proibido adivinhar fundo.",
+                    "macro_direction": macro_dir
+                }
+            return {
+                "confirmed": True,
+                "reason": "ROMPEU_ESTRUTURA_2H: Rompimento oficial com SMA 8 acima da SMA 21 no 2H e preco sustentado.",
+                "macro_direction": "LONG"
+            }
+        elif norm_dir in ("SHORT", "SELL"):
+            if macro_dir == "LONG" or (sma21 > 0 and current_price > sma21) or (sma8 > sma21):
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO ANTI-LOCOMOTIVA: Sem rompimento de baixa 2H (SMA 8 ${sma8:.4f} > SMA 21 ${sma21:.4f} ou preco ${current_price:.4f} acima da media). Proibido vender topo sem confirmacao.",
+                    "macro_direction": macro_dir
+                }
+            return {
+                "confirmed": True,
+                "reason": "CONFIRMADO_BAIXA_2H: Tendencia de queda confirmada com SMA 8 abaixo da SMA 21 no 2H.",
+                "macro_direction": "SHORT"
+            }
+
+        return {
+            "confirmed": False,
+            "reason": "DIRECAO_INDEFINIDA",
+            "macro_direction": macro_dir
+        }
+
     def evaluate_aguia_encryptos_fusion(
         self,
         symbol: str,
@@ -1602,6 +1710,14 @@ class LayaRouterService:
             "tag": tag,
             "correlation": corr
         }
+
+    def record_trade_profit(self, symbol: str, pnl_pct: float) -> None:
+        """[V188-PROFIT-REENTRY] Registra encerramento com lucro para permitir reentrada rápida no pullback após 5min."""
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+        if not hasattr(self, "_symbol_last_profit"):
+            self._symbol_last_profit = {}
+        self._symbol_last_profit[clean] = {"time": time.time(), "pnl": float(pnl_pct)}
+        logger.info(f"🏆 [LAYA-PROFIT-REENTRY-ARMED] {clean} fechado com lucro de +{pnl_pct:.1f}% ROI. Radar armado para reentrada em pullback após 5 minutos.")
 
     def record_stop_loss(self, symbol: str, direction: str = "LONG", cooldown_seconds: int = 7200) -> None:
         """[V159-TITANS] Registra stop loss para impor quarentena institucional de 2 horas (7200s) no símbolo e Circuit Breaker Direcional."""
@@ -3024,9 +3140,14 @@ class LayaRouterService:
                     continue
                 if self.is_symbol_in_cooldown(c_clean):
                     continue
-                # [ANTI-CHURN]: Se o ativo acabou de ser negociado nos últimos 45min, aguarda
+                # [ANTI-CHURN & FAST PULLBACK REENTRY]:
+                # Se o último trade no par fechou no lucro, resfriamento reduzido para 5 minutos (300s)
+                # para permitir que a Laya pegue reentradas no pullback do mesmo ativo em forte tendência.
+                # Caso contrário, mantém o resfriamento anti-churn de 45 minutos (2700s).
                 last_pair_ts = getattr(self, "_last_traded_pair_ts", {}).get(c_clean, 0.0)
-                if (time.time() - last_pair_ts) < 2700:
+                last_profit = getattr(self, "_symbol_last_profit", {}).get(c_clean)
+                churn_cooldown = 300 if (last_profit and (time.time() - last_profit.get("time", 0)) < 7200 and last_profit.get("pnl", 0) > 0) else 2700
+                if (time.time() - last_pair_ts) < churn_cooldown:
                     continue
                 if self.is_direction_in_cooldown(c_dir):
                     continue
@@ -3129,19 +3250,52 @@ class LayaRouterService:
                     sma_info = self.calculate_sma_cross_2h(c2h)
                     macro_dir = sma_info.get("direction")
 
-                    if macro_dir == "SHORT" and cand_dir == "LONG":
+                    # [MOTOR 2: DETECÇÃO DE OUTLIERS DESCORRELACIONADOS]
+                    d_data = cand.get("decorrelation_data") or cand.get("decorrelation")
+                    if not d_data:
+                        try:
+                            from services.signal_generator import signal_generator
+                            d_cache = getattr(signal_generator, "decorrelation_cache", {}).get(cand_sym) or getattr(signal_generator, "decorrelation_cache", {}).get(clean_name)
+                            if d_cache:
+                                d_data = d_cache.get("data")
+                        except Exception:
+                            pass
+                    d_data = d_data or {}
+                    is_outlier = self.is_decorrelated_outlier(d_data) or bool(cand.get("alt_pump_ignition"))
+
+                    # [MOTOR 1: MARÉ MACRO DO BITCOIN (~90% DOS ATIVOS CORRELACIONADOS)]
+                    # Se NÃO for outlier descorrelacionado, obedece estritamente o Farol Macro do BTC
+                    if not is_outlier:
+                        if btc_trend_bias < -0.3 and cand_dir == "LONG":
+                            self.log_thought(
+                                clean_name,
+                                f"⛔ [VETO FAROL BTC MACRO]: LONG bloqueado para {cand_sym}. Ativo correlacionado ao BTC em maré de queda ({btc_trend_bias:+.2f}%). Proibido comprar altcoins correlacionadas contra o Bitcoin.",
+                                action="VETO_FAROL_BTC",
+                                confidence=98
+                            )
+                            continue
+                        elif btc_trend_bias > 0.8 and cand_dir == "SHORT":
+                            self.log_thought(
+                                clean_name,
+                                f"⛔ [VETO FAROL BTC MACRO]: SHORT bloqueado para {cand_sym}. Ativo correlacionado ao BTC em rali de alta ({btc_trend_bias:+.2f}%). Proibido vender altcoins correlacionadas contra o Bitcoin.",
+                                action="VETO_FAROL_BTC",
+                                confidence=98
+                            )
+                            continue
+
+                    # [INVARIANTE DA REVERSÃO ESTRUTURAL 2H - ANTI-FACA CAINDO]
+                    # Mesmo para outliers, NUNCA comprar fundo sem rompimento oficial no 2H!
+                    # O preço DEVE estar acima da SMA 21 e SMA 8 >= SMA 21 (para LONG).
+                    struct_val = self.validate_structural_reversal_2h(
+                        sma_info=sma_info,
+                        current_price=float(cand.get("price") or 0.0),
+                        direction=cand_dir
+                    )
+                    if not struct_val.get("confirmed", False):
                         self.log_thought(
                             clean_name,
-                            f"⛔ [VETO SOBERANO SMA 2H]: LONG bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']:.4f}) abaixo da SMA 21 (${sma_info['sma21']:.4f}) no 2H indica tendência de queda macro estrita. Proibido comprar faca caindo contra o macro.",
-                            action="VETO_MACRO_SMA_2H",
-                            confidence=99
-                        )
-                        continue
-                    elif macro_dir == "LONG" and cand_dir == "SHORT":
-                        self.log_thought(
-                            clean_name,
-                            f"⛔ [VETO SOBERANO SMA 2H]: SHORT bloqueado para {cand_sym}. SMA 8 (${sma_info['sma8']:.4f}) acima da SMA 21 (${sma_info['sma21']:.4f}) no 2H indica tendência de alta macro estrita. Proibido vender locomotiva contra o macro.",
-                            action="VETO_MACRO_SMA_2H",
+                            f"⛔ [VETO REVERSÃO ESTRUTURAL 2H]: {struct_val.get('reason')}",
+                            action="VETO_REVERSAO_ESTRUTURAL_2H",
                             confidence=99
                         )
                         continue

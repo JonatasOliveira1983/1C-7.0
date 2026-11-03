@@ -2088,6 +2088,12 @@ class SandboxService:
 
             if status == "CLOSED_TRAILING":
                 history.append(f"[TRAILING] Stop atingido em {exit_price} — fechado lucrativo com +{final_pnl:.1f}% ROI")
+                try:
+                    clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+                    from app.services.laya_router_service import laya_router_service
+                    laya_router_service.record_trade_profit(clean_sym, final_pnl)
+                except Exception as rec_p_err:
+                    logger.debug(f"[SANDBOX] Erro ao registrar lucro na Laya: {rec_p_err}")
             elif status == "CLOSED_TIME_STOP":
                 history.append(f"[TIME-STOP] Posição encerrada preventivamente aos {int(trade_age/60)}min com {final_pnl:.1f}% ROI (perda mitigada)")
             else:
