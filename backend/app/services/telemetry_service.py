@@ -44,7 +44,7 @@ class TelemetryService:
         self._last_observed_ping = 24.5
         self._last_laya_cycle = 4.2
         self._last_laya_neural = 18.0
-        self._last_equity = 10969.78
+        self._last_equity = 100023.16
         self._last_floating = 0.0
         self._cached_slots: List[Dict[str, Any]] = []
         
@@ -61,7 +61,7 @@ class TelemetryService:
         start_ts = now - 300
         import random
         
-        cur_eq = 10969.78
+        cur_eq = 100023.16
         for i in range(300):
             t = start_ts + i
             ping = max(15.0, min(80.0, 24.0 + random.uniform(-4.0, 8.0) + (15.0 if i % 60 == 0 else 0.0)))
@@ -111,19 +111,29 @@ class TelemetryService:
         self._last_tick_counter = self._raw_tick_counter
         self._last_tick_timestamp = now
         
-        # Consulta estado unificado mais recente e flutuação de slots
+        # Consulta estado unificado mais recente e flutuação de slots (Sincronizado com Sandbox 100k)
         try:
-            from services.database_service import database_service
-            # Tenta pegar slots ativos atualizados
-            slots = getattr(database_service, "_last_active_slots_cache", []) or []
-            if slots:
-                self._cached_slots = slots
-                tot_fl = sum(float(s.get("pnl_usd", 0.0) or 0.0) for s in slots if isinstance(s, dict))
-                self._last_floating = round(tot_fl, 2)
+            from services.sandbox_service import sandbox_service
+            from config import settings
+            base_bal = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
 
-            sb = getattr(database_service, "_last_sandbox_balance", None)
-            if sb and sb > 0:
-                self._last_equity = round(float(sb) + self._last_floating, 2)
+            # Puxa trades ativos do Sandbox
+            slots = getattr(sandbox_service, "active_trades", {})
+            if isinstance(slots, dict):
+                slots_list = list(slots.values())
+            elif isinstance(slots, list):
+                slots_list = slots
+            else:
+                slots_list = []
+
+            self._cached_slots = slots_list
+            tot_fl = sum(float(s.get("pnl_usd", 0.0) or 0.0) for s in slots_list if isinstance(s, dict))
+            self._last_floating = round(tot_fl, 2)
+
+            sb = getattr(sandbox_service, "base_balance_cache", None)
+            if sb is None or sb <= 0:
+                sb = base_bal
+            self._last_equity = round(float(sb) + self._last_floating, 2)
         except Exception:
             pass
 
@@ -238,6 +248,9 @@ class TelemetryService:
         except Exception:
             pass
 
+        base_bal = 100000.0
+        realized_pnl = round(self._last_equity - base_bal, 2)
+
         return {
             "status": "ONLINE",
             "uptime_seconds": round(time.time() - self.start_time, 0),
@@ -252,6 +265,10 @@ class TelemetryService:
             "laya_regime": laya_regime,
             "laya_adx": laya_adx,
             "btc_info": btc_info,
+            "base_balance_usd": base_bal,
+            "realized_pnl_usd": realized_pnl,
+            "max_margin_usd": 8000.0,
+            "circuit_breaker_floor": 85000.0,
             "net_worth_usd": self._last_equity,
             "floating_pnl_usd": self._last_floating,
             "memory_rss_mb": mem_mb,
