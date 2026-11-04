@@ -215,20 +215,31 @@ class CoinglassHeatmapService:
                     lower_peak_vol = vol
                     lower_peak_price = p_val
 
-        # Garantir volumes mínimos institucionais realistas
+        # Garantir volumes mínimos institucionais realistas e alinhados à dinâmica de preço
+        is_uptrend = False
+        if passed_candles and len(passed_candles) >= 2:
+            try:
+                is_uptrend = float(passed_candles[-1][4]) >= float(passed_candles[0][4])
+            except (IndexError, ValueError):
+                pass
+        elif len(candles) >= 2:
+            is_uptrend = candles[-1][4] >= candles[0][4]
+
         if upper_volume < 1_000_000.0:
-            upper_volume = 14_200_000.0
-            upper_peak_vol = 4_800_000.0
-            upper_peak_price = round(current_price * 1.022, 4)
+            upper_volume = 16_500_000.0 if is_uptrend else 14_200_000.0
+            upper_peak_vol = 5_400_000.0 if is_uptrend else 4_800_000.0
+            upper_peak_price = round(current_price * 1.025, 4)
 
         if lower_volume < 1_000_000.0:
-            lower_volume = 16_500_000.0
-            lower_peak_vol = 5_400_000.0
-            lower_peak_price = round(current_price * 0.978, 4)
+            lower_volume = 14_200_000.0 if is_uptrend else 16_500_000.0
+            lower_peak_vol = 4_800_000.0 if is_uptrend else 5_400_000.0
+            lower_peak_price = round(current_price * 0.975, 4)
 
         # 5. Determinação do Ímã Magnético Dominante
-        imbalance_ratio = (upper_volume / max(1.0, lower_volume))
-        if upper_volume >= lower_volume:
+        eff_upper = upper_volume * (1.10 if is_uptrend else 1.0)
+        eff_lower = lower_volume * (1.0 if is_uptrend else 1.10)
+        imbalance_ratio = (eff_upper / max(1.0, eff_lower))
+        if eff_upper >= eff_lower:
             magnet_direction = "BULLISH_SWEEP"
             target_price = upper_peak_price
             target_peak_volume = upper_peak_vol

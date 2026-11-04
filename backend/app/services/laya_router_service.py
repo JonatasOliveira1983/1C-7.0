@@ -606,7 +606,8 @@ class LayaRouterService:
                     "reason": f"Veto Anti-Squeeze LSR: LSR em {float(lsr):.2f} (< 0.80). Sardinhas sobre-vendidas, risco severo de short squeeze."
                 }
         elif direction == "LONG":
-            if sma8 > 0 and current_price > sma8 * 1.015:
+            max_sma8_stretch = 1.035 if (c_exp >= 70.0 or bot_ignition) else 1.022
+            if sma8 > 0 and current_price > sma8 * max_sma8_stretch:
                 return {
                     "qualifies": False,
                     "direction": "HOLD",
@@ -1823,7 +1824,8 @@ class LayaRouterService:
                 short_allowed = btc_intel.get("altcoin_short_allowed", True)
                 btcd = btc_intel.get("btc_dominance", 0.0)
 
-                if cand_dir == "LONG" and not long_allowed:
+                is_momentum_leader = (strat_name == "LAYA_AGUIA_FUSION") or (c_exp >= 70.0) or bot_ignition
+                if cand_dir == "LONG" and not long_allowed and not is_momentum_leader:
                     return {
                         "qualifies": False,
                         "direction": "HOLD",
@@ -3183,16 +3185,24 @@ class LayaRouterService:
                 # [V174-LIQUIDITY-HUNT-EXECUTION]: Caçada Soberana de Liquidez com Validação Técnica de Borda/Pullback
                 is_hunt_zone = (lifecycle_obj.get("zone_id") == "HUNT") and ((lifecycle_obj.get("distance_pct") or 0.0) >= 1.5)
 
+                # [INVARIANTE SOBERANA 2H SMA]: Verifica alinhamento macro antes de direcionar o radar
+                _h1_cand = klines_h1_map.get(clean_sym, [])
+                _sma_macro_dir = None
+                if _h1_cand and len(_h1_cand) >= 6:
+                    _c2h = self.aggregate_1h_to_2h(_h1_cand)
+                    _sma_info = self.calculate_sma_cross_2h(_c2h)
+                    _sma_macro_dir = _sma_info.get("direction")
+
+                is_pump_ignition = (has_volume_spike and spike_direction == "BULLISH") or (c_exp is not None and c_exp >= 70.0 and change_24h > 1.5) or bot_on
+
+                # Se o macro 2H for de alta ou houver ignição compradora institucional, direciona o Ímã para ACIMA (LONG)
+                if (_sma_macro_dir == "LONG" or is_pump_ignition) and target_region == "ABAIXO":
+                    target_region = "ACIMA"
+                    dom_magnet = "BULLISH_SWEEP"
+                    target_p = round(price * 1.035, 4) if target_p <= price else target_p
+
                 # Alinha a direção do radar à atração dominante do Ímã
                 if target_region == "ABAIXO" or dom_magnet == "BEARISH_SWEEP":
-                    # [INVARIANTE SOBERANA 2H SMA]: Proibição estrita de caçar liquidez de baixa se o macro 2H for de alta!
-                    _h1_cand = klines_h1_map.get(clean_sym, [])
-                    _sma_macro_dir = None
-                    if _h1_cand and len(_h1_cand) >= 6:
-                        _c2h = self.aggregate_1h_to_2h(_h1_cand)
-                        _sma_info = self.calculate_sma_cross_2h(_c2h)
-                        _sma_macro_dir = _sma_info.get("direction")
-                    
                     _macro_vetoed = False
                     if _sma_macro_dir == "LONG":
                         _macro_vetoed = True
@@ -3208,9 +3218,6 @@ class LayaRouterService:
                     # Exige que o preço esteja em recuo/pullback (c_range >= 50% ou acima da VWAP) e NUNCA no fundo (c_range < 40%)
                     is_pullback_or_edge = (c_range is not None and c_range >= 50.0) or (vwap > 0 and price >= vwap)
                     is_at_support_floor = (c_range is not None and c_range < 40.0)
-
-                    # [V176-OPCAO-B-ANTI-PUMP-GUARD]: Veto estrito de SHORT se houver ignição compradora genuína
-                    is_pump_ignition = (has_volume_spike and spike_direction == "BULLISH") or (c_exp is not None and c_exp >= 70.0 and change_24h > 1.5)
 
                     if is_hunt_zone and is_pullback_or_edge and not is_at_support_floor and not is_pump_ignition and not _macro_vetoed:
                         strat_name = "LAYA_LIQUIDITY_HUNT"
@@ -3237,14 +3244,6 @@ class LayaRouterService:
                         score = 50
                         rationale = f"ÍMÃ DE BAIXA ({target_region}): Muralha de ${target_vol_m:.1f}M USD em ${target_p:.4f} puxando o preço. Aguardando pullback para vender caro."
                 elif target_region == "ACIMA" or dom_magnet == "BULLISH_SWEEP":
-                    # [INVARIANTE SOBERANA 2H SMA]: Proibição estrita de caçar liquidez de alta se o macro 2H for de queda!
-                    _h1_cand = klines_h1_map.get(clean_sym, [])
-                    _sma_macro_dir = None
-                    if _h1_cand and len(_h1_cand) >= 6:
-                        _c2h = self.aggregate_1h_to_2h(_h1_cand)
-                        _sma_info = self.calculate_sma_cross_2h(_c2h)
-                        _sma_macro_dir = _sma_info.get("direction")
-                    
                     _macro_vetoed = False
                     if _sma_macro_dir == "SHORT":
                         _macro_vetoed = True
@@ -3257,9 +3256,9 @@ class LayaRouterService:
                     stop_dist = 0.025
 
                     # [FILTRO TÉCNICO DE BORDA / DIP PARA LONG]:
-                    # Exige que o preço esteja em desconto (c_range <= 50% ou abaixo da VWAP) e NUNCA no topo (c_range > 65%)
-                    is_dip_or_edge = (c_range is not None and c_range <= 50.0) or (vwap > 0 and price <= vwap)
-                    is_at_resistance_ceiling = (c_range is not None and c_range > 65.0)
+                    # Exige que o preço esteja em desconto técnico ou em aceleração institucional (c_exp >= 70 ou bot_on)
+                    is_dip_or_edge = (c_range is not None and c_range <= 50.0) or (vwap > 0 and price <= vwap) or (c_exp is not None and c_exp >= 70.0) or bot_on
+                    is_at_resistance_ceiling = (c_range is not None and c_range > 80.0 and not is_pump_ignition and not bot_on)
 
                     # [V176-ANTI-DUMP-GUARD]: Veto estrito de LONG se houver despejo vertical com Volume Spike de baixa ou queda livre
                     is_dump_ignition = (has_volume_spike and spike_direction == "BEARISH") or (vwap > 0 and price <= vwap * 0.94)
@@ -4503,27 +4502,8 @@ class LayaRouterService:
         return {"approved": False, "score_boost": -15, "verdict": "VETADO", "rationale": "Arbitragem rápida: Combustível insuficiente."}
 
     def evaluate_exit(self, position_summary: str) -> Dict[str, Any]:
-        """Avalia posicao ativa e decide: HOLD_TRAIL, PARTIAL_TP, FULL_EXIT ou PANIC_CUT."""
-        agent = _get_agent()
-        if agent is None:
-            return self._neural_heuristic_exit(position_summary)
-        t0 = time.time()
-        try:
-            with _infer_lock:
-                res = agent.predict({"body": position_summary}, EXIT_QUESTIONS)
-            elapsed_ms = round((time.time() - t0) * 1000, 1)
-            decision_data = (res or {}).get("answers", {}).get("decision", {})
-            choice = decision_data.get("choice", "HOLD_TRAIL").upper()
-            confidence = float(decision_data.get("confidence", 0.0) or 0.0)
-            return {
-                "available": True,
-                "decision": choice,
-                "confidence": confidence,
-                "latency_ms": elapsed_ms,
-                "summary": position_summary
-            }
-        except Exception:
-            return self._neural_heuristic_exit(position_summary)
+        """Avalia posicao ativa e decide: HOLD_TRAIL, PARTIAL_TP, FULL_EXIT ou PANIC_CUT (< 1ms)."""
+        return self._neural_heuristic_exit(position_summary)
 
     def get_status(self) -> Dict[str, Any]:
         return {

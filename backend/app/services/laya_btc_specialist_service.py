@@ -251,13 +251,14 @@ class LayaBTCSpecialistService:
         # 3. DRENAGEM DE LIQUIDEZ: Bitcoin positivo (>= +0.3% ou trend bias positivo) com dominância elevada (>= 59.0%) ou em alta (RISING)
         # Quando o BTC sobe com dominância alta/crescente, ele atua como um buraco negro de liquidez:
         # shortar altcoins é suicídio técnico (rompimentos falsos de resistência para cima).
+        # Altcoins líderes com confluência/robôs (1C-EXP >= 70 ou Fusão Águia 2H) acompanham o rali do BTC em pares USD.
         if (btc_change_24h >= 0.3 or btc_trend_bias >= 0.3) and (dominance_trend == "RISING" or btc_dominance >= 59.0):
             return {
                 "climate": "BTC_DRAINAGE",
-                "altcoin_long_allowed": False,
+                "altcoin_long_allowed": True,
                 "altcoin_short_allowed": False,
-                "focus": "BTC_ETH_ONLY",
-                "rationale": f"DRENAGEM PELO BTC: Bitcoin em alta ({btc_change_24h:+.1f}%) com Dominância elevada ({btc_dominance:.1f}% {dominance_trend}). Proibido shortar altcoins sob sucção de liquidez."
+                "focus": "MOMENTUM_LEADERS_ONLY",
+                "rationale": f"DRENAGEM PELO BTC: Bitcoin em alta ({btc_change_24h:+.1f}%) com Dominância elevada ({btc_dominance:.1f}% {dominance_trend}). Proibido shortar altcoins sob sucção de liquidez. Operando LONG em líderes de momento."
             }
 
         # 4. CHOP LATERAL / CONSOLIDAÇÃO: Padrão neutro para reversões de liquidez
