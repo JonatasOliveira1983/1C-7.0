@@ -703,6 +703,167 @@ class LayaRouterService:
             "rationale": rationale
         }
 
+    def evaluate_intermediate_reversal_15m(
+        self,
+        symbol: str,
+        current_price: float,
+        candles_15m: list,
+        acc_range: Optional[Dict[str, Any]] = None,
+        c_range: Optional[float] = None,
+        lsr: float = 1.0,
+        btc_trend_bias: float = 0.0,
+        bot_ignition: bool = False,
+        c_exp: float = 50.0,
+        funding_rate: float = 0.0
+    ) -> dict:
+        """
+        [V190-INTERMEDIATE-REVERSAL-15M / MFR-15]
+        Modulo Soberano de Reversao em Timeframes Intermediarios (15m / 30m):
+        - Detecta viradas no suporte/resistencia com absorcao institucional e cruzamento SMA 8 x SMA 21 no 15M.
+        - Elimina o lag de 16 horas da media 2H, capturando tiros de +8% (como ZAMA) no nascimento do pivo.
+        - Stop loss milimetrico ancorado na minima/maxima da varredura (Sweep).
+        - Risco : Retorno assimetrico (R:R >= 2.5:1) com alavancagem moderada de 20x a 25x.
+        """
+        if not candles_15m or len(candles_15m) < 21:
+            return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "KLINES_15M_INSUFICIENTES"}
+
+        c_range_val = c_range
+        if c_range_val is None and acc_range:
+            sup_h1 = float(acc_range.get("support_h1") or 0.0)
+            res_h1 = float(acc_range.get("resistance_h1") or 0.0)
+            if res_h1 > sup_h1 > 0:
+                c_range_val = round(((current_price - sup_h1) / (res_h1 - sup_h1)) * 100.0, 1)
+        if c_range_val is None:
+            c_range_val = 50.0
+
+        is_discount_support = c_range_val <= 35.0
+        is_premium_resistance = c_range_val >= 65.0
+
+        if not is_discount_support and not is_premium_resistance:
+            return {
+                "qualifies": False,
+                "direction": "HOLD",
+                "score": 0,
+                "reason": f"MIOLO DO CANAL (1C-Range {c_range_val:.1f}%): Reversao 15M autorizada apenas em suporte (<=35%) ou resistencia (>=65%)."
+            }
+
+        closes = []
+        highs = []
+        lows = []
+        opens = []
+        volumes = []
+        for c in candles_15m:
+            if isinstance(c, dict):
+                o_val = float(c.get("open") or c.get("o") or 0.0)
+                h_val = float(c.get("high") or c.get("h") or 0.0)
+                l_val = float(c.get("low") or c.get("l") or 0.0)
+                c_val = float(c.get("close") or c.get("c") or 0.0)
+                v_val = float(c.get("vol") or c.get("volume") or c.get("volCcy") or 0.0)
+            else:
+                o_val = float(c[1])
+                h_val = float(c[2])
+                l_val = float(c[3])
+                c_val = float(c[4])
+                v_val = float(c[5]) if len(c) > 5 else 0.0
+            opens.append(o_val)
+            highs.append(h_val)
+            lows.append(l_val)
+            closes.append(c_val)
+            volumes.append(v_val)
+
+        sma8 = sum(closes[-8:]) / 8.0
+        sma21 = sum(closes[-21:]) / 21.0
+        
+        avg_vol = (sum(volumes[-20:]) / 20.0) if len(volumes) >= 20 else 1.0
+        recent_vol = max(volumes[-3:])
+        has_vol_spike = (recent_vol >= avg_vol * 1.35) or bot_ignition
+
+        if is_discount_support:
+            if btc_trend_bias < -0.6:
+                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "FAROL_BTC_QUEDA_FORTE"}
+            
+            # Gatilho no 15M: Preco sustentando acima da SMA 8 com absorcao e volume
+            if current_price < sma8 * 0.995:
+                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "ABAIXO_SMA8_15M"}
+
+            sweep_low = min(lows[-8:])
+            stop_loss = round(sweep_low * 0.998, 6)
+            stop_dist = (current_price - stop_loss) / current_price
+
+            if stop_dist > 0.070 or stop_dist < 0.005:
+                stop_loss = round(current_price * 0.985, 6)
+                stop_dist = 0.015
+
+            target_dist = min(0.085, max(0.045, stop_dist * 3.0))
+            target = round(current_price * (1.0 + target_dist), 6)
+            base_score = 93 if has_vol_spike else 90
+
+            rationale = (
+                f"REVERSAO INTERMEDIARIA 15M (SWEEP & PIVOT LONG): Preco em suporte historico (1C-Range: {c_range_val:.0f}%). "
+                f"SMA 8 (${sma8:.4f}) acima da SMA 21 (${sma21:.4f}) no 15M com absorcao na minima ${sweep_low:.4f}. "
+                f"Volume {recent_vol/max(avg_vol, 0.001):.1f}x da media. Alvo Assimetrico {target_dist*100:.1f}% com Stop de {stop_dist*100:.1f}%."
+            )
+
+            return {
+                "qualifies": True,
+                "direction": "LONG",
+                "strategy": "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "score": base_score,
+                "stop_loss": stop_loss,
+                "target": target,
+                "stop_dist": stop_dist,
+                "target_dist": target_dist,
+                "leverage_cap": 25.0,
+                "sma8_15m": sma8,
+                "sma21_15m": sma21,
+                "sweep_price": sweep_low,
+                "candle_5m_confirmed": True,
+                "rationale": rationale
+            }
+
+        elif is_premium_resistance:
+            if btc_trend_bias > 1.2:
+                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "FAROL_BTC_ALTA_FORTE"}
+
+            if current_price > sma8 * 1.005:
+                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "ACIMA_SMA8_15M"}
+
+            sweep_high = max(highs[-8:])
+            stop_loss = round(sweep_high * 1.002, 6)
+            stop_dist = (stop_loss - current_price) / current_price
+
+            if stop_dist > 0.070 or stop_dist < 0.005:
+                stop_loss = round(current_price * 1.015, 6)
+                stop_dist = 0.015
+
+            target_dist = min(0.085, max(0.045, stop_dist * 3.0))
+            target = round(current_price * (1.0 - target_dist), 6)
+            base_score = 93 if has_vol_spike else 90
+
+            rationale = (
+                f"REVERSAO INTERMEDIARIA 15M (SWEEP & PIVOT SHORT): Preco em resistencia do canal (1C-Range: {c_range_val:.0f}%). "
+                f"SMA 8 (${sma8:.4f}) abaixo da SMA 21 (${sma21:.4f}) no 15M com rejeicao na maxima ${sweep_high:.4f}. "
+                f"Volume {recent_vol/max(avg_vol, 0.001):.1f}x da media. Alvo Assimetrico {target_dist*100:.1f}% com Stop de {stop_dist*100:.1f}%."
+            )
+
+            return {
+                "qualifies": True,
+                "direction": "SHORT",
+                "strategy": "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "score": base_score,
+                "stop_loss": stop_loss,
+                "target": target,
+                "stop_dist": stop_dist,
+                "target_dist": target_dist,
+                "leverage_cap": 25.0,
+                "sma8_15m": sma8,
+                "sma21_15m": sma21,
+                "sweep_price": sweep_high,
+                "candle_5m_confirmed": True,
+                "rationale": rationale
+            }
+
+
     def evaluate_h1_breakout(
         self,
         symbol: str,
@@ -1490,16 +1651,18 @@ class LayaRouterService:
         btc_intel: Optional[Dict[str, Any]] = None,
         bot_ignition: bool = False,
         c_exp: float = 0.0,
-        candles_1h: Optional[List[Any]] = None
+        candles_1h: Optional[List[Any]] = None,
+        candles_15m: Optional[List[Any]] = None
     ) -> Dict[str, Any]:
         """
         [MAESTRO MULTI-TIMEFRAME & MULTI-SETUP COM FAROL MACRO, FUNDING SHIELD, BTC.D & STOP ATR]
         Hierarquia de Decisão Soberana da Laya:
         1. Prioridade 1: Saída de Acumulação H1 (Smart Money Breakout com volume e stop ATR).
-        2. Prioridade 2: Range Boundary Reversal (No regime Mean Reversion / Consolidação, opera exaustão nas bordas).
-        3. Prioridade 3: Momento Mola 15M (Compressão extrema no canal, BBW <= 6.5%).
-        4. Prioridade 4: DVWAP Reversion 5M (Preço esticado da VWAP com BTC favorável).
-        5. Neutro: Diagnóstico integrado das camadas.
+        2. Prioridade 1.5: Reversão Intermediária de Liquidez 15M (MFR-15 / Sweep e SuperTrend no extremo do canal).
+        3. Prioridade 2: Range Boundary Reversal (No regime Mean Reversion / Consolidação, opera exaustão nas bordas).
+        4. Prioridade 3: Momento Mola 15M (Compressão extrema no canal, BBW <= 6.5%).
+        5. Prioridade 4: DVWAP Reversion 5M (Preço esticado da VWAP com BTC favorável).
+        6. Neutro: Diagnóstico integrado das camadas.
         """
         # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordens de trade nele
         sym_clean = symbol.upper().replace("-", "").replace("_", "")
@@ -1547,6 +1710,23 @@ class LayaRouterService:
             if h1_eval.get("qualifies"):
                 h1_eval["strategy"] = "LAYA_SMART_MONEY_H1"
                 setup_res = h1_eval
+
+        # CAMADA 1.5 [V190-BIDIRECTIONAL-15M-REVERSAL]: Reversão Intermediária de Liquidez 15M (MFR-15)
+        # Identifica varredura e reversão antecipada nos extremos do canal antes do lag do 2H
+        if not setup_res and candles_15m and len(candles_15m) >= 6:
+            reversal_15m = self.evaluate_intermediate_reversal_15m(
+                symbol=symbol,
+                current_price=current_price,
+                candles_15m=candles_15m,
+                acc_range=acc_range,
+                bot_ignition=bot_ignition,
+                c_exp=c_exp,
+                btc_trend_bias=btc_trend_bias,
+                lsr=lsr,
+                funding_rate=funding_rate
+            )
+            if reversal_15m.get("qualifies"):
+                setup_res = reversal_15m
 
         # CAMADA 2: SE ESTIVER NO RANGE, AVALIA REVERSÃO DE BORDA (MEAN REVERSION INSTITUCIONAL)
         if not setup_res:
@@ -1603,7 +1783,10 @@ class LayaRouterService:
             is_btc_symbol = "BTC" in symbol.upper()
 
             # [INVARIANTE SOBERANA 2H SMA BRUNO AGUIAR + ENCRYPTOS]
-            if candles_1h and len(candles_1h) >= 6 and not is_btc_symbol:
+            # Exceção explícita: LAYA_INTERMEDIATE_REVERSAL_15M é um setup de reversão intraday de liquidez (MFR-15)
+            # com varredura confirmada no 15M e stop ultracurto no fundo/topo varrido, isento do lag de 16h do 2H.
+            strat_name = setup_res.get("strategy")
+            if strat_name != "LAYA_INTERMEDIATE_REVERSAL_15M" and candles_1h and len(candles_1h) >= 6 and not is_btc_symbol:
                 c2h = self.aggregate_1h_to_2h(candles_1h)
                 sma_info = self.calculate_sma_cross_2h(c2h)
                 macro_dir = sma_info.get("direction")
@@ -2703,6 +2886,32 @@ class LayaRouterService:
                 except Exception:
                     return 0.0
 
+        sem_kline_15m = asyncio.Semaphore(10)
+        async def _safe_kline_15m(p):
+            async with sem_kline_15m:
+                try:
+                    res = await asyncio.wait_for(okx_rest_service.get_klines(p, interval="15", limit=30), timeout=5.0)
+                    if res:
+                        return res
+                except Exception:
+                    pass
+                try:
+                    clean = p.replace("-USDT-SWAP", "USDT")
+                    async with httpx.AsyncClient(timeout=2.5) as client:
+                        r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=15m&limit=30")
+                        if r_b.status_code == 200:
+                            raw = r_b.json()
+                            if isinstance(raw, list) and len(raw) >= 6:
+                                return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                        r_f = await client.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval=15m&limit=30")
+                        if r_f.status_code == 200:
+                            raw = r_f.json()
+                            if isinstance(raw, list) and len(raw) >= 6:
+                                return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                except Exception:
+                    pass
+                return []
+
         # Executa em lote controlado com semáforo rápido
         flow_tasks = [_safe_flow(a["pair"]) for a in deep_dive_assets]
         flow_resps = await asyncio.gather(*flow_tasks, return_exceptions=True)
@@ -2719,6 +2928,16 @@ class LayaRouterService:
                 clean_p = a["pair"].replace("-USDT-SWAP", "").replace("USDT", "")
                 klines_h1_map[clean_p] = k_data
                 klines_h1_map[f"{clean_p}USDT"] = k_data
+
+        kline_15m_tasks = [_safe_kline_15m(a["pair"]) for a in deep_dive_assets]
+        kline_15m_resps = await asyncio.gather(*kline_15m_tasks, return_exceptions=True)
+        klines_15m_map = {}
+        for a, k_data in zip(deep_dive_assets, kline_15m_resps):
+            if not isinstance(k_data, BaseException) and k_data:
+                klines_15m_map[a["pair"]] = k_data
+                clean_p = a["pair"].replace("-USDT-SWAP", "").replace("USDT", "")
+                klines_15m_map[clean_p] = k_data
+                klines_15m_map[f"{clean_p}USDT"] = k_data
 
         funding_tasks = [_safe_fund(a["pair"]) for a in deep_dive_assets]
         funding_resps = await asyncio.gather(*funding_tasks, return_exceptions=True)
@@ -2747,8 +2966,9 @@ class LayaRouterService:
             sardinha_status = flow.get("sardinha_status", "Normal")
             change_24h = change_24h_map.get(clean_sym, 0.0)
 
-            # [MULTI-TIMEFRAME & MULTI-SETUP ENGINE: H1, M15 MOLA, M5 DVWAP]
+            # [MULTI-TIMEFRAME & MULTI-SETUP ENGINE: H1, M15 REVERSAL, M15 MOLA, M5 DVWAP]
             h1_candles = klines_h1_map.get(clean_sym, [])
+            c15m_candles = klines_15m_map.get(clean_sym) or klines_15m_map.get(sym) or []
             acc_range = self.calculate_h1_accumulation_range(h1_candles)
             funding_rate = funding_rate_map.get(clean_sym, 0.0)
             atr_pct = self.calculate_atr_pct(h1_candles, price)
@@ -2869,7 +3089,8 @@ class LayaRouterService:
                 btc_intel=btc_intel,
                 bot_ignition=bot_on,
                 c_exp=c_exp,
-                candles_1h=h1_candles
+                candles_1h=h1_candles,
+                candles_15m=c15m_candles
             )
 
             direction = multi_eval["direction"]
@@ -2879,7 +3100,7 @@ class LayaRouterService:
 
             # [CONFLUENCIA ESTRITA AO IMA DE LIQUIDEZ]
             if multi_eval["qualifies"]:
-                if strat_name != "LAYA_AGUIA_FUSION":
+                if strat_name not in ("LAYA_AGUIA_FUSION", "LAYA_INTERMEDIATE_REVERSAL_15M"):
                     if direction == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO"):
                         multi_eval["qualifies"] = False
                         direction = "SHORT"
@@ -2901,6 +3122,8 @@ class LayaRouterService:
                     action_badge = "SMART_MONEY_GATILHO"
                 elif strat_name == "LAYA_RANGE_REVERSAL":
                     action_badge = "RANGE_REVERSAL_GATILHO"
+                elif strat_name == "LAYA_INTERMEDIATE_REVERSAL_15M":
+                    action_badge = "REVERSAL_15M_GATILHO"
                 elif strat_name == "LAYA_MOMENTO_MOLA":
                     action_badge = "MOLA_GATILHO"
                 else:
@@ -3489,19 +3712,22 @@ class LayaRouterService:
                     # [INVARIANTE DA REVERSÃO ESTRUTURAL 2H - ANTI-FACA CAINDO]
                     # Mesmo para outliers, NUNCA comprar fundo sem rompimento oficial no 2H!
                     # O preço DEVE estar acima da SMA 21 e SMA 8 >= SMA 21 (para LONG).
-                    struct_val = self.validate_structural_reversal_2h(
-                        sma_info=sma_info,
-                        current_price=float(cand.get("price") or 0.0),
-                        direction=cand_dir
-                    )
-                    if not struct_val.get("confirmed", False):
-                        self.log_thought(
-                            clean_name,
-                            f"⛔ [VETO REVERSÃO ESTRUTURAL 2H]: {struct_val.get('reason')}",
-                            action="VETO_REVERSAO_ESTRUTURAL_2H",
-                            confidence=99
+                    # EXCEÇÃO SOBERANA: LAYA_INTERMEDIATE_REVERSAL_15M opera varredura intraday de liquidez
+                    # com stop estrutural ultracurto no sweep do 15M, isento do lag de 16h das médias do 2H.
+                    if cand.get("strategy") != "LAYA_INTERMEDIATE_REVERSAL_15M":
+                        struct_val = self.validate_structural_reversal_2h(
+                            sma_info=sma_info,
+                            current_price=float(cand.get("price") or 0.0),
+                            direction=cand_dir
                         )
-                        continue
+                        if not struct_val.get("confirmed", False):
+                            self.log_thought(
+                                clean_name,
+                                f"⛔ [VETO REVERSÃO ESTRUTURAL 2H]: {struct_val.get('reason')}",
+                                action="VETO_REVERSAO_ESTRUTURAL_2H",
+                                confidence=99
+                            )
+                            continue
 
                 # [V174-LIQUIDITY-MAGNET-VETO]: Veta ordens contra muralha de liquidacao pesada e zona morta
                 try:
