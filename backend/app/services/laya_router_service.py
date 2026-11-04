@@ -38,10 +38,17 @@ LAYA_LOCAL_DIR = (
 
 
 def _ensure_local_checkpoint() -> Optional[str]:
-    """Retorna caminho do checkpoint local se existir."""
+    """Retorna caminho do checkpoint local se existir (local ou cache HF)."""
     marker = LAYA_LOCAL_DIR / "model.safetensors"
     if marker.exists() and marker.stat().st_size > 100_000_000:
         return str(LAYA_LOCAL_DIR)
+
+    import glob
+    hf_cache_pattern = str(_Path.home() / ".cache" / "huggingface" / "hub" / "models--convaiinnovations--laya" / "snapshots" / "*" / "multilingual")
+    snapshots = glob.glob(hf_cache_pattern)
+    if snapshots and os.path.exists(os.path.join(snapshots[0], "model.safetensors")):
+        return snapshots[0]
+
     return None
 
 
@@ -122,11 +129,11 @@ def _get_agent():
             except Exception:
                 pass
             import laya
-            print("[*] Carregando Laya multilingual na CPU...")
-            _agent = laya.load(ckpt)
+            logger.info(f"[*] Carregando Laya {getattr(laya, '__version__', '0.4.22')} na CPU (eager mode)...")
+            _agent = laya.load(ckpt, backend="eager", compile=False)
             _load_status["status"] = "READY"
             _load_status["load_time_s"] = round(time.time() - t0, 2)
-            print(f"[OK] Laya pronto em {_load_status['load_time_s']}s.")
+            logger.info(f"[OK] Laya {getattr(laya, '__version__', '0.4.22')} pronto em {_load_status['load_time_s']}s.")
             return _agent
         except Exception as e:
             _load_status["status"] = "ERROR"
