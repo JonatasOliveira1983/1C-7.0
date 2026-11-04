@@ -32,7 +32,7 @@ async def verify_api_key(x_api_key: str = Header(None)):
     return True
 
 def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
-    """[V127] Converte um trade do Sandbox (Scalping/Swing) em slot-like p/ Cockpit em PAPER."""
+    """[V127] Converte um trade do Sandbox (Scalping/Swing) em slot-like p/ Cockpit em PAPER com telemetria de proteção."""
     if not isinstance(trade, dict):
         trade = {c.name: getattr(trade, c.name) for c in trade.__table__.columns}
     direction = str(trade.get("direction") or "LONG").upper()
@@ -41,16 +41,40 @@ def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
     if opened and hasattr(opened, "isoformat"):
         opened = opened.isoformat()
     meta = trade.get("contract_meta") if isinstance(trade.get("contract_meta"), dict) else {}
+    flash = trade.get("flash_state") if isinstance(trade.get("flash_state"), dict) else {}
+    
     ep = float(trade.get("entry_price") or 0.0)
     cp = float(trade.get("current_price") or ep)
-    sl = float(trade.get("stop_loss") or trade.get("current_stop") or 0.0)
+    
+    # initial_stop: stop original de abertura fixo
+    init_sl = float(meta.get("initial_stop") or trade.get("initial_stop") or 0.0)
+    if init_sl <= 0 and ep > 0:
+        init_sl = round(ep * (0.9875 if direction in ("LONG", "BUY") else 1.0125), 6)
+        
+    # current_stop: stop em movimento do trailing / escadinha / breakeven
+    cur_sl = float(trade.get("stop_loss") or trade.get("current_stop") or 0.0)
+    if cur_sl <= 0 and ep > 0:
+        cur_sl = init_sl
+        
     tp = float(trade.get("target") or trade.get("target_price") or 0.0)
-    if sl <= 0 and ep > 0:
-        sl = round(ep * (0.975 if direction in ("LONG", "BUY") else 1.025), 4)
     if tp <= 0 and ep > 0:
-        tp = round(ep * (1.050 if direction in ("LONG", "BUY") else 0.950), 4)
+        tp = round(ep * (1.050 if direction in ("LONG", "BUY") else 0.950), 6)
+        
     raw_pnl = trade.get("pnl_pct") if trade.get("pnl_pct") is not None else trade.get("current_roi")
     pnl = float(raw_pnl or 0.0)
+
+    is_long = direction in ("LONG", "BUY")
+    is_protected = (cur_sl >= ep) if is_long else (cur_sl <= ep)
+    is_breakeven = is_protected and (abs(cur_sl - ep) / ep <= 0.005)
+    is_trailing = is_protected and not is_breakeven
+
+    protection_status = "BREAKEVEN" if is_breakeven else ("TRAILING" if is_trailing else "DEFESA")
+    protection_label = "RISCO ZERO" if is_breakeven else ("LUCRO TRAVADO" if is_trailing else "DEFESA INICIAL")
+
+    rationale = meta.get("rationale") or trade.get("pensamento") or (
+        f"Laya Neural Fusion: SMA 8 {'acima' if is_long else 'abaixo'} da SMA 21 no 2H. "
+        f"Robos ON (1C-EXP) e Gatilho 5M confirmado. Alavancagem {trade.get('leverage') or meta.get('leverage') or 20}X Margem Cruzada."
+    )
 
     return {
         "id": trade.get("id"),
@@ -59,18 +83,31 @@ def _map_sandbox_trade_to_slot(trade, lab_type: str) -> dict:
         "qty": trade.get("qty") or 0,
         "entry_price": ep,
         "current_price": cp,
-        "entry_margin": trade.get("entry_margin") or meta.get("margin") or 200.0,
-        "current_stop": sl,
-        "initial_stop": sl,
+        "entry_margin": trade.get("entry_margin") or meta.get("margin") or 100.0,
+        "initial_stop": init_sl,
+        "current_stop": cur_sl,
+        "stop_loss": cur_sl,
+        "is_protected": is_protected,
+        "protection_status": protection_status,
+        "protection_label": protection_label,
+        "rationale": rationale,
+        "pensamento": rationale,
+        "exit_guardian": {
+            "phase": flash.get("phase", "ESCADINHA"),
+            "active_level": flash.get("active_level", "INICIAL"),
+            "stop_roi": flash.get("stop_roi", 0.0),
+            "panic_cut": False,
+            "is_protected": is_protected
+        },
         "order_id": trade.get("id"),
         "target_price": tp,
-        "leverage": trade.get("leverage") or meta.get("leverage") or settings.LEVERAGE or 15,
+        "leverage": trade.get("leverage") or meta.get("leverage") or settings.LEVERAGE or 20,
         "contract_meta": meta,
         "slot_type": lab_type,
-        "status_risco": trade.get("status"),
+        "status_risco": "BREAKEVEN" if is_breakeven else ("TRAILING" if is_trailing else (trade.get("status") or "ACTIVE")),
         "pnl_percent": round(pnl, 2),
-        "strategy": trade.get("strategy"),
-        "strategy_label": trade.get("strategy"),
+        "strategy": trade.get("strategy") or "LAYA_AGUIA_FUSION",
+        "strategy_label": trade.get("strategy") or "LAYA_AGUIA_FUSION",
         "opened_at": opened or 0,
         "updated_at": opened or 0,
         "direction": direction,
@@ -174,16 +211,19 @@ async def get_slots():
                 "projection": s.get("projection")
             })
 
-        # [V127] PAPER: espelha as ordens do Sandbox (Scalping + Swing) como slots no Cockpit
+        # [V127] PAPER: espelha as ordens do Sandbox (Scalping + Swing) como slots prioritários no Cockpit
         is_paper = getattr(okx_rest_service, "execution_mode", None) == "PAPER" or getattr(settings, "OKX_EXECUTION_MODE", None) == "PAPER" or getattr(okx_rest_service, "is_mock", True)
         if is_paper:
             try:
                 scalp = await _ds.get_sandbox_trades(active_only=True)
                 swing = await _ds.get_swing_trades(active_only=True)
+                sandbox_slots = []
                 for t in scalp:
-                    slots.append(_map_sandbox_trade_to_slot(t, "SCALPING"))
+                    sandbox_slots.append(_map_sandbox_trade_to_slot(t, "SCALPING"))
                 for t in swing:
-                    slots.append(_map_sandbox_trade_to_slot(t, "SWING"))
+                    sandbox_slots.append(_map_sandbox_trade_to_slot(t, "SWING"))
+                # Sandbox trades tem prioridade maxima no topo sobre posicoes antigas de banco
+                slots = sandbox_slots + slots
             except Exception as e:
                 logger.error(f"[PAPER] Erro ao mesclar ordens do Sandbox nos slots: {e}")
 
@@ -273,13 +313,23 @@ async def get_slots():
                         slot["projection"] = projection
                         if "liq_price" in projection:
                             slot["liq_price"] = projection["liq_price"]
+                        # Mantem o current_stop rigorosamente alinhado ao stop protegido se já estiver no BE/Trailing
+                        if slot.get("is_protected") and slot.get("current_stop"):
+                            projection["current_stop"] = slot["current_stop"]
                     
                     roi = slot.get("pnl_percent", 0)
                     phase_info = execution_protocol.get_sl_phase_info(roi, slot_data=slot)
-                    slot["sl_phase"] = phase_info.get("phase", "SAFE")
-                    slot["sl_phase_icon"] = "SHIELD"
-                    slot["sl_phase_color"] = phase_info.get("color", "gold")
-                    slot["visual_status"] = phase_info.get("phase", "SAFE")
+                    if slot.get("is_protected"):
+                        prot_phase = slot.get("protection_status", "BREAKEVEN")
+                        slot["sl_phase"] = prot_phase
+                        slot["sl_phase_icon"] = "SHIELD"
+                        slot["sl_phase_color"] = "#00f0ff" if prot_phase == "BREAKEVEN" else "#00ff88"
+                        slot["visual_status"] = prot_phase
+                    else:
+                        slot["sl_phase"] = phase_info.get("phase", "SAFE")
+                        slot["sl_phase_icon"] = "SHIELD"
+                        slot["sl_phase_color"] = phase_info.get("color", "gold")
+                        slot["visual_status"] = phase_info.get("phase", "SAFE")
                 else:
                     slot["sl_phase"] = "IDLE"
                     slot["sl_phase_icon"] = "IDLE"

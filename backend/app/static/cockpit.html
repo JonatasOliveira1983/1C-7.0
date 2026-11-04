@@ -987,7 +987,10 @@
               <canvas class="thinking-orb-canvas" data-state="solving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
               <span class="card-title" style="color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;">LAYA SOBERANA • CONSCIÊNCIA SUPREMA</span>
             </div>
-            <span id="laya-status-badge" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">SOBERANA • ONLINE</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button onclick="openLayaThoughtModal()" class="btn-ghost" style="padding: 1px 7px; font-size: 8.5px; font-weight: 800; border-color: rgba(252, 213, 53, 0.6); color: #FCD535; border-radius: 2px; background: rgba(252, 213, 53, 0.12); cursor: pointer;" title="Abrir Balão de Consciência Cognitiva da Laya">❖ BALÃO COGNITIVO</button>
+              <span id="laya-status-badge" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">SOBERANA • ONLINE</span>
+            </div>
           </div>
 
           <!-- Telemetria do Regime & Farol Macro -->
@@ -1803,22 +1806,28 @@
       }
       const side = (slot.side || slot.direction || 'BUY').toUpperCase();
       const isLong = side === 'BUY' || side === 'LONG';
-      let stop = Number(slot.current_stop || slot.stop_loss || (slot.projection && (slot.projection.current_stop || slot.projection.recommended_stop)) || 0);
+      // Prioridade máxima para stop dinâmico: current_stop ou projeção viva
+      let stop = Number(slot.current_stop || (slot.projection && (slot.projection.current_stop || slot.projection.recommended_stop)) || slot.stop_loss || 0);
+      let initialStop = Number(slot.initial_stop || 0);
       let target = Number(slot.target_price || slot.target || (slot.projection && slot.projection.target_price) || 0);
       if (stop <= 0 && entry > 0) {
         stop = isLong ? entry * 0.988 : entry * 1.012;
+      }
+      if (initialStop <= 0 && entry > 0) {
+        initialStop = isLong ? entry * 0.988 : entry * 1.012;
       }
       if (target <= 0 && entry > 0) {
         target = isLong ? entry * 1.025 : entry * 0.975;
       }
       const pnlPct = Number(slot.pnl_percent !== undefined ? slot.pnl_percent : (slot.current_roi !== undefined ? slot.current_roi : 0));
 
-      let status = slot.status_risco || 'ORDEM ATIVA';
-      const isProfitLocked = isLong ? (stop > entry) : (stop < entry);
-      const isRiskFree = isProfitLocked || (Math.abs(stop - entry) / entry < 0.0005);
+      const isProtected = slot.is_protected !== undefined ? slot.is_protected : (isLong ? (stop >= entry) : (stop <= entry));
+      const isBreakEven = isProtected && (Math.abs(stop - entry) / entry <= 0.005 || String(slot.protection_status || slot.status_risco).includes('BREAKEVEN'));
+      const isTrailing = isProtected && !isBreakEven;
 
-      if (pnlPct >= 1.5 || isProfitLocked) status = 'TRAILING PROFIT';
-      else if (pnlPct >= 0.5 || isRiskFree) status = 'PROTEGIDA (BE)';
+      let status = 'ORDEM ATIVA';
+      if (isTrailing || pnlPct >= 14.0) status = 'TRAILING PROFIT';
+      else if (isBreakEven || isProtected || pnlPct >= 5.0) status = 'PROTEGIDA (BE)';
 
       // Extrai dados preditivos do Kronos AI
       const meta = slot.contract_meta || {};
@@ -1859,16 +1868,17 @@
         }
       }
 
-      renderOrderLinesForChart(i, entry, target, stop, side, status, kronosTarget, kronosDir, kronosPct);
+      renderOrderLinesForChart(i, entry, target, stop, side, status, kronosTarget, kronosDir, kronosPct, initialStop, slot);
     }
 
-    function renderOrderLinesForChart(i, entry, target, stop, side, statusTag, kronosTarget, kronosDir, kronosPct) {
+    function renderOrderLinesForChart(i, entry, target, stop, side, statusTag, kronosTarget, kronosDir, kronosPct, initialStop, slotObj) {
       const series = candleSeriesList[i];
       if (!series) return;
       const ne = Number(entry);
       const nt = Number(target);
       const ns = Number(stop);
       const nk = Number(kronosTarget);
+      const ni = Number(initialStop || 0);
 
       // Limpar linhas anteriores do chart i
       (priceLinesList[i] || []).forEach(l => {
@@ -1925,24 +1935,27 @@
         } catch(e){}
       }
 
-      // 3. Linha de STOP LOSS (Vermelho / Trailing Profit Verde / Breakeven Azul)
+      // 3. Linha de STOP DINÂMICO (Breakeven Azul Neon / Trailing Profit Verde / Stop Loss Inicial Vermelho)
       let finalStatus = statusTag || 'ATIVA';
       if (safeStop && !isNaN(safeStop) && safeStop > 0) {
         try {
           const isProfitLocked = isLong ? (safeStop > ne) : (safeStop < ne);
-          const isRiskFree = isProfitLocked || (Math.abs(safeStop - ne) / ne < 0.0005);
+          const isRiskFree = isProfitLocked || (Math.abs(safeStop - ne) / ne < 0.001);
           const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
           
           let slColor = '#FF1744';
           let slTitle = `STOP LOSS (${stopPct}%)`;
+          let slStyle = LightweightCharts.LineStyle.Dashed;
 
-          if (isProfitLocked || String(statusTag).includes('TRAILING')) {
+          if (isProfitLocked && Math.abs(safeStop - ne) / ne > 0.003) {
             slColor = '#00E676';
-            slTitle = `TRAILING PROFIT (+${Math.abs(stopPct)}%)`;
+            slTitle = `TRAILING STOP PROTEGIDO (+${Math.abs(stopPct)}%)`;
+            slStyle = LightweightCharts.LineStyle.Solid;
             finalStatus = 'TRAILING PROFIT';
-          } else if (isRiskFree || String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || String(statusTag).includes('LIVRE')) {
-            slColor = '#29ABE2';
-            slTitle = 'RISK-FREE (BE)';
+          } else if (isRiskFree || String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || (slotObj && slotObj.is_protected)) {
+            slColor = '#00F0FF';
+            slTitle = `PROTEÇÃO BREAKEVEN - RISCO ZERO`;
+            slStyle = LightweightCharts.LineStyle.Solid;
             finalStatus = 'PROTEGIDA (BE)';
           }
 
@@ -1950,11 +1963,24 @@
             price: safeStop,
             color: slColor,
             lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Dashed,
+            lineStyle: slStyle,
             axisLabelVisible: true,
             title: `${slTitle} $${formatPriceSmart(safeStop)}`
           });
           priceLinesList[i].push(stopLine);
+
+          // Linha fantasma do Stop Inicial Superado (se o stop já se moveu para a proteção)
+          if ((isRiskFree || isProfitLocked) && ni > 0 && Math.abs(ni - safeStop) > (ne * 0.001)) {
+            const oldStopLine = series.createPriceLine({
+              price: ni,
+              color: 'rgba(255, 70, 93, 0.45)',
+              lineWidth: 1,
+              lineStyle: LightweightCharts.LineStyle.SparseDotted,
+              axisLabelVisible: false,
+              title: `STOP INICIAL (SUPERADO) $${formatPriceSmart(ni)}`
+            });
+            priceLinesList[i].push(oldStopLine);
+          }
         } catch(e){}
       }
 
@@ -1973,6 +1999,7 @@
           });
           priceLinesList[i].push(kronosLine);
         } catch(e){}
+      }
       }
 
       // Atualiza textos do HUD flutuante do Gráfico i
@@ -2379,6 +2406,37 @@
             const f8h = f8hVal !== undefined ? `${isReceiving ? '+' : (fAction === 'PAGA' ? '-' : '')}$${Math.abs(f8hVal).toFixed(2)}` : '$0.00';
             const f24h = f24hVal !== undefined ? `${isReceiving ? '+' : (fAction === 'PAGA' ? '-' : '')}$${Math.abs(f24hVal).toFixed(2)}` : '$0.00';
 
+            const isProt = (s.is_protected !== undefined) ? s.is_protected : (isLong ? (Number(s.current_stop || 0) >= Number(s.entry_price || 0)) : (Number(s.current_stop || 0) <= Number(s.entry_price || 0)));
+            const isBE = isProt && (Math.abs(Number(s.current_stop || 0) - Number(s.entry_price || 0)) / (Number(s.entry_price) || 1) <= 0.005 || String(s.status_risco || '').includes('BREAKEVEN') || s.protection_status === 'BREAKEVEN');
+            const isTrail = isProt && !isBE;
+
+            let stopBadgeHtml = '';
+            if (isBE) {
+              stopBadgeHtml = `
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span class="badge-cyan" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(0, 240, 255, 0.35); border: 1px solid #00f0ff;">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>BREAKEVEN
+                  </span>
+                  <b class="font-mono" style="color: #00f0ff; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                  <span style="font-size: 7.5px; color: #00f0ff; font-weight: 700; letter-spacing: 0.03em;">RISCO ZERO</span>
+                </div>`;
+            } else if (isTrail) {
+              stopBadgeHtml = `
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span class="badge-up" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(14, 203, 129, 0.35); border: 1px solid #0ECB81;">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>TRAILING STOP
+                  </span>
+                  <b class="font-mono" style="color: #0ECB81; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                  <span style="font-size: 7.5px; color: #0ECB81; font-weight: 700; letter-spacing: 0.03em;">LUCRO TRAVADO</span>
+                </div>`;
+            } else {
+              stopBadgeHtml = `
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size: 8px; color: #848E9C; font-weight: 700;">DEFESA INICIAL</span>
+                  <b class="font-mono" style="color: #F6465D; font-size: 12px; font-weight: 700;">$${formatPriceSmart(s.current_stop || s.entry_price)}</b>
+                </div>`;
+            }
+
             return `
               <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.12);' : ''}">
                 <td style="padding: 10px 8px;">
@@ -2386,7 +2444,10 @@
                     <b style="color: #FFFFFF; font-size: 16px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
                     <span style="font-size: 10px; color: #848E9C; font-family: var(--font-mono);">SWAP</span>
                   </div>
-                  <span style="font-size: 8.5px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR GRÁFICO)</span>
+                  <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">
+                    <span style="font-size: 8.5px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR)</span>
+                    <button class="btn-ghost" style="padding: 1px 5px; font-size: 8px; font-weight: 800; border-color: rgba(255,192,0,0.5); color: #FCD535; border-radius: 2px; background: rgba(255,192,0,0.08);" onclick="event.stopPropagation(); openLayaThoughtModal(window._activeSlotsData[${idx}])" title="Ver Consciência Cognitiva da Laya para este Trade">❖ LAYA AI</button>
+                  </div>
                 </td>
                 <td><span class="badge-gold" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${s.slot_type === 'SWING' ? 'SWING' : 'DAY TRADE (1H)'}</span></td>
                 <td>
@@ -2396,7 +2457,7 @@
                 </td>
                 <td class="font-mono" style="font-size: 12px; font-weight: 600; color: #DDD;">$${formatPriceSmart(s.entry_price)}</td>
                 <td class="font-mono" style="font-size: 12px; font-weight: 800; color: #FFF;">$${formatPriceSmart(s.current_price || s.entry_price)}</td>
-                <td class="font-mono" style="color: var(--accent-gold); font-size: 12px; font-weight: 700;">${Number(s.current_stop || 0) > 0 ? ('$' + formatPriceSmart(s.current_stop)) : (s.flash_state && s.flash_state.stop_roi !== undefined ? `${Number(s.flash_state.stop_roi).toFixed(1)}% ROI` : 'DEFESA')}</td>
+                <td>${stopBadgeHtml}</td>
                 <td><span class="${pnlClass}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
                 <td>
                   <div style="font-family: var(--font-mono); font-size: 11px;">
@@ -2408,7 +2469,7 @@
                     <span style="font-size: 8px; color: #848E9C; margin-left: 3px;">(24h: ${f24h})</span>
                   </div>
                 </td>
-                <td><span class="badge-cyan" style="font-size: 10px; font-weight: 700;">${s.status_risco || 'LIVRE'}</span></td>
+                <td><span class="${isBE ? 'badge-cyan' : (isTrail ? 'badge-up' : 'badge-ghost')}" style="font-size: 10px; font-weight: 700;">${isBE ? 'BREAKEVEN ATIVO' : (isTrail ? 'TRAILING ATIVO' : (s.status_risco || 'LIVRE'))}</span></td>
                 <td>
                   ${(s.strategy === 'ALT_PUMP_IGNITION' || (s.contract_meta && s.contract_meta.alt_pump_ignition))
                     ? `<span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(240, 185, 11, 0.15); color: #F0B90B; border: 1px solid rgba(240, 185, 11, 0.4); padding: 2px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px; letter-spacing: 0.5px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>ALT IGNITION</span>`
@@ -2425,15 +2486,50 @@
             activeSlots.forEach(s => {
               const row = tbody.querySelector(`tr[data-sym="${s.symbol}"]`);
               if (row) {
+                const isLong = s.side === 'BUY' || s.side === 'LONG' || s.side === 'Buy';
+                const isProt = (s.is_protected !== undefined) ? s.is_protected : (isLong ? (Number(s.current_stop || 0) >= Number(s.entry_price || 0)) : (Number(s.current_stop || 0) <= Number(s.entry_price || 0)));
+                const isBE = isProt && (Math.abs(Number(s.current_stop || 0) - Number(s.entry_price || 0)) / (Number(s.entry_price) || 1) <= 0.005 || String(s.status_risco || '').includes('BREAKEVEN') || s.protection_status === 'BREAKEVEN');
+                const isTrail = isProt && !isBE;
+
                 const curPriceTd = row.children[4];
                 const stopTd = row.children[5];
                 const pnlTd = row.children[6];
+                const statusTd = row.children[8];
                 if (curPriceTd) curPriceTd.textContent = "$" + formatPriceSmart(s.current_price || s.entry_price);
-                if (stopTd) stopTd.textContent = Number(s.current_stop || 0) > 0 ? ('$' + formatPriceSmart(s.current_stop)) : 'DEFESA';
+                if (stopTd) {
+                  if (isBE) {
+                    stopTd.innerHTML = `
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span class="badge-cyan" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(0, 240, 255, 0.35); border: 1px solid #00f0ff;">
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>BREAKEVEN
+                        </span>
+                        <b class="font-mono" style="color: #00f0ff; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                        <span style="font-size: 7.5px; color: #00f0ff; font-weight: 700; letter-spacing: 0.03em;">RISCO ZERO</span>
+                      </div>`;
+                  } else if (isTrail) {
+                    stopTd.innerHTML = `
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span class="badge-up" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(14, 203, 129, 0.35); border: 1px solid #0ECB81;">
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>TRAILING STOP
+                        </span>
+                        <b class="font-mono" style="color: #0ECB81; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                        <span style="font-size: 7.5px; color: #0ECB81; font-weight: 700; letter-spacing: 0.03em;">LUCRO TRAVADO</span>
+                      </div>`;
+                  } else {
+                    stopTd.innerHTML = `
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span style="font-size: 8px; color: #848E9C; font-weight: 700;">DEFESA INICIAL</span>
+                        <b class="font-mono" style="color: #F6465D; font-size: 12px; font-weight: 700;">$${formatPriceSmart(s.current_stop || s.entry_price)}</b>
+                      </div>`;
+                  }
+                }
                 if (pnlTd) {
                   const pnl = Number(s.pnl_percent || 0);
                   const isUp = pnl >= 0;
                   pnlTd.innerHTML = `<span class="${isUp ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${isUp ? '+' : ''}${pnl.toFixed(2)}%</span>`;
+                }
+                if (statusTd) {
+                  statusTd.innerHTML = `<span class="${isBE ? 'badge-cyan' : (isTrail ? 'badge-up' : 'badge-ghost')}" style="font-size: 10px; font-weight: 700;">${isBE ? 'BREAKEVEN ATIVO' : (isTrail ? 'TRAILING ATIVO' : (s.status_risco || 'LIVRE'))}</span>`;
                 }
               }
             });
@@ -3997,6 +4093,204 @@
     container.innerHTML = html;
   }
 
+  /* ==========================================================================
+     MODAL / BALÃO DE CONSCIÊNCIA COGNITIVA DA LAYA
+     ========================================================================== */
+  function openLayaThoughtModal(slot = null) {
+    const modal = document.getElementById("laya-thought-modal");
+    const body = document.getElementById("laya-thought-modal-body");
+    if (!modal || !body) return;
+
+    let targetSlot = slot;
+    if (!targetSlot && window._activeSlotsData && window._activeSlotsData.length > 0) {
+      targetSlot = window._activeSlotsData[0];
+    }
+
+    if (targetSlot) {
+      const isLong = (targetSlot.side || '').toUpperCase() === 'BUY' || (targetSlot.side || '').toUpperCase() === 'LONG';
+      const cleanSym = (targetSlot.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
+      const meta = targetSlot.contract_meta || {};
+      const flash = targetSlot.flash_state || {};
+      const exitG = targetSlot.exit_guardian || {};
+      const isProt = (targetSlot.is_protected !== undefined) ? targetSlot.is_protected : (isLong ? (Number(targetSlot.current_stop || 0) >= Number(targetSlot.entry_price || 0)) : (Number(targetSlot.current_stop || 0) <= Number(targetSlot.entry_price || 0)));
+      const isBE = isProt && (Math.abs(Number(targetSlot.current_stop || 0) - Number(targetSlot.entry_price || 0)) / (Number(targetSlot.entry_price) || 1) <= 0.005 || targetSlot.protection_status === 'BREAKEVEN');
+      const isTrail = isProt && !isBE;
+
+      const pnl = Number(targetSlot.pnl_percent || 0);
+      const pnlColor = pnl >= 0 ? '#0ECB81' : '#F6465D';
+      const pnlSign = pnl >= 0 ? '+' : '';
+
+      body.innerHTML = `
+        <!-- Header da Posição Ativa -->
+        <div style="background: #0B0E11; border: 1.5px solid ${isProt ? '#00F0FF' : '#2B3139'}; padding: 12px 14px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <b style="font-size: 18px; color: #FFF; letter-spacing: 0.05em;">${cleanSym}</b>
+            <span style="font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 3px; background: ${isLong ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'};">
+              ${isLong ? '▲ LONG' : '▼ SHORT'} ${targetSlot.leverage || 20}X
+            </span>
+            <span class="${isBE ? 'badge-cyan' : (isTrail ? 'badge-up' : 'badge-gold')}" style="font-size: 9.5px; font-weight: 800; padding: 2px 7px;">
+              ${isBE ? 'BREAKEVEN ATIVADO (RISCO ZERO)' : (isTrail ? 'TRAILING STOP ATIVO' : 'DEFESA INICIAL')}
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; font-size: 11px;">
+            <div><span style="color:#848E9C; font-size: 9px; display:block;">ENTRADA</span><b style="color:#FFF;">$${formatPriceSmart(targetSlot.entry_price)}</b></div>
+            <div><span style="color:#848E9C; font-size: 9px; display:block;">ATUAL</span><b style="color:#FFF;">$${formatPriceSmart(targetSlot.current_price || targetSlot.entry_price)}</b></div>
+            <div><span style="color:#848E9C; font-size: 9px; display:block;">STOP ATUAL</span><b style="color:${isBE ? '#00F0FF' : (isTrail ? '#0ECB81' : '#F6465D')};">$${formatPriceSmart(targetSlot.current_stop)}</b></div>
+            <div><span style="color:#848E9C; font-size: 9px; display:block;">ROI</span><b style="color:${pnlColor}; font-size: 13px;">${pnlSign}${pnl.toFixed(2)}%</b></div>
+          </div>
+        </div>
+
+        <!-- Seção 1: Racional Tático de Entrada -->
+        <div style="background: #181C24; border: 1px solid #2B3139; border-left: 3px solid var(--accent-gold); padding: 12px 14px; border-radius: 4px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FCD535" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <b style="color: #FCD535; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Racional Cognitivo de Entrada (Fusão Águia-Encryptos)</b>
+          </div>
+          <p style="font-size: 11px; line-height: 1.5; color: #EAECEF; margin: 0 0 10px 0; background: #0B0E11; padding: 8px 10px; border-radius: 3px; border: 1px solid #20242C;">
+            ${targetSlot.rationale || targetSlot.pensamento || meta.rationale || "Setup estrutural validado: SMA 8 x SMA 21 no 2H alinhada, rejeição 5M e robôs de expansão ativos."}
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 9.5px;">
+            <div style="background: #0B0E11; padding: 6px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">RETRAÇÃO 2H</span>
+              <b style="color:#0ECB81;">ALINHADA (SMA 8/21)</b>
+            </div>
+            <div style="background: #0B0E11; padding: 6px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">ANTI-SQUEEZE (LSR)</span>
+              <b style="color:#00F0FF;">${meta.lsr ? Number(meta.lsr).toFixed(2) : '1.00'} (SEGURO)</b>
+            </div>
+            <div style="background: #0B0E11; padding: 6px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">EXPANSÃO 1C-EXP</span>
+              <b style="color:#FCD535;">30 (ROBÔS ON)</b>
+            </div>
+            <div style="background: #0B0E11; padding: 6px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">CONVICÇÃO LAYA</span>
+              <b style="color:#E1BEE7;">${meta.laya_decision || 'SELL (92%)'}</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 2: Exit Guardian & Blindagem de Risco (Frente 1) -->
+        <div style="background: #181C24; border: 1px solid #2B3139; border-left: 3px solid ${isProt ? '#00F0FF' : '#FF1744'}; padding: 12px 14px; border-radius: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${isProt ? '#00F0FF' : '#FF1744'}" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <b style="color: ${isProt ? '#00F0FF' : '#FFF'}; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Exit Guardian • Blindagem de Risco (Frente 1)</b>
+            </div>
+            <span class="${isProt ? 'badge-cyan' : 'badge-gold'}" style="font-size: 9px; font-weight: 800;">
+              ${isProt ? 'CAPITAL 100% BLINDADO' : 'RISCO CONTROLADO (-1.25%)'}
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 9.5px;">
+            <div style="background: #0B0E11; padding: 8px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">STATUS DO BREAKEVEN</span>
+              <b style="color: ${isBE ? '#00F0FF' : (isTrail ? '#0ECB81' : '#FCD535')};">
+                ${isBE ? 'ATIVADO (Garantia Taxas OKX)' : (isTrail ? 'SUPERADO (Trailing Ativo)' : 'ARMADO (Gatilho +10% ROI)')}
+              </b>
+            </div>
+            <div style="background: #0B0E11; padding: 8px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">PANIC CUT PREVENTIVO</span>
+              <b style="color:#0ECB81;">DESLIGADO (Sem reversão 5M)</b>
+            </div>
+            <div style="background: #0B0E11; padding: 8px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">ESCADINHA DE LUCRO</span>
+              <b style="color:#FFF;">${flash.active_level || exitG.active_level || 'LUCRO_CURTO_SCALP'}</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 3: Consenso Hermes e Reflexo de Par (Frentes 2 e 3) -->
+        <div style="background: #181C24; border: 1px solid #2B3139; border-left: 3px solid #B388FF; padding: 12px 14px; border-radius: 4px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B388FF" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <b style="color: #B388FF; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Consenso Hermes ⇄ Laya & Reflexo de Par (Frentes 2 e 3)</b>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 9.5px;">
+            <div style="background: #0B0E11; padding: 8px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">ARBITRAGEM HERMES</span>
+              <b style="color:#0ECB81;">APROVADO POR CONSENSO (Score >= 80%)</b>
+              <span style="color:#848E9C; display:block; font-size: 8px; margin-top:3px;">Arbitragem confirmou confluência com fluxo macro.</span>
+            </div>
+            <div style="background: #0B0E11; padding: 8px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">MEMÓRIA EPISÓDICA (TRADE REFLEX)</span>
+              <b style="color:#FCD535;">BIAS POSITIVO (+6 pts)</b>
+              <span style="color:#848E9C; display:block; font-size: 8px; margin-top:3px;">Par com histórico recente vencedor no ciclo atual.</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Nenhum trade aberto no momento — mostra o status de prontidão e varredura
+      body.innerHTML = `
+        <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 24px; border-radius: 4px; text-align: center;">
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(252, 213, 53, 0.1); border: 1.5px solid var(--accent-gold); margin-bottom: 12px;">
+            <canvas class="thinking-orb-canvas" data-state="solving" data-size="24" data-color="#FCD535" width="24" height="24" style="width:24px;height:24px;"></canvas>
+          </div>
+          <h4 style="color: #FFF; font-size: 14px; margin: 0 0 6px 0; letter-spacing: 0.05em;">VARREDURA COGNITIVA EM CURSO</h4>
+          <p style="color: #848E9C; font-size: 11px; margin: 0 0 16px 0; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+            A Laya Soberana v0.4.22 está escaneando os 30 Titãs da OKX em tempo real. As 3 frentes de inteligência estão ativas e monitorando gatilhos de retração 2H.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 540px; margin: 0 auto; font-size: 10px; text-align: left;">
+            <div style="background: #181C24; padding: 10px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">FRENTE 1: EXIT GUARDIAN</span>
+              <b style="color:#0ECB81;">ARMADO & VIGILANTE</b>
+            </div>
+            <div style="background: #181C24; padding: 10px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">FRENTE 2: ARBITRAGEM HERMES</span>
+              <b style="color:#00F0FF;">CONEXÃO RAG ATIVA</b>
+            </div>
+            <div style="background: #181C24; padding: 10px; border: 1px solid #2B3139; border-radius: 2px;">
+              <span style="color:#848E9C; display:block; font-size: 8px;">FRENTE 3: TRADE REFLEX</span>
+              <b style="color:#FCD535;">PONTUAÇÕES CALIBRADAS</b>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    modal.style.display = "flex";
+  }
+
+  function closeLayaThoughtModal() {
+    const modal = document.getElementById("laya-thought-modal");
+    if (modal) modal.style.display = "none";
+  }
+
+  // Fechar modal ao clicar fora
+  document.addEventListener("click", (e) => {
+    const modal = document.getElementById("laya-thought-modal");
+    if (modal && e.target === modal) {
+      closeLayaThoughtModal();
+    }
+  });
+
   </script>
+
+  <!-- MODAL / BALÃO DE CONSCIÊNCIA COGNITIVA DA LAYA -->
+  <div id="laya-thought-modal" style="display: none; position: fixed; inset: 0; background: rgba(5, 7, 10, 0.82); backdrop-filter: blur(8px); z-index: 100000; align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: #12151B; border: 1.5px solid var(--accent-gold); border-radius: 6px; width: 720px; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(240, 185, 11, 0.25); overflow: hidden;">
+      
+      <!-- Modal Header -->
+      <div style="background: #181C24; border-bottom: 1px solid #2B3139; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas>
+          <b style="color: #FFF; font-size: 13px; letter-spacing: 0.06em; font-family: var(--font-mono);">LAYA COGNITIVE CONSCIOUSNESS • MODERNBERT 149M</b>
+          <span class="badge-gold" style="font-size: 8.5px; padding: 2px 6px;">v0.4.22</span>
+        </div>
+        <button onclick="closeLayaThoughtModal()" class="btn-ghost" style="padding: 2px 8px; font-size: 12px; font-weight: 900; color: #848E9C; border-color: #2B3139; cursor: pointer;">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div id="laya-thought-modal-body" style="padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; font-family: var(--font-mono);">
+        <!-- Conteúdo dinâmico injetado via JS -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="background: #181C24; border-top: 1px solid #2B3139; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 9px; color: #848E9C; font-family: var(--font-mono);">PROTOCOLO INSTITUCIONAL 1CRYPTEN • RESIDENT CHECKPOINT PYTORCH</span>
+        <button onclick="closeLayaThoughtModal()" class="btn-gold" style="padding: 5px 14px; font-size: 11px; font-weight: 800; cursor: pointer;">FECHAR</button>
+      </div>
+
+    </div>
+  </div>
 </body>
 </html>
