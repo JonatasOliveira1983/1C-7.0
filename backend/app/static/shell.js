@@ -64,7 +64,7 @@
           <div style="width: 14px; height: 14px; background: #FFC000; transform: rotate(45deg); flex-shrink: 0;"></div>
           <div>
             <div style="font-weight: 900; font-size: 13px; letter-spacing: 0.12em; color: #FFFFFF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FFC000;">7.5</span> <span style="font-size: 9px; color: #0ECB81; padding: 1px 4px; background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; border-radius: 2px;">V165</span>
+              1CRYPTEN <span style="color: #FFC000;">7.9.3</span> <span style="font-size: 9px; color: #0ECB81; padding: 1px 4px; background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; border-radius: 2px;">V190 SOBERANA</span>
             </div>
             <div style="font-family: var(--font-mono); font-size: 9px; color: #777777; letter-spacing: 0.08em; text-transform: uppercase;">
               UNIVERSAL PRECISION OS
@@ -141,13 +141,13 @@
           </a>
           <div class="sh-link" style="cursor: default;">
             ${ICONS.captain}
-            <span>CAPTAIN · 50X CONSENSO</span>
-            <span class="sh-status-pill standby">STANDBY</span>
+            <span>NEVER GIVE BACK · 5 ESCADINHAS</span>
+            <span class="sh-status-pill ok">ATIVO</span>
           </div>
           <div class="sh-link" style="cursor: default;">
             ${ICONS.flash}
-            <span>FLASH · ESCADINHA 1s</span>
-            <span class="sh-status-pill standby">STANDBY</span>
+            <span>EXIT GUARDIAN · TRAILING 1s</span>
+            <span class="sh-status-pill ok">ATIVO</span>
           </div>
           <a href="/" class="sh-link">
             ${ICONS.oracle}
@@ -222,9 +222,9 @@
           <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
             <canvas class="thinking-orb-canvas" data-state="solving" data-size="22" data-color="#FCD535" width="22" height="22" style="width:22px;height:22px;"></canvas>
             <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.12em; color: #EAECEF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FCD535;">7.5</span>
+              1CRYPTEN <span style="color: #FCD535;">7.9.3</span>
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 2px;">V165</span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 2px;">V190 SOBERANA</span>
           </a>
 
           <span class="shell-sep desktop-only" style="color: #2B3139; font-size: 11px;">|</span>
@@ -232,7 +232,7 @@
           <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 8px;">
             <canvas class="thinking-orb-canvas" data-state="listening" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;"></canvas>
             <span style="font-family: var(--font-mono); font-size: 10px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.05em;">
-              LAYA 360 • HERMES • CAPTAIN • FLASH • KRONOS • PLUTUS
+              LAYA SOBERANA • HERMES AGENT • PLUTUS ARCA • KRONOS AI
             </span>
           </div>
         </div>
@@ -263,7 +263,7 @@
         <div style="display: flex; align-items: center; gap: 12px;">
           <div style="text-align: right;">
             <span style="display: block; font-size: 9px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.08em;">NET WORTH</span>
-            <span id="shell-networth" style="font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: #FCD535;">$10,000.00</span>
+            <span id="shell-networth" style="font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: #FCD535;">$100,000.00</span>
           </div>
           <span id="shell-mode" class="badge-gold">PAPER</span>
         </div>

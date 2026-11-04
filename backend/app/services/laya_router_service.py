@@ -2470,7 +2470,7 @@ class LayaRouterService:
                 pass
 
     def get_pulse(self) -> Dict[str, Any]:
-        """Retorna telemetria completa de sinal de vida da Laya para o Cockpit."""
+        """Retorna telemetria completa de sinal de vida da Laya para o Cockpit com dados dinâmicos em tempo real."""
         if not self.candidate_setups:
             self._bootstrap_initial_setups()
 
@@ -2481,12 +2481,57 @@ class LayaRouterService:
         except Exception:
             pass
 
+        # [TELEMETRIA DINÂMICA]: ADX e métricas macro ao vivo do oráculo público OKX
+        btc_var_1h = 0.0
+        btc_var_24h = 0.0
+        try:
+            from services.okx_ws_public import okx_ws_public_service
+            live_adx = float(getattr(okx_ws_public_service, "btc_adx", 0.0) or 0.0)
+            if live_adx > 0:
+                self.master_adx = round(live_adx, 1)
+            btc_var_1h = float(getattr(okx_ws_public_service, "btc_variation_1h", 0.0) or 0.0)
+            btc_var_24h = float(getattr(okx_ws_public_service, "btc_variation_24h", 0.0) or 0.0)
+        except Exception:
+            pass
+
+        # [GATING STATUS]: Status dinâmico de defesas e circuit breaker
+        if self.is_global_circuit_breaker_active():
+            rem_s = int(getattr(self, "_global_circuit_breaker_until", 0.0) - time.time())
+            gating_status = f"DEFESA ({rem_s}s)"
+        elif self.is_direction_in_cooldown("LONG") and self.is_direction_in_cooldown("SHORT"):
+            gating_status = "DEFESA DUAL"
+        elif self.is_direction_in_cooldown("LONG"):
+            gating_status = "TRAVA LONG"
+        elif self.is_direction_in_cooldown("SHORT"):
+            gating_status = "TRAVA SHORT"
+        else:
+            gating_status = "ESTAVEL"
+
+        # [KRONOS CONVICTION SCORE]: Média das projeções ativas dos candidatos
+        kronos_avg = 50.0
+        if self.candidate_setups:
+            k_scores = [
+                float((c.get("confluence") or {}).get("kronos_conviction", 0.0))
+                for c in self.candidate_setups.values()
+                if (c.get("confluence") or {}).get("kronos_conviction")
+            ]
+            if k_scores:
+                kronos_avg = round(sum(k_scores) / len(k_scores), 1)
+
+        reg_mode = "MEAN_REVERSION" if self.master_adx < 25.0 else "TREND_SNIPER"
+        self.regime_mode = reg_mode
+
         return {
             "status": "ONLINE (SOVEREIGN COMMANDER)",
             "sovereign": True,
             "regime": self.current_regime,
-            "regime_mode": self.regime_mode,
+            "regime_mode": reg_mode,
             "master_adx": self.master_adx,
+            "btc_trend_pct": round(btc_var_1h if abs(btc_var_1h) > 0.001 else btc_var_24h, 2),
+            "btc_variation_1h": round(btc_var_1h, 2),
+            "btc_variation_24h": round(btc_var_24h, 2),
+            "gating_status": gating_status,
+            "kronos_score": kronos_avg,
             "last_scan_ago_s": round(time.time() - self.last_scan_time, 1),
             "thoughts": self.thought_stream[-20:],
             "candidate_setups": self.candidate_setups,
