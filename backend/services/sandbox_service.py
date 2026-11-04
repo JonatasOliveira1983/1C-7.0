@@ -1523,6 +1523,20 @@ class SandboxService:
             }
 
             await database_service.update_sandbox_trade(target.id, payload)
+            try:
+                from app.services.memory_service import memory_service
+                memory_service.record_trade_reflex(
+                    symbol=target.symbol,
+                    direction=target.direction,
+                    entry_price=entry_p,
+                    exit_price=p,
+                    pnl_pct=final_pnl,
+                    pnl_usd=net_usd,
+                    exit_reason=reason,
+                    strategy=getattr(target, "strategy", "LAYA_SOVEREIGN") or "LAYA_SOVEREIGN"
+                )
+            except Exception as _e_reflex:
+                pass
             await self.recalculate_realized_balance()
             try:
                 from routes.sandbox import invalidate_unified_state_cache

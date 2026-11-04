@@ -160,6 +160,79 @@ class MemoryService:
         pair_norm = pair.replace("-USDT-SWAP", "").replace("USDT", "") + "USDT"
         return self.synthesize_context(namespace="crypto_pair", entity_id=pair_norm.upper(), limit=limit)
 
+    def record_trade_reflex(
+        self,
+        symbol: str,
+        direction: str,
+        entry_price: float,
+        exit_price: float,
+        pnl_pct: float,
+        pnl_usd: float,
+        exit_reason: str,
+        strategy: str = "LAYA_SOVEREIGN"
+    ) -> MemoryItem:
+        """Registra o reflexo pós-trade para aprendizado contínuo da Laya."""
+        pair_norm = symbol.replace("-USDT-SWAP", "").replace("USDT", "") + "USDT"
+        outcome = "WIN" if pnl_pct > 0 else "LOSS"
+        content = (
+            f"REFLEXO_TRADE: {pair_norm} {direction} | PnL: {pnl_pct:+.2f}% (${pnl_usd:+.2f}) | "
+            f"Entrada: ${entry_price:.4f} | Saída: ${exit_price:.4f} | Motivo: {exit_reason} | Estratégia: {strategy}"
+        )
+        return self.record_pair_insight(
+            pair=pair_norm,
+            content=content,
+            confidence=0.95 if outcome == "WIN" else 0.70,
+            metadata={
+                "outcome": outcome,
+                "pnl_pct": pnl_pct,
+                "pnl_usd": pnl_usd,
+                "direction": direction,
+                "exit_reason": exit_reason,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            },
+            memory_type=MemoryType.EPISODIC
+        )
+
+    def get_pair_reflex_bias(self, pair: str, direction: str) -> Dict[str, Any]:
+        """
+        Retorna viés de calibração dinâmica com base nos últimos trades do par:
+        - Penaliza se o par tomou stop recente na mesma direção.
+        - Bonifica se o par acumulou lucros consistentes.
+        """
+        insights = self.get_pair_insights(pair, limit=5)
+        if not insights:
+            return {"score_bias": 0, "reason": "Sem histórico recente no par"}
+
+        recent_stops = 0
+        recent_wins = 0
+        for sr in insights:
+            meta = sr.item.metadata or {}
+            trade_dir = meta.get("direction")
+            pnl = float(meta.get("pnl_pct", 0.0) or 0.0)
+            if trade_dir == direction:
+                if pnl <= -5.0:
+                    recent_stops += 1
+                elif pnl >= 8.0:
+                    recent_wins += 1
+
+        if recent_stops >= 2:
+            return {
+                "score_bias": -20,
+                "reason": f"Pena Reflexiva: {recent_stops} stops recentes em {direction}. Par em quarentena técnica temporária."
+            }
+        elif recent_stops == 1:
+            return {
+                "score_bias": -10,
+                "reason": f"Alerta Reflexivo: Stop recente em {direction}. Exigindo confluência mais rígida."
+            }
+        elif recent_wins >= 1:
+            return {
+                "score_bias": +6,
+                "reason": f"Bônus Reflexivo: Histórico recente favorável no par ({recent_wins} wins em {direction})."
+            }
+
+        return {"score_bias": 0, "reason": "Histórico neutro"}
+
     def get_stats(self) -> Dict[str, Any]:
         """Estatísticas globais de memórias ativas."""
         total = self.store.count()

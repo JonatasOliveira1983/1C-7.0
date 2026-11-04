@@ -7,6 +7,11 @@ backend/__pycache__/
 backend/data/images/
 backend/data/browser_profile/
 backend/reports/
+*.safetensors
+**/models/**/*.safetensors
+**/models/**/encoder/
+**/models/**/tokenizer/
+backend/data/
 /*.png
 screenshots/
 trade_history_backup.json

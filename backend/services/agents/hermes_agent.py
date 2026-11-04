@@ -962,6 +962,56 @@ class HermesAgent(AIOSAgent):
     # 🔍 FORCE CHECK (API Trigger)
     # ============================================================
 
+    async def arbitrate_trading_candidate(
+        self,
+        symbol: str,
+        direction: str,
+        score: float,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        [V190 - HERMES TRADING ARBITRATION (SYSTEM 2)]:
+        Arbitra candidatos limítrofes da Laya (Score 75-84%).
+        Avalia alinhamento macro do BTC, fluxo de baleias e liquidez do ativo.
+        """
+        btc_bias = float(context.get("btc_trend_bias", 0.0) or 0.0)
+        c_exp = float(context.get("1c_exp", 0.0) or 0.0)
+        bot_on = bool(context.get("bot_ignition", False))
+        lsr = float(context.get("lsr", 1.0) or 1.0)
+
+        # Regra 1: Se a direção for oposta à maré forte do BTC sem ser outlier, VETA
+        if direction == "LONG" and btc_bias < -0.35:
+            return {
+                "approved": False,
+                "score_boost": -20,
+                "verdict": "VETADO",
+                "rationale": f"Hermes Veto: Queda do Bitcoin ({btc_bias:+.2f}%) ameaça tentativa de compra sem aceleração desacoplada."
+            }
+        if direction == "SHORT" and btc_bias > 0.60:
+            return {
+                "approved": False,
+                "score_boost": -20,
+                "verdict": "VETADO",
+                "rationale": f"Hermes Veto: Rali do Bitcoin ({btc_bias:+.2f}%) ameaça tentativa de venda."
+            }
+
+        # Regra 2: Se tiver aceleração de robôs (1C-EXP >= 65 ou bot_ignition) e LSR equilibrado
+        if bot_on or c_exp >= 65.0:
+            boost = 12 if (0.85 <= lsr <= 1.25) else 8
+            return {
+                "approved": True,
+                "score_boost": boost,
+                "verdict": "APROVADO",
+                "rationale": f"Hermes Consenso: Aceleração institucional (1C-EXP {c_exp:.0f}) e fluxo compatível confirmados. Sinal promovido."
+            }
+
+        return {
+            "approved": False,
+            "score_boost": -10,
+            "verdict": "NEUTRO_VETO",
+            "rationale": "Hermes Veto: Confluência insuficiente para aprovação em score limítrofe."
+        }
+
     async def force_compliance_check(self) -> Dict:
         """Force an immediate compliance check (called from API)."""
         return await self.run_compliance_audit()

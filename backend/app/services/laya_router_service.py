@@ -28,6 +28,9 @@ import httpx
 logger = logging.getLogger("1CRYPTEN-LAYA-ROUTER")
 
 os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
 from pathlib import Path as _Path
 
@@ -130,7 +133,7 @@ def _get_agent():
                 pass
             import laya
             logger.info(f"[*] Carregando Laya {getattr(laya, '__version__', '0.4.22')} na CPU (eager mode)...")
-            _agent = laya.load(ckpt, backend="eager", compile=False)
+            _agent = laya.load(ckpt, device="cpu", backend="eager", compile=False, compile_warmup=False)
             _load_status["status"] = "READY"
             _load_status["load_time_s"] = round(time.time() - t0, 2)
             logger.info(f"[OK] Laya {getattr(laya, '__version__', '0.4.22')} pronto em {_load_status['load_time_s']}s.")
@@ -2426,6 +2429,14 @@ class LayaRouterService:
 
         t0 = time.time()
         self.last_scan_time = t0
+
+        # [FASE 1 - LAYA EXIT GUARDIAN]: Avalia ordens abertas para estancamento de risco antes de novas entradas
+        try:
+            exit_actions = await self.evaluate_open_positions_lifecycle()
+            if exit_actions:
+                logger.info(f"[LAYA-EXIT-GUARDIAN] Ações de manejo cognitivo executadas: {len(exit_actions)}")
+        except Exception as _e_exit_mgr:
+            logger.debug(f"[LAYA-EXIT-GUARDIAN-ERR] {_e_exit_mgr}")
         
         # [V160-TITANS-30] Catálogo das Top 30 Altcoins de liquidez soberana da OKX (Zero BTC para trade)
         intel_map = {}
@@ -3014,6 +3025,17 @@ class LayaRouterService:
             except Exception:
                 pass
 
+            # [FASE 3 - LAYA TRADE REFLEX]: Calibração dinâmica pelo histórico de acertos/erros no par
+            try:
+                from app.services.memory_service import memory_service
+                reflex = memory_service.get_pair_reflex_bias(clean_sym, direction)
+                r_bias = reflex.get("score_bias", 0)
+                if r_bias != 0:
+                    score = max(30, min(99, score + r_bias))
+                    rationale += f" | [{reflex.get('reason')}] ({r_bias:+d} pts)"
+            except Exception as _e_refl:
+                pass
+
             new_candidate_setups[clean_sym] = {
                 "symbol": sym,
                 "clean_sym": clean_sym,
@@ -3229,6 +3251,34 @@ class LayaRouterService:
                     eligible.append(cand)
                     continue
                 
+                # [FASE 2 - CONSENSO LAYA ⇄ HERMES]: Arbitragem neural para candidatos limítrofes (75% a 84%)
+                if 75 <= c_score < self.MIN_ENTRY_SCORE:
+                    arb_res = await self.consult_hermes_arbitration(
+                        symbol=cand["symbol"],
+                        direction=c_dir,
+                        score=c_score,
+                        context=cand
+                    )
+                    boost = arb_res.get("score_boost", 0)
+                    if arb_res.get("approved"):
+                        cand["score"] = min(99, cand["score"] + boost)
+                        c_score = cand["score"]
+                        cand["rationale"] += f" | [HERMES] {arb_res.get('rationale')} ({boost:+d} pts)"
+                        self.log_thought(
+                            c_clean,
+                            f"🤝 [CONSENSO LAYA ⇄ HERMES]: Candidato limítrofe aprovado pelo Hermes ({arb_res.get('rationale')}). Score promovido para {c_score}%.",
+                            action="HERMES_ARBITRATION_APPROVE",
+                            confidence=c_score
+                        )
+                    else:
+                        cand["score"] = max(30, cand["score"] + boost)
+                        self.log_thought(
+                            c_clean,
+                            f"⛔ [CONSENSO LAYA ⇄ HERMES]: Candidato limítrofe vetado pelo Hermes ({arb_res.get('rationale')}).",
+                            action="HERMES_ARBITRATION_VETO",
+                            confidence=cand["score"]
+                        )
+
                 # 2. TRAVA 1: Score Sniper Mínimo (>= 85%)
                 if c_score < self.MIN_ENTRY_SCORE:
                     continue
@@ -3981,6 +4031,185 @@ class LayaRouterService:
                 "engine": "laya_adaptive_dual_engine",
                 "summary": market_summary
             }
+
+    def _neural_heuristic_exit(self, position_summary: str) -> Dict[str, Any]:
+        """Classificador heurístico-neural de saída (fallback fail-safe para evaluate_exit)."""
+        summary_upper = str(position_summary).upper()
+        if any(w in summary_upper for w in ["PANIC", "REVERSAL_CONFIRMED", "HOSTILE_BREAKOUT", "EXTREME_SQUEEZE", "COUNTER_PUMP", "COUNTER_DUMP"]):
+            return {
+                "available": True,
+                "decision": "PANIC_CUT",
+                "confidence": 0.94,
+                "latency_ms": 0.5,
+                "summary": position_summary,
+                "reason": "Reversao institucional hostil detectada contra a posicao"
+            }
+        if any(w in summary_upper for w in ["EXHAUSTION_NEAR_TARGET", "PROFIT_PROTECTION", "TARGET_APPROACHING"]):
+            return {
+                "available": True,
+                "decision": "PARTIAL_TP",
+                "confidence": 0.88,
+                "latency_ms": 0.5,
+                "summary": position_summary,
+                "reason": "Alvo alcancado com exaustao de fluxo. Proteger no breakeven."
+            }
+        return {
+            "available": True,
+            "decision": "HOLD_TRAIL",
+            "confidence": 0.82,
+            "latency_ms": 0.5,
+            "summary": position_summary,
+            "reason": "Estrutura saudavel mantida a favor da posicao"
+        }
+
+    async def evaluate_open_positions_lifecycle(self) -> List[Dict[str, Any]]:
+        """
+        [V190 - LAYA EXIT GUARDIAN]:
+        Manejo cognitivo contínuo de todas as posições abertas no Sandbox/OKX.
+        Avalia:
+        - Reversão de estrutura contra a ordem;
+        - Vela de 5M hostil (locomotiva contra o trade);
+        - Squeeze severo de LSR.
+        Se detectar que a posição foi invalidada institucionalmente antes do stop cheio,
+        aciona PANIC_CUT para estancar o risco e salvar o saldo da banca!
+        """
+        from services.database_service import database_service
+        from services.sandbox_service import sandbox_service
+        from services.order_projection_service import proj_service
+        from services.okx_ws_public import okx_ws_public_service
+
+        active_trades = []
+        try:
+            active_trades = await database_service.get_sandbox_trades(active_only=True)
+        except Exception as e_trades:
+            logger.debug(f"[EXIT-GUARDIAN] Erro ao carregar trades: {e_trades}")
+            return []
+
+        if not active_trades:
+            return []
+
+        exit_results = []
+        for trade in active_trades:
+            try:
+                sym = trade.symbol
+                clean_sym = sym.replace("-USDT-SWAP", "").replace("USDT", "")
+                direction = str(trade.direction).upper()
+                entry_price = float(trade.entry_price or 0.0)
+                meta = dict(trade.contract_meta or {})
+                leverage = float(meta.get("leverage") or 20.0)
+
+                # Preço corrente via WS ou REST
+                curr_price = okx_ws_public_service.get_current_price(clean_sym + "USDT") or okx_ws_public_service.get_current_price(sym)
+                if not curr_price or curr_price <= 0:
+                    curr_price = await sandbox_service._get_current_price(sym)
+                if not curr_price or curr_price <= 0:
+                    curr_price = float(trade.current_price or entry_price)
+
+                # Cálculo exato de ROI
+                side_str = "buy" if direction == "LONG" else "sell"
+                current_roi = proj_service.calculate_roi(entry_price, curr_price, side_str, leverage)
+
+                # Coleta dados de fluxo e 5M
+                flow_data = self.whale_flow_cache.get(sym) or self.whale_flow_cache.get(clean_sym + "USDT") or {}
+                lsr_val = float(flow_data.get("lsr", 1.0) or 1.0)
+
+                # Avaliação de microestrutura 5M
+                ltf_status = "NORMAL"
+                is_hostile_5m = False
+                try:
+                    ltf_eval = await self.check_lower_tf_exhaustion(sym, direction)
+                    if not ltf_eval.get("is_safe", True):
+                        ltf_reason = ltf_eval.get("reason", "")
+                        if "LOCOMOTIVA" in ltf_reason or "EXPANSAO" in ltf_reason or "REPIQUE" in ltf_reason or "DESPEJO" in ltf_reason:
+                            is_hostile_5m = True
+                            ltf_status = "HOSTILE_BREAKOUT"
+                except Exception:
+                    pass
+
+                # Detecta condições de estancamento de risco (PANIC_CUT)
+                is_panic = False
+                panic_reason = ""
+                if direction == "SHORT":
+                    if is_hostile_5m and current_roi < -5.0:
+                        is_panic = True
+                        panic_reason = f"Pump hostil de 5M contra SHORT com ROI {current_roi:+.1f}%"
+                    elif lsr_val < 0.65 and current_roi < -7.0:
+                        is_panic = True
+                        panic_reason = f"Short squeeze severo detectado (LSR {lsr_val:.2f})"
+                elif direction == "LONG":
+                    if is_hostile_5m and current_roi < -5.0:
+                        is_panic = True
+                        panic_reason = f"Dump hostil de 5M contra LONG com ROI {current_roi:+.1f}%"
+                    elif lsr_val > 1.65 and current_roi < -7.0:
+                        is_panic = True
+                        panic_reason = f"Despejo institucional em cascata (LSR {lsr_val:.2f})"
+
+                # Monta resumo estruturado para o motor de decisão
+                status_tag = "PANIC_REVERSAL_CONFIRMED" if is_panic else ("PROFIT_PROTECTION" if current_roi >= 12.0 else "HEALTHY_TRAIL")
+                pos_summary = (
+                    f"Symbol: {clean_sym}, Side: {direction}, Entry: ${entry_price:.4f}, "
+                    f"Current: ${curr_price:.4f}, ROI: {current_roi:+.2f}%, LSR: {lsr_val:.2f}, "
+                    f"5M: {ltf_status}, Condition: {status_tag}"
+                )
+
+                eval_res = self.evaluate_exit(pos_summary)
+                decision = eval_res.get("decision", "HOLD_TRAIL")
+
+                if is_panic or decision == "PANIC_CUT":
+                    self.log_thought(
+                        clean_sym,
+                        f"🛡️ [LAYA EXIT GUARDIAN - PANIC CUT]: Fechamento de emergência executado em {sym}! {panic_reason or eval_res.get('reason')} (ROI: {current_roi:+.1f}%). Prevenindo stop loss cheio.",
+                        action="PANIC_CUT",
+                        confidence=95
+                    )
+                    await sandbox_service.close_active_trade(trade.id, reason="LAYA_PANIC_CUT", exit_price=curr_price)
+                    exit_results.append({"trade_id": trade.id, "symbol": sym, "action": "PANIC_CUT", "roi": current_roi})
+
+                elif decision == "PARTIAL_TP" or (current_roi >= 10.0):
+                    # Arma Breakeven dinâmico se a ordem estiver com bom lucro
+                    curr_stop = float(trade.stop_price or 0.0)
+                    is_stop_worse = (direction == "LONG" and curr_stop < entry_price) or (direction == "SHORT" and curr_stop > entry_price)
+                    if is_stop_worse:
+                        be_stop = round(entry_price * 1.001 if direction == "LONG" else entry_price * 0.999, 6)
+                        await database_service.update_sandbox_trade(trade.id, {"stop_price": be_stop})
+                        self.log_thought(
+                            clean_sym,
+                            f"🛡️ [LAYA EXIT GUARDIAN - BREAKEVEN]: Ordem {sym} com {current_roi:+.1f}% ROI! Stop puxado para Breakeven (${be_stop:.4f}). Risco zerado.",
+                            action="BREAKEVEN_ARMED",
+                            confidence=92
+                        )
+                        exit_results.append({"trade_id": trade.id, "symbol": sym, "action": "BREAKEVEN", "roi": current_roi})
+                else:
+                    exit_results.append({"trade_id": trade.id, "symbol": sym, "action": "HOLD_TRAIL", "roi": current_roi})
+
+            except Exception as e_trade_eval:
+                logger.debug(f"[EXIT-GUARDIAN] Erro avaliando trade: {e_trade_eval}")
+
+        return exit_results
+
+    async def consult_hermes_arbitration(
+        self,
+        symbol: str,
+        direction: str,
+        score: float,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Consulta o Hermes (System 2) para arbitrar candidato limítrofe."""
+        try:
+            from kernel.dispatcher import agent_dispatcher
+            hermes = agent_dispatcher.get_agent("hermesagent")
+            if hermes and hasattr(hermes, "arbitrate_trading_candidate"):
+                return await hermes.arbitrate_trading_candidate(symbol, direction, score, context)
+        except Exception as e_arb:
+            logger.debug(f"[HERMES-ARBITRATION-CALL-ERR] {e_arb}")
+
+        # Fallback de arbitragem local direta
+        btc_bias = float(context.get("btc_trend_bias", 0.0) or 0.0)
+        c_exp = float(context.get("1c_exp", 0.0) or 0.0)
+        bot_on = bool(context.get("bot_ignition", False))
+        if (direction == "LONG" and btc_bias >= -0.2 and (c_exp >= 60.0 or bot_on)) or (direction == "SHORT" and btc_bias <= 0.4 and (c_exp >= 60.0 or bot_on)):
+            return {"approved": True, "score_boost": 10, "verdict": "APROVADO", "rationale": "Arbitragem rápida: Robôs ativos e alinhamento macro."}
+        return {"approved": False, "score_boost": -15, "verdict": "VETADO", "rationale": "Arbitragem rápida: Combustível insuficiente."}
 
     def evaluate_exit(self, position_summary: str) -> Dict[str, Any]:
         """Avalia posicao ativa e decide: HOLD_TRAIL, PARTIAL_TP, FULL_EXIT ou PANIC_CUT."""
