@@ -273,10 +273,9 @@
     }
 
     .single-chart-box {
-      flex: 1 1 0;
-      min-height: 0;
-      height: calc((100% - 12px) / 3);
-      max-height: calc((100% - 12px) / 3);
+      flex: 0 0 130px;
+      height: 130px;
+      max-height: 130px;
       display: flex;
       flex-direction: column;
       background: #06080C;
@@ -309,6 +308,175 @@
       max-height: calc(100% - 16px);
       overflow: hidden;
       position: relative;
+    }
+
+    /* PIPELINE FLOW ANIMATION STYLES */
+    .pipeline-flow-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: #080B10;
+      border: 1px solid #1B232D;
+      border-radius: 4px;
+      padding: 6px 10px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .flow-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0E131A;
+      border: 1px solid #222B38;
+      border-radius: 4px;
+      padding: 5px 8px;
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .flow-node.active-glow {
+      box-shadow: 0 0 10px rgba(14, 203, 129, 0.15);
+      border-color: rgba(14, 203, 129, 0.4);
+    }
+
+    .flow-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .flow-line::after {
+      content: '';
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, #1B232D, #0ECB81, #1B232D);
+      background-size: 200% 100%;
+      animation: flowPulse 1.8s linear infinite;
+    }
+
+    @keyframes flowPulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* TITANS 30 MATRIX STYLES */
+    .titans-matrix-box {
+      background: #080B10;
+      border: 1px solid #1B232D;
+      border-radius: 4px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .titans-matrix-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--text-muted);
+      border-bottom: 1px solid #141A22;
+      padding-bottom: 3px;
+      flex-shrink: 0;
+    }
+
+    .titans-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      padding-right: 2px;
+    }
+
+    .titan-chip {
+      background: #0B0E14;
+      border: 1px solid #1B232D;
+      border-radius: 3px;
+      padding: 4px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+      transition: all 0.2s ease;
+    }
+
+    .titan-chip:hover {
+      border-color: var(--accent-gold);
+      transform: translateY(-1px);
+    }
+
+    .titan-chip.ignited {
+      border-color: rgba(252, 213, 53, 0.5);
+      background: rgba(252, 213, 53, 0.06);
+    }
+
+    .titan-chip-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .titan-chip-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7.5px;
+      color: #848E9C;
+    }
+
+    /* COGNITIVE TERMINAL STYLES */
+    .laya-terminal-box {
+      background: #050709;
+      border: 1px solid #141A22;
+      border-radius: 3px;
+      padding: 5px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      height: 64px;
+      max-height: 64px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .terminal-line {
+      display: flex;
+      gap: 6px;
+      color: #A0AEC0;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      line-height: 1.25;
+    }
+
+    .terminal-line .t-time {
+      color: #64748B;
+      flex-shrink: 0;
+    }
+
+    .terminal-line .t-tag {
+      color: var(--accent-gold);
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
     /* RIGHT COLUMN - TITANS RADAR */
@@ -495,38 +663,99 @@
         </div>
       </div>
 
-      <!-- BARRA DE CONTROLE TEMPORAL DO GRÁFICO -->
-      <div class="chart-controls-bar">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-family:var(--font-mono); font-size:10.5px; font-weight:800; color:var(--text-main);">
-            EVOLUÇÃO CONTÍNUA DA BANCA ($100,000.00 BASE)
-          </span>
-          <span style="font-size:8.5px; color:var(--text-muted); font-family:var(--font-mono);">
-            [AMOSTRAGEM 1.000 MS • UPLOT 60 FPS]
-          </span>
+      <!-- GRÁFICO COMPACTO DE CRESCIMENTO PATRIMONIAL TICK-A-TICK -->
+      <div class="single-chart-box">
+        <div class="single-chart-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--accent-gold); font-weight: 800; font-family: var(--font-mono); font-size: 9.5px;">EVOLUÇÃO CONTÍNUA DA BANCA ($100,000.00 BASE)</span>
+            <span style="font-size: 8px; color: #848E9C; font-family: var(--font-mono);">[UPLOT 60 FPS]</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 8.5px;">
+            <span>PISO: <b style="color: #FCD535;">$85,000.00</b></span>
+            <span style="color: #333;">|</span>
+            <span>EQUITY: <b id="chart-networth-hud" style="color: #0ECB81; font-weight: 800;">$100,023.16 USD</b></span>
+          </div>
+        </div>
+        <div id="chart-equity" class="uplot-frame"></div>
+      </div>
+
+      <!-- MAPA VISUAL DO PIPELINE DE CONEXÃO & FLUXO EM TEMPO REAL -->
+      <div class="pipeline-flow-box">
+        <!-- Nó 1: OKX WebSocket -->
+        <div class="flow-node active-glow">
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">1. OKX WEBSOCKET</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#0ECB81;" id="pipe-ping-val">12.8ms • 334 t/s</div>
+          </div>
         </div>
 
-        <div class="tf-btn-group">
-          <button class="tf-btn" onclick="setTimeWindow(300, this)">5M</button>
-          <button class="tf-btn" onclick="setTimeWindow(900, this)">15M</button>
-          <button class="tf-btn active" onclick="setTimeWindow(1800, this)">30M</button>
-          <button class="tf-btn" onclick="setTimeWindow(3600, this)">1H</button>
+        <div class="flow-line"></div>
+
+        <!-- Nó 2: Oráculo BTC -->
+        <div class="flow-node">
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">2. ORÁCULO BITCOIN</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#FCD535;" id="pipe-btc-val">BTC $91k • ADX 20.0</div>
+          </div>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <!-- Nó 3: Laya Soberana -->
+        <div class="flow-node active-glow">
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#29ABE2" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">3. CÉREBRO LAYA 360°</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#29ABE2;" id="pipe-laya-val">507 PARES • 30 TITÃS</div>
+          </div>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <!-- Nó 4: Defesas & Never Give Back -->
+        <div class="flow-node">
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#B388FF" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">4. NEVER GIVE BACK</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#B388FF;" id="pipe-guard-val">5 ESC. • PISO $85k</div>
+          </div>
         </div>
       </div>
 
-      <!-- GRÁFICO PRINCIPAL DE CRESCIMENTO PATRIMONIAL TICK-A-TICK -->
-      <div class="single-chart-box" style="flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;">
-        <div class="single-chart-header" style="padding: 6px 12px; background: #07090D; border-bottom: 1px solid #1B232D; display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="color: var(--accent-gold); font-weight: 800; font-family: var(--font-mono); font-size: 10px;">PATRIMÔNIO LÍQUIDO CONSOLIDADO</span>
+      <!-- GRADE VISUAL DOS 30 TITÃS DA FROTA (RADAR DINÂMICO DE ALTA VELOCIDADE) -->
+      <div class="titans-matrix-box">
+        <div class="titans-matrix-header">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-weight:800; color:#EAECEF; text-transform:uppercase;">VARREDURA DOS 30 TITÃS DA FROTA</span>
+            <span class="pill-badge pill-green" id="matrix-scan-badge" style="font-size:7.5px;">507 OKX SWAP</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 9.5px;">
-            <span>PISO PROTEGIDO: <b style="color: #FCD535;">$85,000.00</b></span>
-            <span style="color: #333;">|</span>
-            <span>EQUITY ATUAL: <b id="chart-networth-hud" style="color: #0ECB81; font-weight: 800;">$100,023.16 USD</b></span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="matrix-cycle-info" style="color:var(--text-muted); font-size:8px;">CICLO: 30S • LOTE ATIVO 1-17</span>
+            <span class="pill-badge pill-gold" style="font-size:7.5px;">SELEÇÃO SOBERANA</span>
           </div>
         </div>
-        <div id="chart-equity" class="uplot-frame" style="flex: 1; min-height: 0; width: 100%;"></div>
+
+        <!-- 30 Chips Gerados Dinamicamente -->
+        <div class="titans-matrix-grid" id="titans-matrix-container">
+          <div style="grid-column: 1 / -1; text-align:center; color:#555; padding:20px 0; font-family:var(--font-mono); font-size:9px;">
+            CARREGANDO MATRIZ DOS 30 TITÃS...
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMINAL COGNITIVO // PENSAMENTOS DA LAYA EM TEMPO REAL -->
+      <div class="laya-terminal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #141A22; padding-bottom:2px; margin-bottom:2px;">
+          <span style="color:var(--accent-gold); font-size:8px; font-weight:800; text-transform:uppercase;">RADAR COGNITIVO // FLUXO DE PENSAMENTO EM TEMPO REAL</span>
+          <span style="color:#64748B; font-size:7.5px;">STREAM DE DECISÕES AUTÔNOMAS</span>
+        </div>
+        <div id="laya-terminal-feed" style="display:flex; flex-direction:column; gap:2px; overflow:hidden;">
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[VARREDURA]</span> <span>Laya Sovereign Brain ativo em 507 contratos OKX + 30 Titãs.</span></div>
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[BTC-ORACLE]</span> <span>Farol Macro Bitcoin sincronizado. ADX 20.0 (Modo Mean-Reversion).</span></div>
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[SMART-MONEY]</span> <span>Radar Encryptos ativo: monitorando 1C-EXP, 1C-RANGE e aceleração de robôs...</span></div>
+        </div>
       </div>
 
     </section>
@@ -593,8 +822,9 @@
 
   </main>
 
-  <!-- uPlot Local JS -->
+  <!-- uPlot Local JS & Thinking Orbs -->
   <script src="/static/js/uPlot.iife.min.js"></script>
+  <script src="/static/js/thinking_orbs.js"></script>
 
   <script>
     let _activeWindowSeconds = 1800;
@@ -788,6 +1018,27 @@
             slotsVal.textContent = `${sc} / 8 Ativos`;
           }
 
+          // Pipeline Flow Nodes
+          const pPing = document.getElementById("pipe-ping-val");
+          if (pPing) pPing.textContent = `${curPing.toFixed(1)}ms • ${rSummary.current_ticks_sec || 0} t/s`;
+
+          const pBtc = document.getElementById("pipe-btc-val");
+          if (pBtc) pBtc.textContent = `BTC $${Math.round(btc.price || 91200).toLocaleString('en-US')} • ADX ${(rSummary.laya_adx || 20).toFixed(1)}`;
+
+          const pLaya = document.getElementById("pipe-laya-val");
+          if (pLaya) pLaya.textContent = `507 PARES • ${(rSummary.top_candidates || []).length || 30} TITÃS`;
+
+          const pGuard = document.getElementById("pipe-guard-val");
+          if (pGuard) pGuard.textContent = `5 ESC. • PISO $85k`;
+
+          const mCycle = document.getElementById("matrix-cycle-info");
+          if (mCycle && rSummary.laya_last_scan_s) {
+            mCycle.textContent = `CICLO: ${Math.round(rSummary.laya_last_scan_s)}S • 507 OKX SWAP`;
+          }
+
+          renderTitansMatrix(rSummary.top_candidates || []);
+          renderCognitiveTerminal(rSummary.laya_thoughts || []);
+
           // Métricas de Infraestrutura
           document.getElementById('hud-raw-ticks').textContent = (rSummary.total_raw_ticks || 0).toLocaleString();
           document.getElementById('hud-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0} ticks/s`;
@@ -811,6 +1062,53 @@
       } catch (err) {
         console.warn("[TELEMETRY-OBSERVATORY] Erro no ciclo de telemetria:", err);
       }
+    }
+
+    // Renderiza a Matriz Visual dos 30 Titãs
+    function renderTitansMatrix(candidates) {
+      const container = document.getElementById("titans-matrix-container");
+      if (!container || !candidates || candidates.length === 0) return;
+
+      container.innerHTML = candidates.slice(0, 30).map((c, idx) => {
+        const sym = (c.clean_sym || c.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const dir = (c.direction || 'HOLD').toUpperCase();
+        const score = c.score || 50;
+        const isIgnited = c.bot_ignition || (c["1c_exp"] && c["1c_exp"] >= 70);
+        const dirColor = dir === 'LONG' ? '#0ECB81' : (dir === 'SHORT' ? '#F6465D' : '#848E9C');
+        const dirBg = dir === 'LONG' ? 'rgba(14,203,129,0.12)' : (dir === 'SHORT' ? 'rgba(246,70,93,0.12)' : 'rgba(132,142,156,0.10)');
+
+        return `
+          <div class="titan-chip ${isIgnited ? 'ignited' : ''}" title="${sym} | Direção: ${dir} | Score: ${score}">
+            <div class="titan-chip-head">
+              <span style="color:#FFF;">#${idx + 1} ${sym}</span>
+              <span style="color:${dirColor}; font-size:7px; padding:1px 3px; background:${dirBg}; border-radius:2px;">${dir}</span>
+            </div>
+            <div class="titan-chip-body">
+              <span>SCORE: <b style="color:${score >= 80 ? '#FCD535' : '#FFF'};">${score}</b></span>
+              <span>${isIgnited ? '<span style="color:#FCD535;">ROBÔS ON</span>' : 'FLUXO OK'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Renderiza o Terminal Cognitivo da Laya
+    function renderCognitiveTerminal(thoughts) {
+      const container = document.getElementById("laya-terminal-feed");
+      if (!container || !thoughts || thoughts.length === 0) return;
+
+      container.innerHTML = thoughts.slice(-4).map(t => {
+        const time = t.time || (t.timestamp ? new Date(t.timestamp * 1000).toISOString().substr(11, 8) : '15:00:00');
+        const sym = t.symbol || 'SISTEMA';
+        const txt = t.thought || t.reason || t.action || '';
+        return `
+          <div class="terminal-line">
+            <span class="t-time">${time}</span>
+            <span class="t-tag">[${sym}]</span>
+            <span>${txt}</span>
+          </div>
+        `;
+      }).join('');
     }
 
     // Renderiza Cards dos Slots em Custódia
@@ -898,6 +1196,9 @@
         window.mountLamborghiniShell('telemetry');
       }
       initUPlots();
+      if (window.ThinkingOrbsManager) {
+        window.ThinkingOrbsManager.init();
+      }
       fetchTelemetryData();
       setInterval(fetchTelemetryData, 1000); // 1.000 ms contínuo
     });

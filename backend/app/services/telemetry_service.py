@@ -231,12 +231,13 @@ class TelemetryService:
             laya_regime = getattr(laya_router_service, "regime_mode", "MEAN_REVERSION")
             laya_adx = round(float(getattr(laya_router_service, "master_adx", 14.5)), 1)
             setups = getattr(laya_router_service, "candidate_setups", {}) or {}
-            top_candidates = list(setups.values())[:10]
+            top_candidates = list(setups.values())[:30]
+            laya_thoughts = list(getattr(laya_router_service, "thought_stream", []) or [])[-8:]
             btc_cache = getattr(laya_router_service, "btc_climate_cache", {}) or {}
             if btc_cache:
                 btc_info["climate"] = btc_cache.get("regime", "EXPANSION")
         except Exception:
-            pass
+            laya_thoughts = []
 
         # Contexto dos Slots em Custódia
         active_slots = self._cached_slots
@@ -274,7 +275,8 @@ class TelemetryService:
             "memory_rss_mb": mem_mb,
             "cpu_percent": cpu_pct,
             "active_slots": active_slots,
-            "top_candidates": top_candidates
+            "top_candidates": top_candidates,
+            "laya_thoughts": laya_thoughts
         }
 
 
