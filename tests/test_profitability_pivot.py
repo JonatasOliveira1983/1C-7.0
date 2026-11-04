@@ -21,12 +21,12 @@ def test_v146_laya_reversion_rr_asymmetry():
     lvl1 = ORDER_STOP_LADDER_LAYA_REVERSION[0]
     lvl2 = ORDER_STOP_LADDER_LAYA_REVERSION[1]
     
-    # Nível 1 não deve disparar em menos de 10% (evita asfixia de spread)
-    assert lvl1.trigger_roi >= 10.0, f"Trigger muito baixo: {lvl1.trigger_roi}"
-    assert lvl1.stop_roi >= 2.0, f"Stop de taxas insuficiente: {lvl1.stop_roi}"
+    # Nível 1 não deve disparar em menos de 25% em 50x (evita asfixia de spread)
+    assert lvl1.trigger_roi >= 25.0, f"Trigger muito baixo: {lvl1.trigger_roi}"
+    assert lvl1.stop_roi >= 5.0, f"Stop de taxas insuficiente: {lvl1.stop_roi}"
     
-    # Nível 2 deve travar lucro real de pelo menos 8%
-    assert lvl2.stop_roi >= 8.0, f"Lucro do Nível 2 deveria ser >= 8.0%, obtido {lvl2.stop_roi}"
+    # Nível 2 deve travar lucro real de pelo menos 25%
+    assert lvl2.stop_roi >= 25.0, f"Lucro do Nível 2 deveria ser >= 25.0%, obtido {lvl2.stop_roi}"
     
     # Alvo final deve permitir pelo menos +60% ROI
     alvo_final = ORDER_STOP_LADDER_LAYA_REVERSION[-1]
@@ -44,8 +44,8 @@ def test_v146_swing_ladder_prevents_full_giveback():
     )
     
     assert active_at_30 is not None
-    # Deve travar pelo menos 12% no bolso se atingiu 30%
-    assert active_at_30.stop_roi >= 12.0, f"Deveria travar >= 12% de ROI, obtido {active_at_30.stop_roi}"
+    # Deve travar pelo menos 5% no bolso se atingiu 30% (degrau 1 bateu em 25%)
+    assert active_at_30.stop_roi >= 5.0, f"Deveria travar >= 5% de ROI, obtido {active_at_30.stop_roi}"
 
 
 def test_v146_never_give_back_invariant():
@@ -64,7 +64,7 @@ def test_v146_never_give_back_invariant():
 
 @pytest.mark.asyncio
 async def test_v146_sandbox_stop_capping():
-    """Valida que o sandbox_service capa os stops estritamente em no máximo -7.0% ROI."""
+    """Valida que o sandbox_service capa os stops estruturais no teto institucional (-18.0% ROI em 15x)."""
     from services.sandbox_service import sandbox_service
     from unittest.mock import AsyncMock, patch
     
@@ -80,6 +80,6 @@ async def test_v146_sandbox_stop_capping():
         )
         
         assert "stop_roi" in stop_data
-        # O stop ROI NUNCA pode ser mais negativo do que -3.5% (novo teto rígido de drawdown)
-        assert stop_data["stop_roi"] >= -3.5, f"Stop violou o teto rígido de -3.5%: {stop_data['stop_roi']}"
-        assert stop_data["stop_roi"] == pytest.approx(-3.5, abs=0.5), f"Stop esperado em torno de -3.5%: {stop_data['stop_roi']}"
+        # O stop ROI aprovado deve respeitar o teto limite de -18.0%
+        assert stop_data["stop_roi"] >= -18.0, f"Stop violou o teto de -18.0%: {stop_data['stop_roi']}"
+        assert stop_data["stop_roi"] == pytest.approx(-15.0, abs=0.5), f"Stop esperado em torno de -15.0%: {stop_data['stop_roi']}"

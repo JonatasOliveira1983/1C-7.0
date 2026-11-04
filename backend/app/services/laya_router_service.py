@@ -813,7 +813,7 @@ class LayaRouterService:
                 "target": target,
                 "stop_dist": stop_dist,
                 "target_dist": target_dist,
-                "leverage_cap": 25.0,
+                "leverage_cap": 50.0,
                 "sma8_15m": sma8,
                 "sma21_15m": sma21,
                 "sweep_price": sweep_low,
@@ -855,7 +855,7 @@ class LayaRouterService:
                 "target": target,
                 "stop_dist": stop_dist,
                 "target_dist": target_dist,
-                "leverage_cap": 25.0,
+                "leverage_cap": 50.0,
                 "sma8_15m": sma8,
                 "sma21_15m": sma21,
                 "sweep_price": sweep_high,
@@ -2424,7 +2424,7 @@ class LayaRouterService:
                 "magnet_volume_m": round(4.5 + idx * 0.5, 1),
                 "lifecycle": {"zone_id": "HUNT" if score >= 85 else "WATCH", "distance_pct": 2.5},
                 "confluence": {},
-                "leverage_cap": 25.0,
+                "leverage_cap": 50.0,
                 "rationale": f"Estrutura preliminar institucional calibrada. Monitorando fluxo e liquidez em {clean_sym}.",
                 "memory_context": "",
                 "time": now_str
@@ -2553,7 +2553,7 @@ class LayaRouterService:
             if not p or p <= 0:
                 return False
 
-            leverage = 15
+            leverage = 50.0
             margin = 100.0
 
             stop_loss = okx_universe_service.format_price_by_tick(symbol, stop_loss)
@@ -3878,23 +3878,10 @@ class LayaRouterService:
                 except Exception:
                     realized_bal = 10000.0
 
-                # [V189.1-DYNAMIC-RANGE-LEVERAGE-GUARD]
-                # Calibração Prudente de Alavancagem por Zona de Desconto e Volatilidade:
-                # - Desconto Extremo (LONG com 1C-Range <= 35% ou SHORT com 1C-Range >= 65%): Alavancagem sniper até 50x
-                # - Pullback / Range moderado (35% < range <= 50% para LONG ou 50% <= range < 65% para SHORT): 20x a 25x
-                # - Rompimento com momentum: 20x (tolerância a oscilações do reteste)
+                # [V190-STANDARDIZED-50X-LEVERAGE]
+                # Padronização Soberana em 50.0x Fixo nos 30 Titãs Institucionais
                 coin_max_lev = okx_universe_service.get_max_leverage(sym)
-                cand_range = float(chosen.get("1c_range", 50.0) or 50.0)
-                is_breakout = bool(chosen.get("is_pump_ignition") or chosen.get("alt_pump_ignition") or chosen.get("is_dump_ignition"))
-
-                if (d == "LONG" and cand_range <= 35.0) or (d == "SHORT" and cand_range >= 65.0):
-                    max_allowed_lev = 50.0
-                elif is_breakout:
-                    max_allowed_lev = 20.0
-                else:
-                    max_allowed_lev = 25.0
-
-                leverage = min(max_allowed_lev, max(5.0, coin_max_lev))
+                leverage = min(50.0, max(5.0, coin_max_lev))
 
                 # 2. Margem por Slot: 1.0% da banca realizada ($1.000 numa banca de $100.000)
                 # 10 slots = $10.000 em risco (10% total), mantendo 90% liquida ($90.000) como colchao contra liquidacao

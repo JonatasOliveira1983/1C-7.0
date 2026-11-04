@@ -57,7 +57,7 @@ def test_evaluate_intermediate_reversal_15m_long_success():
     assert eval_res["stop_loss"] < current_price
     assert eval_res["stop_loss"] <= 0.0595 # Stop ancorado no sweep
     assert eval_res["target"] > current_price
-    assert eval_res["leverage_cap"] <= 25.0
+    assert eval_res["leverage_cap"] <= 50.0
     assert "REVERSAO INTERMEDIARIA 15M" in eval_res["rationale"]
 
 
@@ -127,7 +127,7 @@ def test_evaluate_intermediate_reversal_15m_short_success():
     assert eval_res["stop_loss"] > current_price
     assert eval_res["stop_loss"] >= 0.0714
     assert eval_res["target"] < current_price
-    assert eval_res["leverage_cap"] <= 25.0
+    assert eval_res["leverage_cap"] <= 50.0
 
 
 def test_multi_setup_opportunity_allows_15m_reversal_despite_2h_macro_trend():

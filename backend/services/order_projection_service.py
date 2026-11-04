@@ -26,33 +26,29 @@ class StopLevel:
 
 
 ORDER_STOP_LADDER_RANGING: List[StopLevel] = [
-    # [V119] Escadinha RANGING Progressiva e Acelerada (Calibrada)
-    # Folga maior para evitar violinada precoce no lucro pequeno (+6% trigger, stop +1.5% break-even)
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 8.0, 3.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "GARANTIA_LUCRO_CURTO", 12.0, 5.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "GARANTIA_LUCRO_MEDIO", 20.0, 10.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "GARANTIA_LUCRO_ALTO", 32.0, 18.0, "RISCO_ZERO"),
-    # Trailing muito apertado em +48% assim que bate +50% ROI para travar lucro máximo
-    StopLevel("TRAILING", "ALVO_MAXIMO_LATERAL", 50.0, 48.0, "PROFIT_LOCK"),
+    # [V190-50X-CALIBRATION] Calibrado para alavancagem 50x (0.50% de respiro de preco no degrau 1)
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 25.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_LUCRO_CURTO", 50.0, 25.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "GARANTIA_LUCRO_MEDIO", 80.0, 50.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "GARANTIA_LUCRO_ALTO", 120.0, 80.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_MAXIMO_LATERAL", 180.0, 140.0, "PROFIT_LOCK"),
 ]
 
 ORDER_STOP_LADDER_SCALPING: List[StopLevel] = [
-    # [V146-SCALPING] Scalping calibrado para 15x com folga real e lucro substantivo
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 8.0, 3.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 18.0, 8.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 30.0, 18.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "TRAILING_SCALP", 45.0, 32.0, "PROFIT_LOCK"),
+    # [V190-50X-CALIBRATION] Scalping 50x com folga real e lucro substantivo
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 25.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 50.0, 25.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 80.0, 50.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "TRAILING_SCALP", 120.0, 90.0, "PROFIT_LOCK"),
 ]
 
 ORDER_STOP_LADDER_IGNITION: List[StopLevel] = [
-    # [V181-EXPLOSION-RUNNERS] Escadinha Oficial para Moedas em Ignicao e Explosao (Alt Pump / Whale Ignition)
-    # Permite respiracao ampla de 1.3% a 1.5% de preco antes do Breakeven para nao estopar em recuo normal
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_IGNITION", 8.0, 3.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_CONFIRMADO", 30.0, 18.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "EXPANSAO_ALVO", 50.0, 35.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "SUPER_PUMP_80", 80.0, 60.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "SUPER_PUMP_120", 120.0, 95.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "PUMP_LENDARIO_200", 200.0, 160.0, "PROFIT_LOCK"),
+    # [V190-50X-CALIBRATION] Escadinha Oficial para Moedas em Ignicao e Explosao a 50x
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_IGNITION", 25.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_CONFIRMADO", 50.0, 25.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "EXPANSAO_ALVO", 100.0, 60.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUPER_PUMP_150", 150.0, 100.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "PUMP_LENDARIO_200", 200.0, 140.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "META_300_PERCENT", 300.0, 240.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "MOON_RUNNER_350", 350.0, 280.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "SUPERNOVA_500", 500.0, 420.0, "TRAIL_LOCK"),
@@ -60,84 +56,59 @@ ORDER_STOP_LADDER_IGNITION: List[StopLevel] = [
 ]
 
 ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
-    # [V149-PROFITABILITY] Escadinha calibrada para R:R positivo (Payoff > 2.0:1)
-    # Nível 1 dispara em +10.0% ROI para evitar asfixia por spread e travar +2.0%
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 10.0, 2.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_SUBSTANTIVO_LAYA", 18.0, 8.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 30.0, 18.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 45.0, 32.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "ALVO_MAXIMO_REVERSION", 60.0, 48.0, "PROFIT_LOCK"),
-    # [V170-SUPER-RUNNERS] Expansão infinita institucional: se o trade romper em super-tendência, a Escadinha surfa até 1200%+
-    StopLevel("ESCADINHA", "LUCRO_GARANTIDO_100", 100.0, 80.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "SUCESSO_TOTAL", 130.0, 110.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "ALVO_150", 150.0, 125.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "WAVE", 200.0, 150.0, "TRAIL_LOCK"),
+    # [V190-50X-CALIBRATION] Escadinha Laya Reversion calibrada para 50x (0.50% de preco no Degrau 1)
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_LAYA", 25.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_SUBSTANTIVO_LAYA", 50.0, 25.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_EXPANSAO_LAYA", 100.0, 60.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "PROFIT_LOCK_LAYA", 150.0, 100.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_MAXIMO_REVERSION", 200.0, 140.0, "PROFIT_LOCK"),
+    # [V170-SUPER-RUNNERS] Expansão infinita institucional: se o trade romper em super-tendência
     StopLevel("TRAILING", "ROCKET", 300.0, 240.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "STAR", 400.0, 280.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CROWN", 500.0, 350.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "SUPERNOVA", 600.0, 420.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "GOD_MODE", 700.0, 500.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CHOKE_PREP", 750.0, 600.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CHOKE", 800.0, 650.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "HYPER", 1000.0, 800.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "APEX", 1200.0, 1000.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "STAR", 400.0, 320.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CROWN", 500.0, 400.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "SUPERNOVA", 600.0, 500.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "GOD_MODE", 700.0, 600.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE_PREP", 750.0, 650.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE", 800.0, 700.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "HYPER", 1000.0, 850.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "APEX", 1200.0, 1050.0, "TRAIL_LOCK"),
 ]
 
-# [V130-FIX] Escadinha Oficial para Swing (Doutrina das Extrações)
-# Usada de forma unificada no FlashAgent para simular stops de Swing
-#
-# [V130-FIX] Diagnóstico do R:R = 0.46:
-#   Stop inicial: -5% ROI (= 0.1% de preço com 50x).
-#   Breakeven: +10% ROI (= 0.2% de preço com 50x).
-#   Gap: 15% de ROI entre stop e breakeven — trades que andam +4% e revertem
-#        tomam loss de -5%. Isso explica R:R < 1 mesmo com WR de 78%.
-#
-# Solução V130:
-#   Breakeven antecipado de +10% → +5% (R:R 1:1 na entrada).
-#   Proteção parcial 1: de +20% → +12% (trava lucro mais cedo).
-#   Escalonamento progressivo mantido para capturar outliers.
-# [V132-SWING-2H] Escadinha Oficial para Swing 2H com alavancagem de 50x
-# Desenvolvida para dar runway a operações de longo prazo com gatilho de break-even e travas parciais
-# [V146-SWING] Re-calibrado para travar lucros substanciais e impedir que trades de +30% devolvam tudo
 ORDER_STOP_LADDER_SWING: List[StopLevel] = [
-    StopLevel("ESCADINHA", "BREAKEVEN_2H",         15.0,    2.0,  "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "PROTECAO_PARCIAL",    25.0,   12.0,  "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_MEDIO_2H",      40.0,   25.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_ALTO_2H",       65.0,   45.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "EMANCIPADO_2H",      100.0,   75.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "SUPER_TENDENCIA",    200.0,  150.0,  "PROFIT_LOCK"),
-    StopLevel("TRAILING",  "ALVO_ESTENDIDO_2H",  350.0,  280.0,  "PROFIT_LOCK"),
+    # [V190-50X-CALIBRATION] Swing 2H calibrado para 50x
+    StopLevel("ESCADINHA", "BREAKEVEN_2H",         25.0,    5.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "PROTECAO_PARCIAL",    50.0,   25.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO_2H",      100.0,   60.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_ALTO_2H",       150.0,  100.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "EMANCIPADO_2H",      200.0,  140.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "SUPER_TENDENCIA",    300.0,  240.0,  "TRAIL_LOCK"),
+    StopLevel("TRAILING",  "ALVO_ESTENDIDO_2H",  400.0,  320.0,  "TRAIL_LOCK"),
 ]
 
 ORDER_STOP_LADDER_SWING_LATERAL: List[StopLevel] = [
-    StopLevel("ESCADINHA", "BREAKEVEN_LATERAL",   5.0,    1.5,  "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "PRE_UNIT1_LATERAL",   15.0,   5.0,  "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "UNIT1_GARANTIDO",     30.0,   15.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "EMANCIPADO_LATERAL",  60.0,   30.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING",  "TRAILING_LATERAL",    100.0,  80.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "BREAKEVEN_LATERAL",   25.0,    5.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "PRE_UNIT1_LATERAL",   50.0,   25.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "UNIT1_GARANTIDO",     100.0,  60.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "EMANCIPADO_LATERAL",  150.0,  100.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING",  "TRAILING_LATERAL",    200.0,  140.0, "PROFIT_LOCK"),
 ]
 
 ORDER_STOP_LADDER_TRENDING: List[StopLevel] = [
-    # [V119] Escadinha TRENDING Progressiva e Calibrada
-    # O trade corre livre até +12% ROI antes de mover para break-even, evitando violinadas curtas
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 14.0, 2.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "GARANTIA_20", 25.0, 10.0, "RISCO_BAIXO"),
-    StopLevel("ESCADINHA", "LUCRO_INICIAL", 40.0, 20.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_MEDIO", 60.0, 40.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_ALTO", 80.0, 60.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_GARANTIDO_100", 100.0, 80.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "SUCESSO_TOTAL", 130.0, 110.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "ALVO_150", 150.0, 125.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "WAVE", 200.0, 150.0, "TRAIL_LOCK"),
+    # [V190-50X-CALIBRATION] Trending 50x
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS", 25.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "GARANTIA_50", 50.0, 25.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO", 100.0, 60.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_ALTO", 150.0, 100.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_GARANTIDO_200", 200.0, 140.0, "PROFIT_LOCK"),
     StopLevel("TRAILING", "ROCKET", 300.0, 240.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "STAR", 400.0, 280.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CROWN", 500.0, 350.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "SUPERNOVA", 600.0, 420.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "GOD_MODE", 700.0, 500.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CHOKE_PREP", 750.0, 600.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "CHOKE", 800.0, 650.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "HYPER", 1000.0, 800.0, "TRAIL_LOCK"),
-    StopLevel("TRAILING", "APEX", 1200.0, 1000.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "STAR", 400.0, 320.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CROWN", 500.0, 400.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "SUPERNOVA", 600.0, 500.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "GOD_MODE", 700.0, 600.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE_PREP", 750.0, 650.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "CHOKE", 800.0, 700.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "HYPER", 1000.0, 850.0, "TRAIL_LOCK"),
+    StopLevel("TRAILING", "APEX", 1200.0, 1050.0, "TRAIL_LOCK"),
 ]
 
 ORDER_STOP_LADDER: List[StopLevel] = ORDER_STOP_LADDER_TRENDING # Alias para compatibilidade com o compliance do hermes-agent
