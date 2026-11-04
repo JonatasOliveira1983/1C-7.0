@@ -1196,8 +1196,12 @@
         window.mountLamborghiniShell('telemetry');
       }
       initUPlots();
-      if (window.ThinkingOrbsManager) {
-        window.ThinkingOrbsManager.init();
+      try {
+        if (window.ThinkingOrbsManager && typeof window.ThinkingOrbsManager.autoInit === 'function') {
+          window.ThinkingOrbsManager.autoInit();
+        }
+      } catch (eOrb) {
+        console.warn("[ORBS] Warning on autoInit:", eOrb);
       }
       fetchTelemetryData();
       setInterval(fetchTelemetryData, 1000); // 1.000 ms contínuo
