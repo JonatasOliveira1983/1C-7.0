@@ -39,14 +39,14 @@ class OKXUniverseService:
         self._last_tickers_ts: float = 0.0
         self._lock = asyncio.Lock()
         
-        # [V160] Cesta Canônica Soberana das Top 30 Altcoins de Elite Institucional da OKX (Zero BTC para trade)
+        # [V195] Cesta Canônica Soberana dos 30 Titãs de Elite 50x da OKX (Zero BTC para trade)
         self._titans_30_altcoins = [
-            "APR-USDT-SWAP", "PARTI-USDT-SWAP", "AKE-USDT-SWAP", "IRYS-USDT-SWAP", "BEAT-USDT-SWAP",
-            "BICO-USDT-SWAP", "XDP-USDT-SWAP", "HUMA-USDT-SWAP", "ENA-USDT-SWAP", "ZK-USDT-SWAP",
-            "INIT-USDT-SWAP", "W-USDT-SWAP", "WLD-USDT-SWAP", "CAP-USDT-SWAP", "ARB-USDT-SWAP",
-            "ADA-USDT-SWAP", "XPL-USDT-SWAP", "AXIS-USDT-SWAP", "BLEND-USDT-SWAP", "MERL-USDT-SWAP",
-            "MON-USDT-SWAP", "SAND-USDT-SWAP", "XRP-USDT-SWAP", "CORE-USDT-SWAP", "CHIP-USDT-SWAP",
-            "HBAR-USDT-SWAP", "CT-USDT-SWAP", "DOS-USDT-SWAP", "LAB-USDT-SWAP", "NIGHT-USDT-SWAP"
+            "SUI-USDT-SWAP", "SOL-USDT-SWAP", "ETH-USDT-SWAP", "XRP-USDT-SWAP", "NEAR-USDT-SWAP",
+            "AVAX-USDT-SWAP", "APT-USDT-SWAP", "LINK-USDT-SWAP", "ARB-USDT-SWAP", "OP-USDT-SWAP",
+            "INJ-USDT-SWAP", "TIA-USDT-SWAP", "SEI-USDT-SWAP", "AAVE-USDT-SWAP", "DOT-USDT-SWAP",
+            "ADA-USDT-SWAP", "ENA-USDT-SWAP", "WLD-USDT-SWAP", "PENDLE-USDT-SWAP", "LTC-USDT-SWAP",
+            "BCH-USDT-SWAP", "UNI-USDT-SWAP", "ATOM-USDT-SWAP", "FIL-USDT-SWAP", "CRV-USDT-SWAP",
+            "SAND-USDT-SWAP", "HBAR-USDT-SWAP", "XLM-USDT-SWAP", "XPL-USDT-SWAP", "ZK-USDT-SWAP"
         ]
 
         # [V160] Cesta Canônica Imutável dos 10 Titãs de Elite Institucional da OKX
@@ -214,6 +214,7 @@ class OKXUniverseService:
                                 low_24 = float(item.get("low24h", 0.0) or last_px)
                                 open_24 = float(item.get("open24h", 0.0) or item.get("sodUtc0", 0.0) or last_px)
                                 vol_ccy = float(item.get("volCcy24h", 0.0) or 0.0)
+                                vol_usd = (vol_ccy * last_px) if last_px > 0 else vol_ccy
                                 chg_pct = ((last_px - open_24) / open_24 * 100.0) if open_24 > 0 else 0.0
                             except (ValueError, TypeError):
                                 continue
@@ -225,7 +226,8 @@ class OKXUniverseService:
                                 "low24h": low_24,
                                 "open24h": open_24,
                                 "change24h_pct": round(chg_pct, 2),
-                                "volume_24h_usd": round(vol_ccy, 2),
+                                "volume_24h_usd": round(vol_usd, 2),
+                                "vol_ccy_24h": round(vol_ccy, 2),
                                 "ts": float(item.get("ts", now * 1000))
                             }
 
@@ -510,8 +512,37 @@ class OKXUniverseService:
                 "is_institutional": True
             })
 
-        # Ordena por Volume Institucional (como APR em primeiro) com desempate por amplitude
+        # Ordena por Volume Institucional Real em USD com desempate por amplitude
         candidates.sort(key=lambda x: (x["volume_24h_usd"], abs(x["change_24h"])), reverse=True)
+
+        # Garante preenchimento com a cesta dos 30 Titãs 50x se necessário
+        if len(candidates) < limit:
+            seen_symbols = {c["symbol"] for c in candidates}
+            for titan_sym in self._titans_30_altcoins:
+                if titan_sym not in seen_symbols and len(candidates) < limit:
+                    s = self._instruments_cache.get(titan_sym)
+                    t = self._tickers_cache.get(titan_sym, {})
+                    last_px = float(t.get("last", 0.0) or 1.0)
+                    pair_name = s["pair"] if s else titan_sym.replace("-USDT-SWAP", "USDT")
+                    chg = float(t.get("change24h_pct", 0.0) or 0.0)
+                    candidates.append({
+                        "symbol": titan_sym,
+                        "pair": pair_name,
+                        "clean_sym": pair_name,
+                        "price": last_px,
+                        "high_24h": float(t.get("high24h", last_px) or last_px),
+                        "low_24h": float(t.get("low24h", last_px) or last_px),
+                        "change_24h": round(chg, 2),
+                        "volume_24h_usd": float(t.get("volume_24h_usd", 50_000_000.0) or 50_000_000.0),
+                        "ctVal": s.get("ctVal", 1.0) if s else 1.0,
+                        "tickSize": s.get("tickSize", 0.0001) if s else 0.0001,
+                        "lotSize": s.get("lotSize", 1.0) if s else 1.0,
+                        "minSz": s.get("minSz", 1.0) if s else 1.0,
+                        "is_core": True,
+                        "is_institutional": True
+                    })
+                    seen_symbols.add(titan_sym)
+
         self._inst_univ_cache = candidates
         self._last_inst_univ_ts = now
         return candidates[:limit]
@@ -522,12 +553,34 @@ class OKXUniverseService:
         min_volume_usd: float = 15_000_000.0,
         exclude_btc: bool = True
     ) -> List[Dict[str, Any]]:
-        """Delega diretamente para o universo institucional canônico de 507 pares."""
-        return await self.get_institutional_universe(
-            limit=limit,
-            min_volume_usd=min_volume_usd,
-            exclude_btc=exclude_btc
-        )
+        """Retorna a cesta canônica dos 30 Titãs com specs e tickers atualizados."""
+        await self.sync_instruments()
+        await self.sync_tickers()
+        out = []
+        for sym in self._titans_30_altcoins[:limit]:
+            if exclude_btc and sym.startswith("BTC"):
+                continue
+            s = self._instruments_cache.get(sym, {})
+            t = self._tickers_cache.get(sym, {})
+            last_px = float(t.get("last", 0.0) or 1.0)
+            pair_name = s.get("pair") or sym.replace("-USDT-SWAP", "USDT")
+            out.append({
+                "symbol": sym,
+                "pair": pair_name,
+                "clean_sym": pair_name,
+                "price": last_px,
+                "high_24h": float(t.get("high24h", last_px) or last_px),
+                "low_24h": float(t.get("low24h", last_px) or last_px),
+                "change_24h": round(float(t.get("change24h_pct", 0.0) or 0.0), 2),
+                "volume_24h_usd": float(t.get("volume_24h_usd", 50_000_000.0) or 50_000_000.0),
+                "ctVal": s.get("ctVal", 1.0) if s else 1.0,
+                "tickSize": s.get("tickSize", 0.0001) if s else 0.0001,
+                "lotSize": s.get("lotSize", 1.0) if s else 1.0,
+                "minSz": s.get("minSz", 1.0) if s else 1.0,
+                "is_core": True,
+                "is_institutional": True
+            })
+        return out
 
 
 okx_universe_service = OKXUniverseService()

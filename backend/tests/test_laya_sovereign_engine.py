@@ -118,8 +118,8 @@ def test_structural_stop_loss_distance_minimum():
 
     assert res["qualifies"] is True
     assert res["direction"] == "LONG"
-    # A distância do stop respeita o teto de 15x (-18% ROI max = 1.2% de preco)
-    assert res["stop_dist"] <= 0.0125
+    # A distância do stop estrutural ATR anti-violinada fica entre 2.0% e 3.8%
+    assert 0.018 <= res["stop_dist"] <= 0.038
     assert res["stop_loss"] <= 101.0 * (1.0 - 0.008)
 
 

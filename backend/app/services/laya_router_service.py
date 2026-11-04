@@ -2355,11 +2355,8 @@ class LayaRouterService:
     def _bootstrap_initial_setups(self):
         """Pre-popula candidate_setups no boot para que a UI do Cockpit renderize o Ranking 1-20/30 imediatamente sem latencia com os pares institucionais."""
         now_str = time.strftime("%H:%M:%S")
-        elite_symbols = [
-            "APR", "PARTI", "AKE", "IRYS", "BEAT", "BICO", "XDP", "HUMA", "ENA", "ZK",
-            "INIT", "W", "WLD", "CAP", "ARB", "ADA", "XPL", "AXIS", "BLEND", "MERL",
-            "MON", "SAND", "XRP", "CORE", "CHIP", "HBAR", "CT", "DOS", "LAB", "NIGHT"
-        ]
+        from app.services.okx_universe_service import okx_universe_service
+        elite_symbols = [s.replace("-USDT-SWAP", "") for s in okx_universe_service._titans_30_altcoins]
 
         price_map = {}
         try:
@@ -2672,7 +2669,7 @@ class LayaRouterService:
         try:
             from app.services.okx_universe_service import okx_universe_service
             from app.services.market_intel_engine import market_intel_engine
-            dynamic_assets = await okx_universe_service.get_institutional_universe(limit=30, exclude_btc=True)
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
             if dynamic_assets:
                 assets = list(dynamic_assets)
             else:
