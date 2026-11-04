@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional, Set
 from services.database_service import database_service, SandboxTrade
 from services.okx_ws_public import okx_ws_public_service
 from services.order_projection_service import OrderProjectionService
+from config import settings
 
 logger = logging.getLogger("SandboxService")
 proj_service = OrderProjectionService()
@@ -84,7 +85,7 @@ class SandboxService:
         self._processed_signals = set()
 
         # [V126-LOCK-IN] Variáveis para controle local e cache de saldo consolidado
-        self.base_balance_cache = 10000.0
+        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         self.total_fees_paid_cache = 0.0
         self.total_gross_pnl_cache = 0.0
         self.last_balance_recalc = 0.0
@@ -164,7 +165,7 @@ class SandboxService:
             logger.error(f"Erro ao carregar sinais existentes no Sandbox: {e}")
 
     def reset_balance_cache(self):
-        self.base_balance_cache = 10000.0
+        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         self.last_balance_recalc = 0.0
         logger.info("🧪 Sandbox Service: balance cache resetado para $10,000.")
 
@@ -1453,7 +1454,8 @@ class SandboxService:
                         fee = round(_m * lev * 0.0013, 2)
                     total_fees_usd += fee
                     
-            self.base_balance_cache = round(10000.0 + closed_pnl_usd, 2)
+            base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+            self.base_balance_cache = round(base_sim + closed_pnl_usd, 2)
             self.total_fees_paid_cache = round(total_fees_usd, 2)
             self.total_gross_pnl_cache = round(closed_pnl_usd + total_fees_usd, 2)
             self.last_balance_recalc = time.time()
@@ -1592,21 +1594,22 @@ class SandboxService:
                 
                 # Configurar limites com base no config.py
                 trigger_pct = getattr(settings, "SANDBOX_LOCK_IN_TRIGGER_PERCENT", 10.0)
-                database_service.lock_in_trigger_balance = 10000.0 * (1 + trigger_pct / 100.0)
-                database_service.lock_in_floor_balance = 10000.0 * (1 + (trigger_pct / 2.0) / 100.0)
+                base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+                database_service.lock_in_trigger_balance = base_sim * (1 + trigger_pct / 100.0)
+                database_service.lock_in_floor_balance = base_sim * (1 + (trigger_pct / 2.0) / 100.0)
                 
                 # Gatilho de Ativação do Protocolo
                 if consolidated >= database_service.lock_in_trigger_balance:
                     if not database_service.lock_in_active:
                         database_service.lock_in_active = True
                         logger.warning(f"🔒 [LOCK-IN-ACTIVATED] Banca consolidada atingiu ${consolidated:.2f}! Protocolo de Defesa Ativo.")
-                elif consolidated <= 10000.0:
+                elif consolidated <= float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0)):
                     if database_service.lock_in_active:
                         database_service.lock_in_active = False
                         logger.info("🛡️ [LOCK-IN-DEACTIVATED] Banca recuou abaixo do valor inicial. Protocolo inativado.")
 
                 # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
-                base = 10000.0
+                base = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
                 emergency_floor = base * 0.85  # Piso de emergência de -15% caso não haja lucro travado
 
                 if consolidated > database_service.equity_peak:

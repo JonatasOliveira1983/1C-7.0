@@ -321,14 +321,16 @@ class DatabaseService:
         
         # [V126-LOCK-IN] Controle em memória para o Protocolo de Defesa de Lucros
         self.lock_in_active = False
-        self.lock_in_floor_balance = 10000.0
-        self.lock_in_trigger_balance = 11000.0
-        self.current_consolidated_balance = 10000.0
+        from config import settings
+        _base_init = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+        self.lock_in_floor_balance = _base_init
+        self.lock_in_trigger_balance = _base_init * 1.10
+        self.current_consolidated_balance = _base_init
 
         # [V128-EQUITY-DEFENSE] Defesa progressiva de patrimônio
-        self.equity_peak = 10000.0
+        self.equity_peak = _base_init
         self.equity_defense_level = 0  # 0=OFF, 1=LEVE, 2=MODERADO, 3=FORTE, 4=CRITICO
-        self.equity_floor = 10000.0
+        self.equity_floor = _base_init
         self.equity_defense_stop_pct = 5.0
 
     async def initialize(self):
@@ -1270,8 +1272,10 @@ class DatabaseService:
                 self._active_trades_cache = None
                 logger.info("🧪 Sandbox trades database table cleared.")
                 # [V129] Reset in-memory equity defense metrics to avoid false CRITICAL alert
-                self.equity_peak = 10000.0
-                self.equity_floor = 10000.0
+                from config import settings
+                _b_clr = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+                self.equity_peak = _b_clr
+                self.equity_floor = _b_clr
                 self.equity_defense_level = 0
                 return True
             except Exception as e:
@@ -1349,8 +1353,10 @@ class DatabaseService:
                 await session.commit()
                 logger.info("[SWING-LAB] Swing trades cleared.")
                 # [V129] Reset in-memory equity defense metrics to avoid false CRITICAL alert
-                self.equity_peak = 10000.0
-                self.equity_floor = 10000.0
+                from config import settings
+                _b_clr = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+                self.equity_peak = _b_clr
+                self.equity_floor = _b_clr
                 self.equity_defense_level = 0
                 return True
             except Exception as e:
@@ -1406,12 +1412,15 @@ class DatabaseService:
                     margin = float(meta.get("margin", 200.0) if isinstance(meta, dict) else 200.0)
                     total_pnl_usd += (pnl_pct / 100.0) * margin
 
-                current_balance = 10000.0 + total_pnl_usd
+                from config import settings
+                _base_unif = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+                current_balance = _base_unif + total_pnl_usd
                 logger.info(f"[V127.1] Sandbox realized balance = {current_balance:.2f} (total_pnl_usd={total_pnl_usd:.2f})")
                 return round(current_balance, 2)
         except Exception as e:
             logger.exception(f"[V127.1] Erro ao calcular saldo realizado do Sandbox: {e}")
-            return 10000.0
+            from config import settings
+            return float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
 
     # ==================== PHASE DETECTOR HISTORY (V120) ====================
 

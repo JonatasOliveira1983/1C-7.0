@@ -3204,11 +3204,14 @@ class LayaRouterService:
         # [V154-CAPITAL-PRESERVATION]: Consulta saldo para evitar overtrading após meta diária
         try:
             from services.sandbox_service import sandbox_service
-            current_sandbox_balance = getattr(sandbox_service, "base_balance_cache", 10000.0)
+            from config import settings
+            base_bank = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
+            current_sandbox_balance = getattr(sandbox_service, "base_balance_cache", base_bank)
         except Exception:
-            current_sandbox_balance = 10000.0
+            base_bank = 100000.0
+            current_sandbox_balance = 100000.0
 
-        daily_profit_pct = ((current_sandbox_balance - 10000.0) / 10000.0) * 100.0
+        daily_profit_pct = ((current_sandbox_balance - base_bank) / base_bank) * 100.0
         # [V187-BRUNO-AGUIAR-SLOTS] 10 Slots de Fusão Soberana ($60 cada = $600 alocado / 6% de risco total da banca)
         max_allowed_slots = 8
         effective_min_score = self.MIN_ENTRY_SCORE
@@ -3217,7 +3220,7 @@ class LayaRouterService:
         # O lucro realizado é protegido dinamicamente pelo Piso Soberano (Never Give Back),
         # garantindo que o sistema continue abrindo trades excelentes sem congelamento de slots.
         if daily_profit_pct > 0:
-            self.log_thought("SISTEMA", f"️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-10000.0:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
+            self.log_thought("SISTEMA", f"️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-base_bank:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
 
         order_opened = None
         # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
@@ -3623,9 +3626,11 @@ class LayaRouterService:
 
                 leverage = min(max_allowed_lev, max(5.0, coin_max_lev))
 
-                # 2. Margem por Slot: 0.6% da banca realizada ($60 numa banca de $10.000)
-                # 10 slots = $600 em risco (6% total), mantendo 94% liquida como colchao contra liquidacao
-                margin_planned = 100.0
+                # 2. Margem por Slot: 1.0% da banca realizada ($1.000 numa banca de $100.000)
+                # 10 slots = $10.000 em risco (10% total), mantendo 90% liquida ($90.000) como colchao contra liquidacao
+                from config import settings
+                base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
+                margin_planned = round(max(100.0, min(1000.0, realized_bal * 0.01)), 2)
 
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,

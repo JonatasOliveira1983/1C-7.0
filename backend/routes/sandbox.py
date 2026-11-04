@@ -34,18 +34,19 @@ async def get_unified_sandbox_state():
         swing_trades = await database_service.get_swing_trades(active_only=True)
         
         # 2. Configuracoes de banca e margem
-        BANCA_BASE = 10000.0
+        from config import settings
+        BANCA_BASE = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         
         # 3. Contadores
         active_scalp = len(scalp_trades)
         active_swing = len(swing_trades)
         
         # 4. Lucro realizado (obtido do cache atômico em RAM da SandboxService com fallback DB resiliente)
-        realized_balance = getattr(sandbox_service, "base_balance_cache", 10000.0)
-        if realized_balance == 10000.0:
+        realized_balance = getattr(sandbox_service, "base_balance_cache", BANCA_BASE)
+        if realized_balance == BANCA_BASE:
             try:
                 db_bal = await database_service.get_sandbox_unified_balance()
-                if db_bal != 10000.0:
+                if db_bal != BANCA_BASE:
                     realized_balance = db_bal
                     sandbox_service.base_balance_cache = db_bal
             except Exception:
@@ -178,7 +179,8 @@ async def get_sandbox_stats():
         losses = 0
         total_pnl_usd = 0.0
         # [V129] Banca consolidada dinâmica (Juros Compostos)
-        BANCA = 10000.0
+        from config import settings
+        BANCA = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         # [V119] Inicializa preventivamente as 3 estratégias para garantir telemetria consistente na UI
         strategy_stats = {
             "ALPHA SHIELD": {"total": 0, "wins": 0, "losses": 0, "pnl": 0.0, "pnl_usd": 0.0},

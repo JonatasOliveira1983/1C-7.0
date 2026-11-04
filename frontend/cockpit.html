@@ -667,7 +667,7 @@
               <button id="btn-chart-solo" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('solo')">SOLO (1)</button>
               <button id="btn-chart-dual" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('dual')">DUAL (2)</button>
               <button id="btn-chart-quad" class="btn-gold" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('quad')">QUAD (4)</button>
-              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $10,000.00 pristine">RESET BANCA ($10K)</button>
+              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $100,000.00 pristine">RESET BANCA ($100K)</button>
             </div>
           </div>
 
@@ -3747,7 +3747,7 @@
     }
 
     async function openResetModal() {
-      const confirmed = window.confirm ? confirm("ATENÇÃO INSTITUCIONAL: Deseja acionar o Reset Geral da Banca? Todas as posições ativas e histórico anterior serão limpos e a banca será reiniciada a $10.000,00 pristine.") : true;
+      const confirmed = window.confirm ? confirm("ATENÇÃO INSTITUCIONAL: Deseja acionar o Reset Geral da Banca? Todas as posições ativas e histórico anterior serão limpos e a banca será reiniciada a $100.000,00 pristine.") : true;
       if (!confirmed) return;
 
       const resetBtns = document.querySelectorAll("button[onclick*='openResetModal']");
@@ -3775,12 +3775,12 @@
           b.style.color = "#0ECB81";
         });
 
-        alert("BANCA RESETADA COM SUCESSO!\n\nSaldo restaurado: $10.000,00 pristine.\nHistórico e posições foram zerados.");
+        alert("BANCA RESETADA COM SUCESSO!\n\nSaldo restaurado: $100.000,00 pristine.\nHistórico e posições foram zerados.");
         window.location.reload();
       } catch(e) {
         console.error("Erro ao resetar:", e);
         resetBtns.forEach(b => {
-          b.textContent = b.dataset.prevText || "RESET BANCA ($10K)";
+          b.textContent = b.dataset.prevText || "RESET BANCA ($100K)";
           b.disabled = false;
           b.style.opacity = "1";
         });
