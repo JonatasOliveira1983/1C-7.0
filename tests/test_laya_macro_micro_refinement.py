@@ -65,7 +65,7 @@ def test_structural_breakout_validation_anti_knife():
     
     validation = laya_router_service.validate_structural_reversal_2h(
         sma_info=sma_info,
-        current_price=last_close,
+        current_price=round(sma_info["sma8"] * 1.005, 4),
         direction="LONG"
     )
     assert validation["confirmed"] is False
@@ -84,7 +84,7 @@ def test_structural_breakout_validation_confirmed():
     
     validation = laya_router_service.validate_structural_reversal_2h(
         sma_info=sma_info,
-        current_price=last_close,
+        current_price=round(sma_info["sma8"] * 1.005, 4),
         direction="LONG"
     )
     assert validation["confirmed"] is True

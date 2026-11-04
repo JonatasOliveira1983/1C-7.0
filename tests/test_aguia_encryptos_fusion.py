@@ -80,7 +80,7 @@ def test_evaluate_aguia_encryptos_fusion_success():
             "10000"
         ])
 
-    current_price = 1.60
+    current_price = 1.48
     eval_res = laya_router_service.evaluate_aguia_encryptos_fusion(
         symbol="XRPUSDT",
         current_price=current_price,
@@ -117,7 +117,7 @@ def test_evaluate_aguia_encryptos_fusion_veto_by_encryptos():
 
     eval_res = laya_router_service.evaluate_aguia_encryptos_fusion(
         symbol="DOGEUSDT",
-        current_price=1.60,
+        current_price=1.48,
         candles_1h=candles_1h,
         bot_ignition=False,
         c_exp=45.0, # Muito baixo (varejo morto sem aceleração)
