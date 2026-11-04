@@ -492,9 +492,22 @@ class LayaRouterService:
                     "reason": f"VETO ANTI-FACA: Sem rompimento oficial 2H (SMA 8 ${sma8:.4f} < SMA 21 ${sma21:.4f} ou preco ${current_price:.4f} abaixo da media). Proibido adivinhar fundo.",
                     "macro_direction": macro_dir
                 }
+            # [REGRA DE RECUO / DIP LONG]: Nao comprar topo esticado! Preco deve estar em recuo proximo as medias
+            if sma8 > 0 and current_price > sma8 * 1.015:
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO TOPO ESTICADO 2H: Preco (${current_price:.4f}) afastado +{((current_price-sma8)/sma8)*100:.1f}% acima da SMA 8 (${sma8:.4f}). Aguardar recuo/dip para comprar barato.",
+                    "macro_direction": "LONG"
+                }
+            if sma21 > 0 and current_price < sma21 * 0.975:
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO VIOLACAO SMA 21: Preco (${current_price:.4f}) perfurou abaixo da SMA 21 (${sma21:.4f}). Estrutura de alta ameacada.",
+                    "macro_direction": "LONG"
+                }
             return {
                 "confirmed": True,
-                "reason": "ROMPEU_ESTRUTURA_2H: Rompimento oficial com SMA 8 acima da SMA 21 no 2H e preco sustentado.",
+                "reason": "ROMPEU_ESTRUTURA_2H: Rompimento oficial com SMA 8 acima da SMA 21 no 2H e preco em zona de recuo.",
                 "macro_direction": "LONG"
             }
         elif norm_dir in ("SHORT", "SELL"):
@@ -504,9 +517,22 @@ class LayaRouterService:
                     "reason": f"VETO ANTI-LOCOMOTIVA: Sem rompimento de baixa 2H (SMA 8 ${sma8:.4f} > SMA 21 ${sma21:.4f} ou preco ${current_price:.4f} acima da media). Proibido vender topo sem confirmacao.",
                     "macro_direction": macro_dir
                 }
+            # [REGRA DE RECUO / PULLBACK SHORT]: Nao vender fundo esticado! Preco deve ter repicado em direcao as medias
+            if sma8 > 0 and current_price < sma8 * 0.985:
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO FUNDO ESTICADO 2H: Preco (${current_price:.4f}) afastado {((current_price-sma8)/sma8)*100:.1f}% abaixo da SMA 8 (${sma8:.4f}). Aguardar repique/pullback para vender caro.",
+                    "macro_direction": "SHORT"
+                }
+            if sma21 > 0 and current_price > sma21 * 1.025:
+                return {
+                    "confirmed": False,
+                    "reason": f"VETO ROMPIMENTO SMA 21: Preco (${current_price:.4f}) subiu acima da SMA 21 (${sma21:.4f}). Estrutura de baixa ameacada.",
+                    "macro_direction": "SHORT"
+                }
             return {
                 "confirmed": True,
-                "reason": "CONFIRMADO_BAIXA_2H: Tendencia de queda confirmada com SMA 8 abaixo da SMA 21 no 2H.",
+                "reason": "CONFIRMADO_BAIXA_2H: Tendencia de queda confirmada com SMA 8 abaixo da SMA 21 no 2H e preco em zona de pullback.",
                 "macro_direction": "SHORT"
             }
 
@@ -524,7 +550,8 @@ class LayaRouterService:
         bot_ignition: bool,
         c_exp: float,
         btc_trend_bias: float = 0.0,
-        reactive_5m: Optional[Dict[str, Any]] = None
+        reactive_5m: Optional[Dict[str, Any]] = None,
+        lsr: float = 1.0
     ) -> Dict[str, Any]:
         """
         [V187-SOVEREIGN-FUSION-BRUNO-PHENIX]
@@ -544,6 +571,62 @@ class LayaRouterService:
 
         if direction not in ("LONG", "SHORT"):
             return {"qualifies": False, "direction": "HOLD", "score": 0, "sma_cross": sma_cross}
+
+        sma8 = float(sma_cross.get("sma8", 0.0) or 0.0)
+        sma21 = float(sma_cross.get("sma21", 0.0) or 0.0)
+
+        # [REGRA DE OURO - RETRACAO / PULLBACK NO 2H]:
+        # NUNCA vender fundo esticado e NUNCA comprar topo esticado!
+        if direction == "SHORT":
+            if sma8 > 0 and current_price < sma8 * 0.985:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Fundo Esticado: Preco (${current_price:.4f}) afastado {((current_price-sma8)/sma8)*100:.1f}% abaixo da SMA 8 (${sma8:.4f}). Aguardando repique/pullback para vender caro."
+                }
+            if sma21 > 0 and current_price > sma21 * 1.025:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Rompimento SMA 21: Preco (${current_price:.4f}) acima da SMA 21 (${sma21:.4f}). Estrutura de baixa ameacada."
+                }
+            if float(lsr or 1.0) < 0.80:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Anti-Squeeze LSR: LSR em {float(lsr):.2f} (< 0.80). Sardinhas sobre-vendidas, risco severo de short squeeze."
+                }
+        elif direction == "LONG":
+            if sma8 > 0 and current_price > sma8 * 1.015:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Topo Esticado: Preco (${current_price:.4f}) afastado +{((current_price-sma8)/sma8)*100:.1f}% acima da SMA 8 (${sma8:.4f}). Aguardando recuo/dip para comprar barato."
+                }
+            if sma21 > 0 and current_price < sma21 * 0.975:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Perfuracao SMA 21: Preco (${current_price:.4f}) abaixo da SMA 21 (${sma21:.4f}). Estrutura de alta ameacada."
+                }
+            if float(lsr or 1.0) > 1.35:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Anti-Dump LSR: LSR em {float(lsr):.2f} (> 1.35). Sardinhas sobre-compradas, risco severo de liquidacao em cascata."
+                }
 
         # Filtro Phenix: Exige aceleracao institucional (1C-EXP >= 60 ou robos ON) ou confirmacao macro do BTC / cruzamento 2H
         c_exp_val = float(c_exp or 0.0)
@@ -1440,7 +1523,8 @@ class LayaRouterService:
                 candles_1h=candles_1h,
                 bot_ignition=bot_ignition,
                 c_exp=c_exp,
-                btc_trend_bias=btc_trend_bias
+                btc_trend_bias=btc_trend_bias,
+                lsr=lsr
             )
             if fusion_eval.get("qualifies"):
                 setup_res = fusion_eval
@@ -1956,14 +2040,20 @@ class LayaRouterService:
 
         if direction == "SHORT":
             wick_ratio = upper_wick_ratio
-            is_locomotive = total_gain >= 0.020 or (((cl_curr - o_curr) / o_curr) >= 0.012 and wick_ratio < 0.15)
+            is_locomotive = total_gain >= 0.015 or (((cl_curr - o_curr) / o_curr) >= 0.006 and wick_ratio < 0.20)
             if is_locomotive:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_LOCOMOTIVA_5M (Vela 5M em alta agressiva [+{total_gain*100:.1f}%] sem rejeicao. Aguardar exaustao)",
                     "metrics": metrics
                 }
-            if h_curr > h1 * 1.002 and wick_ratio < 0.10 and cl_curr >= h1:
+            if cl_curr > o_curr * 1.002 and upper_wick_ratio < 0.20:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_REPIQUE_ATIVO_5M (Vela 5M verde ativa [+{((cl_curr-o_curr)/o_curr)*100:.2f}%] sem sombra superior ({upper_wick_ratio*100:.1f}%). Aguardar rejeicao dos vendedores)",
+                    "metrics": metrics
+                }
+            if h_curr > h1 * 1.002 and wick_ratio < 0.15 and cl_curr >= h1:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_EXPANSAO_ALTA_5M (Rompimento ativo de maxima em ${h_curr:.4f} sem rejeicao ({wick_ratio*100:.1f}%))",
@@ -1972,14 +2062,20 @@ class LayaRouterService:
 
         elif direction == "LONG":
             wick_ratio = lower_wick_ratio
-            is_free_fall = total_drop >= 0.020 or (((o_curr - cl_curr) / o_curr) >= 0.012 and wick_ratio < 0.15)
+            is_free_fall = total_drop >= 0.015 or (((o_curr - cl_curr) / o_curr) >= 0.006 and wick_ratio < 0.20)
             if is_free_fall:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_QUEDA_LIVRE_5M (Vela 5M em queda agressiva [-{total_drop*100:.1f}%] sem absorcao. Proibido comprar faca caindo)",
                     "metrics": metrics
                 }
-            if l_curr < l1 * 0.998 and wick_ratio < 0.10 and cl_curr <= l1:
+            if cl_curr < o_curr * 0.998 and lower_wick_ratio < 0.20:
+                return {
+                    "is_safe": False,
+                    "reason": f"VETO_DESPEJO_ATIVO_5M (Vela 5M vermelha ativa [-{((o_curr-cl_curr)/o_curr)*100:.2f}%] sem sombra inferior ({lower_wick_ratio*100:.1f}%). Aguardar absorcao dos compradores)",
+                    "metrics": metrics
+                }
+            if l_curr < l1 * 0.998 and wick_ratio < 0.15 and cl_curr <= l1:
                 return {
                     "is_safe": False,
                     "reason": f"VETO_EXPANSAO_BAIXA_5M (Rompimento ativo de minima em ${l_curr:.4f} sem absorcao ({wick_ratio*100:.1f}%))",
@@ -3196,11 +3292,50 @@ class LayaRouterService:
                 reverse=True
             )
 
+            # [V189-DIRECTIONAL-CLUSTER-PROTECTION]: Contabiliza posicoes ativas por direcao
+            active_direction_counts = {"LONG": 0, "SHORT": 0}
+            for t in active_trades:
+                t_side = getattr(t, "side", None) or (t.get("side") if isinstance(t, dict) else None) or ""
+                t_side = str(t_side).upper()
+                if "LONG" in t_side or "BUY" in t_side:
+                    active_direction_counts["LONG"] += 1
+                elif "SHORT" in t_side or "SELL" in t_side:
+                    active_direction_counts["SHORT"] += 1
+
             chosen = None
             for cand in eligible:
                 cand_sym = cand["symbol"]
                 cand_dir = cand["direction"]
                 clean_name = cand.get("clean_sym", cand_sym)
+
+                # [ANTI-CLUSTER SOBERANO]: Maximo de 2 posicoes na mesma direcao (evita cesto correlacionado de 3 shorts)
+                if active_direction_counts.get(cand_dir, 0) >= 2 and not cand.get("alt_pump_ignition"):
+                    self.log_thought(
+                        clean_name,
+                        f"[VETO CLUSTER DIRECIONAL]: Ja existem {active_direction_counts.get(cand_dir, 0)} posicoes ativas em {cand_dir}. Limite de correlacao atingido para blindar a banca.",
+                        action="VETO_CLUSTER_DIRECIONAL",
+                        confidence=96
+                    )
+                    continue
+
+                # [ANTI-SQUEEZE LSR SOBERANO]: Veta SHORT se maioria sardinha estiver vendida, e LONG se maioria comprada
+                c_lsr_val = float(cand.get("lsr", 1.0) or 1.0)
+                if cand_dir == "SHORT" and c_lsr_val < 0.80:
+                    self.log_thought(
+                        clean_name,
+                        f"[VETO ANTI-SQUEEZE LSR]: SHORT bloqueado para {cand_sym} (LSR: {c_lsr_val:.2f} < 0.80). Sardinhas sobre-vendidas, risco severo de short squeeze.",
+                        action="VETO_LSR_SQUEEZE",
+                        confidence=97
+                    )
+                    continue
+                if cand_dir == "LONG" and c_lsr_val > 1.35:
+                    self.log_thought(
+                        clean_name,
+                        f"[VETO ANTI-DUMP LSR]: LONG bloqueado para {cand_sym} (LSR: {c_lsr_val:.2f} > 1.35). Sardinhas sobre-compradas, risco severo de liquidacao em cascata.",
+                        action="VETO_LSR_DUMP",
+                        confidence=97
+                    )
+                    continue
                 cand_kline = klines_h1_map.get(clean_name) or klines_h1_map.get(cand_sym) or []
 
                 # Se klines não estavam no cache, busca sob demanda com contingência total (OKX + Binance Futures + Gate.io)
