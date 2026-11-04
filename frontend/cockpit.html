@@ -1557,7 +1557,6 @@
 
     async function loadCandlesForChart(i, symbol, tf) {
       let cleanSym = symbol.replace("-SWAP", "").replace("-", "").toUpperCase();
-      // Identificador de instrumento nativo da OKX
       let okxInstId = symbol.toUpperCase();
       if (!okxInstId.includes("-")) {
         let base = okxInstId.replace("USDT", "").replace(".P", "");
@@ -1565,26 +1564,22 @@
       }
       
       let okxBar = "15m";
-      if (tf === "1") okxBar = "1m";
-      else if (tf === "5") okxBar = "5m";
-      else if (tf === "15") okxBar = "15m";
-      else if (tf === "60") okxBar = "1H";
-      else if (tf === "120" || tf === "2H" || tf === "2h") okxBar = "2H";
-
-      // 1. Renderiza IMEDIATAMENTE velas base (fallback ou preço ao vivo) para que o canvas NUNCA fique preto ou vazio
-      if (!candleSeriesList[i] || !chartLastPrice[i]) {
-        generateFallbackCandlesForChart(i, cleanSym);
-      }
+      const sTf = String(tf || "15").toLowerCase();
+      if (sTf === "1" || sTf === "1m") okxBar = "1m";
+      else if (sTf === "5" || sTf === "5m") okxBar = "5m";
+      else if (sTf === "15" || sTf === "15m") okxBar = "15m";
+      else if (sTf === "60" || sTf === "1h") okxBar = "1H";
+      else if (sTf === "120" || sTf === "2h" || sTf === "2") okxBar = "2H";
 
       try {
         let klines = [];
         let volumes = [];
         let okxData = null;
         
-        // 1. Tenta proxy local sem CORS com timeout estrito de 1.5s
+        // 1. Tenta proxy local de alta velocidade com timeout de 6.0s
         try {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 4500);
+          const toId = setTimeout(() => controller.abort(), 6000);
           let pRes = await fetch(`/api/candles?symbol=${cleanSym}&bar=${okxBar}&limit=250`, { signal: controller.signal });
           clearTimeout(toId);
           if (pRes.ok) {
@@ -1592,11 +1587,11 @@
           }
         } catch(pe) {}
 
-        // 2. Se falhar, tenta OKX direto com timeout de 2.0s
+        // 2. Se falhar, tenta OKX direto com timeout de 2.5s
         if (!okxData || okxData.code !== "0" || !okxData.data || okxData.data.length === 0) {
           try {
             const controller2 = new AbortController();
-            const toId2 = setTimeout(() => controller2.abort(), 2000);
+            const toId2 = setTimeout(() => controller2.abort(), 2500);
             let res = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${okxInstId}&bar=${okxBar}&limit=250`, { signal: controller2.signal });
             clearTimeout(toId2);
             if (res.ok) okxData = await res.json();
@@ -1604,21 +1599,25 @@
         }
 
         if (okxData && okxData.code === "0" && okxData.data && okxData.data.length > 0) {
-          klines = okxData.data.map(k => {
+          const seen = new Set();
+          const raw = [...okxData.data].sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
+          for (const k of raw) {
             const t = Math.floor(parseInt(k[0]) / 1000);
+            if (seen.has(t)) continue;
+            seen.add(t);
             const o = parseFloat(k[1]);
             const h = parseFloat(k[2]);
             const l = parseFloat(k[3]);
             const c = parseFloat(k[4]);
             const v = parseFloat(k[5] || 0);
+            if (isNaN(t) || isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c)) continue;
+            klines.push({ time: t, open: o, high: h, low: l, close: c });
             volumes.push({
               time: t,
               value: v,
               color: c >= o ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
             });
-            return { time: t, open: o, high: h, low: l, close: c };
-          }).sort((a,b) => a.time - b.time);
-          volumes.sort((a,b) => a.time - b.time);
+          }
         }
 
         if (candleSeriesList[i] && klines.length > 0) {
@@ -1652,8 +1651,8 @@
               scaleMargins: { top: 0.15, bottom: 0.15 }
             });
             nativeCharts[i].timeScale().applyOptions({
-              barSpacing: 7,
-              rightOffset: 10,
+              barSpacing: 9,
+              rightOffset: 12,
               minBarSpacing: 3
             });
             nativeCharts[i].timeScale().fitContent();
@@ -1681,8 +1680,560 @@
         console.warn(`OKX candles fallback for chart ${i}:`, e);
       }
 
-      // Fallback synthetic candles garantido
-      generateFallbackCandlesForChart(i, cleanSym);
+      // Fallback synthetic candles garantido com SMAs sincronizadas
+      generateFallbackCandlesForChart(i, cleanSym, tf);
+    }
+
+    function generateFallbackCandlesForChart(i, symbol, tf) {
+      const series = candleSeriesList[i];
+      if (!series) return;
+      let basePrice = 10.0;
+
+      const activeSlots = window._activeSlotsData || [];
+      const matchSlot = activeSlots.find(s => (s.symbol || '').replace("-SWAP","").replace("-","").toUpperCase() === symbol);
+      if (matchSlot && Number(matchSlot.current_price || matchSlot.entry_price) > 0) {
+        basePrice = Number(matchSlot.current_price || matchSlot.entry_price);
+      } else if (chartLastPrice[i] && chartLastPrice[i] > 0) {
+        basePrice = chartLastPrice[i];
+      } else if (symbol.includes("BTC")) basePrice = 91200.0;
+      else if (symbol.includes("ETH")) basePrice = 3350.0;
+      else if (symbol.includes("SOL")) basePrice = 185.0;
+      else if (symbol.includes("SUI")) basePrice = 0.925;
+      else if (symbol.includes("AVAX")) basePrice = 28.60;
+      else if (symbol.includes("NEAR")) basePrice = 4.85;
+
+      const prec = basePrice < 0.01 ? 6 : (basePrice < 1.0 ? 4 : (basePrice < 50 ? 3 : 2));
+      const minM = Math.pow(10, -prec);
+      series.applyOptions({
+        priceFormat: {
+          type: 'price',
+          precision: prec,
+          minMove: minM
+        }
+      });
+
+      const sTf = String(tf || "15").toLowerCase();
+      let stepSec = 900;
+      if (sTf === "1" || sTf === "1m") stepSec = 60;
+      else if (sTf === "5" || sTf === "5m") stepSec = 300;
+      else if (sTf === "15" || sTf === "15m") stepSec = 900;
+      else if (sTf === "60" || sTf === "1h") stepSec = 3600;
+      else if (sTf === "120" || sTf === "2h") stepSec = 7200;
+
+      const now = Math.floor(Date.now() / 1000);
+      const klines = [];
+      const volumes = [];
+      let p = basePrice;
+      for (let j = 0; j <= 120; j++) {
+        const t = now - (j * stepSec);
+        const change = (Math.random() - 0.49) * (basePrice * 0.002);
+        const c = p;
+        const o = p - change;
+        const h = Math.max(o, c) + Math.random() * (basePrice * 0.001);
+        const l = Math.min(o, c) - Math.random() * (basePrice * 0.001);
+        const v = Math.floor(Math.random() * 8000 + 1500);
+        klines.unshift({ time: t, open: o, high: h, low: l, close: c });
+        volumes.unshift({
+          time: t,
+          value: v,
+          color: c >= o ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+        });
+        p = o;
+      }
+      series.setData(klines);
+      if (volumeSeriesList[i]) {
+        volumeSeriesList[i].setData(volumes);
+      }
+      if (sma8SeriesList[i]) {
+        sma8SeriesList[i].setData(computeSMA(klines, 8));
+      }
+      if (sma21SeriesList[i]) {
+        sma21SeriesList[i].setData(computeSMA(klines, 21));
+      }
+      if (nativeCharts[i]) {
+        nativeCharts[i].priceScale('right').applyOptions({ autoScale: true, scaleMargins: { top: 0.15, bottom: 0.15 } });
+        nativeCharts[i].timeScale().applyOptions({ barSpacing: 9, rightOffset: 12 });
+        nativeCharts[i].timeScale().fitContent();
+      }
+      const last = klines[klines.length - 1].close;
+      chartLastPrice[i] = last;
+      const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+      if (livePriceEl) {
+        livePriceEl.textContent = "$" + (last >= 1 ? last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : last.toFixed(prec));
+      }
+    }
+
+    function computeSMA(data, period) {
+      if (!data || data.length < period) return [];
+      const res = [];
+      for (let idx = period - 1; idx < data.length; idx++) {
+        let sum = 0;
+        for (let p = 0; p < period; p++) {
+          sum += data[idx - p].close;
+        }
+        res.push({
+          time: data[idx].time,
+          value: sum / period
+        });
+      }
+      return res;
+    }
+
+    function initSingleNativeChart(i) {
+      const container = document.getElementById(`lw-frame-wrap-${i}`);
+      if (!container || !window.LightweightCharts) return;
+      if (nativeCharts[i]) {
+        try { nativeCharts[i].remove(); } catch(e){}
+        nativeCharts[i] = null;
+      }
+      
+      const width = Math.max(container.clientWidth || 0, 240);
+      const height = Math.max(container.clientHeight || 0, 180);
+
+      const chart = LightweightCharts.createChart(container, {
+        width: width,
+        height: height,
+        layout: {
+          background: { type: 'solid', color: '#05070a' },
+          textColor: '#8899a6'
+        },
+        grid: {
+          vertLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 },
+          horzLines: { color: 'rgba(255, 255, 255, 0.04)', style: 1 }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 192, 0, 0.25)',
+          scaleMargins: { top: 0.10, bottom: 0.10 },
+          autoScale: true
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          timeVisible: true,
+          secondsVisible: false
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal
+        },
+        localization: {
+          priceFormatter: (p) => {
+            if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (p >= 1) return p.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+            return p.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+          }
+        }
+      });
+
+      const series = chart.addCandlestickSeries({
+        upColor: '#FFFFFF',
+        downColor: '#FF1744',
+        borderVisible: false,
+        wickUpColor: '#FFFFFF',
+        wickDownColor: '#FF1744'
+      });
+
+      const volSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+      });
+      chart.priceScale('').applyOptions({
+        scaleMargins: {
+          top: 0.82,
+          bottom: 0,
+        },
+      });
+
+      // SMA 8 (White) & SMA 21 (Yellow - Bruno Aguiar Strategy)
+      const sma8 = chart.addLineSeries({
+        color: '#FFFFFF',
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'SMA 8'
+      });
+      const sma21 = chart.addLineSeries({
+        color: '#F0B90B',
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'SMA 21'
+      });
+      sma8SeriesList[i] = sma8;
+      sma21SeriesList[i] = sma21;
+
+      nativeCharts[i] = chart;
+      candleSeriesList[i] = series;
+      volumeSeriesList[i] = volSeries;
+      priceLinesList[i] = [];
+
+      loadCandlesForChart(i, chartSymbols[i], chartIntervals[i]);
+
+      const ro = new ResizeObserver(() => {
+        if (nativeCharts[i] && container) {
+          const w = Math.max(container.clientWidth || 0, 150);
+          const h = Math.max(container.clientHeight || 0, 150);
+          nativeCharts[i].applyOptions({ width: w, height: h });
+          try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+        }
+      });
+      ro.observe(container);
+    }
+ 
+    /* ==========================================================================
+       OKX BUSINESS WEBSOCKET (REAL-TIME CANDLESTICKS TICK-BY-TICK)
+       ========================================================================== */
+    let okxCandleWs = null;
+    let okxWsHeartbeatTimer = null;
+    const okxActiveSubs = new Map(); // chartIndex -> { channel, instId }
+
+    // Helper universal para formatação inteligente de preços baseada na ordem de grandeza do par
+    function formatPriceSmart(price) {
+      const p = Number(price || 0);
+      if (isNaN(p) || p === 0) return "0.00";
+      if (p >= 1000) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (p >= 1.0) return p.toFixed(4);
+      if (p >= 0.05) return p.toFixed(5);
+      if (p >= 0.0001) return p.toFixed(6);
+      return p.toFixed(8);
+    }
+
+    function getOkxInstId(sym) {
+      if (!sym) return "SOL-USDT-SWAP";
+      let clean = sym.replace("-SWAP", "").replace("-", "").toUpperCase();
+      return `${clean.replace("USDT", "")}-USDT-SWAP`;
+    }
+
+    function getOkxCandleChannel(tf) {
+      if (tf === "1") return "candle1m";
+      if (tf === "5") return "candle5m";
+      if (tf === "15") return "candle15m";
+      if (tf === "60") return "candle1H";
+      if (tf === "120" || tf === "2H" || tf === "2h") return "candle2H";
+      return "candle1m";
+    }
+
+    function initOkxCandleWs() {
+      if (okxCandleWs && (okxCandleWs.readyState === WebSocket.OPEN || okxCandleWs.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      try {
+        console.log("[OKX-WS] Conectando ao WebSocket de Candles da OKX (Business)...");
+        okxCandleWs = new WebSocket("wss://ws.okx.com:8443/ws/v5/business");
+
+        okxCandleWs.onopen = () => {
+          console.log("[OKX-WS] Conectado com sucesso à OKX SWAP em tempo real!");
+          if (okxWsHeartbeatTimer) clearInterval(okxWsHeartbeatTimer);
+          okxWsHeartbeatTimer = setInterval(() => {
+            if (okxCandleWs && okxCandleWs.readyState === WebSocket.OPEN) {
+              okxCandleWs.send("ping");
+            }
+          }, 20000);
+
+          // Inscreve todos os 4 gráficos atuais
+          for (let i = 0; i < 4; i++) {
+            subscribeChartToOkxWs(i);
+          }
+        };
+
+        okxCandleWs.onmessage = (event) => {
+          if (event.data === "pong") return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.event === "subscribe") return;
+            if (msg.event === "error") {
+              console.warn("[OKX-WS] Erro:", msg.msg);
+              return;
+            }
+
+            const arg = msg.arg;
+            if (arg && msg.data && msg.data.length > 0) {
+              const k = msg.data[0];
+              const candle = {
+                time: Math.floor(parseInt(k[0]) / 1000),
+                open: parseFloat(k[1]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                close: parseFloat(k[4])
+              };
+              const vol = parseFloat(k[5] || 0);
+
+              // Atualiza os gráficos correspondentes
+              for (let i = 0; i < 4; i++) {
+                const sub = okxActiveSubs.get(i);
+                if (sub && sub.instId === arg.instId && sub.channel === arg.channel) {
+                  const series = candleSeriesList[i];
+                  if (series) {
+                    try {
+                      series.update(candle);
+                      if (volumeSeriesList[i] && vol > 0) {
+                        volumeSeriesList[i].update({
+                          time: candle.time,
+                          value: vol,
+                          color: candle.close >= candle.open ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+                        });
+                      }
+                    } catch(chartErr) {
+                      // Silently skip out-of-order candlestick updates from websocket bursts
+                    }
+                    chartLastPrice[i] = candle.close;
+                    const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+                    if (livePriceEl) {
+                      livePriceEl.textContent = "$" + formatPriceSmart(candle.close);
+                    }
+
+                    // Atualiza klines locais e Médias Móveis SMA 8 e SMA 21 em tempo real
+                    if (chartKlinesList[i] && chartKlinesList[i].length > 0) {
+                      const kl = chartKlinesList[i];
+                      const lastIdx = kl.length - 1;
+                      if (kl[lastIdx].time === candle.time) {
+                        kl[lastIdx] = candle;
+                      } else if (candle.time > kl[lastIdx].time) {
+                        kl.push(candle);
+                        if (kl.length > 300) kl.shift();
+                      }
+                      if (kl.length >= 8 && sma8SeriesList[i]) {
+                        let s8 = 0;
+                        for (let p = 0; p < 8; p++) s8 += kl[kl.length - 1 - p].close;
+                        try { sma8SeriesList[i].update({ time: candle.time, value: s8 / 8 }); } catch(e){}
+                      }
+                      if (kl.length >= 21 && sma21SeriesList[i]) {
+                        let s21 = 0;
+                        for (let p = 0; p < 21; p++) s21 += kl[kl.length - 1 - p].close;
+                        try { sma21SeriesList[i].update({ time: candle.time, value: s21 / 21 }); } catch(e){}
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Atualização reativa instantânea (Tick-by-Tick) no Painel de Custódia e Cards
+              if (window._activeSlotsData && Array.isArray(window._activeSlotsData)) {
+                const targetSym = (arg.instId || '').replace('-SWAP', '').replace('-', '').toUpperCase();
+                const slot = window._activeSlotsData.find(s => {
+                  const sSym = (s.symbol || '').replace('-SWAP', '').replace('-', '').toUpperCase();
+                  return sSym === targetSym || targetSym.includes(sSym) || sSym.includes(targetSym);
+                });
+
+                if (slot && slot.entry_price > 0) {
+                  const oldP = slot.current_price || slot.entry_price;
+                  const newP = candle.close;
+                  slot.current_price = newP;
+                  const isLong = slot.side === 'BUY' || slot.side === 'LONG' || slot.side === 'Buy';
+                  const lev = slot.leverage || 15;
+                  const pnlPct = isLong
+                    ? ((newP - slot.entry_price) / slot.entry_price) * lev * 100.0
+                    : ((slot.entry_price - newP) / slot.entry_price) * lev * 100.0;
+                  slot.pnl_percent = pnlPct;
+
+                  // Atualiza linha da tabela no DOM
+                  const row = document.querySelector(`tr[data-sym="${slot.symbol}"]`);
+                  if (row) {
+                    const priceTd = row.children[4];
+                    const pnlTd = row.children[6];
+                    if (priceTd) {
+                      priceTd.textContent = "$" + formatPriceSmart(newP);
+                      if (newP !== oldP) {
+                        const flashClass = newP > oldP ? "price-flash-up" : "price-flash-down";
+                        priceTd.classList.remove("price-flash-up", "price-flash-down");
+                        void priceTd.offsetWidth;
+                        priceTd.classList.add(flashClass);
+                      }
+                    }
+                    if (pnlTd) {
+                      const isUp = pnlPct >= 0;
+                      pnlTd.innerHTML = `<span class="${isUp ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${isUp ? '+' : ''}${pnlPct.toFixed(2)}%</span>`;
+                    }
+                  }
+
+                  // Atualiza o Card Lateral se existir
+                  const sideCard = document.querySelector(`.side-slot-card[data-sym="${slot.symbol}"]`);
+                  if (sideCard) {
+                    const atualEl = sideCard.querySelector('span:has(b) b[style*="font-size: 12.5px"]');
+                    if (atualEl) atualEl.textContent = "$" + formatPriceSmart(newP);
+                  }
+                }
+              }
+            }
+          } catch(e) {
+            console.error("[OKX-WS] Erro ao processar mensagem:", e);
+          }
+        };
+
+        okxCandleWs.onclose = () => {
+          console.warn("[OKX-WS] Conexão encerrada. Reconectando em 3s...");
+          if (okxWsHeartbeatTimer) clearInterval(okxWsHeartbeatTimer);
+          setTimeout(initOkxCandleWs, 3000);
+        };
+
+        okxCandleWs.onerror = (err) => {
+          console.error("[OKX-WS] Erro de socket:", err);
+          try { okxCandleWs.close(); } catch(e){}
+        };
+
+      } catch(e) {
+        console.error("[OKX-WS] Falha ao inicializar WebSocket:", e);
+        setTimeout(initOkxCandleWs, 5000);
+      }
+    }
+
+    function subscribeChartToOkxWs(chartIndex) {
+      if (!okxCandleWs || okxCandleWs.readyState !== WebSocket.OPEN) return;
+
+      const sym = chartSymbols[chartIndex] || "SOLUSDT";
+      const tf = chartIntervals[chartIndex] || "1";
+      const instId = getOkxInstId(sym);
+      const channel = getOkxCandleChannel(tf);
+
+      const prevSub = okxActiveSubs.get(chartIndex);
+      if (prevSub && (prevSub.instId !== instId || prevSub.channel !== channel)) {
+        try {
+          okxCandleWs.send(JSON.stringify({
+            op: "unsubscribe",
+            args: [{ channel: prevSub.channel, instId: prevSub.instId }]
+          }));
+        } catch(e) {}
+      }
+
+      try {
+        okxCandleWs.send(JSON.stringify({
+          op: "subscribe",
+          args: [{ channel: channel, instId: instId }]
+        }));
+        okxActiveSubs.set(chartIndex, { channel, instId });
+      } catch(e) {
+        console.error(`[OKX-WS] Erro ao subscrever G${chartIndex+1}:`, e);
+      }
+    }
+
+    async function loadCandlesForChart(i, symbol, tf) {
+      let cleanSym = symbol.replace("-SWAP", "").replace("-", "").toUpperCase();
+      let okxInstId = symbol.toUpperCase();
+      if (!okxInstId.includes("-")) {
+        let base = okxInstId.replace("USDT", "").replace(".P", "");
+        okxInstId = `${base}-USDT-SWAP`;
+      }
+      
+      let okxBar = "15m";
+      const sTf = String(tf || "15").toLowerCase();
+      if (sTf === "1" || sTf === "1m") okxBar = "1m";
+      else if (sTf === "5" || sTf === "5m") okxBar = "5m";
+      else if (sTf === "15" || sTf === "15m") okxBar = "15m";
+      else if (sTf === "60" || sTf === "1h") okxBar = "1H";
+      else if (sTf === "120" || sTf === "2h" || sTf === "2") okxBar = "2H";
+
+      try {
+        let klines = [];
+        let volumes = [];
+        let okxData = null;
+        
+        // 1. Tenta proxy local de alta velocidade com timeout de 6.0s
+        try {
+          const controller = new AbortController();
+          const toId = setTimeout(() => controller.abort(), 6000);
+          let pRes = await fetch(`/api/candles?symbol=${cleanSym}&bar=${okxBar}&limit=250`, { signal: controller.signal });
+          clearTimeout(toId);
+          if (pRes.ok) {
+            okxData = await pRes.json();
+          }
+        } catch(pe) {}
+
+        // 2. Se falhar, tenta OKX direto com timeout de 2.5s
+        if (!okxData || okxData.code !== "0" || !okxData.data || okxData.data.length === 0) {
+          try {
+            const controller2 = new AbortController();
+            const toId2 = setTimeout(() => controller2.abort(), 2500);
+            let res = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${okxInstId}&bar=${okxBar}&limit=250`, { signal: controller2.signal });
+            clearTimeout(toId2);
+            if (res.ok) okxData = await res.json();
+          } catch(e) {}
+        }
+
+        if (okxData && okxData.code === "0" && okxData.data && okxData.data.length > 0) {
+          const seen = new Set();
+          const raw = [...okxData.data].sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
+          for (const k of raw) {
+            const t = Math.floor(parseInt(k[0]) / 1000);
+            if (seen.has(t)) continue;
+            seen.add(t);
+            const o = parseFloat(k[1]);
+            const h = parseFloat(k[2]);
+            const l = parseFloat(k[3]);
+            const c = parseFloat(k[4]);
+            const v = parseFloat(k[5] || 0);
+            if (isNaN(t) || isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c)) continue;
+            klines.push({ time: t, open: o, high: h, low: l, close: c });
+            volumes.push({
+              time: t,
+              value: v,
+              color: c >= o ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+            });
+          }
+        }
+
+        if (candleSeriesList[i] && klines.length > 0) {
+          const lastClose = klines[klines.length - 1].close;
+          chartLastPrice[i] = lastClose;
+
+          const prec = lastClose < 0.01 ? 6 : (lastClose < 1.0 ? 4 : (lastClose < 50 ? 3 : 2));
+          const minM = Math.pow(10, -prec);
+          candleSeriesList[i].applyOptions({
+            priceFormat: {
+              type: 'price',
+              precision: prec,
+              minMove: minM
+            }
+          });
+
+          chartKlinesList[i] = klines;
+          candleSeriesList[i].setData(klines);
+          if (volumeSeriesList[i] && volumes.length > 0) {
+            volumeSeriesList[i].setData(volumes);
+          }
+          if (sma8SeriesList[i]) {
+            sma8SeriesList[i].setData(computeSMA(klines, 8));
+          }
+          if (sma21SeriesList[i]) {
+            sma21SeriesList[i].setData(computeSMA(klines, 21));
+          }
+          if (nativeCharts[i]) {
+            nativeCharts[i].priceScale('right').applyOptions({
+              autoScale: true,
+              scaleMargins: { top: 0.15, bottom: 0.15 }
+            });
+            nativeCharts[i].timeScale().applyOptions({
+              barSpacing: 9,
+              rightOffset: 12,
+              minBarSpacing: 3
+            });
+            nativeCharts[i].timeScale().fitContent();
+          }
+          
+          const livePriceEl = document.getElementById(`hud-live-price-${i}`);
+          if (livePriceEl) {
+            livePriceEl.textContent = "$" + (lastClose >= 1 ? lastClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : lastClose.toFixed(prec));
+          }
+          
+          // Re-render lines se houver slot correspondente
+          const activeSlots = window._activeSlotsData || [];
+          const matchingSlot = activeSlots.find(s => (s.symbol || '').replace("-SWAP","").replace("-","").toUpperCase() === cleanSym);
+          if (matchingSlot) {
+            renderSlotOrderLines(i, matchingSlot);
+          } else {
+            clearOrderLinesForChart(i);
+          }
+
+          // Subscreve em tempo real no WebSocket da OKX
+          subscribeChartToOkxWs(i);
+          return;
+        }
+      } catch(e) {
+        console.warn(`OKX candles fallback for chart ${i}:`, e);
+      }
+
+      // Fallback synthetic candles garantido com SMAs sincronizadas
+      generateFallbackCandlesForChart(i, cleanSym, tf);
     }
 
     function generateFallbackCandlesForChart(i, symbol) {
@@ -2198,6 +2749,9 @@
 
     function setChartInterval(index, interval) {
       chartIntervals[index] = interval;
+      // Limpa SMAs para nao contaminar o grafico com timestamps de timeframes passados
+      if (sma8SeriesList[index]) { try { sma8SeriesList[index].setData([]); } catch(e) {} }
+      if (sma21SeriesList[index]) { try { sma21SeriesList[index].setData([]); } catch(e) {} }
       const card = document.getElementById(`chart-card-${index}`);
       if (card) {
         card.querySelectorAll(".btn-tf").forEach(b => {
