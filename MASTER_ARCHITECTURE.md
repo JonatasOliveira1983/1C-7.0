@@ -1,10 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.8.0 (V182 - SWEEP & FLIP & SUPER-RUNNERS)
+# MASTER_ARCHITECTURE.md — 1Crypten 7.9.0 (V188 - LAYA SOVEREIGN FULL ARSENAL & DYNAMIC BREAKEVEN)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-10-30. VERSION no codigo: `backend/main.py` VERSION="V178-SNIPER-DISCIPLINE-TURNAROUND". Extirpacao completa de LAYA_BEARISH_BREAKDOWN (proibido vender suporte/fundo em 1C-Range < 45%), Restauração estrita da postura Sniper de Pullback (SHORT apenas em 1C-Range >= 50% ou acima da VWAP a favor do Ímã do Heatmap), Circuit Breaker Direcional persistente em SQLite local_sniper.db (2 stops na mesma direção travam novas entradas por 45 minutos), Confirmação de Absorção Microestrutural 5M com pavio >= 25% e Turnaround empírico comprovado no Cockpit ($10.147,13 / +1,47%).*
-
+*Verificado contra o codigo em 2026-11-04. VERSION no codigo: `backend/main.py` VERSION="V188-LAYA-SOVEREIGN-FULL-ARSENAL". Laya v0.4.22 Soberana com ModernBERT 149M multilingue residente offline (HF_HUB_OFFLINE=1). Tres frentes cognitivas 100% ativas: Frente 1 (Exit Guardian com Breakeven em +10% ROI cobrindo taxas e slippage com Net PnL > 0, Trailing Escadinha e Panic Cut preventivo no 5M); Frente 2 (Consenso Neural Laya Hermes para candidatos 75-84%); Frente 3 (Trade Reflex de memoria episodica com bonificacao de vitorias +6 pts e penalidades de stop). Cockpit sincronizado em tempo real com linha dinamica de protecao Ciano Neon (#00F0FF) no Flash Map, badges de risco zero na custodia e Balao de Consciencia Cognitiva sob demanda. Sequencia vitoriosa comprovada no Cockpit: ZAMA (+7.79%), MON (+65.13%), APR (+14.24%), CORE (Risco Zero / +8.48%) elevando a banca para $10.095,56.*
 ---
 
 ## 1. Visao Geral
@@ -20,7 +19,7 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 - **Persistencia & Memória Unificada**: PostgreSQL (SSOT) + Firebase (Firestore/RTDB) + SQLite WAL (`local_sniper.db`) + Obsidian Vault (`vault_galaxy/` para voz, chat e diários).
 - **[V168] Banco de Dados de Contexto OpenViking (`viking://`)**: Sistema de arquivos virtual cognitivo com Progressive Disclosure em 3 camadas: L0 (Abstract executivo ~100 tokens), L1 (Overview operacional ~1.5k tokens) e L2 (Detail completo). O Hermes e os agentes de desenvolvimento navegam deterministicamente pelas raízes `viking://resources/`, `viking://user/memories/` e `viking://agent/skills/`.
 - **Memória Auto-Evolutiva de Trading**: Ao fechar qualquer trade (Stop, TP, Trailing Stop ou Emergência), o sistema sintetiza automaticamente o caso em `viking://user/memories/cases/` e persiste no Obsidian Vault (`vault_galaxy/journal/`), eliminando a necessidade de o operador humano lembrar o sistema de regras ou erros passados.
-- **Protocolos de IA & RAG**: OpenViking Context Engine + RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 14 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
+- **Protocolos de IA & RAG**: OpenViking Context Engine + RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 16 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
 - **Precisão & Quantização Inviolável**: Motor `OKXUniverseService` com suporte a 507 pares perpétuos da OKX, garantindo tick size exato (`format_price_by_tick`), lot size e quantização correta de contratos (`quantize_order_contracts`).
 - **Tríplice Confluência Alt Pump Ignition**: Motor institucional que detecta rotação do BTC para Altcoins (`evaluate_alt_pump_ignition`), cruzando queda de BTC.D, correlação Pearson < 0.45 e expansão algorítmica `1c_exp >= 70.0`.
 
@@ -52,7 +51,7 @@ flowchart TD
     end
 
     subgraph Protocol_Bridges["Protocol & AI Bridges"]
-        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 14 Ferramentas)"]
+        MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 16 Ferramentas)"]
         OpenViking_Engine["OpenViking Context Engine (viking:// Virtual FS - L0/L1/L2 Progressive Disclosure)"]
         RAG_Engine["RAGService (BM25 / TF-IDF Second Brain: Blueprints + Vault)"]
     end

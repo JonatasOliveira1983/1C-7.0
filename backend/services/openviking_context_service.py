@@ -237,6 +237,81 @@ class OpenVikingContextService:
             tags=["patterns", "trading", "cooldown", "anti_tilt", "v169"],
         )
 
+        # Fusao Aguia-Encryptos 2H Pullback (v0.4.22)
+        uri_fusion = "viking://user/memories/patterns/laya_sovereign_fusion_2h"
+        l0_fusion = "Fusao Aguia-Encryptos: Setup soberano de pullback na 2H (SMA 8 cruzando ou respeitando SMA 21) com confirmacao de rejeicao em 5M e robos 1C-EXP."
+        l1_fusion = (
+            "PADRAO FUSAO AGUIA-ENCRYPTOS (LAYA v0.4.22):\n"
+            "1. Alinhamento Estrutural 2H: SHORT se SMA 8 < SMA 21 (ou rejeicao no teste); LONG se SMA 8 > SMA 21.\n"
+            "2. Confirmacao Micro 5M: Pavio de rejeicao >= 25% a favor da tendencia principal antes do disparo.\n"
+            "3. Confluencia de Robos: 1C-EXP 30 (expansao de volatilidade) e monitoramento de 1C-RANGE.\n"
+            "4. Anti-Squeeze Trava: Veto irrestrito a SHORT se LSR < 0.80; Veto a LONG se LSR > 1.35.\n"
+            "5. Limite Direcional: Maximo de 2 posicoes ativas na mesma direcao (anti-cluster)."
+        )
+        self.nodes[uri_fusion] = VikingNode(
+            uri=uri_fusion,
+            title="Fusao Aguia-Encryptos 2H Pullback (v0.4.22)",
+            l0_abstract=l0_fusion,
+            l1_overview=l1_fusion,
+            l2_detail=l1_fusion + "\n\nMotor residente: backend/app/services/laya_router_service.py.",
+            tags=["patterns", "trading", "laya", "fusion", "pullback_2h", "v0422"],
+        )
+
+        # Exit Guardian & Blindagem de Risco (Frente 1)
+        uri_exit = "viking://user/memories/patterns/laya_exit_guardian"
+        l0_exit = "Laya Exit Guardian: Inspecao de ciclo de vida em cada iteracao. Ativa Breakeven em +10% ROI cobrindo taxas e slippage com ganho liquido, Trailing Escadinha e Panic Cut preventivo."
+        l1_exit = (
+            "SISTEMA LAYA EXIT GUARDIAN (FRENTE 1):\n"
+            "1. Breakeven Dinamico: Ativado em +10.0% ROI de pico, movimentando stop para cobrir 100% das taxas OKX e slippage (Net PnL > 0).\n"
+            "2. Linha Visual Cockpit: Linha de stop no Flash Map move-se dinamicamente com cor Ciano Neon (#00F0FF) e legenda RISCO ZERO.\n"
+            "3. Trailing Escadinha: Trava percentuais crescentes do lucro (+18%, +30%, +45% ROI) sem asfixiar o movimento.\n"
+            "4. Panic Cut Preventivo: Monitora reversao microestrutural anomala no 5M para cortar a posicao antes do stop cheio."
+        )
+        self.nodes[uri_exit] = VikingNode(
+            uri=uri_exit,
+            title="Laya Exit Guardian & Dynamic Breakeven",
+            l0_abstract=l0_exit,
+            l1_overview=l1_exit,
+            l2_detail=l1_exit + "\n\nVerificacao no Cockpit: cockpit.html HUD & Flash Map.",
+            tags=["patterns", "trading", "exit_guardian", "breakeven", "risk_zero", "v0422"],
+        )
+
+        # Hermes Laya Neural Arbitration (Frente 2)
+        uri_hermes = "viking://user/memories/patterns/hermes_laya_arbitration"
+        l0_hermes = "Consenso Neural Laya Hermes: Arbitragem multi-agente via ModernBERT 149M bilingue residente offline para candidatos com pontuacao limite (75-84%)."
+        l1_hermes = (
+            "CONSENSO NEURAL LAYA HERMES (FRENTE 2):\n"
+            "• Candidatos de Fronteira: Score entre 75% e 84% sao submetidos a arbitragem de Hermes.\n"
+            "• Confluencia Macro: Hermes avalia regime de fluxo de mercado e aceita apenas com conviccao >= 80%.\n"
+            "• ModernBERT 149M: Modelo resident checkpoint rodando offline em PyTorch (HF_HUB_OFFLINE=1)."
+        )
+        self.nodes[uri_hermes] = VikingNode(
+            uri=uri_hermes,
+            title="Consenso Neural Laya Hermes (Frente 2)",
+            l0_abstract=l0_hermes,
+            l1_overview=l1_hermes,
+            l2_detail=l1_hermes,
+            tags=["patterns", "agents", "arbitration", "hermes", "laya", "modernbert"],
+        )
+
+        # Trade Reflex (Frente 3)
+        uri_reflex = "viking://user/memories/patterns/trade_reflex_memory"
+        l0_reflex = "Laya Trade Reflex: Memoria episodica de curto prazo. Aplica penalidades dinamicas (-10 a -20 pts) em pares stopados e bonificacao (+6 pts) em pares vitoriosos."
+        l1_reflex = (
+            "TRADE REFLEX & MEMORIA EPISODICA (FRENTE 3):\n"
+            "• Penalidade de Stop: Pares com stop recente recebem -10 pts (SL) ou -20 pts (2 SLs) por 2 horas.\n"
+            "• Bonificacao de Vitoria: Pares vencedores recebem +6 pts de bonus no proximo ciclo.\n"
+            "• Persistencia: backend/app/services/memory_service.py integrado com SQLite."
+        )
+        self.nodes[uri_reflex] = VikingNode(
+            uri=uri_reflex,
+            title="Laya Trade Reflex (Frente 3)",
+            l0_abstract=l0_reflex,
+            l1_overview=l1_reflex,
+            l2_detail=l1_reflex,
+            tags=["patterns", "memory", "trade_reflex", "laya", "v0422"],
+        )
+
         # Anti-Hedge
         uri_hedge = "viking://user/memories/patterns/anti_hedge"
         l0_hedge = "Anti-Hedge: Proibição estrita de abrir posições simultâneas opostas (LONG e SHORT) no mesmo par."
@@ -308,6 +383,27 @@ class OpenVikingContextService:
         )
 
     def _register_historical_cases(self) -> None:
+        # Caso Turnaround Quádruplo Novembro 2026 (ZAMA, MON, APR, CORE)
+        uri_c4 = "viking://user/memories/cases/cycle_nov_2026_super_turnaround"
+        l0_c4 = "Caso Quádruplo Vitorioso Laya v0.4.22: ZAMA (+7.79%), MON (+65.13%), APR (+14.24%) e CORE (Breakeven Risco Zero). Banca cresceu para $10.095,56."
+        l1_c4 = (
+            "CASO DE SUCESSO: EXECUCAO PERFEITA DO ARSENAL LAYA v0.4.22\n"
+            "• Contexto: Ativacao das 3 Frentes (Exit Guardian, Arbitragem Hermes e Trade Reflex).\n"
+            "• Operacao ZAMA: SHORT 20X -> Alvo de expansao atingido (+7.79% ROI / +$7.79).\n"
+            "• Operacao MON: SHORT 50X -> Super runner surfado via Trailing Escadinha (+65.13% ROI / +$65.13).\n"
+            "• Operacao APR: SHORT 20X -> Breakeven ativado em $0.04008 e saida lucrativa no Trailing (+14.24% ROI / +$14.24).\n"
+            "• Operacao CORE: SHORT 20X -> Stop protegido no Breakeven em $0.011870 (risco zero, +8.48% flutuante).\n"
+            "• Resultado da Banca: Saldo inicial $10.000,00 saltou para $10.095,56 de forma 100% consistente."
+        )
+        self.nodes[uri_c4] = VikingNode(
+            uri=uri_c4,
+            title="Caso Turnaround Quádruplo Laya v0.4.22 (ZAMA, MON, APR, CORE)",
+            l0_abstract=l0_c4,
+            l1_overview=l1_c4,
+            l2_detail=l1_c4,
+            tags=["cases", "success", "laya_v0422", "trailing_stop", "breakeven", "turnaround"],
+        )
+
         """viking://user/memories/cases/*"""
         # Caso IRYS
         uri_irys = "viking://user/memories/cases/case_irys_postmortem"

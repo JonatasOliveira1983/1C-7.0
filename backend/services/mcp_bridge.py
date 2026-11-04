@@ -295,6 +295,28 @@ async def _tool_viking_commit_lesson(category: str, title: str, content: str) ->
         return {"status": "error", "message": f"Erro OpenViking commit: {str(e)}"}
 
 
+async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict[str, Any]:
+    """Retorna o estado soberano da Laya v0.4.22: Exit Guardian, ModernBERT 149M, Breakeven Protection e Trade Reflex."""
+    try:
+        from app.services.laya_router_service import laya_router_service
+        from app.services.memory_service import memory_service
+        pulse = await laya_router_service.get_laya_pulse()
+        reflex = memory_service.get_pair_reflex_bias(symbol)
+        guardian = await laya_router_service.evaluate_open_positions_lifecycle()
+        return {
+            "status": "success",
+            "version": "v0.4.22-ModernBERT-149M",
+            "symbol": symbol,
+            "reflex_bias": reflex,
+            "exit_guardian": guardian,
+            "pulse_regime": pulse.get("regime_mode", "MEAN_REVERSION"),
+            "master_adx": pulse.get("master_adx", 14.5),
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro Laya Sovereign Intelligence: {str(e)}"}
+
+
 async def _tool_get_liquidity_zones_heatmap(symbol: str = "SOLUSDT") -> Dict[str, Any]:
     """Retorna o mapa de calor de liquidação 2D, ímã de baleia e classificação das 3 zonas Encryptos (Hunt, Dead Zone, Exhaustion)."""
     try:
@@ -378,11 +400,16 @@ if mcp is not None:
             return await _tool_viking_commit_lesson(category, title, content)
             
         @mcp.tool()
+        async def get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict[str, Any]:
+            """Retorna o estado soberano da Laya v0.4.22: Exit Guardian, Breakeven Status, Consenso Hermes e Trade Reflex."""
+            return await _tool_get_laya_sovereign_intelligence(symbol)
+
+        @mcp.tool()
         async def get_liquidity_zones_heatmap(symbol: str = "SOLUSDT") -> Dict[str, Any]:
             """Retorna o mapa de calor de liquidação 2D e classificação das 3 zonas Encryptos (Hunt >= 1.5%, Dead Zone 0.3%-1.5%, Exhaustion < 0.3%)."""
             return await _tool_get_liquidity_zones_heatmap(symbol)
 
-        logger.info("✅ [MCP] 15 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo OpenViking & Liquidity Zones Encryptos).")
+        logger.info("✅ [MCP] 16 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo Laya Sovereign Intelligence, OpenViking & Liquidity Zones Encryptos).")
     except Exception as _e_reg:
         logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
 
