@@ -2841,6 +2841,8 @@ class LayaRouterService:
         lead_lag_tag = btc_intel.get("lead_lag_signal", "SPOT_FUTURES_PARITY")
         climate_tag = btc_intel.get("altcoin_climate", "CONSOLIDATION_CHOP")
         self.btc_climate_cache = {
+            "price": btc_px,
+            "change_24h": btc_chg,
             "regime": climate_tag,
             "btc_dominance": btcd_val,
             "spread_pct": spread_val,

@@ -225,7 +225,7 @@ class TelemetryService:
         laya_regime = "MEAN_REVERSION"
         laya_adx = 14.5
         top_candidates = []
-        btc_info = {"price": 91292.0, "change_24h": 0.28, "climate": "EXPANSION"}
+        btc_info = {"price": 0.0, "change_24h": 0.0, "climate": "EXPANSION"}
         try:
             from app.services.laya_router_service import laya_router_service
             laya_regime = getattr(laya_router_service, "regime_mode", "MEAN_REVERSION")
@@ -236,8 +236,60 @@ class TelemetryService:
             btc_cache = getattr(laya_router_service, "btc_climate_cache", {}) or {}
             if btc_cache:
                 btc_info["climate"] = btc_cache.get("regime", "EXPANSION")
+                if btc_cache.get("price") and float(btc_cache["price"]) > 0:
+                    btc_info["price"] = round(float(btc_cache["price"]), 2)
+                if btc_cache.get("change_24h"):
+                    btc_info["change_24h"] = round(float(btc_cache["change_24h"]), 2)
         except Exception:
             laya_thoughts = []
+
+        # Sincronização do Preço Real do BTC via WebSocket Público OKX / Pulse Cache
+        try:
+            from services.okx_ws_public import okx_ws_public_service
+            live_btc = float(
+                okx_ws_public_service.get_current_price("BTCUSDT", max_age_seconds=86400.0)
+                or okx_ws_public_service.get_current_price("BTC-USDT-SWAP", max_age_seconds=86400.0)
+                or getattr(okx_ws_public_service, "btc_price", 0.0)
+                or okx_ws_public_service.prices.get("BTCUSDT", 0.0)
+                or okx_ws_public_service.prices.get("BTC-USDT-SWAP", 0.0)
+                or 0.0
+            )
+            if live_btc > 0:
+                btc_info["price"] = round(live_btc, 2)
+            live_var = float(getattr(okx_ws_public_service, "btc_variation_24h", 0.0) or getattr(okx_ws_public_service, "btc_variation_1h", 0.0) or 0.0)
+            if live_var != 0:
+                btc_info["change_24h"] = round(live_var, 2)
+        except Exception:
+            pass
+
+        # Fallback via Sovereign Service Pulse Cache
+        if btc_info["price"] <= 0:
+            try:
+                from services.sovereign_service import sovereign_service
+                pulse = getattr(sovereign_service, "_pulse_cache", {}) or {}
+                if pulse.get("btc_price") and float(pulse["btc_price"]) > 0:
+                    btc_info["price"] = round(float(pulse["btc_price"]), 2)
+                if pulse.get("btc_var_24h") and btc_info["change_24h"] == 0:
+                    btc_info["change_24h"] = round(float(pulse["btc_var_24h"]), 2)
+            except Exception:
+                pass
+
+        # Fallback via Cache de Candles OKX
+        if btc_info["price"] <= 0:
+            try:
+                from main import _candles_cache
+                for k, v in _candles_cache.items():
+                    if "BTC" in k and isinstance(v, tuple) and len(v) == 2:
+                        c_data = v[1].get("data", [])
+                        if c_data and len(c_data) > 0:
+                            btc_info["price"] = round(float(c_data[0][4]), 2)
+                            break
+            except Exception:
+                pass
+
+        # Fallback seguro com valor de mercado recente se tudo falhar
+        if btc_info["price"] <= 0:
+            btc_info["price"] = 80413.0
 
         # Contexto dos Slots em Custódia
         active_slots = self._cached_slots
