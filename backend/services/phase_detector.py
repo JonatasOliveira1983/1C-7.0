@@ -267,7 +267,7 @@ class PhaseDetector:
                     getattr(settings, 'RADAR_WATCHLIST', []) +
                     getattr(settings, 'DECOR_WATCHLIST', []) +
                     getattr(settings, 'MASTER_CONTEXT_ASSETS', [])
-                ))
+                ))[:12]
 
             logger.info(f"📡 [PHASE-DETECTOR] Buscando dados históricos da OKX para {len(symbols)} pares...")
 

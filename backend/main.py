@@ -171,7 +171,7 @@ async def lifespan(app: FastAPI):
             # [V120.1] Load Phase Detector history from database
             try:
                 from services.phase_detector import phase_detector
-                await phase_detector.load_history_from_db()
+                asyncio.create_task(phase_detector.load_history_from_db())
                 logger.info("✅ [PHASE-DETECTOR] History loaded from database.")
             except Exception as e:
                 logger.warning(f"⚠️ [PHASE-DETECTOR] Failed to load history: {e}")
@@ -190,34 +190,40 @@ async def lifespan(app: FastAPI):
             
             logger.info("Step 0.3: Connecting Redis Service...")
             redis_service = importlib.import_module("services.redis_service").redis_service
-            await redis_service.connect()
-            await asyncio.sleep(1)
+            try:
+                await asyncio.wait_for(redis_service.connect(), timeout=2.0)
+            except Exception as e_red:
+                logger.warning(f"⚠️ Redis offline no ambiente local, operando em modo fallback: {e_red}")
+            await asyncio.sleep(0.5)
 
             logger.info("Step 1: Loading Sovereign Service...")
-            sovereign_service = importlib.import_module("services.sovereign_service").sovereign_service
-            
-            logger.info("Step 1.1: Activating Sovereign Mode (Railway)...")
-            await sovereign_service.initialize()
-            
-            logger.info("Step 0.2: Loading OKX REST Service...")
-            okx_rest_service = importlib.import_module("services.okx_rest").okx_rest_service
             try:
-                # V5.2.4.3: Added 60s timeout for OKX initialization
-                await asyncio.wait_for(okx_rest_service.initialize(), timeout=60.0)
+                sovereign_service = importlib.import_module("services.sovereign_service").sovereign_service
+                logger.info("Step 1.1: Activating Sovereign Mode (Railway)...")
+                await sovereign_service.initialize()
+            except Exception as e_sov:
+                logger.warning(f"Sovereign Service Init Error: {e_sov}")
+
+            logger.info("Step 0.2: Loading OKX REST Service...")
+            try:
+                okx_rest_service = importlib.import_module("services.okx_rest").okx_rest_service
+                await asyncio.wait_for(okx_rest_service.initialize(), timeout=10.0)
             except Exception as e:
-                logger.error(f"⚠️ OKX REST Init Error (Continuing anyway): {e}")
+                logger.error(f"OKX REST Init Error: {e}")
 
             logger.info("Step 0.3: Loading OKX WS Public Service...")
-            okx_ws_public_service = importlib.import_module("services.okx_ws_public").okx_ws_public_service
-            await asyncio.sleep(0.5) 
-            
-            # Use bankroll_manager from services.bankroll
+            try:
+                okx_ws_public_service = importlib.import_module("services.okx_ws_public").okx_ws_public_service
+            except Exception as e_ws_pub:
+                logger.warning(f"OKX WS Public load warning: {e_ws_pub}")
+
             logger.info("Step 0.4: Loading Bankroll Manager...")
-            mod = importlib.import_module("services.bankroll")
-            bankroll_manager = mod.bankroll_manager
-            
-            await asyncio.sleep(1)
-            logger.info("Step 0: Service modules loaded \u2705")
+            try:
+                mod = importlib.import_module("services.bankroll")
+                bankroll_manager = mod.bankroll_manager
+            except Exception as e_bm:
+                logger.warning(f"Bankroll manager load warning: {e_bm}")
+            logger.info("Step 0: Service modules loaded")
             
             # [V110.518] DB SANITATION REMOVED TO PRESERVE ACTIVE ORDERS ON DEPLOYS/RESTARTS
             logger.info("🛡️ [V110.519] Startup Order Persistence active. Skipping DB Sanitation.")
@@ -242,7 +248,10 @@ async def lifespan(app: FastAPI):
                 asyncio.create_task(fetch_and_start_ws())
                 # [V110.202] Force slot sync on startup - ensuring persistence during deploys
                 logger.info("📡 [V110.202] Syncing slots from persistence layer...")
-                await bankroll_manager.update_banca_status()
+                try:
+                    await asyncio.wait_for(bankroll_manager.update_banca_status(), timeout=5.0)
+                except Exception as bm_err:
+                    logger.warning(f'Bankroll sync skipped: {bm_err}')
             except Exception as e:
                 logger.warning(f"Step 2: Symbol fetch scheduled (Background): {e}")
 
@@ -408,13 +417,13 @@ async def lifespan(app: FastAPI):
                 # [LAYA SOVEREIGN] Loop Autonomo de Varredura e Execucao da Matrix Elite (a cada 30s)
                 async def laya_autonomous_loop():
                     logger.info("[LAYA-SOVEREIGN] Loop autonomo continuo ONLINE (intervalo: 30s)")
-                    await asyncio.sleep(6)  # Espera inicial para bootstrap dos servicos
+                    await asyncio.sleep(2)  # Espera inicial minima para bootstrap rapido
                     while True:
                         try:
                             from app.services.laya_router_service import laya_router_service
                             from app.services.telemetry_service import telemetry_service
                             t0_laya = time.time()
-                            res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=False)
+                            res = await laya_router_service.scan_and_execute_autonomous(force_open_if_empty=True)
                             telemetry_service.record_laya_cycle(time.time() - t0_laya)
                             if res.get("order_opened"):
                                 logger.info(f"[LAYA-SOVEREIGN] Ordem autonoma aberta com sucesso: {res.get('best_setup', {}).get('symbol')}")

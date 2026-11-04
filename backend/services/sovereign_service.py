@@ -18,7 +18,6 @@ class SovereignServiceBridge:
     async def initialize(self):
         """Inicialização simulada."""
         logger.info("🏛️ SovereignServiceBridge.initialize() — ativando pontes")
-        await asyncio.sleep(0.1)
         self._initialized = True
         logger.info("✅ SovereignServiceBridge pronto para despacho.")
     

@@ -538,9 +538,9 @@ class LayaRouterService:
         if direction not in ("LONG", "SHORT"):
             return {"qualifies": False, "direction": "HOLD", "score": 0, "sma_cross": sma_cross}
 
-        # Filtro Phenix: Exige aceleracao institucional (1C-EXP >= 65 ou robos ON)
+        # Filtro Phenix: Exige aceleracao institucional (1C-EXP >= 60 ou robos ON) ou confirmacao macro do BTC / cruzamento 2H
         c_exp_val = float(c_exp or 0.0)
-        has_phenix_fuel = bot_ignition or c_exp_val >= 65.0
+        has_phenix_fuel = bot_ignition or c_exp_val >= 60.0 or abs(btc_trend_bias) >= 0.25 or bool(sma_cross.get("has_cross"))
         if not has_phenix_fuel:
             return {
                 "qualifies": False,
@@ -1898,17 +1898,6 @@ class LayaRouterService:
         return {}
 
     def evaluate_lower_tf_structure(self, candles: List[Any], direction: str) -> Dict[str, Any]:
-        """
-        [V173-ANTI-PREDICTIVE-GUARDS]: Especialista de Microestrutura M1/M5.
-        Garante que a LAYA seja 100% REATIVA e NUNCA PREDITIVA.
-        
-        1. Validação de dados: exige ao menos 3 candles.
-        2. TICK_REJECTION_INDEX: Exige pavio de rejeição >= 25% do range total da vela mais recente.
-           - Para SHORT: Pavio superior >= 25% (comprova que vendedores apareceram no topo).
-           - Para LONG: Pavio inferior >= 25% (comprova que compradores absorveram o fundo).
-        3. MICRO_ACCELERATION_BRAKE: Veta se o par subiu/caiu continuamente > 1.2% nos últimos candles.
-        4. MSB_CONFIRMATION: Veta se a vela mais recente estiver rompendo novas máximas (SHORT) ou mínimas (LONG).
-        """
         default_metrics = {
             "upper_wick_ratio": 0.0, "lower_wick_ratio": 0.0, "wick_ratio": 0.0,
             "momentum_pct": 0.0, "open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0
@@ -1919,11 +1908,10 @@ class LayaRouterService:
         if not isinstance(candles, list) or len(candles) < 3:
             return {
                 "is_safe": False,
-                "reason": "DADOS_5M_INSUFICIENTES (Veto preventivo de segurança em alta alavancagem)",
+                "reason": "DADOS_5M_INSUFICIENTES (Veto preventivo de seguranca em alta alavancagem)",
                 "metrics": default_metrics
             }
 
-        # Normaliza ordenação por timestamp ascendente (antigo -> recente)
         try:
             sorted_c = sorted(candles, key=lambda c: int(c[0]))
         except Exception:
@@ -1960,78 +1948,40 @@ class LayaRouterService:
         }
 
         if direction == "SHORT":
-            # [V180-VETO-VELA-VERDE]: Proibido abrir SHORT se a vela 5M atual for compradora (verde)
-            if cl_curr > o_curr:
-                return {
-                    "is_safe": False,
-                    "reason": f"VETO_VELA_VERDE (Vela 5M atual em alta [O: ${o_curr:.4f} -> C: ${cl_curr:.4f}]. Proibido vender no susto enquanto compradores estao empurrando)",
-                    "metrics": metrics
-                }
             wick_ratio = upper_wick_ratio
-            is_green_expansion = (cl_curr >= o_curr) and (wick_ratio < 0.25)
-
-            # 1. TICK_REJECTION_INDEX (Pavio superior de exaustão >= 15%)
-            if is_green_expansion:
+            is_locomotive = total_gain >= 0.020 or (((cl_curr - o_curr) / o_curr) >= 0.012 and wick_ratio < 0.15)
+            if is_locomotive:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXAUSTAO_INSUFICIENTE (Vela 5M compradora sem pavio de absorção: pavio {wick_ratio*100:.1f}% vs min 25%. Proibido adivinhar topo)",
+                    "reason": f"VETO_LOCOMOTIVA_5M (Vela 5M em alta agressiva [+{total_gain*100:.1f}%] sem rejeicao. Aguardar exaustao)",
                     "metrics": metrics
                 }
-
-            # 2. MICRO_ACCELERATION_BRAKE (Anti-Locomotiva sem exaustão)
-            if total_gain >= 0.025 and wick_ratio < 0.25:
+            if h_curr > h1 * 1.002 and wick_ratio < 0.10 and cl_curr >= h1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Alta agressiva de +{total_gain*100:.1f}% sem recuo em 5M. Proibido vender locomotiva)",
-                    "metrics": metrics
-                }
-
-            # 3. MSB_CONFIRMATION: Não vender se vela estiver no topo sem pavio de rejeição real
-            if h_curr >= h1 * 0.999 and wick_ratio < 0.25 and cl_curr >= l1:
-                return {
-                    "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M sustentando topo em ${h_curr:.4f} sem pavio de rejeição ({wick_ratio*100:.1f}% vs min 25%). Aguardar confirmação real)",
+                    "reason": f"VETO_EXPANSAO_ALTA_5M (Rompimento ativo de maxima em ${h_curr:.4f} sem rejeicao ({wick_ratio*100:.1f}%))",
                     "metrics": metrics
                 }
 
         elif direction == "LONG":
-            # [V180-VETO-VELA-VERMELHA]: Proibido abrir LONG se a vela 5M atual for vendedora (vermelha)
-            if cl_curr < o_curr:
-                return {
-                    "is_safe": False,
-                    "reason": f"VETO_VELA_VERMELHA (Vela 5M atual em queda [O: ${o_curr:.4f} -> C: ${cl_curr:.4f}]. Proibido tentar adivinhar fundo em faca caindo)",
-                    "metrics": metrics
-                }
             wick_ratio = lower_wick_ratio
-            is_red_expansion = (cl_curr <= o_curr) and (wick_ratio < 0.25)
-
-            # 1. TICK_REJECTION_INDEX (Pavio inferior de absorção >= 15%)
-            if is_red_expansion:
+            is_free_fall = total_drop >= 0.020 or (((o_curr - cl_curr) / o_curr) >= 0.012 and wick_ratio < 0.15)
+            if is_free_fall:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXAUSTAO_INSUFICIENTE (Vela 5M vendedora sem pavio de absorção: pavio {wick_ratio*100:.1f}% vs min 25%. Proibido adivinhar fundo)",
+                    "reason": f"VETO_QUEDA_LIVRE_5M (Vela 5M em queda agressiva [-{total_drop*100:.1f}%] sem absorcao. Proibido comprar faca caindo)",
                     "metrics": metrics
                 }
-
-            # 2. MICRO_ACCELERATION_BRAKE (Anti-Queda Livre sem absorção)
-            if total_drop >= 0.025 and wick_ratio < 0.25:
+            if l_curr < l1 * 0.998 and wick_ratio < 0.10 and cl_curr <= l1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_LOCOMOTIVA_ACELERADA (Queda agressiva de -{total_drop*100:.1f}% sem respiro em 5M. Proibido comprar faca caindo)",
-                    "metrics": metrics
-                }
-
-            # 3. MSB_CONFIRMATION: Não comprar se vela estiver na mínima sem absorção real
-            if l_curr <= l1 * 1.001 and wick_ratio < 0.25 and cl_curr <= h1:
-                return {
-                    "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ATIVA (Vela 5M renovando mínimas em ${l_curr:.4f} sem absorção ({wick_ratio*100:.1f}% vs min 25%). Aguardar absorção do fundo local)",
+                    "reason": f"VETO_EXPANSAO_BAIXA_5M (Rompimento ativo de minima em ${l_curr:.4f} sem absorcao ({wick_ratio*100:.1f}%))",
                     "metrics": metrics
                 }
 
         return {
             "is_safe": True,
-            "reason": "CONFIRMADO_MICROESTRUTURA_REATIVA (Exaustão e absorção validadas em 5M)",
+            "reason": "CONFIRMADO_MICROESTRUTURA_REATIVA (Exaustao e absorcao validadas em 5M)",
             "metrics": metrics
         }
 
@@ -2577,7 +2527,21 @@ class LayaRouterService:
             valid_candidates.append((momentum_score, a))
 
         valid_candidates.sort(key=lambda x: x[0], reverse=True)
-        deep_dive_assets = [item[1] for item in valid_candidates[:30]]
+        priority_prefixes = {"SOL", "ETH", "AVAX", "NEAR", "LINK", "MON", "AEON", "DOGE", "XRP"}
+        seen_pairs = set()
+        selected_assets = []
+        for _, a in valid_candidates:
+            clean_base = a["pair"].split("-")[0].replace("USDT", "")
+            if clean_base in priority_prefixes and a["pair"] not in seen_pairs:
+                selected_assets.append(a)
+                seen_pairs.add(a["pair"])
+        for _, a in valid_candidates:
+            if a["pair"] not in seen_pairs:
+                selected_assets.append(a)
+                seen_pairs.add(a["pair"])
+            if len(selected_assets) >= 16:
+                break
+        deep_dive_assets = selected_assets
         if not deep_dive_assets:
             deep_dive_assets = assets[:6]
 
@@ -2586,7 +2550,7 @@ class LayaRouterService:
         async def _safe_flow(p):
             async with sem_flow:
                 try:
-                    return await asyncio.wait_for(laya_flow_service.get_flow_radar(p), timeout=2.5)
+                    return await asyncio.wait_for(laya_flow_service.get_flow_radar(p), timeout=1.5)
                 except Exception:
                     return {}
 
@@ -2599,14 +2563,20 @@ class LayaRouterService:
                         return res
                 except Exception:
                     pass
-                # Fallback instantâneo para klines da Binance pública se OKX demorar
+                # Fallback instantâneo para klines da Binance pública (Spot + Futures) se OKX demorar
                 try:
                     clean = p.replace("-USDT-SWAP", "USDT")
-                    async with httpx.AsyncClient(timeout=3.5) as client:
+                    async with httpx.AsyncClient(timeout=2.5) as client:
                         r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean}&interval=1h&limit=48")
                         if r_b.status_code == 200:
                             raw = r_b.json()
-                            return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                            if isinstance(raw, list) and len(raw) >= 6:
+                                return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+                        r_f = await client.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval=1h&limit=48")
+                        if r_f.status_code == 200:
+                            raw = r_f.json()
+                            if isinstance(raw, list) and len(raw) >= 6:
+                                return [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
                 except Exception:
                     pass
                 return []
@@ -2760,7 +2730,7 @@ class LayaRouterService:
             lifecycle_obj = {}
             try:
                 from app.services.coinglass_heatmap_service import coinglass_heatmap_service
-                heat = await coinglass_heatmap_service.get_liquidity_heatmap(sym, current_price=price)
+                heat = await coinglass_heatmap_service.get_liquidity_heatmap(sym, current_price=price, passed_candles=h1_candles)
                 dom_magnet = heat.get("dominant_magnet", "NEUTRAL_EQUILIBRIUM")
                 target_p = float(heat.get("target_price") or 0.0)
                 target_vol = float(heat.get("target_volume_usd") or 0.0)
@@ -2795,17 +2765,16 @@ class LayaRouterService:
 
             # [CONFLUENCIA ESTRITA AO IMA DE LIQUIDEZ]
             if multi_eval["qualifies"]:
-                if direction == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO"):
-                    multi_eval["qualifies"] = False
-                    direction = "SHORT"
-                    rationale = f"VETO ÍMÃ: LONG abortado: muralha de ${target_vol_m:.1f}M ABAIXO em ${target_p:.4f} puxando o preço. Preparando SHORT."
-                elif direction == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_region == "ACIMA"):
-                    # Em regime de dump (btc_trend_bias < -0.2), liquidez acima reflete posições presas no topo.
-                    # Proibido abortar SHORT para virar LONG contra a tendência macro!
-                    if btc_trend_bias >= -0.2:
+                if strat_name != "LAYA_AGUIA_FUSION":
+                    if direction == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO"):
                         multi_eval["qualifies"] = False
-                        direction = "LONG"
-                        rationale = f"VETO ÍMÃ: SHORT abortado: muralha de ${target_vol_m:.1f}M ACIMA em ${target_p:.4f} puxando o preço. Preparando LONG."
+                        direction = "SHORT"
+                        rationale = f"VETO ÍMÃ: LONG abortado: muralha de ${target_vol_m:.1f}M ABAIXO em ${target_p:.4f} puxando o preço. Preparando SHORT."
+                    elif direction == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_region == "ACIMA"):
+                        if btc_trend_bias >= -0.2:
+                            multi_eval["qualifies"] = False
+                            direction = "LONG"
+                            rationale = f"VETO ÍMÃ: SHORT abortado: muralha de ${target_vol_m:.1f}M ACIMA em ${target_p:.4f} puxando o preço. Preparando LONG."
 
             if multi_eval["qualifies"]:
                 stop_loss = multi_eval["stop_loss"]
@@ -3041,7 +3010,7 @@ class LayaRouterService:
                         if d_cache and (time.time() - d_cache.get("updated_at", 0)) < 60:
                             d_res = d_cache["data"]
                         else:
-                            d_res = await signal_generator.detect_btc_decorrelation(sym)
+                            d_res = await asyncio.wait_for(signal_generator.detect_btc_decorrelation(sym), timeout=2.0)
                         
                         ignition_res = self.evaluate_alt_pump_ignition(btc_intel, d_res, cand)
                         cand["decorrelation_data"] = d_res
@@ -3151,6 +3120,11 @@ class LayaRouterService:
                     continue
                 if self.is_direction_in_cooldown(c_dir):
                     continue
+
+                # [SOBERANIA LAYA AGUIA FUSION]: Setup supremo 2H Macro + 5M Gatilho entra com prioridade absoluta
+                if c_strat == "LAYA_AGUIA_FUSION":
+                    eligible.append(cand)
+                    continue
                 
                 # 2. TRAVA 1: Score Sniper Mínimo (>= 85%)
                 if c_score < self.MIN_ENTRY_SCORE:
@@ -3222,31 +3196,31 @@ class LayaRouterService:
                 clean_name = cand.get("clean_sym", cand_sym)
                 cand_kline = klines_h1_map.get(clean_name) or klines_h1_map.get(cand_sym) or []
 
-                # Se klines não estavam no cache, busca sob demanda com contingência total (OKX 6.0s + Binance fallback)
+                # Se klines não estavam no cache, busca sob demanda com contingência total (OKX + Binance Futures + Gate.io)
                 if not cand_kline or len(cand_kline) < 6:
                     try:
                         from services.okx_rest import okx_rest_service
-                        cand_kline = await asyncio.wait_for(okx_rest_service.get_klines(cand_sym, interval="60", limit=48), timeout=6.0)
+                        cand_kline = await okx_rest_service.get_klines(cand_sym, interval="60", limit=48)
                         if cand_kline:
                             klines_h1_map[clean_name] = cand_kline
                             klines_h1_map[cand_sym] = cand_kline
                     except Exception as k_err:
-                        logger.debug(f"[SOVEREIGN-GATE] Erro ao buscar klines OKX para {cand_sym}: {k_err}")
+                        logger.debug(f"[SOVEREIGN-GATE] Erro ao buscar klines para {cand_sym}: {k_err}")
 
-                    # Fallback imediato Binance pública se OKX falhar ou demorar
+                    # Fallback Binance Futures se OKX falhar
                     if not cand_kline or len(cand_kline) < 6:
                         try:
-                            clean_b = cand_sym.replace("-USDT-SWAP", "USDT").replace(".P", "")
-                            async with httpx.AsyncClient(timeout=3.5) as client:
-                                r_b = await client.get(f"https://api.binance.com/api/v3/klines?symbol={clean_b}&interval=1h&limit=48")
+                            clean_b = cand_sym.replace("-USDT-SWAP", "USDT").replace(".P", "").replace("-", "")
+                            async with httpx.AsyncClient(timeout=4.0) as client:
+                                r_b = await client.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={clean_b}&interval=1h&limit=48")
                                 if r_b.status_code == 200:
                                     raw = r_b.json()
-                                    cand_kline = [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
-                                    if cand_kline:
+                                    if isinstance(raw, list) and len(raw) >= 6:
+                                        cand_kline = [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
                                         klines_h1_map[clean_name] = cand_kline
                                         klines_h1_map[cand_sym] = cand_kline
                         except Exception as b_err:
-                            logger.debug(f"[SOVEREIGN-GATE] Erro fallback Binance para {cand_sym}: {b_err}")
+                            logger.debug(f"[SOVEREIGN-GATE] Erro fallback Binance Futures para {cand_sym}: {b_err}")
 
                 # [INVARIANTE SOBERANA INVIOLÁVEL 2H SMA BRUNO AGUIAR + ENCRYPTOS]
                 # Nenhuma estratégia pode operar contra a tendência do timeframe 2H!
@@ -3315,55 +3289,55 @@ class LayaRouterService:
                         )
                         continue
 
-                # [V174-LIQUIDITY-MAGNET-VETO]: Veta qualquer ordem contra muralha de liquidação pesada e ZONA MORTA
-                try:
-                    from app.services.coinglass_heatmap_service import coinglass_heatmap_service
-                    cand_p = float(cand.get("price") or 0.0)
-                    cand_kline = klines_h1_map.get(cand.get("clean_sym", cand_sym)) or []
-                    heat = await coinglass_heatmap_service.get_liquidity_heatmap(
-                        cand_sym, 
-                        current_price=cand_p,
-                        passed_candles=cand_kline
-                    )
-                    dom_magnet = heat.get("dominant_magnet")
-                    target_reg = heat.get("target_region") or ("ACIMA" if heat.get("target_price", 0) > cand_p else "ABAIXO")
-                    lifecycle = heat.get("lifecycle") or {}
-                    zone_id = lifecycle.get("zone_id", "")
-
-                    # 1. Veto da ZONA MORTA (anti-armadilha e falso rompimento entre 0.3% e 1.5%)
-                    if zone_id == "DEAD_ZONE":
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"️ [VETO ZONA MORTA]: Entrada {cand_dir} bloqueada: preço a {lifecycle.get('distance_pct', 0)}% do bolsão ({zone_id}). Alto risco de falso rompimento.",
-                            action="VETO_ZONA_MORTA",
-                            confidence=96
+                # [V174-LIQUIDITY-MAGNET-VETO]: Veta ordens legadas contra muralha de liquidacao pesada
+                cand_strat = cand.get("strategy")
+                if cand_strat != "LAYA_AGUIA_FUSION":
+                    try:
+                        from app.services.coinglass_heatmap_service import coinglass_heatmap_service
+                        cand_p = float(cand.get("price") or 0.0)
+                        cand_kline = klines_h1_map.get(cand.get("clean_sym", cand_sym)) or []
+                        heat = await coinglass_heatmap_service.get_liquidity_heatmap(
+                            cand_sym, 
+                            current_price=cand_p,
+                            passed_candles=cand_kline
                         )
-                        continue
+                        dom_magnet = heat.get("dominant_magnet")
+                        target_reg = heat.get("target_region") or ("ACIMA" if heat.get("target_price", 0) > cand_p else "ABAIXO")
+                        lifecycle = heat.get("lifecycle") or {}
+                        zone_id = lifecycle.get("zone_id", "")
 
-                    # 2. Veto Direcional do Ímã: NUNCA operar contra a atração do maior pool
-                    # Se bolsão dominante está ACIMA / BULLISH_SWEEP -> Proibido SHORT!
-                    if cand_dir == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_reg == "ACIMA"):
-                        vol_m = heat.get("target_volume_usd", 0) / 1e6
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"️ [VETO ÍMÃ DE LIQUIDEZ]: SHORT proibido: muralha dominante de ${vol_m:.2f}M ACIMA DO PREÇO em ${heat.get('target_price', 0):.4f} atraindo o preço.",
-                            action="VETO_IMA_LIQUIDEZ",
-                            confidence=98
-                        )
-                        continue
+                        # 1. Veto da ZONA MORTA (anti-armadilha e falso rompimento entre 0.3% e 1.5%)
+                        if zone_id == "DEAD_ZONE":
+                            self.log_thought(
+                                cand.get("clean_sym", cand_sym),
+                                f"[VETO ZONA MORTA]: Entrada {cand_dir} bloqueada: preco a {lifecycle.get('distance_pct', 0)}% do bolsao ({zone_id}).",
+                                action="VETO_ZONA_MORTA",
+                                confidence=96
+                            )
+                            continue
 
-                    # Se bolsão dominante está ABAIXO / BEARISH_SWEEP -> Proibido LONG!
-                    if cand_dir == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_reg == "ABAIXO"):
-                        vol_m = heat.get("target_volume_usd", 0) / 1e6
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"️ [VETO ÍMÃ DE LIQUIDEZ]: LONG proibido: muralha dominante de ${vol_m:.2f}M ABAIXO DO PREÇO em ${heat.get('target_price', 0):.4f} atraindo o preço.",
-                            action="VETO_IMA_LIQUIDEZ",
-                            confidence=98
-                        )
-                        continue
-                except Exception as heat_err:
-                    logger.debug(f"[LAYA-VETO-HEATMAP-ERR] {heat_err}")
+                        # 2. Veto Direcional do Ima
+                        if cand_dir == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_reg == "ACIMA") and (btc_trend_bias >= -0.2):
+                            vol_m = heat.get("target_volume_usd", 0) / 1e6
+                            self.log_thought(
+                                cand.get("clean_sym", cand_sym),
+                                f"[VETO IMA DE LIQUIDEZ]: SHORT proibido: muralha dominante de ${vol_m:.2f}M ACIMA DO PRECO.",
+                                action="VETO_IMA_LIQUIDEZ",
+                                confidence=98
+                            )
+                            continue
+
+                        if cand_dir == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_reg == "ABAIXO") and (btc_trend_bias <= 0.2):
+                            vol_m = heat.get("target_volume_usd", 0) / 1e6
+                            self.log_thought(
+                                cand.get("clean_sym", cand_sym),
+                                f"[VETO IMA DE LIQUIDEZ]: LONG proibido: muralha dominante de ${vol_m:.2f}M ABAIXO DO PRECO.",
+                                action="VETO_IMA_LIQUIDEZ",
+                                confidence=98
+                            )
+                            continue
+                    except Exception as heat_err:
+                        logger.debug(f"[LAYA-VETO-HEATMAP-ERR] {heat_err}")
 
                 # [V169-TF-MENORES]: Verifica exaustão e ausência de faca caindo em 5m antes do disparo
                 ltf_check = await self.check_lower_tf_exhaustion(cand_sym, cand_dir)
@@ -3533,7 +3507,7 @@ class LayaRouterService:
                 self._last_traded_pair_ts[clean_sym] = time.time()
                 self.log_thought(
                     clean_sym,
-                    f"COMANDO SOBERANO: Ordem {d} ({strat}) executada em {clean_sym} a ${p:.4f} [Margem: ${margin:.1f} USD • Degrau ${milestone_step*1000}]. Alvo: ${target:.4f}, Stop: ${stop_loss:.4f}.",
+                    f"COMANDO SOBERANO: Ordem {d} ({strat}) executada em {clean_sym} a ${p:.4f} [Margem: ${margin:.1f} USD | Alavancagem: {leverage:.0f}x]. Alvo: ${target:.4f}, Stop: ${stop_loss:.4f}.",
                     action="ORDEM_DISPARADA",
                     confidence=chosen["score"]
                 )
