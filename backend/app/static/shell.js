@@ -90,7 +90,7 @@
         <!-- Navigation Section -->
         <div class="sh-sec-title">PÁGINAS DO SISTEMA</div>
         <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
-          <a href="/" class="sh-link ${activePage === 'cockpit' ? 'active' : ''}">
+          <a href="/cockpit" class="sh-link ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit}
             <span>COCKPIT TÁTICO</span>
             <span class="sh-badge-subtle">HFT</span>
@@ -100,7 +100,7 @@
             <span>LAYA 360 (CÉREBRO SOBERANO)</span>
             <span class="sh-badge-gold">360°</span>
           </a>
-          <a href="/observatory" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
+          <a href="/telemetry" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse}
             <span>TELEMETRIA (ALTA FREQUÊNCIA 60 FPS)</span>
             <span class="sh-badge-gold">uPlot</span>
@@ -238,13 +238,13 @@
 
         <!-- Center: Navigation (Desktop Only) -->
         <nav class="desktop-nav" style="display: flex; align-items: center; gap: 2px;">
-          <a href="/" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
+          <a href="/cockpit" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
           </a>
           <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
             ${ICONS.laya} <span>LAYA 360</span>
           </a>
-          <a href="/observatory" class="nav-item ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
+          <a href="/telemetry" class="nav-item ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse} <span>TELEMETRIA</span>
           </a>
           <a href="/plutus" class="nav-item ${activePage === 'plutus' ? 'active' : ''}">
@@ -544,7 +544,7 @@
           ${ICONS.laya}
           <span>Laya 360</span>
         </a>
-        <a href="/observatory" class="bbar-item ${(page === 'observatory' || page === 'telemetry') ? 'active' : ''}">
+        <a href="/telemetry" class="bbar-item ${(page === 'observatory' || page === 'telemetry') ? 'active' : ''}">
           ${ICONS.pulse}
           <span>Telemetria</span>
         </a>

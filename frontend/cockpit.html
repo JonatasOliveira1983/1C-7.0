@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>1Crypten 7.9.3 — Cockpit Lamborghini (V190)</title>
+  <title>1Crypten 7.9.5 — Cockpit Central de Operações</title>
   <link rel="stylesheet" href="/static/css/lamborghini.css">
   <script src="/static/js/lightweight-charts.js"></script>
   <script src="/static/js/thinking_orbs.js"></script>
@@ -616,7 +616,138 @@
     }
   
   /* ==========================================================================
-     HALLMARK RESPONSIVE ENGINE — COCKPIT (< 1200px)
+     HALLMARK CONSOLE THEME OVERRIDE (V192)
+     Ground: #080A0F | Panels: #0F131A | Hairline: #1D2330
+     Display: Host Grotesk | Tabular: Atkinson Hyperlegible Mono
+     ========================================================================== */
+  @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500;700&family=Host+Grotesk:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg-canvas: #080a0f !important;
+    --surface-iron: #0f131a !important;
+    --surface-charcoal: #0b0e14 !important;
+    --surface-elevated: #151a24 !important;
+    --surface-border: #1d2330 !important;
+    --surface-border-subtle: #161b24 !important;
+    --accent-gold: #fcd535 !important;
+    --accent-gold-hover: #eab308 !important;
+    --text-white: #f8fafc !important;
+    --text-smoke: #cbd5e1 !important;
+    --text-muted: #828ea3 !important;
+    --trading-up: #10b981 !important;
+    --trading-down: #f43f5e !important;
+    --cyan-pulse: #38bdf8 !important;
+    
+    --font-sans: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, monospace !important;
+  }
+
+  body {
+    background-color: var(--bg-canvas) !important;
+    color: var(--text-smoke) !important;
+    font-family: var(--font-sans) !important;
+  }
+
+  /* Universal Tabular Figures */
+  .font-mono, .measured,
+  #banca-saldo-total, #banca-equity-net, #banca-pnl-flutuante, #side-balance,
+  .metric-value, .slot-pnl-cell, .slot-price-cell, .telemetry-val, td {
+    font-family: var(--font-mono) !important;
+    font-variant-numeric: tabular-nums slashed-zero !important;
+  }
+
+  /* Hallmark Hairline Surfaces */
+  .card-lamborghini,
+  .cockpit-banner-row,
+  .master-card-banca,
+  #card-laya-sovereign,
+  .chart-card-wrapper {
+    background: var(--surface-iron) !important;
+    border: 1px solid var(--surface-border) !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+  }
+
+  .card-lamborghini-header,
+  .panel-header-vip {
+    background: var(--surface-elevated) !important;
+    border-bottom: 1px solid var(--surface-border) !important;
+  }
+
+  /* Buttons */
+  .btn-ghost {
+    background: transparent !important;
+    border: 1px solid var(--surface-border) !important;
+    color: var(--text-muted) !important;
+    border-radius: 3px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 500 !important;
+  }
+  .btn-ghost:hover {
+    background: var(--surface-elevated) !important;
+    color: var(--text-white) !important;
+    border-color: #2b3547 !important;
+  }
+
+  .btn-gold {
+    background: var(--accent-gold) !important;
+    color: #121000 !important;
+    border: 1px solid var(--accent-gold) !important;
+    border-radius: 3px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+  }
+
+  /* Badges */
+  .badge-gold {
+    background: rgba(252, 213, 53, 0.10) !important;
+    color: var(--accent-gold) !important;
+    border: 1px solid rgba(252, 213, 53, 0.25) !important;
+    border-radius: 2px !important;
+  }
+  .badge-cyan {
+    background: rgba(56, 189, 248, 0.10) !important;
+    color: var(--cyan-pulse) !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
+    border-radius: 2px !important;
+  }
+  .badge-up {
+    background: rgba(16, 185, 129, 0.10) !important;
+    color: var(--trading-up) !important;
+    border: 1px solid rgba(16, 185, 129, 0.25) !important;
+    border-radius: 2px !important;
+  }
+  .badge-down {
+    background: rgba(244, 63, 94, 0.10) !important;
+    color: var(--trading-down) !important;
+    border: 1px solid rgba(244, 63, 94, 0.25) !important;
+    border-radius: 2px !important;
+  }
+
+  /* Table styling */
+  table th {
+    background: var(--surface-elevated) !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid var(--surface-border) !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+  }
+  table td {
+    border-bottom: 1px solid var(--surface-border) !important;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg-canvas); }
+  ::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
+
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE (MOBILE & TABLET: 320px to 1199px)
+     Eliminates 0px squished canvas, enables fluid column stack and card scrolling.
      ========================================================================== */
   @media (max-width: 1199px) {
     html, body {
@@ -649,12 +780,12 @@
       order: 1 !important;
       width: 100% !important;
       height: auto !important;
-      min-height: 380px !important;
+      min-height: 400px !important;
       overflow: visible !important;
     }
     .cockpit-col-charts > .card-lamborghini {
       height: auto !important;
-      min-height: 380px !important;
+      min-height: 400px !important;
       overflow: visible !important;
     }
     #charts-grid-container {
@@ -672,6 +803,7 @@
       display: flex !important;
       flex-direction: column !important;
       position: relative !important;
+      overflow: hidden !important;
     }
     .chart-card-wrapper > div:last-child {
       width: 100% !important;
@@ -680,6 +812,7 @@
       position: relative !important;
       flex: 1 1 290px !important;
       display: block !important;
+      overflow: hidden !important;
     }
     .lw-frame-wrap {
       width: 100% !important;
@@ -694,12 +827,14 @@
       width: 100% !important;
       max-width: 100% !important;
       height: auto !important;
+      overflow: visible !important;
     }
     .cockpit-col-tables {
       order: 3 !important;
       width: 100% !important;
       max-width: 100% !important;
       height: auto !important;
+      overflow: visible !important;
     }
     #slots-table-container, #audit-trades-container {
       overflow-x: auto !important;
@@ -4572,12 +4707,12 @@
     </div>
   </div>
 <script>
-    // [V192-HALLMARK-RESIZE]
+    // [V192-HALLMARK-MOBILE-RESIZE] Redraw charts when viewport changes
     window.addEventListener('resize', () => {
       setTimeout(() => {
         for (let i = 0; i < 4; i++) {
           const frameWrap = document.getElementById(`lw-frame-wrap-${i}`);
-          if (typeof nativeCharts !== 'undefined' && nativeCharts[i] && frameWrap) {
+          if (nativeCharts[i] && frameWrap) {
             const w = Math.max(frameWrap.clientWidth || 0, 240);
             const h = Math.max(frameWrap.clientHeight || 0, 240);
             nativeCharts[i].applyOptions({ width: w, height: h });

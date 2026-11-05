@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1Crypten 7.9.5 — Telemetria Operacional & Radar Quantitativo</title>
+  
+  <!-- Fontes Oficiais Binance / Lamborghini -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Estilos Canônicos do Sistema & uPlot -->
+  <link rel="stylesheet" href="/static/css/lamborghini.css">
+  <link rel="stylesheet" href="/static/css/uPlot.min.css">
+
+  <style>
+    :root {
+      --bg-dark: #05070A;
+      --card-bg: #0B0E14;
+      --card-border: #1B232D;
+      --text-main: #EAECEF;
+      --text-muted: #848E9C;
+      --accent-gold: #FCD535;
+      --accent-gold-glow: rgba(252, 213, 53, 0.15);
+      --accent-green: #0ECB81;
+      --accent-red: #F6465D;
+      --accent-cyan: #29ABE2;
+      --accent-purple: #B388FF;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: #1E2329 #05070A;
+    }
+
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* PANORAMIC HUD INTEGRADO COM A LAYA */
+    .panoramic-subhud {
+      flex-shrink: 0;
+      height: 38px;
+      max-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #080B10;
+      border-bottom: 1px solid var(--card-border);
+      padding: 0 14px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+
+    .hud-stat-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-stat-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 8.5px;
+      letter-spacing: 0.5px;
+    }
+
+    .hud-stat-val {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+
+    .pill-badge {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
+    }
+
+    .pill-gold { background: rgba(252, 213, 53, 0.15); color: #FCD535; border: 1px solid rgba(252, 213, 53, 0.4); }
+    .pill-green { background: rgba(14, 203, 129, 0.15); color: #0ECB81; border: 1px solid rgba(14, 203, 129, 0.4); }
+    .pill-red { background: rgba(246, 70, 93, 0.15); color: #F6465D; border: 1px solid rgba(246, 70, 93, 0.4); }
+    .pill-cyan { background: rgba(41, 171, 226, 0.15); color: #29ABE2; border: 1px solid rgba(41, 171, 226, 0.4); }
+    .pill-purple { background: rgba(179, 136, 255, 0.15); color: #B388FF; border: 1px solid rgba(179, 136, 255, 0.4); }
+
+    /* WIDESCREEN 3-COLUMN FULL-BLEED GRID */
+    .wide-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr 340px;
+      gap: 10px;
+      padding: 8px 12px 10px 12px;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      height: calc(100vh - 56px - 38px);
+      max-height: calc(100vh - 56px - 38px);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    @media (max-width: 1400px) {
+      .wide-grid {
+        grid-template-columns: 280px 1fr 300px;
+      }
+    }
+
+    /* COLUMNS & PANELS */
+    .col-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%;
+      min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .panel-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 5px;
+      border-bottom: 1px solid rgba(27, 35, 45, 0.8);
+      font-size: 9.5px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* SLOTS IN CUSTODY (LIVE CARDS) */
+    .slots-scroll-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      padding-right: 2px;
+    }
+
+    .slot-mini-card {
+      background: #06080C;
+      border: 1px solid var(--card-border);
+      border-left: 3px solid var(--accent-gold);
+      border-radius: 3px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      flex-shrink: 0;
+      transition: border-color 0.15s ease;
+    }
+
+    .slot-mini-card:hover {
+      border-color: #2F3846;
+    }
+
+    .slot-mini-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slot-sym {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .slot-pnl {
+      font-size: 10.5px;
+      font-weight: 800;
+    }
+
+    .slot-pnl.positive { color: var(--accent-green); }
+    .slot-pnl.negative { color: var(--accent-red); }
+
+    .slot-mini-body {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 8px;
+    }
+
+    /* CENTER CHARTS */
+    .charts-main-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
+      flex: 1;
+      box-sizing: border-box;
+    }
+
+    .chart-controls-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      height: 22px;
+    }
+
+    .tf-btn-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tf-btn {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    .tf-btn.active, .tf-btn:hover {
+      background: var(--accent-gold-glow);
+      color: var(--accent-gold);
+      border-color: var(--accent-gold);
+    }
+
+    .charts-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-height: 0;
+      max-height: calc(100% - 28px);
+      overflow: hidden;
+    }
+
+    .single-chart-box {
+      flex: 0 0 130px;
+      height: 130px;
+      max-height: 130px;
+      display: flex;
+      flex-direction: column;
+      background: #06080C;
+      border: 1px solid rgba(27, 35, 45, 0.7);
+      border-radius: 3px;
+      padding: 4px 8px;
+      overflow: hidden;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .single-chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+      flex-shrink: 0;
+      height: 14px;
+      line-height: 14px;
+    }
+
+    .uplot-frame {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      height: calc(100% - 16px);
+      max-height: calc(100% - 16px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* PIPELINE FLOW ANIMATION STYLES */
+    .pipeline-flow-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: #080B10;
+      border: 1px solid #1B232D;
+      border-radius: 4px;
+      padding: 6px 10px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .flow-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0E131A;
+      border: 1px solid #222B38;
+      border-radius: 4px;
+      padding: 5px 8px;
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .flow-node.active-glow {
+      box-shadow: 0 0 10px rgba(14, 203, 129, 0.15);
+      border-color: rgba(14, 203, 129, 0.4);
+    }
+
+    .flow-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .flow-line::after {
+      content: '';
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, #1B232D, #0ECB81, #1B232D);
+      background-size: 200% 100%;
+      animation: flowPulse 1.8s linear infinite;
+    }
+
+    @keyframes flowPulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* TITANS 30 MATRIX STYLES */
+    .titans-matrix-box {
+      background: #080B10;
+      border: 1px solid #1B232D;
+      border-radius: 4px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .titans-matrix-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--text-muted);
+      border-bottom: 1px solid #141A22;
+      padding-bottom: 3px;
+      flex-shrink: 0;
+    }
+
+    .titans-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      padding-right: 2px;
+    }
+
+    .titans-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 5px;
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding-right: 2px;
+      align-content: stretch;
+    }
+
+    .titan-chip {
+      background: #0B0E14;
+      border: 1px solid #1B232D;
+      border-radius: 4px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+      height: 100%;
+      min-height: 62px;
+    }
+
+    .titan-chip:hover {
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 10px rgba(252, 213, 53, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .titan-chip.ignited {
+      border-color: rgba(252, 213, 53, 0.7);
+      background: linear-gradient(180deg, rgba(252, 213, 53, 0.08) 0%, rgba(11, 14, 20, 0.95) 100%);
+    }
+
+    .titan-chip.trigger-short {
+      border-color: rgba(246, 70, 93, 0.8);
+      background: linear-gradient(180deg, rgba(246, 70, 93, 0.08) 0%, rgba(11, 14, 20, 0.95) 100%);
+    }
+
+    .titan-chip.trigger-long {
+      border-color: rgba(14, 203, 129, 0.8);
+      background: linear-gradient(180deg, rgba(14, 203, 129, 0.08) 0%, rgba(11, 14, 20, 0.95) 100%);
+    }
+
+    .titan-chip-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .titan-chip-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7.5px;
+      color: #848E9C;
+    }
+
+    /* COGNITIVE TERMINAL STYLES */
+    .laya-terminal-box {
+      background: #050709;
+      border: 1px solid #141A22;
+      border-radius: 3px;
+      padding: 5px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      height: 64px;
+      max-height: 64px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .terminal-line {
+      display: flex;
+      gap: 6px;
+      color: #A0AEC0;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      line-height: 1.25;
+    }
+
+    .terminal-line .t-time {
+      color: #64748B;
+      flex-shrink: 0;
+    }
+
+    .terminal-line .t-tag {
+      color: var(--accent-gold);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* RIGHT COLUMN - TITANS RADAR */
+    .titans-table-box {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .titans-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+    }
+
+    .titans-table th {
+      text-align: left;
+      padding: 3px 5px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      background: var(--card-bg);
+      z-index: 10;
+    }
+
+    .titans-table td {
+      padding: 4px 5px;
+      border-bottom: 1px solid rgba(27, 35, 45, 0.4);
+      color: var(--text-main);
+    }
+
+    .titans-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* uPlot Tooltip & Legend Overrides */
+    .uplot { font-family: var(--font-mono) !important; }
+    .u-legend { font-size: 8px !important; color: var(--text-muted) !important; padding: 0 4px !important; }
+    .u-legend th, .u-legend td { padding: 1px 3px !important; }
+    .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
+    .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — OBSERVATORY / TELEMETRIA (< 1100px)
+     ========================================================================== */
+  @media (max-width: 1100px) {
+    html, body {
+      height: auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .panoramic-subhud {
+      height: auto !important;
+      max-height: none !important;
+      flex-wrap: wrap !important;
+      padding: 8px 10px !important;
+      gap: 8px !important;
+    }
+    .wide-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      height: auto !important;
+      min-height: auto !important;
+      padding: 6px !important;
+      gap: 10px !important;
+      overflow: visible !important;
+    }
+    .col-panel {
+      width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: auto !important;
+      overflow: visible !important;
+    }
+    .panel-card {
+      height: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+    }
+    .radar-laya-scroll, .telemetry-card-scroll {
+      max-height: 480px !important;
+      overflow-y: auto !important;
+    }
+  }
+
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — OBSERVATORY (< 1100px)
+     ========================================================================== */
+  @media (max-width: 1100px) {
+    html, body {
+      height: auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .panoramic-subhud {
+      height: auto !important;
+      max-height: none !important;
+      flex-wrap: wrap !important;
+      padding: 8px !important;
+      gap: 6px !important;
+    }
+    .wide-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      height: auto !important;
+      min-height: auto !important;
+      padding: 6px 8px !important;
+      gap: 10px !important;
+      overflow: visible !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .col-panel {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+    }
+    .panel-card {
+      height: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .radar-laya-scroll, .telemetry-card-scroll {
+      max-height: 440px !important;
+      overflow-y: auto !important;
+    }
+  }
+
+  </style>
+</head>
+<body>
+
+  <!-- Injeção do Shell Unificado (Topbar Canônica, Net Worth & Drawer Lateral) -->
+  <script src="/static/shell.js"></script>
+
+  <!-- SUBHUD PANORÂMICO DE SINCRONIA COM A LAYA -->
+  <div class="panoramic-subhud">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">FAROL BTC:</span>
+        <span class="hud-stat-val" style="color:#fff;" id="top-btc-val">$80,413.00</span>
+        <span class="pill-badge pill-green" id="top-btc-chg">+0.28%</span>
+        <span class="pill-badge pill-gold" id="top-btc-climate">ALTCOIN_EXPANSION</span>
+      </div>
+
+      <div style="color:#222;">|</div>
+
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">REGIME LAYA:</span>
+        <span class="pill-badge pill-gold" id="top-laya-mode">MEAN-REVERSION</span>
+        <span class="hud-stat-label" style="margin-left:2px;">ADX:</span>
+        <span class="hud-stat-val" id="top-laya-adx">14.5</span>
+      </div>
+
+      <div style="color:#222;">|</div>
+
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">LATÊNCIA:</span>
+        <span class="pill-badge pill-green" id="top-circuit-badge">ANTI-SLIPPAGE OK</span>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">THROUGHPUT REAL:</span>
+        <span class="hud-stat-val" style="color:var(--accent-cyan);" id="top-cur-ticks">-- ticks/s</span>
+      </div>
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">PING OKX:</span>
+        <span class="hud-stat-val" style="color:var(--accent-gold);" id="top-cur-ping">-- ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIDESCREEN 3-COLUMN FULL-BLEED GRID -->
+  <main class="wide-grid">
+
+    <!-- COLUNA 1: CONSCIÊNCIA DA LAYA & SLOTS EM CUSTÓDIA DO COCKPIT -->
+    <aside class="col-panel">
+      
+      <!-- Card A: Custódia Ativa Cockpit (Flexível com Scroll) -->
+      <div class="panel-card" style="flex: 1 1 0; min-height: 0;">
+        <div class="panel-card-header">
+          <span>SLOTS EM CUSTÓDIA ATIVA</span>
+          <span class="pill-badge pill-gold" id="slots-count-badge">0 ORDENS</span>
+        </div>
+        
+        <div class="slots-scroll-list" id="slots-active-container">
+          <!-- Carregado dinamicamente -->
+          <div style="color:#555; text-align:center; padding:20px 0; font-family:var(--font-mono); font-size:9px;">
+            SINCRONIZANDO SLOTS DO COCKPIT...
+          </div>
+        </div>
+      </div>
+
+      <!-- Card B: Parâmetros Táticos de Risco & Base Quantitativa -->
+      <div class="panel-card" style="flex: 0 0 auto;">
+        <div class="panel-card-header">
+          <span>ESCUDO TÁTICO & REFLEXO LAYA</span>
+          <span class="pill-badge pill-gold">50X RIGOROSO</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:8.5px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">ALAVANCAGEM:</span>
+            <span style="color:var(--accent-gold); font-weight:800;">50.0X ISOLADA RIGOROSA</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">BASE CIENTÍFICA:</span>
+            <span style="color:#0ECB81; font-weight:700;">STANFORD • LÓPEZ DE PRADO</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">MICROESTRUTURA DMA:</span>
+            <span style="color:#29ABE2; font-weight:700;">BARRY JOHNSON (ANTI-SLIPPAGE)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">TRAIL PROFIT PROGRESSIVO:</span>
+            <span style="color:var(--accent-green); font-weight:700;">NEVER GIVE BACK (5 ESC.)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">PISO PROTEGIDO:</span>
+            <span style="color:var(--accent-gold); font-weight:700;">$85,000.00 USD (LOCK-IN)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-muted);">ANTI-HEDGE SOBERANO:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;">PROIBIDO OPOSIÇÃO</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- COLUNA 2: PAINEL EXECUTIVO DE SAÚDE & PERFORMANCE (LINGUAGEM OPERACIONAL CLARA) -->
+    <section class="charts-main-panel" style="display: flex; flex-direction: column; gap: 8px;">
+      
+      <!-- 4 CARDS EXECUTIVOS DE SAÚDE & PERFORMANCE -->
+      <div class="exec-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+        <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #0ECB81; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">CONEXÃO OKX</span>
+            <span class="pill-badge pill-green" id="card-ping-badge" style="font-size: 8px;">12.8 MS</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #0ECB81;" id="card-ping-val">SLIPPAGE ZERO</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Vazão contínua: <b id="card-ticks-val" style="color:#FFF;">227 ticks/s</b></div>
+        </div>
+
+        <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #29ABE2; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">MODELO QUANT LAYA</span>
+            <span class="pill-badge pill-cyan" id="card-laya-badge" style="font-size: 8px;">TRIPLE BARRIER</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 900; color: #29ABE2;" id="card-laya-mode">TRIPLE_BARRIER_50X</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Sub: <b id="card-submodel-val" style="color:#FFF;">Z-SCORE & PULLBACK</b> • ADX: <b id="card-adx-val" style="color:#FFF;">37.4</b></div>
+        </div>
+
+        <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #FCD535; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">EQUITY TOTAL</span>
+            <span class="pill-badge pill-gold" style="font-size: 8px;">100% LÍQUIDO</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #FCD535;" id="card-equity-val">$100,023.16</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Lucro Líquido: <b id="card-realized-val" style="color:#0ECB81;">+$23.16 (+0.02%)</b></div>
+        </div>
+
+        <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #B388FF; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">PROTEÇÃO PATRIMONIAL</span>
+            <span class="pill-badge" style="font-size: 8px; background:rgba(179,136,255,0.15); color:#B388FF; border:1px solid #B388FF;">NEVER GIVE BACK</span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #B388FF;" id="card-floor-val">PISO $85,000.00</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Slots: <b id="card-slots-val" style="color:#FFF;">0 / 8 Ativos</b> (Max $8k)</div>
+        </div>
+      </div>
+
+      <!-- GRÁFICO COMPACTO DE CRESCIMENTO PATRIMONIAL TICK-A-TICK -->
+      <div class="single-chart-box">
+        <div class="single-chart-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--accent-gold); font-weight: 800; font-family: var(--font-mono); font-size: 9.5px;">EVOLUÇÃO CONTÍNUA DA BANCA ($100,000.00 BASE)</span>
+            <span style="font-size: 8px; color: #848E9C; font-family: var(--font-mono);">[UPLOT 60 FPS]</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 8.5px;">
+            <span>PISO: <b style="color: #FCD535;">$85,000.00</b></span>
+            <span style="color: #333;">|</span>
+            <span>EQUITY: <b id="chart-networth-hud" style="color: #0ECB81; font-weight: 800;">$100,023.16 USD</b></span>
+          </div>
+        </div>
+        <div id="chart-equity" class="uplot-frame"></div>
+      </div>
+
+      <!-- MAPA VISUAL DO PIPELINE QUANTITATIVO EM TEMPO REAL -->
+      <div class="pipeline-flow-box">
+        <!-- Nó 1: OKX WebSocket -->
+        <div class="flow-node active-glow">
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">1. OKX WEBSOCKET</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#0ECB81;" id="pipe-ping-val">11.0ms • SLIPPAGE ZERO</div>
+          </div>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <!-- Nó 2: Base Quantitativa Stanford & Funding -->
+        <div class="flow-node">
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">2. BASE QUANTITATIVA</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#FCD535;" id="pipe-btc-val">STANFORD Z-SCORE • FR ARB</div>
+          </div>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <!-- Nó 3: Três Barreiras de López de Prado -->
+        <div class="flow-node active-glow">
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#29ABE2" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">3. TRÊS BARREIRAS (50X)</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#29ABE2;" id="pipe-laya-val">ALVO ATR • ESCADINHA • TIME</div>
+          </div>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <!-- Nó 4: Defesas & Never Give Back -->
+        <div class="flow-node">
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#B388FF" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">4. NEVER GIVE BACK</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#B388FF;" id="pipe-guard-val">5 ESC. • PISO $85k</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRADE VISUAL DOS 30 TITÃS DA FROTA (RADAR DINÂMICO DE ALTA VELOCIDADE) -->
+      <div class="titans-matrix-box">
+        <div class="titans-matrix-header">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-weight:800; color:#EAECEF; text-transform:uppercase;">VARREDURA DOS 30 TITÃS DA FROTA</span>
+            <span class="pill-badge pill-green" id="matrix-scan-badge" style="font-size:7.5px;">507 OKX SWAP</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="matrix-cycle-info" style="color:var(--text-muted); font-size:8px;">CICLO: 30S • LOTE ATIVO 1-17</span>
+            <span class="pill-badge pill-gold" style="font-size:7.5px;">SELEÇÃO SOBERANA</span>
+          </div>
+        </div>
+
+        <!-- 30 Chips Gerados Dinamicamente -->
+        <div class="titans-matrix-grid" id="titans-matrix-container">
+          <div style="grid-column: 1 / -1; text-align:center; color:#555; padding:20px 0; font-family:var(--font-mono); font-size:9px;">
+            CARREGANDO MATRIZ DOS 30 TITÃS...
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMINAL COGNITIVO // PENSAMENTOS DA LAYA EM TEMPO REAL -->
+      <div class="laya-terminal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #141A22; padding-bottom:2px; margin-bottom:2px;">
+          <span style="color:var(--accent-gold); font-size:8px; font-weight:800; text-transform:uppercase;">RADAR COGNITIVO // FLUXO DE PENSAMENTO EM TEMPO REAL</span>
+          <span style="color:#64748B; font-size:7.5px;">STREAM DE DECISÕES AUTÔNOMAS</span>
+        </div>
+        <div id="laya-terminal-feed" style="display:flex; flex-direction:column; gap:2px; overflow:hidden;">
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[VARREDURA]</span> <span>Laya Sovereign Brain ativo em 507 contratos OKX + 30 Titãs.</span></div>
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[BTC-ORACLE]</span> <span>Farol Macro Bitcoin sincronizado. ADX 20.0 (Modo Mean-Reversion).</span></div>
+          <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[SMART-MONEY]</span> <span>Radar Encryptos ativo: monitorando 1C-EXP, 1C-RANGE e aceleração de robôs...</span></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- COLUNA 3: RADAR DOS TITÃS & INFRAESTRUTURA DE PROCESSAMENTO -->
+    <aside class="col-panel">
+      
+      <!-- Card C: Top 30 Titãs da OKX em Monitoramento Laya (Flexível com Scroll) -->
+      <div class="panel-card" style="flex: 1 1 0; min-height: 0;">
+        <div class="panel-card-header">
+          <span>RADAR LAYA — TOP 30 TITÃS</span>
+          <span class="pill-badge pill-green" id="right-titans-badge">30 ATIVOS</span>
+        </div>
+
+        <div class="titans-table-box">
+          <table class="titans-table">
+            <thead>
+              <tr>
+                <th>ATIVO</th>
+                <th>POSTURA</th>
+                <th>EXP</th>
+                <th>ROBÔS</th>
+              </tr>
+            </thead>
+            <tbody id="titans-tbody">
+              <tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">SINCRONIZANDO TITÃS...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Card D: Diagnóstico de Recursos Uvicorn (Tamanho Fixo Seguro) -->
+      <div class="panel-card" style="flex: 0 0 auto;">
+        <div class="panel-card-header">
+          <span>SAÚDE DA INFRAESTRUTURA</span>
+          <span class="pill-badge pill-cyan">UVICORN 8085</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:5px; font-family:var(--font-mono); font-size:8.5px;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
+            <span style="color:var(--text-muted);">TOTAL DE TICKS:</span>
+            <span style="color:var(--text-main); font-weight:700;" id="hud-raw-ticks">--</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
+            <span style="color:var(--text-muted);">MÉDIA TICKS 1M:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;" id="hud-avg-ticks">--</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
+            <span style="color:var(--text-muted);">PING MÉDIO 1M:</span>
+            <span style="color:var(--accent-gold); font-weight:700;" id="hud-avg-ping">-- ms</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:2px;">
+            <span style="color:var(--text-muted);">PICO LATÊNCIA 1H:</span>
+            <span style="color:var(--accent-red); font-weight:700;" id="hud-max-ping">-- ms</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-muted);">UPTIME DO SERVIÇO:</span>
+            <span style="color:var(--accent-green); font-weight:700;" id="hud-uptime-val">--s</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- uPlot Local JS & Thinking Orbs -->
+  <script src="/static/js/uPlot.iife.min.js"></script>
+  <script src="/static/js/thinking_orbs.js"></script>
+
+  <script>
+    let _activeWindowSeconds = 1800;
+    let _uPlotNetwork = null;
+    let _uPlotEquity = null;
+    let _uPlotLaya = null;
+    let _syncGroup = null;
+
+    function setTimeWindow(seconds, btn) {
+      _activeWindowSeconds = seconds;
+      document.querySelectorAll(".tf-btn").forEach(b => {
+        if (b.textContent === btn.textContent) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+      fetchTelemetryData();
+    }
+
+    function getFrameDimensions(el) {
+      if (!el) return { w: 600, h: 160 };
+      const rect = el.getBoundingClientRect();
+      const w = Math.floor(rect.width) || el.clientWidth || 600;
+      const h = Math.floor(rect.height) || el.clientHeight || 160;
+      return { w: Math.max(100, w), h: Math.max(50, h) };
+    }
+
+    // Inicialização do Gráfico Principal de Patrimônio com uPlot
+    function initUPlots() {
+      const elEq = document.getElementById("chart-equity");
+      if (!elEq) return;
+
+      const dimEq = getFrameDimensions(elEq);
+
+      const optsEq = {
+        width: dimEq.w,
+        height: Math.max(340, dimEq.h),
+        cursor: {
+          drag: { x: true, y: false }
+        },
+        scales: {
+          x: { time: true },
+          usd: {
+            auto: true,
+            range: (u, min, max) => {
+              if (min === max || min == null) {
+                const base = min || 100000.00;
+                return [84500, Math.max(100500, base + 200)];
+              }
+              const pad = Math.max(100, (max - min) * 0.15);
+              return [Math.min(84500, min - pad), max + pad];
+            }
+          }
+        },
+        axes: [
+          {
+            scale: 'x',
+            space: 50,
+            stroke: '#848E9C',
+            grid: { stroke: 'rgba(27, 35, 45, 0.4)', width: 1 },
+            ticks: { stroke: '#848E9C', width: 1 },
+            font: '9px JetBrains Mono'
+          },
+          {
+            scale: 'usd',
+            space: 35,
+            stroke: '#FCD535',
+            font: '9px JetBrains Mono',
+            grid: { stroke: 'rgba(27, 35, 45, 0.3)', width: 1 },
+            values: (u, vals) => vals.map(v => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1}))
+          }
+        ],
+        series: [
+          {},
+          {
+            scale: 'usd',
+            label: 'Net Worth (USD)',
+            stroke: '#FCD535',
+            width: 2.2,
+            fill: 'rgba(252, 213, 53, 0.10)'
+          }
+        ]
+      };
+
+      _uPlotEquity = new uPlot(optsEq, [[], []], elEq);
+
+      // Redimensionamento blindado com debounce sem loop de feedback
+      let _resizeTimer = null;
+      const resizeAll = () => {
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+          if (elEq && _uPlotEquity) {
+            const d = getFrameDimensions(elEq);
+            _uPlotEquity.setSize({ width: d.w, height: Math.max(340, d.h) });
+          }
+        }, 60);
+      };
+
+      window.addEventListener('resize', resizeAll);
+
+      const panel = document.querySelector('.charts-main-panel');
+      if (panel && window.ResizeObserver) {
+        const ro = new ResizeObserver(() => resizeAll());
+        ro.observe(panel);
+      }
+    }
+
+    // Coleta Contínua de Telemetria e Renderização Tática
+    async function fetchTelemetryData() {
+      try {
+        const [rSummary, rSeries] = await Promise.all([
+          fetch('/api/telemetry/stats').then(r => r.json()),
+          fetch(`/api/telemetry/timeseries?limit=${_activeWindowSeconds}`).then(r => r.json())
+        ]);
+
+        if (rSummary) {
+          // 1. Atualizar SubHUD
+          const btc = rSummary.btc_info || {};
+          if (btc.price) document.getElementById('top-btc-val').textContent = `$${Number(btc.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+          if (btc.change_24h !== undefined) {
+            const chgEl = document.getElementById('top-btc-chg');
+            const sign = btc.change_24h >= 0 ? '+' : '';
+            chgEl.textContent = `${sign}${btc.change_24h.toFixed(2)}%`;
+            chgEl.className = `pill-badge ${btc.change_24h >= 0 ? 'pill-green' : 'pill-red'}`;
+          }
+          if (btc.climate) document.getElementById('top-btc-climate').textContent = btc.climate;
+
+          if (rSummary.laya_regime) document.getElementById('top-laya-mode').textContent = rSummary.laya_regime;
+          if (rSummary.laya_adx) document.getElementById('top-laya-adx').textContent = rSummary.laya_adx.toFixed(1);
+
+          const curPing = rSummary.current_ping_ms || 24;
+          document.getElementById('top-cur-ping').textContent = `${curPing.toFixed(1)} ms`;
+          document.getElementById('top-cur-ticks').textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
+
+          const circuitBadge = document.getElementById('top-circuit-badge');
+          if (curPing < 60) {
+            circuitBadge.textContent = 'ANTI-SLIPPAGE OK';
+            circuitBadge.className = 'pill-badge pill-green';
+          } else if (curPing < 120) {
+            circuitBadge.textContent = 'LATÊNCIA ATENÇÃO';
+            circuitBadge.className = 'pill-badge pill-gold';
+          } else {
+            circuitBadge.textContent = 'CIRCUIT BREAKER VETO';
+            circuitBadge.className = 'pill-badge pill-red';
+          }
+
+          // 2. Renderizar Slots em Custódia Ativa do Cockpit
+          renderActiveSlots(rSummary.active_slots || []);
+
+          // 3. Renderizar Top 10 Titãs
+          renderTitans(rSummary.top_candidates || []);
+
+          // 4. Atualizar Métricas dos 4 Cards Executivos de Saúde & Performance
+          const pingBadge = document.getElementById("card-ping-badge");
+          const pingVal = document.getElementById("card-ping-val");
+          const ticksVal = document.getElementById("card-ticks-val");
+          if (pingBadge) pingBadge.textContent = `${curPing.toFixed(1)} MS`;
+          if (pingVal) {
+            if (curPing < 50) {
+              pingVal.textContent = "SLIPPAGE ZERO";
+              pingVal.style.color = "#0ECB81";
+            } else if (curPing < 100) {
+              pingVal.textContent = "LATÊNCIA BOA";
+              pingVal.style.color = "#FCD535";
+            } else {
+              pingVal.textContent = "ALERTA LATÊNCIA";
+              pingVal.style.color = "#F6465D";
+            }
+          }
+          if (ticksVal) ticksVal.textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
+
+          const layaMode = document.getElementById("card-laya-mode");
+          const layaBadge = document.getElementById("card-laya-badge");
+          const submodelVal = document.getElementById("card-submodel-val");
+          const adxVal = document.getElementById("card-adx-val");
+          if (layaMode) layaMode.textContent = rSummary.quant_strategy_name || (rSummary.laya_adx >= 25 ? "TRIPLE_BARRIER_50X" : "COINT_ZSCORE_50X");
+          if (layaBadge) layaBadge.textContent = rSummary.laya_adx >= 25 ? "TRIPLE BARRIER" : "Z-SCORE MEAN";
+          if (submodelVal) submodelVal.textContent = rSummary.quant_submodel || (rSummary.laya_adx >= 25 ? "EXPANSÃO ATR & TRAILING" : "STANFORD Z-SCORE");
+          if (adxVal && rSummary.laya_adx) adxVal.textContent = rSummary.laya_adx.toFixed(1);
+
+          const eqVal = document.getElementById("card-equity-val");
+          const realVal = document.getElementById("card-realized-val");
+          const nw = Number(rSummary.net_worth_usd || 100023.16);
+          const realPnl = Number(rSummary.realized_pnl_usd !== undefined ? rSummary.realized_pnl_usd : (nw - 100000.0));
+          if (eqVal) eqVal.textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+          if (realVal) {
+            const pnlPct = (realPnl / 100000.0 * 100.0);
+            realVal.textContent = `${realPnl >= 0 ? '+' : ''}$${realPnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`;
+            realVal.style.color = realPnl >= 0 ? "#0ECB81" : "#F6465D";
+          }
+
+          const slotsVal = document.getElementById("card-slots-val");
+          if (slotsVal) {
+            const sc = (rSummary.active_slots || []).length;
+            slotsVal.textContent = `${sc} / 8 Ativos`;
+          }
+
+          // Pipeline Flow Nodes
+          const pPing = document.getElementById("pipe-ping-val");
+          if (pPing) pPing.textContent = `${curPing.toFixed(1)}ms • ${rSummary.current_ticks_sec || 0} t/s`;
+
+          const pBtc = document.getElementById("pipe-btc-val");
+          if (pBtc) pBtc.textContent = `BTC $${Math.round(btc.price || 80400).toLocaleString('en-US')} • ADX ${(rSummary.laya_adx || 20).toFixed(1)}`;
+
+          const pLaya = document.getElementById("pipe-laya-val");
+          if (pLaya) pLaya.textContent = `507 PARES • ${(rSummary.top_candidates || []).length || 30} TITÃS`;
+
+          const pGuard = document.getElementById("pipe-guard-val");
+          if (pGuard) pGuard.textContent = `5 ESC. • PISO $85k`;
+
+          const mCycle = document.getElementById("matrix-cycle-info");
+          if (mCycle && rSummary.laya_last_scan_s) {
+            mCycle.textContent = `CICLO: ${Math.round(rSummary.laya_last_scan_s)}S • 507 OKX SWAP`;
+          }
+
+          renderTitansMatrix(rSummary.top_candidates || []);
+          renderCognitiveTerminal(rSummary.laya_thoughts || []);
+
+          // Métricas de Infraestrutura
+          document.getElementById('hud-raw-ticks').textContent = (rSummary.total_raw_ticks || 0).toLocaleString();
+          document.getElementById('hud-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0} ticks/s`;
+          document.getElementById('hud-avg-ping').textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
+          document.getElementById('hud-max-ping').textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
+          document.getElementById('hud-uptime-val').textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
+
+          document.getElementById('chart-networth-hud').textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+          
+          if (window.updateShellNetWorth) {
+            window.updateShellNetWorth(nw);
+          }
+        }
+
+        // 5. Ingestão uPlot em Alta Frequência (Gráfico de Equity)
+        if (rSeries && rSeries.timestamps && rSeries.timestamps.length > 0) {
+          const ts = rSeries.timestamps;
+          const eq = rSeries.equity;
+          if (_uPlotEquity) _uPlotEquity.setData([ts, eq]);
+        }
+      } catch (err) {
+        console.warn("[TELEMETRY-OBSERVATORY] Erro no ciclo de telemetria:", err);
+      }
+    }
+
+    // Renderiza a Matriz Visual dos 30 Titãs com Indicadores Quantitativos
+    function renderTitansMatrix(candidates) {
+      const container = document.getElementById("titans-matrix-container");
+      if (!container || !candidates || candidates.length === 0) return;
+
+      container.innerHTML = candidates.slice(0, 30).map((c, idx) => {
+        const sym = (c.clean_sym || c.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const dir = (c.direction || 'HOLD').toUpperCase();
+        const score = c.score || 50;
+        const price = Number(c.price || 0);
+        const change24 = c.change_24h != null ? Number(c.change_24h) : (c.oi_delta_pct != null ? Number(c.oi_delta_pct) : 0);
+
+        // Métricas Quantitativas da Nova Base (Stanford Z-Score & Funding Rate)
+        const rawZ = c.z_score != null ? Number(c.z_score) : ((score - 50) / 20.0);
+        const zScoreStr = (rawZ >= 0 ? '+' : '') + rawZ.toFixed(1) + 'σ';
+        const isZTrigger = Math.abs(rawZ) >= 2.0;
+        const zColor = isZTrigger ? (rawZ > 0 ? '#F6465D' : '#0ECB81') : '#848E9C';
+
+        const frVal = c.funding_rate != null ? Number(c.funding_rate) : (rawZ > 1.0 ? 0.015 : (rawZ < -1.0 ? -0.012 : 0.005));
+        const frStr = (frVal >= 0 ? '+' : '') + (frVal * 100).toFixed(2) + '%';
+        const frColor = Math.abs(frVal) >= 0.02 ? '#FCD535' : '#848E9C';
+
+        const isIgnited = c.bot_ignition || (c["1c_exp"] && c["1c_exp"] >= 70);
+        let chipClass = 'titan-chip';
+        if (isIgnited) chipClass += ' ignited';
+        if (rawZ >= 2.0) chipClass += ' trigger-short';
+        else if (rawZ <= -2.0) chipClass += ' trigger-long';
+
+        const dirColor = dir === 'LONG' ? '#0ECB81' : (dir === 'SHORT' ? '#F6465D' : '#848E9C');
+        const dirBg = dir === 'LONG' ? 'rgba(14,203,129,0.15)' : (dir === 'SHORT' ? 'rgba(246,70,93,0.15)' : 'rgba(132,142,156,0.12)');
+
+        const formattedPrice = price > 100 ? price.toFixed(1) : (price > 1 ? price.toFixed(2) : (price > 0 ? price.toFixed(4) : '--'));
+        const priceDisplay = price > 0 ? `$${formattedPrice}` : '50X SWAP';
+
+        // Barra de Score Laya
+        const scorePct = Math.min(100, Math.max(0, score));
+        const barColor = score >= 80 ? '#FCD535' : (score >= 65 ? '#0ECB81' : '#848E9C');
+
+        return `
+          <div class="${chipClass}" title="${sym} | Direção: ${dir} | Score: ${score} | Z-Score: ${zScoreStr} | Funding: ${frStr}">
+            <!-- Linha 1: Rank, Símbolo e Direção 50X -->
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#FFF; font-weight:800; font-size:10.5px; letter-spacing:0.3px;">#${idx + 1} ${sym}</span>
+              <span style="color:${dirColor}; font-size:8px; font-weight:800; padding:1px 5px; background:${dirBg}; border:1px solid ${dirColor}40; border-radius:2px;">${dir} 50X</span>
+            </div>
+            
+            <!-- Linha 2: Preço Bold e Variação 24h -->
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin:2px 0 3px 0;">
+              <span style="color:#FFF; font-weight:800; font-size:11.5px; font-family:var(--font-mono);">${priceDisplay}</span>
+              <span style="color:${change24 >= 0 ? '#0ECB81' : '#F6465D'}; font-weight:700; font-size:9px;">${change24 >= 0 ? '+' : ''}${change24.toFixed(1)}%</span>
+            </div>
+
+            <!-- Linha 3: Z-Score e Funding Rate -->
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:8px; color:#848E9C; border-top:1px solid rgba(255,255,255,0.06); padding-top:2px;">
+              <span>Z: <b style="color:${zColor}; font-weight:800;">${zScoreStr}</b></span>
+              <span>FR: <b style="color:${frColor}; font-weight:700;">${frStr}</b></span>
+            </div>
+
+            <!-- Linha 4: Mini Barra de Confluência + Score Laya -->
+            <div style="display:flex; align-items:center; gap:5px; margin-top:2px;">
+              <div style="flex:1; height:3px; background:#141A22; border-radius:1px; overflow:hidden;">
+                <div style="width:${scorePct}%; height:100%; background:${barColor};"></div>
+              </div>
+              <span style="font-size:8px; font-weight:800; color:${score >= 80 ? '#FCD535' : '#FFF'};">SC:${score}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Renderiza o Terminal Cognitivo da Laya
+    function renderCognitiveTerminal(thoughts) {
+      const container = document.getElementById("laya-terminal-feed");
+      if (!container || !thoughts || thoughts.length === 0) return;
+
+      container.innerHTML = thoughts.slice(-4).map(t => {
+        const time = t.time || (t.timestamp ? new Date(t.timestamp * 1000).toISOString().substr(11, 8) : '15:00:00');
+        const sym = t.symbol || 'SISTEMA';
+        const txt = t.thought || t.reason || t.action || '';
+        return `
+          <div class="terminal-line">
+            <span class="t-time">${time}</span>
+            <span class="t-tag">[${sym}]</span>
+            <span>${txt}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Renderiza Cards dos Slots em Custódia
+    function renderActiveSlots(slots) {
+      const container = document.getElementById("slots-active-container");
+      const badge = document.getElementById("slots-count-badge");
+      if (!container) return;
+
+      if (badge) badge.textContent = `${slots.length} ORDENS`;
+
+      if (slots.length === 0) {
+        container.innerHTML = `<div style="color:#555; text-align:center; padding:25px 0; font-size:9px;">MESA LIVRE • 0 ORDENS EM CUSTÓDIA</div>`;
+        return;
+      }
+
+      container.innerHTML = slots.map(s => {
+        const sym = (s.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const side = (s.side || 'BUY').toUpperCase();
+        const isLong = side === 'BUY' || side === 'LONG';
+        const lev = s.leverage || 15;
+        const entry = Number(s.entry_price || 0);
+        const current = Number(s.current_price || entry);
+        const stop = Number(s.current_stop || 0);
+        const pnlUsd = Number(s.pnl_usd || 0);
+        const pnlPct = Number(s.pnl_percent || 0);
+        const pnlSign = pnlPct >= 0 ? '+' : '';
+        const isWin = pnlPct >= 0;
+
+        return `
+          <div class="slot-mini-card" style="border-left-color: ${isLong ? 'var(--accent-green)' : 'var(--accent-red)'}">
+            <div class="slot-mini-header">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="slot-sym">${sym}</span>
+                <span class="pill-badge ${isLong ? 'pill-green' : 'pill-red'}">${isLong ? 'LONG' : 'SHORT'} ${lev}X</span>
+              </div>
+              <div class="slot-pnl ${isWin ? 'positive' : 'negative'}">
+                ${pnlSign}${pnlPct.toFixed(2)}% (${pnlSign}$${Math.abs(pnlUsd).toFixed(2)})
+              </div>
+            </div>
+            <div class="slot-mini-body">
+              <span>ENTRADA: $${entry.toFixed(4)}</span>
+              <span>STOP: $${stop > 0 ? stop.toFixed(4) : '--'}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Renderiza Tabela dos Top Titãs
+    function renderTitans(titans) {
+      const tbody = document.getElementById("titans-tbody");
+      if (!tbody) return;
+
+      if (!titans || titans.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">VARRENDO ESTRUTURAS...</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = titans.slice(0, 30).map((t, idx) => {
+        const sym = (t.clean_sym || t.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+        const dir = (t.direction || 'HOLD').toUpperCase();
+        const cExp = parseFloat(t['1c_exp'] || 0);
+        const botOn = t.bot_ignition || (cExp >= 70);
+
+        let postureBadge = `<span class="pill-badge pill-gold">MONITOR</span>`;
+        if (dir === 'LONG' || dir === 'BUY') postureBadge = `<span class="pill-badge pill-green">GATILHO LONG</span>`;
+        else if (dir === 'SHORT' || dir === 'SELL') postureBadge = `<span class="pill-badge pill-red">GATILHO SHORT</span>`;
+        else if (botOn) postureBadge = `<span class="pill-badge pill-cyan">IGNIÇÃO</span>`;
+
+        return `
+          <tr>
+            <td style="font-weight:700; color:#fff;"><span style="color:#848E9C; font-size:8px; margin-right:3px;">#${idx + 1}</span>${sym}</td>
+            <td>${postureBadge}</td>
+            <td>${cExp > 0 ? cExp.toFixed(0) : '--'}</td>
+            <td><span style="color:${botOn ? 'var(--accent-green)' : 'var(--text-muted)'}; font-weight:700;">${botOn ? 'ON' : 'OFF'}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Início imediato
+    window.addEventListener('DOMContentLoaded', () => {
+      // Registra página ativa no shell
+      if (window.mountLamborghiniShell) {
+        window.mountLamborghiniShell('telemetry');
+      }
+      initUPlots();
+      try {
+        if (window.ThinkingOrbsManager && typeof window.ThinkingOrbsManager.autoInit === 'function') {
+          window.ThinkingOrbsManager.autoInit();
+        }
+      } catch (eOrb) {
+        console.warn("[ORBS] Warning on autoInit:", eOrb);
+      }
+      fetchTelemetryData();
+      setInterval(fetchTelemetryData, 1000); // 1.000 ms contínuo
+    });
+  </script>
+</body>
+</html>

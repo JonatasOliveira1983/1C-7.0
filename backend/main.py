@@ -977,28 +977,32 @@ async def get_telemetry_timeseries(limit: int = 1800):
 
 # Special Root Routes (Must stay in main for precedence or special handling)
 if settings.SERVE_STATIC_FRONTEND:
+    # ── Telemetria Operacional Canônica (/telemetry) ──
     @app.get("/telemetry", response_class=HTMLResponse)
+    @app.get("/telemetry.html", response_class=HTMLResponse)
     @app.get("/telemetry/{symbol}", response_class=HTMLResponse)
-    @app.get("/observatory", response_class=HTMLResponse)
-    @app.get("/observatory/{symbol}", response_class=HTMLResponse)
-    async def observatory_page(symbol: str = "AVAXUSDT"):
-        # Check local path then app path
-        path = os.path.join(FRONTEND_DIR, "observatory.html")
+    async def telemetry_page(symbol: str = "AVAXUSDT"):
+        path = os.path.join(APP_STATIC_DIR, "telemetry.html")
         if not os.path.exists(path):
-            path = "/app/frontend/observatory.html"
+            path = os.path.join(FRONTEND_DIR, "observatory.html")
         
         with open(path, "r", encoding="utf-8") as f:
             html_content = f.read()
-            # Injeta Cache-Bust dinâmico na chamada dos scripts se necessário
-            # Adiciona um header de timestamp de deploy para invalidar em proxies CDN
             from fastapi.responses import HTMLResponse
             return HTMLResponse(
                 content=html_content,
                 headers={
                     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-obs-{time.time()}"
+                    "ETag": f"1c-tel-{time.time()}"
                 }
             )
+
+    @app.get("/observatory")
+    @app.get("/observatory.html")
+    @app.get("/observatory/{symbol}")
+    async def redirect_observatory_to_telemetry(symbol: str = None):
+        target = f"/telemetry/{symbol}" if symbol else "/telemetry"
+        return RedirectResponse(url=target, status_code=301)
 
     @app.get("/kanban")
     async def serve_kanban_page():
@@ -1022,18 +1026,7 @@ if settings.SERVE_STATIC_FRONTEND:
 
     @app.get("/")
     async def serve_index():
-        path = os.path.join(APP_STATIC_DIR, "cockpit.html")
-        if not os.path.exists(path):
-            path = os.path.join(FRONTEND_DIR, "index.html")
-        with open(path, "r", encoding="utf-8") as f:
-            html_content = f.read()
-            return HTMLResponse(
-                content=html_content,
-                headers={
-                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-cockpit-{time.time()}"
-                }
-            )
+        return RedirectResponse(url="/cockpit", status_code=302)
 
     @app.get("/login")
     async def serve_login_page():
@@ -1098,19 +1091,8 @@ if settings.SERVE_STATIC_FRONTEND:
 
     @app.get("/cockpit-v2")
     @app.get("/cockpit-v2.html")
-    async def serve_cockpit_v2_page():
-        path = os.path.join(APP_STATIC_DIR, "cockpit_v2.html")
-        if not os.path.exists(path):
-            path = os.path.join(FRONTEND_DIR, "cockpit_v2.html")
-        with open(path, "r", encoding="utf-8") as f:
-            html_content = f.read()
-            return HTMLResponse(
-                content=html_content,
-                headers={
-                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
-                    "ETag": f"1c-cockpit-v2-{time.time()}"
-                }
-            )
+    async def redirect_cockpit_v2():
+        return RedirectResponse(url="/cockpit", status_code=301)
 
     @app.get("/plutus")
     @app.get("/plutus.html")
