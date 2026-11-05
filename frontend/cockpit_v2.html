@@ -8,58 +8,647 @@
   <script src="/static/js/lightweight-charts.js"></script>
   <script src="/static/js/thinking_orbs.js"></script>
   <style>
+    /* Flash de Preço em Tempo Real (Binance / Bloomberg Style) */
+    @keyframes priceFlashUp {
+      0% { background-color: rgba(14, 203, 129, 0.45); color: #0ECB81; }
+      100% { background-color: transparent; }
+    }
+    @keyframes priceFlashDown {
+      0% { background-color: rgba(246, 70, 93, 0.45); color: #F6465D; }
+      100% { background-color: transparent; }
+    }
+    .price-flash-up {
+      animation: priceFlashUp 0.8s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    .price-flash-down {
+      animation: priceFlashDown 0.8s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
 
+    /* ==========================================================================
+       ULTRAWIDE & PANORAMIC SCREEN OPTIMIZATION (ZERO VERTICAL SCROLL)
+       ========================================================================== */
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    .app-header {
+      height: 38px !important;
+      flex-shrink: 0 !important;
+    }
+    .cockpit-panoramic-main {
+      width: 100%;
+      height: calc(100vh - 38px);
+      max-height: calc(100vh - 38px);
+      margin: 0;
+      padding: 4px 8px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    @media (min-width: 1200px) {
+      html, body {
+        height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .app-header {
+        height: 38px !important;
+        padding: 0 14px !important;
+        flex-shrink: 0 !important;
+      }
+      .cockpit-panoramic-main {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: calc(100vh - 38px) !important;
+        max-height: calc(100vh - 38px) !important;
+        min-height: 0 !important;
+        padding: 4px 8px 6px 8px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        overflow: hidden !important;
+      }
+      .cockpit-banner-row {
+        margin-bottom: 0 !important;
+        padding: 3px 10px !important;
+        font-size: 9.5px !important;
+        flex-shrink: 0 !important;
+      }
+
+      /* 3-Column Panoramic Dashboard: Left Controls + Center Charts + Right Tables */
+      .cockpit-panoramic-grid {
+        display: grid !important;
+        grid-template-columns: minmax(280px, 0.72fr) minmax(440px, 1.55fr) minmax(320px, 0.85fr) !important;
+        gap: 6px !important;
+        flex: 1 1 0 !important;
+        height: calc(100% - 36px) !important;
+        max-height: calc(100% - 36px) !important;
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+      }
+
+      /* Col 1: Mesa Tática (Banca & Laya) */
+      .cockpit-col-middle {
+        order: 1 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-middle .card-lamborghini {
+        padding: 6px 8px !important;
+        margin-bottom: 0 !important;
+      }
+      .cockpit-col-middle #card-laya-sovereign {
+        flex: 1 1 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-middle .laya-tab-pane {
+        flex: 1 1 0 !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-middle .laya-tab-pane.active-tab {
+        display: flex !important;
+      }
+      .cockpit-col-middle .laya-tab-pane:not(.active-tab) {
+        display: none !important;
+      }
+      .cockpit-col-middle #laya-thought-stream,
+      .cockpit-col-middle #laya-whale-radar-container,
+      .cockpit-col-middle #laya-candidates-container {
+        flex: 1 1 0 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+      }
+
+      /* Col 2: Flash Map (Gráficos) */
+      .cockpit-col-charts {
+        order: 2 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-charts > .card-lamborghini {
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 4px 6px !important;
+        margin-bottom: 0 !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-charts #charts-grid-container {
+        flex: 1 1 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: grid !important;
+        gap: 4px !important;
+        overflow: hidden !important;
+      }
+      .charts-grid-quad {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: 1fr 1fr !important;
+      }
+      .charts-grid-dual {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: 1fr !important;
+      }
+      .charts-grid-solo {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr !important;
+      }
+
+      .charts-grid-solo #chart-card-1,
+      .charts-grid-solo #chart-card-2,
+      .charts-grid-solo #chart-card-3 {
+        display: none !important;
+      }
+      .charts-grid-solo #chart-card-0 {
+        display: flex !important;
+        grid-column: 1 / -1 !important;
+        grid-row: 1 / -1 !important;
+      }
+
+      .charts-grid-dual #chart-card-2,
+      .charts-grid-dual #chart-card-3 {
+        display: none !important;
+      }
+      .charts-grid-dual #chart-card-0,
+      .charts-grid-dual #chart-card-1 {
+        display: flex !important;
+        grid-row: 1 / -1 !important;
+      }
+
+      .charts-grid-quad #chart-card-0,
+      .charts-grid-quad #chart-card-1,
+      .charts-grid-quad #chart-card-2,
+      .charts-grid-quad #chart-card-3 {
+        display: flex !important;
+      }
+
+      .chart-card-wrapper {
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 4px !important;
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+      .chart-card-wrapper > div:last-child {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+        display: block !important;
+        overflow: hidden !important;
+      }
+      .lw-frame-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        position: absolute !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: block !important;
+      }
+
+      /* Col 3: Custódia & Histórico */
+      .cockpit-col-tables {
+        order: 3 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-tables .card-lamborghini {
+        padding: 6px 8px !important;
+        margin-bottom: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+      }
+      .cockpit-col-tables .card-lamborghini:first-child {
+        flex: 1.1 1 0 !important;
+        height: 52% !important;
+        max-height: 52% !important;
+      }
+      .cockpit-col-tables .card-lamborghini:last-child {
+        flex: 0.9 1 0 !important;
+        height: 48% !important;
+        max-height: 48% !important;
+      }
+      .cockpit-col-tables .table-responsive-wrap {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        max-height: none !important;
+      }
+      .cockpit-col-tables #recent-trades-list {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        max-height: none !important;
+      }
+    }
+
+      /* Breakpoint Tablet & Mobile (< 1200px) */
+      @media (max-width: 1199px) {
+        html, body {
+          overflow-y: auto !important;
+        }
+        .cockpit-panoramic-main {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: visible !important;
+          padding: 6px 6px 20px 6px !important;
+        }
+        .cockpit-kpis-row {
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 6px !important;
+        }
+        .cockpit-panoramic-grid {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 10px !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+        /* GRÁFICO NO TOPO COM DESTAQUE TOTAL NO MOBILE */
+        .cockpit-col-charts {
+          order: 1 !important;
+          width: 100% !important;
+          min-height: 520px !important;
+          height: auto !important;
+        }
+        .cockpit-col-charts > .card-lamborghini {
+          min-height: 520px !important;
+        }
+        .cockpit-col-charts #charts-grid-container {
+          min-height: 460px !important;
+        }
+        .charts-grid-quad {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(4, 280px) !important;
+        }
+        .charts-grid-dual {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(2, 280px) !important;
+        }
+        .charts-grid-solo {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: 420px !important;
+        }
+        .chart-card-wrapper {
+          min-height: 280px !important;
+        }
+        .chart-card-wrapper > div:last-child {
+          min-height: 230px !important;
+        }
+        .lw-frame-wrap {
+          min-height: 230px !important;
+        }
+        .cockpit-col-middle {
+          order: 2 !important;
+          width: 100% !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        .cockpit-col-tables {
+          order: 3 !important;
+          width: 100% !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+      }
+
+      /* Breakpoint Smartphone Estreito (< 580px) */
+      @media (max-width: 579px) {
+        .cockpit-kpis-row {
+          grid-template-columns: 1fr 1fr !important;
+        }
+        .cockpit-col-charts {
+          min-height: 480px !important;
+          height: auto !important;
+        }
+        .charts-grid-quad {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(4, 270px) !important;
+          overflow-y: visible !important;
+        }
+        .charts-grid-dual {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: repeat(2, 270px) !important;
+          overflow-y: visible !important;
+        }
+        .charts-grid-solo {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: 380px !important;
+        }
+        .chart-card-wrapper {
+          min-height: 270px !important;
+        }
+        .chart-card-wrapper > div:last-child {
+          min-height: 220px !important;
+        }
+        .lw-frame-wrap {
+          min-height: 220px !important;
+        }
+      }
+
+
+
+    .clickable-row {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .clickable-row:hover {
+      background: rgba(255, 192, 0, 0.12) !important;
+    }
+    .side-slot-card {
+      transition: all 0.15s ease;
+    }
+    .side-slot-card:hover {
+      border-color: var(--accent-gold) !important;
+    }
+    #side-slots-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    #side-slots-list::-webkit-scrollbar-track {
+      background: #0a0a0a;
+    }
+    #side-slots-list::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+    #side-slots-list::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-gold);
+    }
+
+    /* ==========================================================================
+       FORENSIC AUDIT MODAL (DOSSIÊ COMPLETO DE OPERAÇÃO & LAYA SYSTEM 1)
+       ========================================================================== */
+    .audit-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 99999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .audit-modal-backdrop.show {
+      display: flex;
+      opacity: 1;
+    }
+    .audit-modal-container {
+      background: #0d0f12;
+      border: 1px solid rgba(255, 192, 0, 0.4);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(255, 192, 0, 0.12);
+      border-radius: 10px;
+      width: 92%;
+      max-width: 880px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalPopIn 0.22s ease-out;
+    }
+    @keyframes modalPopIn {
+      from { transform: translateY(16px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .audit-modal-header {
+      padding: 14px 20px;
+      background: linear-gradient(90deg, #15181e 0%, #0d0f12 100%);
+      border-bottom: 1px solid #22262e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .audit-modal-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display, 'Chakra Petch', sans-serif);
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .audit-modal-close {
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .audit-modal-close:hover {
+      border-color: #f6465d;
+      color: #f6465d;
+      background: rgba(246, 70, 93, 0.12);
+    }
+    .audit-modal-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-family: var(--font-mono, monospace);
+      font-size: 12px;
+    }
+    .audit-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 768px) {
+      .audit-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .audit-kpi-card {
+      background: #14171d;
+      border: 1px solid #22262e;
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .audit-kpi-label {
+      font-size: 9.5px;
+      color: #7d8590;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .audit-kpi-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .audit-section-box {
+      background: #12151b;
+      border: 1px solid #1f232b;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .audit-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-display, 'Chakra Petch', sans-serif);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--accent-gold, #ffc000);
+      border-bottom: 1px solid #1f232b;
+      padding-bottom: 5px;
+      margin-bottom: 2px;
+      letter-spacing: 0.4px;
+    }
+    .audit-spec-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .audit-spec-table td {
+      padding: 4px 6px;
+      font-size: 11px;
+      border-bottom: 1px solid #1a1d24;
+    }
+    .audit-spec-table tr:last-child td {
+      border-bottom: none;
+    }
+    .audit-spec-table .td-label {
+      color: #8b949e;
+      width: 48%;
+    }
+    .audit-spec-table .td-val {
+      color: #fff;
+      font-weight: 600;
+      text-align: right;
+    }
+    .audit-timeline-item {
+      position: relative;
+      padding-left: 18px;
+      padding-bottom: 8px;
+      border-left: 2px solid #2a2e39;
+      font-size: 11px;
+      color: #c9d1d9;
+    }
+    .audit-timeline-item:last-child {
+      border-left: 2px solid transparent;
+      padding-bottom: 0;
+    }
+    .audit-timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-gold, #ffc000);
+    }
+    .audit-timeline-item.win::before { background: #00E676; }
+    .audit-timeline-item.loss::before { background: #FF1744; }
+    .audit-modal-footer {
+      padding: 12px 20px;
+      background: #0d0f12;
+      border-top: 1px solid #22262e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  
   /* ==========================================================================
-     HALLMARK CONSOLE THEME (V192) - 1CRYPTEN INSTITUTIONAL WORKBENCH
-     Ground: #080A0F | Panels: #0F131A | Seams: #1D2330
-     Display: Host Grotesk 500/600 | Numbers: Atkinson Hyperlegible Mono (Tabular)
-     Zero AI Slop: No blurry cards, no double-nested borders, no jumpy fonts.
+     HALLMARK CONSOLE THEME OVERRIDE (V192)
+     Ground: #080A0F | Panels: #0F131A | Hairline: #1D2330
+     Display: Host Grotesk | Tabular: Atkinson Hyperlegible Mono
      ========================================================================== */
   @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500;700&family=Host+Grotesk:wght@400;500;600;700&display=swap');
 
   :root {
-    --hm-bg: #080a0f;
-    --hm-panel: #0f131a;
-    --hm-header: #141922;
-    --hm-hover: #19202c;
-    --hm-rule: #1d2330;
-    --hm-rule-light: #283042;
+    --bg-canvas: #080a0f !important;
+    --surface-iron: #0f131a !important;
+    --surface-charcoal: #0b0e14 !important;
+    --surface-elevated: #151a24 !important;
+    --surface-border: #1d2330 !important;
+    --surface-border-subtle: #161b24 !important;
+    --accent-gold: #fcd535 !important;
+    --accent-gold-hover: #eab308 !important;
+    --text-white: #f8fafc !important;
+    --text-smoke: #cbd5e1 !important;
+    --text-muted: #828ea3 !important;
+    --trading-up: #10b981 !important;
+    --trading-down: #f43f5e !important;
+    --cyan-pulse: #38bdf8 !important;
     
-    --hm-ink: #f1f5f9;
-    --hm-ink-muted: #94a3b8;
-    --hm-ink-subtle: #64748b;
-    
-    --hm-accent: #fcd535;
-    --hm-accent-soft: rgba(252, 213, 53, 0.10);
-    --hm-accent-border: rgba(252, 213, 53, 0.25);
-    
-    --hm-cool: #38bdf8;
-    --hm-cool-soft: rgba(56, 189, 248, 0.10);
-    --hm-cool-border: rgba(56, 189, 248, 0.25);
-    
-    --hm-ok: #10b981;
-    --hm-ok-soft: rgba(16, 185, 129, 0.10);
-    
-    --hm-bad: #f43f5e;
-    --hm-bad-soft: rgba(244, 63, 94, 0.10);
-
-    --font-sans: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+    --font-sans: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, monospace !important;
   }
 
-  html, body {
-    height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: var(--hm-bg) !important;
-    color: var(--hm-ink) !important;
+  body {
+    background-color: var(--bg-canvas) !important;
+    color: var(--text-smoke) !important;
     font-family: var(--font-sans) !important;
-    -webkit-font-smoothing: antialiased;
   }
 
-  /* Universal Tabular Figures for Numbers */
+  /* Universal Tabular Figures */
   .font-mono, .measured,
   #banca-saldo-total, #banca-equity-net, #banca-pnl-flutuante, #side-balance,
   .metric-value, .slot-pnl-cell, .slot-price-cell, .telemetry-val, td {
@@ -67,238 +656,103 @@
     font-variant-numeric: tabular-nums slashed-zero !important;
   }
 
-  /* Hairline Panels (Hallmark Signature) */
-  .cockpit-panoramic-main {
-    width: 100%;
-    height: calc(100vh - 38px);
-    max-height: calc(100vh - 38px);
-    margin: 0;
-    padding: 6px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    overflow: hidden;
-  }
-
-  /* Banner Row */
-  .cockpit-banner-row {
-    background: var(--hm-panel) !important;
-    border: 1px solid var(--hm-rule) !important;
-    border-radius: 4px !important;
-    padding: 6px 12px !important;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-
-  /* 3-Column Panoramic Grid */
-  .cockpit-panoramic-grid {
-    display: flex !important;
-    flex: 1 1 0 !important;
-    gap: 6px !important;
-    height: calc(100% - 46px) !important;
-    max-height: calc(100% - 46px) !important;
-    overflow: hidden !important;
-  }
-
-  /* Left Column: Mesa Tática (Banca + Laya) */
-  .cockpit-col-middle {
-    order: 1 !important;
-    width: 310px !important;
-    min-width: 300px !important;
-    max-width: 330px !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    overflow: hidden !important;
-  }
-
-  /* Center Column: Flash Map Multi-Gráfico */
-  .cockpit-col-charts {
-    order: 2 !important;
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
-  /* Right Column: Custódia (8 Slots) + Auditoria */
-  .cockpit-col-tables {
-    order: 3 !important;
-    width: 360px !important;
-    min-width: 340px !important;
-    max-width: 400px !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    overflow: hidden !important;
-  }
-
-  /* Card Containers */
-  .card-lamborghini {
-    background: var(--hm-panel) !important;
-    border: 1px solid var(--hm-rule) !important;
+  /* Hallmark Hairline Surfaces */
+  .card-lamborghini,
+  .cockpit-banner-row,
+  .master-card-banca,
+  #card-laya-sovereign,
+  .chart-card-wrapper {
+    background: var(--surface-iron) !important;
+    border: 1px solid var(--surface-border) !important;
     border-radius: 4px !important;
     box-shadow: none !important;
-    overflow: hidden !important;
   }
 
-  .card-lamborghini-header {
-    background: var(--hm-header) !important;
-    border-bottom: 1px solid var(--hm-rule) !important;
-    padding: 7px 10px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+  .card-lamborghini-header,
+  .panel-header-vip {
+    background: var(--surface-elevated) !important;
+    border-bottom: 1px solid var(--surface-border) !important;
   }
 
-  .card-title {
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.05em !important;
-    text-transform: uppercase !important;
-    color: var(--hm-ink) !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-  }
-
-  /* Segmented Controls (Modern Hallmark Style) */
-  .btn-ghost, .btn-gold {
-    font-family: var(--font-sans) !important;
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    padding: 3px 8px !important;
-    border-radius: 3px !important;
-    cursor: pointer !important;
-    transition: all 0.15s ease !important;
-  }
-
+  /* Buttons */
   .btn-ghost {
     background: transparent !important;
-    color: var(--hm-ink-muted) !important;
-    border: 1px solid var(--hm-rule) !important;
+    border: 1px solid var(--surface-border) !important;
+    color: var(--text-muted) !important;
+    border-radius: 3px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 500 !important;
   }
   .btn-ghost:hover {
-    background: var(--hm-hover) !important;
-    color: var(--hm-ink) !important;
-    border-color: var(--hm-rule-light) !important;
+    background: var(--surface-elevated) !important;
+    color: var(--text-white) !important;
+    border-color: #2b3547 !important;
   }
 
   .btn-gold {
-    background: var(--hm-accent) !important;
+    background: var(--accent-gold) !important;
     color: #121000 !important;
-    border: 1px solid var(--hm-accent) !important;
-  }
-  .btn-gold:hover {
-    background: #e6be19 !important;
+    border: 1px solid var(--accent-gold) !important;
+    border-radius: 3px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
   }
 
   /* Badges */
   .badge-gold {
-    background: var(--hm-accent-soft) !important;
-    color: var(--hm-accent) !important;
-    border: 1px solid var(--hm-accent-border) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 9px !important;
-    font-weight: 600 !important;
-    padding: 2px 6px !important;
+    background: rgba(252, 213, 53, 0.10) !important;
+    color: var(--accent-gold) !important;
+    border: 1px solid rgba(252, 213, 53, 0.25) !important;
     border-radius: 2px !important;
   }
-
   .badge-cyan {
-    background: var(--hm-cool-soft) !important;
-    color: var(--hm-cool) !important;
-    border: 1px solid var(--hm-cool-border) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 9px !important;
-    font-weight: 600 !important;
-    padding: 2px 6px !important;
+    background: rgba(56, 189, 248, 0.10) !important;
+    color: var(--cyan-pulse) !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
     border-radius: 2px !important;
   }
-
   .badge-up {
-    background: var(--hm-ok-soft) !important;
-    color: var(--hm-ok) !important;
+    background: rgba(16, 185, 129, 0.10) !important;
+    color: var(--trading-up) !important;
     border: 1px solid rgba(16, 185, 129, 0.25) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 9px !important;
-    padding: 2px 6px !important;
     border-radius: 2px !important;
   }
-
   .badge-down {
-    background: var(--hm-bad-soft) !important;
-    color: var(--hm-bad) !important;
+    background: rgba(244, 63, 94, 0.10) !important;
+    color: var(--trading-down) !important;
     border: 1px solid rgba(244, 63, 94, 0.25) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 9px !important;
-    padding: 2px 6px !important;
     border-radius: 2px !important;
   }
 
-  /* Charts Grid */
-  .charts-grid-quad {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: 1fr 1fr !important;
-    gap: 4px !important;
-    height: calc(100% - 36px) !important;
-    padding: 4px !important;
-    background: var(--hm-bg) !important;
+  /* Table styling */
+  table th {
+    background: var(--surface-elevated) !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid var(--surface-border) !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+  }
+  table td {
+    border-bottom: 1px solid var(--surface-border) !important;
   }
 
-  .chart-card-wrapper {
-    background: var(--hm-panel) !important;
-    border: 1px solid var(--hm-rule) !important;
-    border-radius: 3px !important;
-    overflow: hidden !important;
-  }
-
-  /* Custodia Slots Table */
-  #slots-table-container, #audit-trades-container {
-    background: var(--hm-panel) !important;
-  }
-
-  .custodia-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 11px !important;
-  }
-  .custodia-table th {
-    background: var(--hm-header) !important;
-    color: var(--hm-ink-subtle) !important;
-    font-size: 9px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-    padding: 5px 6px !important;
-    border-bottom: 1px solid var(--hm-rule) !important;
-    text-align: left !important;
-  }
-  .custodia-table td {
-    padding: 6px !important;
-    border-bottom: 1px solid var(--hm-rule) !important;
-  }
-
-  /* Custom Clean Scrollbars */
+  /* Scrollbars */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: var(--hm-bg); }
-  ::-webkit-scrollbar-thumb { background: var(--hm-rule-light); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--hm-accent); }
+  ::-webkit-scrollbar-track { background: var(--bg-canvas); }
+  ::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
 
   </style>
 </head>
-<body class="hallmark-workbench">
-<main id="cockpit-main" class="cockpit-panoramic-main">
+<body>
+
+  <!-- Main Container -->
+  <main id="cockpit-main" class="cockpit-panoramic-main">
 
     <!-- LAYA SOVEREIGN SYSTEM BANNER & TELEMETRIA TÁTICA HUD -->
-    <div class="cockpit-banner-row" style="display: flex; align-items: center; justify-content: space-between;    padding: 7px 14px; margin-bottom: 8px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
+    <div class="cockpit-banner-row" style="display: flex; align-items: center; justify-content: space-between; background: #181A20; border: 1px solid #2B3139; border-left: 3px solid var(--accent-gold); padding: 7px 14px; margin-bottom: 8px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <canvas class="thinking-orb-canvas" data-state="solving" data-size="20" data-color="#FCD535" width="20" height="20" style="width:20px;height:20px;"></canvas>
         <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #fff;">1CRYPTEN COCKPIT</span>
@@ -348,7 +802,7 @@
           <!-- Grid of Charts: All 4 Native Lightweight Charts with Dynamic Entrada, Alvo, Stop and Laya Supervision -->
           <div id="charts-grid-container" class="charts-grid-quad">
             <!-- Chart 1 (G1: BTC 1H) -->
-            <div id="chart-card-0" class="card-lamborghini chart-card-wrapper" style="padding: 6px;  position: relative;">
+            <div id="chart-card-0" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
                 <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                   <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -393,7 +847,7 @@
             </div>
 
             <!-- Chart 2 (G2: BTC 1H) -->
-            <div id="chart-card-1" class="card-lamborghini chart-card-wrapper" style="padding: 6px;  position: relative;">
+            <div id="chart-card-1" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
                 <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                   <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -438,7 +892,7 @@
             </div>
 
             <!-- Chart 3 (G3: BTC 1H) -->
-            <div id="chart-card-2" class="card-lamborghini chart-card-wrapper" style="padding: 6px;  position: relative;">
+            <div id="chart-card-2" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
                 <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                   <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -483,7 +937,7 @@
             </div>
 
             <!-- Chart 4 (G4: BTC 1H) -->
-            <div id="chart-card-3" class="card-lamborghini chart-card-wrapper" style="padding: 6px;  position: relative;">
+            <div id="chart-card-3" class="card-lamborghini chart-card-wrapper" style="padding: 6px; background: #181A20; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-shrink: 0; min-height: 26px; gap: 4px; overflow-x: auto; white-space: nowrap;">
                 <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                   <canvas class="thinking-orb-canvas" data-state="weaving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -534,7 +988,7 @@
       <div class="cockpit-col-middle" style="min-width: 0; display: flex; flex-direction: column; gap: 8px;">
 
         <!-- MASTER CARD: BANCA SOBERANA & GESTÃO DE RISCO (100% UNIFICADA) -->
-        <div class="card-lamborghini" style=" background: linear-gradient(180deg, #181A20 0%, #121418 100%); flex-shrink: 0; padding: 6px 10px; margin-bottom: 0;">
+        <div class="card-lamborghini" style="border-left: 3px solid var(--accent-gold); background: linear-gradient(180deg, #181A20 0%, #121418 100%); flex-shrink: 0; padding: 6px 10px; margin-bottom: 0;">
           <div class="card-lamborghini-header" style="margin-bottom: 4px;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <canvas class="thinking-orb-canvas" data-state="breathing" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -562,7 +1016,7 @@
           </div>
 
           <!-- Grid Unificado da Banca & Risco (8 Métricas Essenciais Consolidando Topo e Lado) -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px;  border-radius: 3px; font-family: var(--font-mono);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
               <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$100,000.00</b>
@@ -601,7 +1055,7 @@
           </div>
 
           <!-- PAINEL TAXA DE FINANCIAMENTO OKX (CUSTO / RECEITA PASSIVA) -->
-          <div style="margin-top: 5px; background: #0B0E11;  border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
+          <div style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
               <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #FCD535;"></span>
@@ -629,7 +1083,7 @@
           </div>
 
           <!-- PAINEL DELTA DIRECIONAL & COMISSÕES OKX -->
-          <div style="margin-top: 5px; background: #0B0E11;  border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
+          <div style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
               <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #29ABE2;"></span>
@@ -655,7 +1109,7 @@
 
 
         <!-- CARD: LAYA SOBERANA • CONSCIÊNCIA SUPREMA (100% EXPANDIDA VERTICAL ZERO-SCROLL) -->
-        <div id="card-laya-sovereign" class="card-lamborghini" style="  display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; margin-bottom: 0; padding: 6px 8px;">
+        <div id="card-laya-sovereign" class="card-lamborghini" style="background: #181A20; border-left: 3px solid var(--accent-gold); display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; margin-bottom: 0; padding: 6px 8px;">
           <div class="card-lamborghini-header" style="padding-bottom: 4px; margin-bottom: 4px; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <canvas class="thinking-orb-canvas" data-state="solving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
@@ -668,7 +1122,7 @@
           </div>
 
           <!-- Telemetria do Regime & Farol Macro -->
-          <div style="background: #0B0E11;  padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; border-radius: 2px; flex-shrink: 0;">
+          <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; border-radius: 2px; flex-shrink: 0;">
             <div>
               <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">MODO ATIVO</span>
               <b id="laya-regime-mode" style="color: #0ECB81; font-size: 10px;">MEAN-REVERSION</b>
@@ -854,7 +1308,8 @@
     </div>
 
   </main>
-<script src="/static/shell.js"></script>
+
+  <script src="/static/shell.js"></script>
   <script>
     mountLamborghiniShell('cockpit');
 
@@ -4139,4 +4594,3 @@
   </div>
 </body>
 </html>
-
