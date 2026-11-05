@@ -554,7 +554,10 @@ class LayaRouterService:
         c_exp: float,
         btc_trend_bias: float = 0.0,
         reactive_5m: Optional[Dict[str, Any]] = None,
-        lsr: float = 1.0
+        lsr: float = 1.0,
+        acc_range: Optional[Dict[str, Any]] = None,
+        c_range: Optional[float] = None,
+        candles_15m: Optional[List[Any]] = None
     ) -> Dict[str, Any]:
         """
         [V187-SOVEREIGN-FUSION-BRUNO-PHENIX]
@@ -666,22 +669,125 @@ class LayaRouterService:
                 "reason": f"Aguardando confirmacao da vela de 5M ({reactive_5m.get('reason', '')})"
             }
 
+        # [V191-SNIPER-SR-RETEST]: Canal 1C-Range e Posicao Estrutural
+        c_range_val = c_range
+        sup_h1 = 0.0
+        res_h1 = 0.0
+        if acc_range and isinstance(acc_range, dict):
+            sup_h1 = float(acc_range.get("support_h1") or 0.0)
+            res_h1 = float(acc_range.get("resistance_h1") or 0.0)
+            if c_range_val is None and res_h1 > sup_h1 > 0:
+                c_range_val = round(((current_price - sup_h1) / (res_h1 - sup_h1)) * 100.0, 1)
+        if c_range_val is None:
+            c_range_val = 50.0
+
+        # Checa se preco esta em zona de reteste na media curta (15M SMA 8 / SMA 21)
+        is_retesting_15m = False
+        if candles_15m and len(candles_15m) >= 21:
+            try:
+                c15_closes = [float(c[4] if isinstance(c, (list, tuple)) else (c.get("close") or c.get("c") or 0.0)) for c in candles_15m]
+                sma8_15 = sum(c15_closes[-8:]) / 8.0
+                sma21_15 = sum(c15_closes[-21:]) / 21.0
+                if direction == "LONG":
+                    dist_sma8 = abs(current_price - sma8_15) / sma8_15 if sma8_15 > 0 else 1.0
+                    dist_sma21 = abs(current_price - sma21_15) / sma21_15 if sma21_15 > 0 else 1.0
+                    if dist_sma8 <= 0.006 or dist_sma21 <= 0.006 or (current_price >= sma21_15 and current_price <= sma8_15 * 1.006):
+                        is_retesting_15m = True
+                elif direction == "SHORT":
+                    dist_sma8 = abs(current_price - sma8_15) / sma8_15 if sma8_15 > 0 else 1.0
+                    dist_sma21 = abs(current_price - sma21_15) / sma21_15 if sma21_15 > 0 else 1.0
+                    if dist_sma8 <= 0.006 or dist_sma21 <= 0.006:
+                        is_retesting_15m = True
+            except Exception:
+                pass
+
+        # [V191-VETO-VACUO-TOPO-CANAL]: Proibicao de comprar topo de expansao no vacuo
+        if direction == "LONG":
+            if c_range_val >= 55.0 and not is_retesting_15m:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Topo Esticado / Vácuo (1C-Range {c_range_val:.1f}%): Preço no topo do canal sem reteste confirmado na base de suporte."
+                }
+        elif direction == "SHORT":
+            if c_range_val <= 45.0 and not is_retesting_15m:
+                return {
+                    "qualifies": False,
+                    "direction": "HOLD",
+                    "score": 0,
+                    "sma_cross": sma_cross,
+                    "reason": f"Veto Fundo Esticado / Vácuo (1C-Range {c_range_val:.1f}%): Preço no fundo do canal sem reteste confirmado na resistência."
+                }
+
         # Conviccao alta: 96% para cruzamento fresco, 92% para alinhamento continuo
         base_score = 96 if sma_cross.get("has_cross") else 92
 
-        stop_dist = 0.012  # 1.2% distancia tecnica inicial
-        target_dist = 0.045  # 4.5% alvo primario
-
+        # [V191-STOP-ESTRUTURAL-ANCORADO]: Stop ancorado abaixo do suporte macro H1
         if direction == "LONG":
-            stop_loss = round(current_price * (1.0 - stop_dist), 6)
-            target = round(current_price * (1.0 + target_dist), 6)
-        else:
-            stop_loss = round(current_price * (1.0 + stop_dist), 6)
-            target = round(current_price * (1.0 - target_dist), 6)
+            if sup_h1 > 0 and sup_h1 < current_price:
+                structural_sl = round(sup_h1 * 0.997, 6)
+                calc_dist = round((current_price - structural_sl) / current_price, 4)
+                if calc_dist > 0.015:
+                    stop_dist = 0.012
+                    stop_loss = round(current_price * (1.0 - stop_dist), 6)
+                elif calc_dist < 0.004:
+                    stop_dist = 0.005
+                    stop_loss = round(current_price * (1.0 - stop_dist), 6)
+                else:
+                    stop_dist = calc_dist
+                    stop_loss = structural_sl
+            else:
+                stop_dist = 0.012
+                stop_loss = round(current_price * (1.0 - stop_dist), 6)
+
+            if res_h1 > current_price:
+                structural_tp = round(res_h1 * 0.995, 6)
+                calc_target_dist = round((structural_tp - current_price) / current_price, 4)
+                if calc_target_dist >= 0.025:
+                    target_dist = calc_target_dist
+                    target = structural_tp
+                else:
+                    target_dist = 0.045
+                    target = round(current_price * (1.0 + target_dist), 6)
+            else:
+                target_dist = 0.045
+                target = round(current_price * (1.0 + target_dist), 6)
+        else: # SHORT
+            if res_h1 > current_price:
+                structural_sl = round(res_h1 * 1.003, 6)
+                calc_dist = round((structural_sl - current_price) / current_price, 4)
+                if calc_dist > 0.015:
+                    stop_dist = 0.012
+                    stop_loss = round(current_price * (1.0 + stop_dist), 6)
+                elif calc_dist < 0.004:
+                    stop_dist = 0.005
+                    stop_loss = round(current_price * (1.0 + stop_dist), 6)
+                else:
+                    stop_dist = calc_dist
+                    stop_loss = structural_sl
+            else:
+                stop_dist = 0.012
+                stop_loss = round(current_price * (1.0 + stop_dist), 6)
+
+            if sup_h1 > 0 and sup_h1 < current_price:
+                structural_tp = round(sup_h1 * 1.005, 6)
+                calc_target_dist = round((current_price - structural_tp) / current_price, 4)
+                if calc_target_dist >= 0.025:
+                    target_dist = calc_target_dist
+                    target = structural_tp
+                else:
+                    target_dist = 0.045
+                    target = round(current_price * (1.0 - target_dist), 6)
+            else:
+                target_dist = 0.045
+                target = round(current_price * (1.0 - target_dist), 6)
 
         rationale = (
             f"FUSAO AGUIA-ENCRYPTOS: SMA 8 (${sma_cross['sma8']:.4f}) {'acima da' if direction == 'LONG' else 'abaixo da'} "
             f"SMA 21 (${sma_cross['sma21']:.4f}) no 2H [{cross_type}]. "
+            f"1C-Range={c_range_val:.1f}% [REPIQUE SUP={sup_h1:.4f} RES={res_h1:.4f}]. "
             f"Robos ON (1C-EXP {c_exp_val:.0f}) e Vela 5M confirmada. Executando 50X Margem Cruzada ($100)."
         )
 
@@ -701,6 +807,9 @@ class LayaRouterService:
             "target_dist": target_dist,
             "leverage_cap": 50.0,
             "candle_5m_confirmed": True,
+            "c_range": c_range_val,
+            "support_h1": sup_h1,
+            "resistance_h1": res_h1,
             "rationale": rationale
         }
 
@@ -1691,7 +1800,9 @@ class LayaRouterService:
                 bot_ignition=bot_ignition,
                 c_exp=c_exp,
                 btc_trend_bias=btc_trend_bias,
-                lsr=lsr
+                lsr=lsr,
+                acc_range=acc_range,
+                candles_15m=candles_15m
             )
             if fusion_eval.get("qualifies"):
                 setup_res = fusion_eval

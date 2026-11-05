@@ -362,6 +362,26 @@ class OpenVikingContextService:
             tags=["patterns", "trading", "aguia_fusion", "bruno_aguiar", "encryptos", "cross_margin", "sma_2h", "v187"],
         )
 
+        # V191: Protocolo Sniper de Suporte/Resistencia Macro, S/R Flip e Stop Estrutural
+        uri_v191_pat = "viking://user/memories/patterns/v191_macro_sr_retest_sniper"
+        l0_v191_pat = "V191: Protocolo Sniper de Suporte/Resistencia Macro e S/R Flip: Veto de compra no vacuo/topo do canal (1C-Range >= 55%) sem reteste de suporte/media 15M; Stop Loss estrutural milimetrico ancorado abaixo do suporte H1 (risco 0.4%-0.8%)."
+        l1_v191_pat = (
+            "PROTOCOLO SNIPER S/R RETEST E FLIP (V191):\n"
+            "- Proibicao de Compra no Topo/Vacuo: Veto rigido para compras quando 1C-Range >= 55.0% sem reteste ativo na SMA 8 / SMA 21 do 15M (<= 0.6% da media).\n"
+            "- Entrada no Piso do Repique: A Laya espera a vela de correcao testar o suporte ou media curta e entra na absorcao (pavio inferior), eliminando drawdowns imediatos de -50%.\n"
+            "- Stop Loss Estrutural Ancorado: Stop posicionado logo abaixo do suporte H1 (buffer de 0.3%), encurtando o risco para 0.4% a 0.8% e protegendo a banca contra falha de suporte.\n"
+            "- Alvo Assimetrico na Resistencia Macro: Alvo primario ancorado na resistencia superior H1, elevando o R:R para patamares de 3:1 a 19:1."
+        )
+        self.nodes[uri_v191_pat] = VikingNode(
+            uri=uri_v191_pat,
+            title="V191: Protocolo Sniper de Suporte/Resistencia Macro e S/R Flip",
+            l0_abstract=l0_v191_pat,
+            l1_overview=l1_v191_pat,
+            l2_detail=l1_v191_pat,
+            tags=["patterns", "trading", "support_resistance", "retest", "sr_flip", "structural_stop", "v191"],
+        )
+
+
         # Semântica PAPER vs REAL
         uri_balance = "viking://user/memories/patterns/unified_balance"
 
