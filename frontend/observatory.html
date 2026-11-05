@@ -521,6 +521,51 @@
     .u-legend th, .u-legend td { padding: 1px 3px !important; }
     .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
     .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — OBSERVATORY / TELEMETRIA (< 1100px)
+     ========================================================================== */
+  @media (max-width: 1100px) {
+    html, body {
+      height: auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .panoramic-subhud {
+      height: auto !important;
+      max-height: none !important;
+      flex-wrap: wrap !important;
+      padding: 8px 10px !important;
+      gap: 8px !important;
+    }
+    .wide-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      height: auto !important;
+      min-height: auto !important;
+      padding: 6px !important;
+      gap: 10px !important;
+      overflow: visible !important;
+    }
+    .col-panel {
+      width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: auto !important;
+      overflow: visible !important;
+    }
+    .panel-card {
+      height: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+    }
+    .radar-laya-scroll, .telemetry-card-scroll {
+      max-height: 480px !important;
+      overflow-y: auto !important;
+    }
+  }
+
   </style>
 </head>
 <body>

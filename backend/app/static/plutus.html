@@ -596,6 +596,25 @@
       font-family: var(--font-mono);
       margin-top: auto;
     }
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — PLUTUS (< 960px)
+     ========================================================================== */
+  @media (max-width: 960px) {
+    html, body {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .plutus-dashboard-grid, .grid-container {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 10px !important;
+    }
+    .vault-card, .metric-box {
+      width: 100% !important;
+    }
+  }
+
   </style>
 </head>
 <body>
