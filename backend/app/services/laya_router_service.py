@@ -176,6 +176,7 @@ class LayaRouterService:
         self._cached_radar_pulse: Optional[Dict[str, Any]] = None
         self._last_pulse_ts: float = 0.0
         self._symbol_cooldowns: Dict[str, float] = {}
+        self._directional_penalties: Dict[str, Dict[str, Any]] = {}
         self._direction_stops: List[Dict[str, Any]] = []
         self._direction_cooldowns: Dict[str, float] = {}
         self._global_stop_history: List[float] = []
@@ -409,6 +410,208 @@ class LayaRouterService:
             "sma8": round(sma8_curr, 6),
             "sma21": round(sma21_curr, 6),
             "diff_pct": diff_pct
+        }
+
+    def register_directional_penalty(self, symbol: str, direction: str, penalty_pts: int, reason: str = ""):
+        """[V193] Registra penalidade de quarentena apenas para uma direcao especifica (LONG ou SHORT)."""
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper()
+        dir_norm = direction.upper()
+        key = f"{clean}:{dir_norm}"
+        if not hasattr(self, "_directional_penalties"):
+            self._directional_penalties = {}
+        self._directional_penalties[key] = {
+            "penalty": penalty_pts,
+            "ts": time.time(),
+            "reason": reason
+        }
+
+    def is_direction_penalized(self, symbol: str, direction: str, ttl_seconds: float = 7200.0) -> bool:
+        """Retorna True se a direcao especifica estiver sob penalidade de quarentena ativa."""
+        return self.get_directional_penalty(symbol, direction, ttl_seconds) > 0
+
+    def get_directional_penalty(self, symbol: str, direction: str, ttl_seconds: float = 7200.0) -> int:
+        """Retorna a penalidade em pontos para a direcao informada."""
+        clean = symbol.replace("-USDT-SWAP", "").replace("USDT", "").upper()
+        dir_norm = direction.upper()
+        key = f"{clean}:{dir_norm}"
+        if not hasattr(self, "_directional_penalties"):
+            self._directional_penalties = {}
+        record = self._directional_penalties.get(key)
+        if not record:
+            return 0
+        if time.time() - record.get("ts", 0.0) > ttl_seconds:
+            del self._directional_penalties[key]
+            return 0
+        return int(record.get("penalty", 0))
+
+    def enforce_2h_directional_regime(self, symbol: str, klines_2h: List[Any]) -> Dict[str, Any]:
+        """
+        [V193-SOVEREIGN-2H-ALIGNMENT]
+        Subordina a direcao do par estritamente a tendencia macro do timeframe 2H (SMA 8 x SMA 21).
+        - SMA 8 < SMA 21: Regime SHORT_ONLY. LONG estritamente vetado.
+        - SMA 8 > SMA 21: Regime LONG_ONLY. SHORT estritamente vetado.
+        - Neutro (< 0.15% dif): Ambos permitidos caso haja confluencia extrema.
+        """
+        parsed = []
+        for c in (klines_2h or []):
+            if isinstance(c, dict) and "close" in c:
+                parsed.append(c)
+            else:
+                p = self._parse_candle(c)
+                if p and p.get("close", 0) > 0:
+                    parsed.append(p)
+        
+        if not parsed or len(parsed) < 6:
+            return {
+                "regime": "NEUTRAL",
+                "allowed_direction": "BOTH",
+                "long_vetoed": False,
+                "short_vetoed": False,
+                "sma8": 0.0,
+                "sma21": 0.0,
+                "diff_pct": 0.0
+            }
+        
+        sma_info = self.calculate_sma_cross_2h(parsed)
+        direction = sma_info.get("direction", "HOLD")
+        sma8 = sma_info.get("sma8", 0.0)
+        sma21 = sma_info.get("sma21", 0.0)
+        diff_pct = sma_info.get("diff_pct", 0.0)
+
+        if direction == "SHORT" or (sma8 < sma21 and abs(diff_pct) >= 0.15):
+            return {
+                "regime": "SHORT_ONLY",
+                "allowed_direction": "SHORT",
+                "long_vetoed": True,
+                "short_vetoed": False,
+                "sma8": sma8,
+                "sma21": sma21,
+                "diff_pct": diff_pct,
+                "reason": f"Canal de Baixa Soberano 2H (SMA8 {sma8:.4f} < SMA21 {sma21:.4f} | {diff_pct:+.2f}%)"
+            }
+        elif direction == "LONG" or (sma8 > sma21 and abs(diff_pct) >= 0.15):
+            return {
+                "regime": "LONG_ONLY",
+                "allowed_direction": "LONG",
+                "long_vetoed": False,
+                "short_vetoed": True,
+                "sma8": sma8,
+                "sma21": sma21,
+                "diff_pct": diff_pct,
+                "reason": f"Canal de Alta Soberano 2H (SMA8 {sma8:.4f} > SMA21 {sma21:.4f} | {diff_pct:+.2f}%)"
+            }
+        else:
+            return {
+                "regime": "NEUTRAL",
+                "allowed_direction": "BOTH",
+                "long_vetoed": False,
+                "short_vetoed": False,
+                "sma8": sma8,
+                "sma21": sma21,
+                "diff_pct": diff_pct,
+                "reason": f"Consolidacao 2H (SMA8 colada na SMA21 | {diff_pct:+.2f}%)"
+            }
+
+    def calculate_30m_pullback_trigger(
+        self,
+        symbol: str,
+        klines_30m: List[Any],
+        current_price: float,
+        macro_direction: str
+    ) -> Dict[str, Any]:
+        """
+        [V193-PULLBACK-HUNTER-30M]
+        Detecta o momento em que o preco faz o repique tecnico ate a SMA 8 ou SMA 21 no timeframe 30M.
+        - Em SHORT: preco sobe para retestar a SMA 8/21 e deixa pavio superior (rejeicao).
+        - Em LONG: preco recua para testar suporte da SMA 8/21 e deixa pavio inferior.
+        """
+        parsed = []
+        for c in (klines_30m or []):
+            if isinstance(c, dict) and "close" in c:
+                parsed.append(c)
+            else:
+                p = self._parse_candle(c)
+                if p and p.get("close", 0) > 0:
+                    parsed.append(p)
+
+        if len(parsed) < 6:
+            return {
+                "has_pullback_setup": False,
+                "score_boost": 0,
+                "reason": "Klines 30M insuficientes",
+                "pullback_type": "NONE"
+            }
+
+        closes = [c["close"] for c in parsed]
+        n = len(closes)
+        len_8 = min(8, n)
+        sma8 = sum(closes[-len_8:]) / float(len_8)
+        len_21 = min(21, n)
+        sma21 = sum(closes[-len_21:]) / float(len_21)
+
+        recent = parsed[-1]
+        prev = parsed[-2] if len(parsed) >= 2 else recent
+        c_high = max(recent.get("high", 0.0), prev.get("high", 0.0))
+        c_low = min(recent.get("low", 0.0), prev.get("low", 0.0))
+        c_close = current_price or recent.get("close", 0.0)
+
+        # Em regime SHORT:
+        if macro_direction == "SHORT":
+            sma_target = min(sma8, sma21) if abs(sma8 - sma21)/sma21 < 0.02 else sma8
+            tested_sma = c_high >= (sma_target * 0.992)
+            rejected = c_close < c_high
+            diff_from_sma = ((c_close - sma8) / sma8) * 100.0 if sma8 > 0 else 0.0
+
+            if tested_sma and rejected:
+                return {
+                    "has_pullback_setup": True,
+                    "score_boost": 15,
+                    "reason": f"PULLBACK_REJEICAO_SHORT: Repique na SMA8 30M ({sma8:.4f}) com rejeicao de pavio (fechamento em {c_close:.4f})",
+                    "pullback_type": "RETEST_REJECTION_BEAR",
+                    "sma8_30m": round(sma8, 6),
+                    "sma21_30m": round(sma21, 6)
+                }
+            elif abs(diff_from_sma) <= 1.2:
+                return {
+                    "has_pullback_setup": True,
+                    "score_boost": 10,
+                    "reason": f"PULLBACK_ZONA_SHORT: Preco em zona de reteste da SMA8 30M ({sma8:.4f})",
+                    "pullback_type": "NEAR_SMA_BEAR",
+                    "sma8_30m": round(sma8, 6),
+                    "sma21_30m": round(sma21, 6)
+                }
+
+        # Em regime LONG:
+        elif macro_direction == "LONG":
+            sma_target = max(sma8, sma21) if abs(sma8 - sma21)/sma21 < 0.02 else sma8
+            tested_sma = c_low <= (sma_target * 1.008)
+            rejected = c_close > c_low
+            diff_from_sma = ((c_close - sma8) / sma8) * 100.0 if sma8 > 0 else 0.0
+
+            if tested_sma and rejected:
+                return {
+                    "has_pullback_setup": True,
+                    "score_boost": 15,
+                    "reason": f"PULLBACK_REJEICAO_LONG: Recuo na SMA8 30M ({sma8:.4f}) com absorcao compradora (fechamento em {c_close:.4f})",
+                    "pullback_type": "RETEST_REJECTION_BULL",
+                    "sma8_30m": round(sma8, 6),
+                    "sma21_30m": round(sma21, 6)
+                }
+            elif abs(diff_from_sma) <= 1.2:
+                return {
+                    "has_pullback_setup": True,
+                    "score_boost": 10,
+                    "reason": f"PULLBACK_ZONA_LONG: Preco em zona de reteste da SMA8 30M ({sma8:.4f})",
+                    "pullback_type": "NEAR_SMA_BULL",
+                    "sma8_30m": round(sma8, 6),
+                    "sma21_30m": round(sma21, 6)
+                }
+
+        return {
+            "has_pullback_setup": False,
+            "score_boost": 0,
+            "reason": "Sem gatilho de pullback ativo no 30M",
+            "pullback_type": "NONE"
         }
 
     def classify_macro_market_regime(
@@ -3255,19 +3458,59 @@ class LayaRouterService:
             rationale = multi_eval["rationale"]
             strat_name = multi_eval.get("strategy", "LAYA_SMART_MONEY_H1")
 
-            # [CONFLUENCIA ESTRITA AO IMA DE LIQUIDEZ]
-            if multi_eval["qualifies"]:
-                if strat_name not in ("LAYA_AGUIA_FUSION", "LAYA_INTERMEDIATE_REVERSAL_15M"):
-                    if direction == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO"):
+            # # [V193-SUBORDINACAO-2H-SOBERANA & PULLBACK HUNTER 30M]
+            c2h_local = self.aggregate_1h_to_2h(h1_candles)
+            regime_2h = self.enforce_2h_directional_regime(clean_sym, c2h_local)
+
+            # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro
+            if regime_2h["regime"] == "SHORT_ONLY":
+                if direction == "LONG":
+                    # Proibido forcar compra em canal de baixa! Veta LONG imediatamente.
+                    multi_eval["qualifies"] = False
+                    direction = "SHORT"
+                
+                # Ativa o Pullback Hunter de 30M a favor da tendencia
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c15m_candles, price, "SHORT")
+                if pullback_30m["has_pullback_setup"]:
+                    strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                    direction = "SHORT"
+                    multi_eval["qualifies"] = True
+                    score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                    stop_loss = round(price * 1.015, 4)
+                    target = round(price * 0.93, 4)
+                    stop_dist = 0.015
+                    target_dist = 0.070
+                    rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
+            
+            elif regime_2h["regime"] == "LONG_ONLY":
+                if direction == "SHORT":
+                    multi_eval["qualifies"] = False
+                    direction = "LONG"
+                
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c15m_candles, price, "LONG")
+                if pullback_30m["has_pullback_setup"]:
+                    strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                    direction = "LONG"
+                    multi_eval["qualifies"] = True
+                    score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                    stop_loss = round(price * 0.985, 4)
+                    target = round(price * 1.07, 4)
+                    stop_dist = 0.015
+                    target_dist = 0.070
+                    rationale = f"PULLBACK HUNTER 2H/30M (LONG): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
+
+            # 2. Confluencia ao Ima de Liquidez (Respeitando a Subordinacao 2H)
+            if multi_eval["qualifies"] and strat_name not in ("LAYA_AGUIA_FUSION", "LAYA_INTERMEDIATE_REVERSAL_15M", "LAYA_PULLBACK_HUNTER_2H_30M"):
+                if direction == "LONG" and regime_2h["regime"] != "SHORT_ONLY":
+                    if dom_magnet == "BEARISH_SWEEP" or target_region == "ABAIXO":
                         multi_eval["qualifies"] = False
                         direction = "SHORT"
-                        rationale = f"VETO ÍMÃ: LONG abortado: muralha de ${target_vol_m:.1f}M ABAIXO em ${target_p:.4f} puxando o preço. Preparando SHORT."
-                    elif direction == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_region == "ACIMA"):
+                        rationale = f"VETO IMA: LONG abortado: muralha de ${target_vol_m:.1f}M ABAIXO em ${target_p:.4f} puxando o preco."
+                elif direction == "SHORT" and regime_2h["regime"] != "LONG_ONLY":
+                    if dom_magnet == "BULLISH_SWEEP" or target_region == "ACIMA":
                         if btc_trend_bias >= -0.2:
                             multi_eval["qualifies"] = False
-                            direction = "LONG"
-                            rationale = f"VETO ÍMÃ: SHORT abortado: muralha de ${target_vol_m:.1f}M ACIMA em ${target_p:.4f} puxando o preço. Preparando LONG."
-
+                            rationale = f"VETO IMA: SHORT abortado: muralha de ${target_vol_m:.1f}M ACIMA em ${target_p:.4f} puxando o preco."
             if multi_eval["qualifies"]:
                 stop_loss = multi_eval["stop_loss"]
                 target = multi_eval["target"]
@@ -3642,6 +3885,8 @@ class LayaRouterService:
                     continue
                 if self.is_direction_in_cooldown(c_dir):
                     continue
+                if self.is_direction_penalized(c_clean, c_dir) or self.is_direction_penalized(cand.get("symbol", ""), c_dir):
+                    continue
 
                 # 0. GATE INVIOLÁVEL DE QUALIFICAÇÃO & VETO:
                 # Candidatos desqualificados ou com VETO explícito são descartados imediatamente
@@ -3730,6 +3975,7 @@ class LayaRouterService:
             last_traded = getattr(self, "_last_traded_pair", None)
             eligible.sort(
                 key=lambda x: (
+                    3 if x.get("strategy") == "LAYA_PULLBACK_HUNTER_2H_30M" else 0,
                     2 if x.get("strategy") == "LAYA_AGUIA_FUSION" else 0,
                     1 if x.get("alt_pump_ignition") else 0,
                     1 if (x.get("direction") == "SHORT" and btc_trend_bias < -0.4) else 0,

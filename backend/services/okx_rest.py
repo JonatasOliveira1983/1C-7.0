@@ -1959,7 +1959,15 @@ class OKXRest:
                     )
         except Exception as e:
             logger.error(f"Error fetching Account Ratio from OKX for {symbol}: {e}")
+            try:
+                self._account_ratio_cache[cache_key] = (time.time(), 1.0)
+            except Exception:
+                pass
             return 1.0
+        try:
+            self._account_ratio_cache[cache_key] = (time.time(), 1.0)
+        except Exception:
+            pass
         return 1.0
 
     # [V25.1] Funding Rate Cache
