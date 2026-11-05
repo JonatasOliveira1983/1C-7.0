@@ -82,16 +82,26 @@ class RedisService:
         if self.is_connected:
             return
         
+        # Default immediately to MockRedis to prevent dangling un-connected client
+        self.client = MockRedis()
+        self.is_connected = True
+        self.is_fallback = True
+
         try:
             import redis.asyncio as redis_lib
             import os
             # [V110.175] Railway Native REDIS_URL priority
             redis_url = getattr(settings, "REDIS_URL", None) or os.getenv("REDIS_URL")
             
+            # Se ambiente local sem REDIS_URL explícito, opera 100% em MockRedis sem tentar socket local
+            if not redis_url and (not self.host or self.host in ("localhost", "127.0.0.1")):
+                logger.info("💎 Redis local não configurado: Operando silenciosamente em AIOS MockRedis.")
+                return
+
             if redis_url:
-                self.client = redis_lib.Redis.from_url(redis_url, decode_responses=True)
+                candidate = redis_lib.Redis.from_url(redis_url, decode_responses=True)
             else:
-                self.client = redis_lib.Redis(
+                candidate = redis_lib.Redis(
                     host=self.host,
                     port=self.port,
                     password=settings.REDIS_PASSWORD,
@@ -99,16 +109,14 @@ class RedisService:
                     decode_responses=True
                 )
             # Test connection with short timeout
-            await asyncio.wait_for(self.client.ping(), timeout=2.0)
-            self.is_connected = True
+            await asyncio.wait_for(candidate.ping(), timeout=1.0)
+            self.client = candidate
             self.is_fallback = False
             logger.info(f"🚀 Redis Connected: {self.host}:{self.port} (DB {self.db})")
         except Exception as e:
-            logger.warning(f"⚠️ Redis Connection Failed ({e}). Entering AIOS Fallback Mode (In-Memory + Disk).")
+            logger.info(f"⚠️ Redis offline ({e}). AIOS Fallback Mode ativo (In-Memory).")
             self.client = MockRedis()
-            self.is_connected = True
             self.is_fallback = True
-            logger.info("💎 AIOS Fallback Active: Memory + Disk persistence enabled.")
 
     async def set_ticker(self, symbol: str, price: float):
         """Caches the last price of a symbol (TTL: 60s)."""

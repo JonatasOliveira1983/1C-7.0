@@ -163,9 +163,13 @@ class OKXWSPublic:
             # Store raw snapshot
             self.orderbook_data[norm_sym] = {"bids": bids[:20], "asks": asks[:20]}
 
-            # Sync to Redis
-            await redis_service.client.set(f"obi:{norm_sym}", self.obi_cache[norm_sym])
-            await redis_service.client.set(f"vamp:{norm_sym}", self.vamp_cache[norm_sym])
+            # Sync to Redis (silencioso e sem exceções de socket)
+            if redis_service and getattr(redis_service, "client", None):
+                try:
+                    await redis_service.client.set(f"obi:{norm_sym}", self.obi_cache[norm_sym])
+                    await redis_service.client.set(f"vamp:{norm_sym}", self.vamp_cache[norm_sym])
+                except Exception:
+                    pass
 
         except Exception as e:
             logger.error(f"Error processing orderbook message: {e}")

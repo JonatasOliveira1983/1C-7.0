@@ -1794,9 +1794,10 @@ class SandboxService:
         # [V187.3-NET-BREAKEVEN-PROTECTION]: O Stop do Breakeven DEVE cobrir 100% das taxas OKX e slippage
         # Garantindo matematicamente lucro líquido positivo (Net PnL > 0)
         operational_cost_roi = (0.0010 + 0.0003) * float(leverage) * 100.0  # 6.5% a 50x, 2.6% a 20x
-        min_net_buffer_roi = 1.5  # Garante pelo menos +1.5% de ROI liquido ($1.50 numa margem de $100)
+        min_net_buffer_roi = 2.0  # Garante pelo menos +2.0% de ROI liquido ($20 numa margem de $1000)
         breakeven_target_stop = max(3.0, round(operational_cost_roi + min_net_buffer_roi, 1))
-        breakeven_trigger = max(10.0, round(breakeven_target_stop + 3.0, 1))
+        # [V192-ASYMMETRIC] O Breakeven so aciona apos o trade andar pelo menos +25.0% de ROI (0.5% no preco a 50x)
+        breakeven_trigger = max(25.0, round(breakeven_target_stop + 10.0, 1))
 
         if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
             updated_stop_roi = breakeven_target_stop
@@ -1810,10 +1811,10 @@ class SandboxService:
 
         # [V181-SUPER-RUNNERS-TRAIL] Trailing institucional com respiro amplo:
         # Para ignição/runners, só aciona acima de +35.0% ROI para não asfixiar o movimento
-        trail_min_trigger = 35.0 if is_ignition else 14.0
+        trail_min_trigger = 35.0 if is_ignition else 30.0
         if max_roi >= trail_min_trigger:
-            trail_stop_roi = max(18.0 if is_ignition else 5.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.65, 1))
-            trail_pct_label = "75%" if is_ignition else "65%"
+            trail_stop_roi = max(20.0 if is_ignition else 15.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.70, 1))
+            trail_pct_label = "75%" if is_ignition else "70%"
 
             if trail_stop_roi > updated_stop_roi:
                 updated_stop_roi = trail_stop_roi
@@ -1944,17 +1945,29 @@ class SandboxService:
                 closed_at = time.time()
                 status = "CLOSED_STOP"
 
-        # [V181-TIME-STOP-PREVENTIVO] Corta falsas ignições antes que sangrem até o stop total (-21% ROI)
+        # [V192-FAST-FAILURE-CUT & LOSS CAPPING] Corta perdas rapido em 50x sem deixar sangrar
         trade_age = time.time() - float(trade.opened_at or time.time())
-        if not is_closed and is_ignition and trade_age > 2700 and current_roi <= -8.0:
+        # 1. Hard Cap de Perda: Em 50x, perda nunca pode exceder -20% ROI (-$200 / slot)
+        if not is_closed and current_roi <= -20.0:
+            exit_price = current_price
+            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
+            is_closed = True
+            should_run_blocklist = True
+            closed_at = time.time()
+            status = "CLOSED_STOP_CAP"
+            history.append(f"[LOSS-CAP-20%] Corte imediato em {current_roi:.1f}% ROI aos {int(trade_age/60)}min (limite rigido atingido).")
+            logger.warning(f"[SANDBOX-LOSS-CAP] {symbol} cortado com rigor em {current_roi:.1f}% ROI (limite maximo -20%).")
+
+        # 2. Time Stop Preventivo: se o trade nao ganhou tracao apos 10min (600s) e esta negativo (<= -10% ROI)
+        elif not is_closed and trade_age > 600 and current_roi <= -10.0:
             exit_price = current_price
             current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
             is_closed = True
             should_run_blocklist = True
             closed_at = time.time()
             status = "CLOSED_TIME_STOP"
-            history.append(f"[TIME-STOP] Falha de ignicao apos {int(trade_age/60)}min (ROI={current_roi:.1f}%). Abortado preventivamente para evitar stop maximo.")
-            logger.warning(f"⏱️ [SANDBOX-TIME-STOP] {symbol} cortado preventivamente aos {int(trade_age/60)}min com ROI={current_roi:.1f}% (evitou stop de -21%)")
+            history.append(f"[TIME-STOP-10MIN] Falha de ignicao apos {int(trade_age/60)}min (ROI={current_roi:.1f}%). Abortado para proteger banca.")
+            logger.warning(f"[SANDBOX-TIME-STOP] {symbol} abortado aos {int(trade_age/60)}min com ROI={current_roi:.1f}%.")
 
         # 12. Atualizar flash state
         flash_state.update({
@@ -2099,7 +2112,7 @@ class SandboxService:
                 
                 asyncio.create_task(execute_real_mirror_close())
 
-            if status != "CLOSED_TIME_STOP":
+            if status not in ("CLOSED_TIME_STOP", "CLOSED_STOP_CAP", "LAYA_PANIC_CUT"):
                 status = "CLOSED_TRAILING" if final_pnl > 0 else "CLOSED_SL"
             update_payload["status"] = status
 
@@ -2115,6 +2128,9 @@ class SandboxService:
                 history.append(f"[TIME-STOP] Posição encerrada preventivamente aos {int(trade_age/60)}min com {final_pnl:.1f}% ROI (perda mitigada)")
             else:
                 history.append(f"Stop atingido em {exit_price} (SL configurado em {stop_price})")
+            
+            # [V192-LOSS-QUARANTINE]: Qualquer trade com perda entra em quarentena rigorosa de 2 horas (7200s)
+            if final_pnl < 0:
                 # [V162-COOLDOWN-FIX] Quarentena canônica rigorosa de 2 horas (7200s) pós-Stop Loss
                 clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
                 trade_dir = trade.direction  # "LONG" ou "SHORT"
