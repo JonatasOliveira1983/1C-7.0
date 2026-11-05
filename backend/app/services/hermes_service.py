@@ -278,6 +278,21 @@ class HermesOrchestrator:
                             f"  Histórico Escadinha: {trail_history}"
                         )
                     closed_trades_str = "\n\n".join(clines)
+
+                # Catalogo de Estrategias Quantitativas
+                strat_context_str = "• Nenhuma estrategia personalizada registrada."
+                try:
+                    cur.execute("SELECT id, name, category, regime, mathematical_basis, default_leverage FROM laya_strategies WHERE active = 1")
+                    rows_strat = cur.fetchall()
+                    if rows_strat:
+                        slines = []
+                        for s in rows_strat:
+                            sid, sname, scat, sreg, smath, slev = s
+                            slines.append(f"• [{sid}] {sname} ({scat} / Regime {sreg} / {slev:.0f}X Isolada):\n  Base Matematica: {smath}")
+                        strat_context_str = "\n".join(slines)
+                except Exception:
+                    pass
+
                 conn.close()
         except Exception:
             pass
@@ -310,9 +325,11 @@ class HermesOrchestrator:
             f"• Banca Consolidada (Equity): {equity_str}\n"
             "• Alavancagem Padrão Institucional: 50X Isolada (Invariante Rígida do Sistema)\n"
             f"• Estado Laya Soberana: {laya_str}\n\n"
+            "## [CATALOGO DE ESTRATEGIAS QUANTITATIVAS DA LAYA SOBERANA]\n"
+            f"{strat_context_str}\n\n"
             "## [ORDENS ATIVAS NOS SLOTS (50X)]\n"
             f"{active_trades_str}\n\n"
-            "## [HISTÓRICO DE ORDENS FINALIZADAS RECENTES (50X)]\n"
+            "## [HISTORICO DE ORDENS FINALIZADAS RECENTES (50X)]\n"
             f"{closed_trades_str}\n"
         )
         return runtime_data, viking_str
@@ -408,6 +425,7 @@ class HermesOrchestrator:
             "DIRETRIZES FUNDAMENTAIS:\n"
             "- ALAVANCAGEM: Todas as operações do sistema são executadas estritamente com ALAVANCAGEM 50X ISOLADA. NUNCA mencione 15X.\n"
             "- SIMBIOSE COM A LAYA SOBERANA: Você opera em coordenação com a Laya Soberana (System 1 Neural Engine), que caça liquidez institucional e varre os pares perpétuos da OKX.\n"
+            "- ESTRATEGIAS QUANTITATIVAS: A Laya implementa modelos quantitativos formais (Pairs Trading Cointegration & Z-Score, Triple Barrier Method de López de Prado, Funding Rate Arbitrage). Todas operam estritamente em 50X Isolada com trailing stop Never Give Back.\n"
             "- GESTÃO DE RISCO: Invariante Never Give Back com escadinha progressiva de 5 degraus de Trailing Stop que nunca recuam, e regra Anti-Hedge.\n"
             "- MODEL CONTEXT PROTOCOL (MCP 2.x) E OPENVIKING: Você tem acesso completo aos recursos viking://, relatórios de telemetria e histórico do Obsidian Vault.\n"
             "- DADOS REAIS: Utilize SEMPRE as informações do SNAPSHOT DE RUNTIME e HISTÓRICO DE ORDENS fornecidos abaixo. Seja exato sobre preços, PnL, scores e rationale.\n"

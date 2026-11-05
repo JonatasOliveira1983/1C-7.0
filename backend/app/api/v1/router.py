@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import hermes, command, ml, memory, market_intel
+from app.api.v1.endpoints import hermes, command, ml, memory, market_intel, laya
 from routes.trading import router as trading_router
 from routes.sandbox import router as sandbox_router
 from routes.market import router as market_router
@@ -15,6 +15,7 @@ api_router.include_router(command.router, prefix="/command", tags=["Command & Te
 api_router.include_router(ml.router, prefix="/ml", tags=["Machine Learning & Fine-Tuning"])
 api_router.include_router(memory.router, prefix="/memory", tags=["Agent Memory & Episodic Store"])
 api_router.include_router(market_intel.router, prefix="/market", tags=["Market Intelligence Screener"])
+api_router.include_router(laya.router, prefix="/laya", tags=["Laya Quantitative Strategies"])
 
 # Rotas do Motor de Trading OKX
 api_router.include_router(trading_router, tags=["Trading Engine"])

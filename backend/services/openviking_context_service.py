@@ -84,6 +84,7 @@ class OpenVikingContextService:
         # ── 2. Recursos Arquiteturais (viking://resources/) ──
         self._register_architecture_resources()
         self._register_docs_resources()
+        self._register_strategy_resources()
 
         # ── 3. Skills Executáveis (viking://agent/skills/) ──
         self._register_skills()
@@ -524,6 +525,37 @@ class OpenVikingContextService:
                         tags=["resources", "docs", rel],
                     )
                 except Exception:
+                    pass
+
+    def _register_strategy_resources(self) -> None:
+        """viking://resources/strategies/*"""
+        strat_dir = self.root_dir / "docs" / "strategies"
+        if strat_dir.exists():
+            for p in strat_dir.glob("*.md"):
+                rel = p.stem.lower()
+                uri = f"viking://resources/strategies/{rel}"
+                try:
+                    text = p.read_text(encoding="utf-8")
+                    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+                    first_line = lines[0] if lines else p.name
+                    l0 = f"Estrategia Quantitativa {p.name}: {first_line[:140]}"
+                    l1 = "\n".join(lines[:25])
+                    
+                    tags = ["resources", "strategies", rel, "50x"]
+                    if "zscore" in rel or "coint" in rel:
+                        tags.extend(["pairs_trading", "cointegration", "zscore", "statistical_arbitrage"])
+                    if "triple_barrier" in rel:
+                        tags.extend(["triple_barrier", "lopez_de_prado", "volatility", "time_barrier", "never_give_back"])
+                        
+                    self.nodes[uri] = VikingNode(
+                        uri=uri,
+                        title=f"Estrategia: {p.name}",
+                        l0_abstract=l0,
+                        l1_overview=l1,
+                        l2_detail=text,
+                        tags=tags,
+                    )
+                except Exception as e:
                     pass
 
     def _register_skills(self) -> None:
