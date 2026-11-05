@@ -71,6 +71,114 @@ class OpenVikingContextService:
         self.nodes: Dict[str, VikingNode] = {}
         self._initialized: bool = False
 
+    def get_node(self, uri: str) -> Optional[VikingNode]:
+        """Retorna o no correspondente a URI virtual viking://, ou None se nao existir."""
+        if not self._initialized:
+            self.sync_all()
+        return self.nodes.get(uri)
+
+    def _register_plutus_agent(self) -> None:
+        """viking://agent/plutus"""
+        uri = "viking://agent/plutus"
+        l0 = "Agente Plutus: Gestao Patrimonial, Metodo ARCA e Proventos Perpetuos."
+        l1 = (
+            "AGENTE PLUTUS - METODO ARCA DE PRESERVACAO PATRIMONIAL:\n"
+            "- Acoes Brasileiras de Dividendos (25%-30%): Foco em empresas solidas e geradoras de caixa (ex: BBAS3, ITUB4, TAEE11).\n"
+            "- Real Estate / FIIs (35%-40%): Fundos imobiliarios com proventos mensais isentos de IR (ex: HGLG11, KNRI11, XPLG11).\n"
+            "- Caixa / Renda Fixa (15%-20%): Reserva de oportunidade e proventos com liquidez imediata (Tesouro Selic, CDB 100% CDI).\n"
+            "- Ativos Internacionais (15%-20%): Exposicao a dolar, indices globais (IVVB11) e REITs.\n"
+            "- Milestones da Banca: Realizacao de lucros da banca de trading 50X para drenagem antifragil em renda passiva perpétua."
+        )
+        l2 = (
+            "ARQUITETURA COMPLETA DO AGENTE PLUTUS:\n"
+            "Arquivo fonte: backend/services/plutus_agent.py\n"
+            "Documentacao formal: docs/blueprint/07_PLANO_AGENTE_PLUTUS_ARCA.md\n"
+            "Objetivo: Viver de renda passiva com proventos mensais e reinvestimento automatico."
+        )
+        self.nodes[uri] = VikingNode(
+            uri=uri,
+            title="Agente Plutus: Gestao Patrimonial & Metodo ARCA",
+            l0_abstract=l0,
+            l1_overview=l1,
+            l2_detail=l2,
+            tags=["agent", "plutus", "arca", "patrimonio", "dividendos", "fiis"],
+        )
+
+    def _register_telemetry_system(self) -> None:
+        """viking://system/telemetry"""
+        uri = "viking://system/telemetry"
+        l0 = "Sistema de Telemetria: Monitoramento de ultra-baixa latencia, slippage zero e microestrutura DMA."
+        l1 = (
+            "SISTEMA DE TELEMETRIA EM TEMPO REAL:\n"
+            "- Slippage Zero: Auditoria de microestrutura Barry Johnson para evitar dispersao de preco em ordens 50X.\n"
+            "- Ring Buffer uPlot: Histórico contínuo de 3600 segundos de equity sem engasgo no navegador.\n"
+            "- Warroom dos 30 Titans: Acompanhamento em tempo real dos 30 contratos perpétuos mais líquidos da OKX.\n"
+            "- Monitor de Latencia: Medição contínua da latência WebSocket e REST da OKX em milissegundos."
+        )
+        l2 = (
+            "ARQUITETURA DE TELEMETRIA:\n"
+            "Arquivo fonte: backend/app/services/telemetry_service.py\n"
+            "Rota canônica: /telemetry (antigo /observatory redirecionado 301)\n"
+            "Tecnologia: Ring Buffer em memória com broadcast WebSocket para a interface."
+        )
+        self.nodes[uri] = VikingNode(
+            uri=uri,
+            title="Sistema de Telemetria & Observatório Quântico",
+            l0_abstract=l0,
+            l1_overview=l1,
+            l2_detail=l2,
+            tags=["system", "telemetry", "slippage", "latency", "barry_johnson", "warroom"],
+        )
+
+    def _register_laya360_agent(self) -> None:
+        """viking://agent/laya360"""
+        uri = "viking://agent/laya360"
+        l0 = "Laya 360: Motor cognitivo soberano com radar dos 30 Titãs e fluxo institucional Rubik."
+        l1 = (
+            "LAYA 360 - CONSCIENCIA COGNITIVA SUPREMA:\n"
+            "- Subordinação 2H Soberana: Se SMA 8 < SMA 21 no 2H, apenas SHORT é autorizado. Se SMA 8 > SMA 21, apenas LONG.\n"
+            "- Pullback Hunter 30M: Entrada precisa em 50X no reteste das médias móveis com rejeição.\n"
+            "- Leitura de Fluxo Rubik: Monitoramento de OI Delta e Long/Short Ratio (LSR) para antecipar sweeps.\n"
+            "- Invariantes Rígidas: Alavancagem 50.0X Isolada, Never Give Back com 5 escadinhas e Anti-Hedge."
+        )
+        l2 = (
+            "ARQUITETURA LAYA 360:\n"
+            "Arquivo fonte: backend/app/services/laya_router_service.py\n"
+            "Modelos integrados: Cointegração Z-Score (Stanford), Triple Barrier (López de Prado), Microestrutura DMA (Barry Johnson)."
+        )
+        self.nodes[uri] = VikingNode(
+            uri=uri,
+            title="Laya 360: Motor Cognitivo Soberano",
+            l0_abstract=l0,
+            l1_overview=l1,
+            l2_detail=l2,
+            tags=["agent", "laya", "laya360", "titans", "rubik", "pullback_hunter"],
+        )
+
+    def _register_blueprints_resources(self) -> None:
+        """viking://resources/blueprints/*"""
+        bp_dir = self.root_dir / "docs" / "blueprint"
+        if bp_dir.exists():
+            for p in bp_dir.glob("*.md"):
+                rel = p.stem.lower().replace(" ", "_")
+                uri = f"viking://resources/blueprints/{rel}"
+                try:
+                    text = p.read_text(encoding="utf-8")
+                    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+                    first_line = lines[0] if lines else p.name
+                    l0 = f"Blueprint {p.name}: {first_line[:120]}"
+                    l1 = "\n".join(lines[:35])
+                    self.nodes[uri] = VikingNode(
+                        uri=uri,
+                        title=f"Blueprint: {p.name}",
+                        l0_abstract=l0,
+                        l1_overview=l1,
+                        l2_detail=text,
+                        tags=["resources", "blueprints", "architecture", rel],
+                    )
+                except Exception:
+                    pass
+
     def sync_all(self) -> Dict[str, Any]:
         """Sincroniza o sistema de arquivos virtual viking:// a partir dos arquivos do repositório."""
         t0 = time.time()
@@ -88,6 +196,12 @@ class OpenVikingContextService:
 
         # ── 3. Skills Executáveis (viking://agent/skills/) ──
         self._register_skills()
+
+        # ── 4. Plataforma Omnisciente (Plutus, Telemetria, Laya 360, Blueprints) ──
+        self._register_plutus_agent()
+        self._register_telemetry_system()
+        self._register_laya360_agent()
+        self._register_blueprints_resources()
 
         self._initialized = True
         elapsed_ms = (time.time() - t0) * 1000.0
