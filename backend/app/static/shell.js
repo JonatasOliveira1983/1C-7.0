@@ -211,34 +211,33 @@
     const headerEl = document.createElement("header");
     headerEl.id = "lamborghini-header";
     headerEl.innerHTML = `
-      <div class="shell-header-bar" style="height: 52px; background: #0B0E11; border-bottom: 1px solid #2B3139; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; position: sticky; top: 0;">
+      <div class="shell-header-bar" style="height: 40px; background: #080A0F; border-bottom: 1px solid #1D2330; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; z-index: 100; position: sticky; top: 0;">
         
         <!-- Left: Hamburger Toggle & Brand -->
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <button id="shell-sidebar-toggle" onclick="window.toggleSidebar()" class="shell-menu-btn" title="Abrir Menu Lateral">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button id="shell-sidebar-toggle" onclick="window.toggleSidebar()" class="shell-menu-btn" title="Menu Lateral" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: #12161F; border: 1px solid #1D2330; border-radius: 3px; color: #94A3B8; cursor: pointer;">
             ${ICONS.menu}
           </button>
 
-          <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
-            <canvas class="thinking-orb-canvas" data-state="solving" data-size="22" data-color="#FCD535" width="22" height="22" style="width:22px;height:22px;"></canvas>
-            <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.12em; color: #EAECEF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FCD535;">7.9.3</span>
+          <a href="/" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+            <div style="width: 10px; height: 10px; background: #FCD535; transform: rotate(45deg); flex-shrink: 0;"></div>
+            <span style="font-weight: 700; font-size: 12px; letter-spacing: 0.1em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
+              1CRYPTEN
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 2px;">V190 SOBERANA</span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 5px; border-radius: 2px;">v7.9.5</span>
           </a>
 
-          <span class="shell-sep desktop-only" style="color: #2B3139; font-size: 11px;">|</span>
+          <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 11px;">|</span>
           
-          <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 8px;">
-            <canvas class="thinking-orb-canvas" data-state="listening" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;"></canvas>
-            <span style="font-family: var(--font-mono); font-size: 10px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.05em;">
-              LAYA SOBERANA • HERMES AGENT • PLUTUS ARCA • KRONOS AI
+          <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-family: var(--font-mono, monospace); font-size: 9.5px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
+              LAYA SOBERANA • HERMES • PLUTUS • KRONOS
             </span>
           </div>
         </div>
 
         <!-- Center: Navigation (Desktop Quick Links) -->
-        <nav class="desktop-nav" style="display: flex; align-items: center; gap: 4px;">
+        <nav class="desktop-nav" style="display: flex; align-items: center; gap: 2px;">
           <a href="/" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
           </a>
@@ -500,21 +499,7 @@
         flex-shrink: 0;
       }
 
-      .app-bottom-bar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 56px;
-        background: rgba(10, 10, 10, 0.96);
-        border-top: 1px solid #1c1c1c;
-        display: none;
-        align-items: center;
-        justify-content: space-around;
-        z-index: 999;
-        backdrop-filter: blur(8px);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
+      .app-bottom-bar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; }
       .bbar-item {
         display: flex;
         flex-direction: column;
@@ -538,7 +523,7 @@
         .desktop-nav { display: none !important; }
         .desktop-only { display: none !important; }
         .shell-header-bar { padding: 0 10px !important; }
-        .app-bottom-bar { display: flex !important; }
+        .app-bottom-bar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; }
       }
     `;
     document.head.appendChild(styleEl);
@@ -578,7 +563,8 @@
       `;
       document.body.appendChild(bbar);
     }
-    mountBottomBar(activePage);
+    // mountBottomBar disabled per user design requirement: lateral drawer only.
+    // mountBottomBar(activePage);
 
     // Mount the Sidebar & Overlay
     mountSidebar(activePage);
