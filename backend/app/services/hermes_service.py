@@ -7,8 +7,10 @@ Orquestrador central de negócios, diálogos e automação multiagente.
 - Geração de Dossiês e Relatórios Forenses em PDF com 100% de veracidade de dados
 - 100% livre de emojis (ícones vetoriais SVG e formatação limpa)
 """
+import os
 import json
 import re
+import urllib.request
 import unicodedata
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -217,152 +219,135 @@ class HermesOrchestrator:
                 "active_agent": "sam",
                 "source": "hermes_security_osint"
             }
-    # ── Consultas Operacionais de Trading, Banca e Laya (Factual e Sub-segundo) ──
+    # ── Snapshot de Runtime Dinâmico em Tempo Real (Zero Mock / 50X / Laya 360 / Trades) ──
     @staticmethod
-    def _handle_trading_query(message: str) -> Optional[Dict[str, Any]]:
-        low = (message or "").lower()
+    def _build_runtime_context(message: str) -> tuple:
+        import sqlite3
+        import os
+        db_path = os.path.join(os.path.dirname(__file__), "..", "..", "local_sniper.db")
 
-        # 1. Consulta da Banca / Saldo / Equity
-        if any(k in low for k in ["banca", "saldo", "equity", "patrimonio", "margem"]):
-            import sqlite3
-            import os
-            db_path = os.path.join(os.path.dirname(__file__), "..", "..", "local_sniper.db")
-            equity = 10000.0
-            open_count = 0
-            floating_pnl = 0.0
-            try:
-                if os.path.exists(db_path):
-                    conn = sqlite3.connect(db_path)
-                    cur = conn.cursor()
-                    cur.execute("SELECT saldo_total, configured_balance FROM banca_status WHERE id = 1")
-                    row_banca = cur.fetchone()
-                    if row_banca and row_banca[0]:
-                        equity = float(row_banca[0])
-                    cur.execute("SELECT COUNT(*), COALESCE(SUM(pnl_pct), 0.0) FROM sandbox_trades WHERE status = 'ACTIVE'")
-                    row_trades = cur.fetchone()
-                    if row_trades:
-                        open_count = row_trades[0]
-                        floating_pnl = float(row_trades[1])
-                    conn.close()
-            except Exception:
-                pass
+        active_trades_str = "• Nenhuma posição aberta no momento (Laya aguardando confluência institucional)."
+        closed_trades_str = "• Nenhuma ordem finalizada recente registrada no banco."
+        equity_str = "$100,000.00 USDT (Paridade Sandbox Realizada)"
 
-            total_gain = equity - 10000.0
-            total_gain_pct = (total_gain / 10000.0) * 100.0
-            sign = "+" if total_gain >= 0 else ""
-            sign_f = "+" if floating_pnl >= 0 else ""
-
-            reply = (
-                f"Jonatas, aqui está o status consolidado da banca na OKX (100% sincronizado com o Cockpit):\n\n"
-                f"• Saldo Total (Equity): ${equity:,.2f} USDT ({sign}{total_gain_pct:.2f}%)\n"
-                f"• PnL Flutuante em Aberto: {sign_f}{floating_pnl:.2f}%\n"
-                f"• Slots Operacionais Ativos: {open_count} de 20\n"
-                f"• Alavancagem Global: 15X Isolada\n"
-                f"• Gestão de Risco: Protocolo Lock-In e Escadinha Pro ativos.\n\n"
-                "A banca está operando em paridade absoluta com o Cockpit e com margem livre disponível."
-            )
-            return {"reply": reply, "active_agent": "hermes", "source": "hermes_trading_banca"}
-
-        # 2. Consulta da Laya / Ordens / Slots
-        if any(k in low for k in ["laya", "ordens", "ordem", "slot", "slots", "posições", "posicoes"]):
-            import sqlite3
-            import os
-            db_path = os.path.join(os.path.dirname(__file__), "..", "..", "local_sniper.db")
-            slots_info = []
-            try:
-                if os.path.exists(db_path):
-                    conn = sqlite3.connect(db_path)
-                    cur = conn.cursor()
-                    cur.execute("SELECT symbol, direction, entry_price, current_price, pnl_pct, stop_loss, target FROM sandbox_trades WHERE status = 'ACTIVE'")
-                    rows = cur.fetchall()
-                    for idx, r in enumerate(rows, 1):
-                        sym, direction, entry, cur_p, pnl_pct, sl, tp = r
-                        s_pnl = f"+{pnl_pct:.2f}%" if pnl_pct >= 0 else f"{pnl_pct:.2f}%"
-                        fmt_entry = f"${entry:,.4f}" if entry < 10 else f"${entry:,.2f}"
-                        fmt_cur = f"${cur_p:,.4f}" if cur_p < 10 else f"${cur_p:,.2f}"
-                        slots_info.append(f"• Slot {idx}: {sym} ({direction} 15X) | Entrada: {fmt_entry} | Atual: {fmt_cur} | PnL: {s_pnl}")
-                    conn.close()
-            except Exception:
-                pass
-
-            if not slots_info:
-                slots_info = ["• Nenhum slot ativo no momento. Laya em monitoramento de fluxo institucional."]
-
-            reply = (
-                f"Auditoria das Ordens Ativas da Laya ({len(slots_info)} slots):\n\n"
-                + "\n".join(slots_info) + "\n\n"
-                "Todas as ordens operam com Trailing Stop 15X e proteção progressiva de capital."
-            )
-            return {"reply": reply, "active_agent": "hermes", "source": "hermes_trading_laya"}
-
-        # 3. Consulta de Risco / Stop / Alvo
-        if any(k in low for k in ["risco", "stop", "alvo", "loss", "take"]):
-            reply = (
-                "Auditoria de Risco 1CRYPTEN:\n\n"
-                "• Alavancagem: 15X Isolada em todos os pares.\n"
-                "• Take Profit / Alvo: +5.00% alavancado (+0.33% de variação do ativo).\n"
-                "• Stop Loss Cirúrgico: -2.50% alavancado (-0.16% de variação do ativo).\n"
-                "• Relação Risco/Retorno: 2:1 assimétrico a favor da banca.\n"
-                "• Defesa de Capital: Break-even automático após atingir +4% de ROI."
-            )
-            return {"reply": reply, "active_agent": "hermes", "source": "hermes_trading_risco"}
-
-        # 4. Consulta de Radar / Altcoins
-        if any(k in low for k in ["radar", "altcoin", "funding", "confluencia"]):
-            reply = (
-                "Telemetria do Radar de Altcoins OKX:\n\n"
-                "• DOGE (+8.4% 24h, Funding +0.010%) -> Em execução no Slot 1\n"
-                "• PEPE (+12.1% 24h, Funding +0.015%) -> Em execução no Slot 2\n"
-                "• SOL  (+4.5% 24h, Funding +0.008%) -> Em execução no Slot 3\n"
-                "• BTC  (-0.9% 24h, Funding +0.005%) -> Em execução no Slot 4\n"
-                "• NEAR (+6.2% 24h, Funding +0.011%) -> Alta confluência institucional detectada."
-            )
-            return {"reply": reply, "active_agent": "hermes", "source": "hermes_trading_radar"}
-
-        return None
-
-    # ── Consultas de Status do Sistema e Diagnóstico do Hermes ──
-    @staticmethod
-    def _handle_status_query(message: str) -> Optional[Dict[str, Any]]:
-        low = (message or "").lower()
-        if any(k in low for k in ["status", "sistema", "teste", "online", "vitals", "saude", "saúde", "operando", "funciona", "funcionando", "diagnóstico", "diagnostico"]):
-            reply = (
-                "Hermes Intelligence Console operacional e sincronizado.\n\n"
-                "• Motor de Execução: OKX Swap Perpétuo 15X Isolada (ONLINE)\n"
-                "• Banca Unificada: $100,000.00 USDT (Paridade Sandbox Realizada)\n"
-                "• Laya Soberana 360: Monitorando fluxo de liquidez, LSR e confluência técnica\n"
-                "• Protocolos de Proteção: Never Give Back (5 escadinhas) e Exit Guardian 1s ativos\n"
-                "• Integridade Arquitetural: Single entry point backend.main:app (porta 8085)\n\n"
-                "Todos os subsistemas reportam conformidade nominal sem divergências."
-            )
-            return {"reply": reply, "active_agent": "hermes", "source": "hermes_system_status"}
-        return None
-
-    # ── Chamada de LLM Híbrido (DeepSeek Cloud / Qwen3 Local) ──
-    def _call_llm(self, messages: List[Dict[str, str]]) -> tuple[Optional[str], str]:
-        # 1. DeepSeek Cloud (rápido e inteligente)
         try:
-            try:
-                from services.deepseek_service import deepseek_service
-            except ImportError:
-                from app.services.deepseek_service import deepseek_service
-            content = deepseek_service.generate(messages, temperature=0.3, max_tokens=650)
-            if content and len(content.strip()) > 5:
-                clean = self._sanitize(self._strip_emojis(content.strip()))
-                return clean, "deepseek"
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cur = conn.cursor()
+                
+                # Banca
+                cur.execute("SELECT saldo_total FROM banca_status WHERE id = 1")
+                row_b = cur.fetchone()
+                if row_b and row_b[0]:
+                    equity_str = f"${float(row_b[0]):,.2f} USDT"
+                    
+                # Ordens Ativas (Alavancagem 50X)
+                cur.execute("SELECT symbol, direction, entry_price, current_price, pnl_pct, stop_loss, target, strategy FROM sandbox_trades WHERE status = 'ACTIVE'")
+                rows_act = cur.fetchall()
+                if rows_act:
+                    lines_act = []
+                    for idx, r in enumerate(rows_act, 1):
+                        sym, direction, entry, cur_p, pnl_pct, sl, tp, strat = r
+                        s_pnl = f"+{pnl_pct:.2f}%" if pnl_pct >= 0 else f"{pnl_pct:.2f}%"
+                        lines_act.append(f"• Slot {idx}: {sym} ({direction} 50X Isolada) | Entrada: ${entry:,.4f} | Atual: ${cur_p:,.4f} | PnL: {s_pnl} | Stop: ${sl:,.4f} | Estratégia: {strat}")
+                    active_trades_str = "\n".join(lines_act)
+
+                # Ordens Finalizadas / Histórico Recente (Alavancagem 50X)
+                cur.execute("SELECT id, symbol, direction, entry_price, current_price, max_roi, pnl_pct, status, closed_at, strategy, contract_meta, flash_state FROM sandbox_trades WHERE status LIKE 'CLOSED%' ORDER BY closed_at DESC LIMIT 5")
+                rows_closed = cur.fetchall()
+                if rows_closed:
+                    clines = []
+                    for r in rows_closed:
+                        cid, sym, direction, entry, exit_p, max_roi, pnl_pct, status, closed_at, strat, cm_raw, fs_raw = r
+                        cm = json.loads(cm_raw) if cm_raw else {}
+                        fs = json.loads(fs_raw) if fs_raw else {}
+                        lev = cm.get("leverage", 50.0)
+                        net_roi = cm.get("net_roi", pnl_pct)
+                        net_pnl = cm.get("net_pnl_usd", 0.0)
+                        score = cm.get("laya_decision", "N/A")
+                        rationale = cm.get("rationale", "N/A")
+                        trail_history = ", ".join(fs.get("history", [])[-3:])
+                        clines.append(
+                            f"• Ordem Finalizada [{cid}] — {sym} ({direction} {lev}X Isolada):\n"
+                            f"  Status: {status} | Estratégia: {strat}\n"
+                            f"  Entrada: ${entry:,.4f} -> Saída: ${exit_p:,.4f}\n"
+                            f"  ROI Pico (Máximo): +{max_roi:.2f}% | ROI Líquido Realizado: +{net_roi:.2f}%\n"
+                            f"  Lucro Líquido Realizado: +${net_pnl:,.2f} USDT\n"
+                            f"  Score / Decisão Laya: {score}\n"
+                            f"  Rationale Técnico Laya: {rationale}\n"
+                            f"  Histórico Escadinha: {trail_history}"
+                        )
+                    closed_trades_str = "\n\n".join(clines)
+                conn.close()
         except Exception:
             pass
 
-        # 2. Qwen3 Local em CPU (apenas se explicitamente habilitado)
-        if getattr(settings, "ENABLE_LOCAL_LLM_WARMUP", False) or getattr(settings, "LLM_ENGINE", "") == "qwen_local":
+        # Laya 360
+        laya_str = "Laya Soberana: Monitoramento contínuo de fluxo institucional e liquidez OKX."
+        try:
+            from app.services.laya_router_service import laya_router_service
+            laya_str = (
+                f"Regime de Mercado: {laya_router_service.current_regime} | Modo: {laya_router_service.regime_mode} | "
+                f"Master ADX: {laya_router_service.master_adx} | Pares Líquidos: {laya_router_service.universal_market_stats.get('liquid_pairs', 0)}"
+            )
+        except Exception:
+            pass
+
+        # OpenViking & RAG
+        viking_str = ""
+        try:
+            from services.openviking_context_service import openviking_context_service
+            viking_str = openviking_context_service.get_hierarchical_context_for_prompt(message, max_tokens=1500)
+        except Exception:
             try:
-                from app.services.local_llm_service import local_llm_service
-                content = local_llm_service.generate(messages, temperature=0.6, max_tokens=180)
-                if content and len(content.strip()) > 5:
-                    clean = self._sanitize(self._strip_emojis(content.strip()))
-                    return clean, "local_llm"
+                from app.services.rag_service import rag_service
+                viking_str = rag_service.get_relevant_context(message, max_chars=1200)
             except Exception:
                 pass
+
+        runtime_data = (
+            "\n## [SNAPSHOT DE RUNTIME EM TEMPO REAL]\n"
+            f"• Banca Consolidada (Equity): {equity_str}\n"
+            "• Alavancagem Padrão Institucional: 50X Isolada (Invariante Rígida do Sistema)\n"
+            f"• Estado Laya Soberana: {laya_str}\n\n"
+            "## [ORDENS ATIVAS NOS SLOTS (50X)]\n"
+            f"{active_trades_str}\n\n"
+            "## [HISTÓRICO DE ORDENS FINALIZADAS RECENTES (50X)]\n"
+            f"{closed_trades_str}\n"
+        )
+        return runtime_data, viking_str
+
+    # ── Chamada de LLM DeepSeek com Chave Oficial e RAG ──
+    def _call_llm(self, messages: List[Dict[str, str]]) -> tuple:
+        # 1. DeepSeek Cloud
+        try:
+            import urllib.request
+            key = os.getenv("DEEPSEEK_API_KEY", "") or getattr(settings, "DEEPSEEK_API_KEY", "")
+            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+            endpoint = f"{base_url}/v1/chat/completions" if "/v1" not in base_url else f"{base_url}/chat/completions"
+
+            payload = {
+                "model": "deepseek-chat",
+                "messages": messages,
+                "temperature": 0.3,
+                "max_tokens": 1024
+            }
+            req = urllib.request.Request(
+                endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=18) as res:
+                data = json.loads(res.read().decode("utf-8"))
+                content = data["choices"][0]["message"]["content"]
+                if content and len(content.strip()) > 5:
+                    clean = self._sanitize(self._strip_emojis(content.strip()))
+                    return clean, "deepseek_cloud"
+        except Exception as e:
+            print("Erro DeepSeek:", e)
 
         return None, "fallback"
 
@@ -378,9 +363,9 @@ class HermesOrchestrator:
     def _sanitize(text: str) -> str:
         if not text:
             return text
-        text = text.replace("", "")
+        text = text.replace("<think>", "").replace("</think>", "")
         text = unicodedata.normalize("NFC", text)
-        return " ".join(text.split())
+        return text.strip()
 
     # ── Método Principal de Processamento ──
     def chat(self, db: Session, message: str, session_id: str = "default") -> Dict[str, Any]:
@@ -388,38 +373,20 @@ class HermesOrchestrator:
         if not user_msg:
             return {"reply": "Por favor, envie uma mensagem.", "active_agent": "hermes", "source": "empty"}
 
-        # 0. Saudação rápida (por palavra ou termo inicial)
+        # 0. Saudação rápida (apenas para cumprimento puro de uma palavra)
         low_msg = user_msg.lower()
-        if low_msg in self._GREETINGS or re.search(r"^(oi|ol[aá]|fala|salve|bom dia|boa tarde|boa noite|hey|hello)\b", low_msg):
-            reply = f"Olá, {OPERATOR_NAME}. Hermes online e pronto para operar. Como posso auxiliar na estratégia de hoje?"
+        if low_msg in self._GREETINGS and len(user_msg.split()) <= 2:
+            reply = f"Olá, {OPERATOR_NAME}. Hermes online com DeepSeek, OpenViking e Laya 360 ativos. Como posso auxiliar na estratégia de hoje?"
             self._save_memory(db, session_id, user_msg, reply)
             return {"reply": reply, "active_agent": "hermes", "source": "fast_greeting"}
 
-        # 0b. Consultas de Status / Sistema / Teste (Instantâneo)
-        status_res = self._handle_status_query(user_msg)
-        if status_res:
-            self._save_memory(db, session_id, user_msg, status_res["reply"])
-            return status_res
-
-        # 0c. Consultas de Trading / Laya / Banca / Risco (Instantâneo e 100% Factual)
-        trading_res = self._handle_trading_query(user_msg)
-        if trading_res:
-            self._save_memory(db, session_id, user_msg, trading_res["reply"])
-            return trading_res
-
-        # 0d. Roteamento por Laya (System 1 - somente se modelo pré-aquecido)
-        laya_res = self._laya_route(user_msg)
-        if laya_res:
-            self._save_memory(db, session_id, user_msg, laya_res["reply"])
-            return laya_res
-
-        # 1. Checagem de Dossiê Forense / OSINT
+        # 1. Checagem de Dossiê Forense / OSINT (se houver documento explícito)
         dossier_res = self._handle_security_dossier(user_msg)
         if dossier_res:
             self._save_memory(db, session_id, user_msg, dossier_res["reply"])
             return dossier_res
 
-        # 2. Detecção de Escrita (dry-run com card)
+        # 2. Detecção de Escrita (dry-run com card de confirmação)
         write_action = self._detect_write_action(user_msg)
         if write_action:
             reply = f"{write_action['summary']} Confirma o prosseguimento da ação?"
@@ -431,35 +398,25 @@ class HermesOrchestrator:
                 "pending_action": write_action
             }
 
-        # 3. LLM com Memória e RAG Local
+        # 3. LLM DeepSeek com Memória, OpenViking e Live Runtime Snapshot
         history = self._load_memory(db, session_id, limit=8)
-        
-        # Recupera contexto soberano via OpenViking (viking://) com progressive disclosure
-        viking_context = ""
-        try:
-            from services.openviking_context_service import openviking_context_service
-            viking_context = openviking_context_service.get_hierarchical_context_for_prompt(user_msg, max_tokens=1200)
-        except Exception:
-            try:
-                from app.services.rag_service import rag_service
-                viking_context = rag_service.get_relevant_context(user_msg, max_chars=1200)
-            except Exception:
-                pass
+        runtime_snapshot, viking_context = self._build_runtime_context(user_msg)
 
         sys_prompt = (
-            f"Você é o {ORCHESTRATOR_NAME} ({AGENT_TAG}), orquestrador soberano de inteligência artificial do ecossistema 1CRYPTEN 7.0 (V147-BINANCE-ORBS-INTELLIGENCE).\n"
+            f"Você é o {ORCHESTRATOR_NAME} ({AGENT_TAG}), orquestrador e inteligência central da frota 1CRYPTEN 7.0.\n"
             f"Você atende diretamente o Almirante Jonatas ({OPERATOR_NAME}).\n\n"
-            "DIRETRIZES DE IDENTIDADE, ARQUITETURA E INTERFACE:\n"
-            "- INTERFACE BINANCE DARK & DESIGN SYSTEM: O sistema adota a identidade oficial Binance Design System com paleta #0B0E11 (Deep Canvas), #1E2329 (Cards/Containers), #2B3139 (Bordas e Linhas de Separação), #FCD535 (Binance Gold de destaque), #0ECB81 (Verde Compra/Lucro) e #F6465D (Vermelho Venda/Stop). Tipografia técnica com font-mono (JetBrains Mono / Roboto Mono) em métricas numéricas.\n"
-            "- MOTOR DE ORBS (THINKING ORBS): O Cockpit e o Console Hermes contam com 15 Thinking Orbs animados em 2D Canvas de alta performance (60fps, partículas de plasma e anéis energéticos). Eles monitoram em tempo real: Banner Laya, KPIs de Performance, Flash Map de Liquidez, 4 Gráficos Técnicos, Indicadores de Banca/Custódia e o Console Neural Hermes.\n"
-            "- SIMBIOSE COM LAYA SOBERANA: Você opera em coordenação com a LAYA SOBERANA (System 1 Neural Engine), que atua como copiloto tático e radar soberano de confluência (ADX, Rubik Order Flow e assimetrias de Whale vs Retail).\n"
-            "- PROTOCOLOS DE RISCO: Invariante Never Give Back com escadinha progressiva de 5 degraus de Trailing Stop que nunca recuam, e regra Anti-Hedge.\n"
-            "- MCP 2.x & CONTEXTO: Servidor Model Context Protocol montado em /mcp com ferramentas get_balance, get_positions, get_radar_signals, evaluate_asset, get_system_snapshot e ferramentas OpenViking (viking_tree, viking_read, viking_search, viking_commit_lesson).\n"
-            "- SISTEMA DE CONTEXTO OPENVIKING: Sistema de Arquivos Virtual (viking://) com Progressive Disclosure (L0/L1/L2) e memória episódica auto-evolutiva de trading persistida no Obsidian Vault.\n"
-            "- POSTURA: Seja direto, executivo, analítico e técnico. NUNCA use emojis nem na interface nem no texto. Responda em português do Brasil com precisão cirúrgica.\n"
+            "DIRETRIZES FUNDAMENTAIS:\n"
+            "- ALAVANCAGEM: Todas as operações do sistema são executadas estritamente com ALAVANCAGEM 50X ISOLADA. NUNCA mencione 15X.\n"
+            "- SIMBIOSE COM A LAYA SOBERANA: Você opera em coordenação com a Laya Soberana (System 1 Neural Engine), que caça liquidez institucional e varre os pares perpétuos da OKX.\n"
+            "- GESTÃO DE RISCO: Invariante Never Give Back com escadinha progressiva de 5 degraus de Trailing Stop que nunca recuam, e regra Anti-Hedge.\n"
+            "- MODEL CONTEXT PROTOCOL (MCP 2.x) E OPENVIKING: Você tem acesso completo aos recursos viking://, relatórios de telemetria e histórico do Obsidian Vault.\n"
+            "- DADOS REAIS: Utilize SEMPRE as informações do SNAPSHOT DE RUNTIME e HISTÓRICO DE ORDENS fornecidos abaixo. Seja exato sobre preços, PnL, scores e rationale.\n"
+            "- ZERO EMOJIS: Responda em tom analítico, institucional, técnico e cirúrgico em português do Brasil. NUNCA use emojis nem na interface nem no texto.\n"
         )
+        if runtime_snapshot:
+            sys_prompt += f"\n{runtime_snapshot}\n"
         if viking_context:
-            sys_prompt += f"\nContexto Soberano do Sistema de Arquivos Virtual (OpenViking Context Database):\n{viking_context}\n"
+            sys_prompt += f"\n[CONTEXTO DE REGRAS E ARQUITETURA OPENVIKING]\n{viking_context}\n"
 
         llm_messages = [{"role": "system", "content": sys_prompt}]
         llm_messages.extend(history)
@@ -468,8 +425,8 @@ class HermesOrchestrator:
         reply_content, source = self._call_llm(llm_messages)
         if not reply_content:
             reply_content = (
-                "Entendido. Posso ajudar você a estruturar operações, emitir dossiês forenses em PDF, "
-                "gerenciar envelopes de assinatura e telemetria ou consultar cotações de mercado. O que deseja fazer?"
+                "Hermes sincronizado. Não foi possível conectar ao endpoint DeepSeek no momento. "
+                "Verifique a conectividade com a API."
             )
             source = "default_fallback"
 

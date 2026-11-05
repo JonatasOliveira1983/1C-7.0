@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = None
     
     # [HERMES] DeepSeek (Primary Hermes Brain)
-    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_API_KEY: Optional[str] = os.getenv("DEEPSEEK_API_KEY", None)
     
     # [V56.0] On-Chain
     ETHERSCAN_API_KEY: str = os.getenv("ETHERSCAN_API_KEY", "YourApiKeyToken")
