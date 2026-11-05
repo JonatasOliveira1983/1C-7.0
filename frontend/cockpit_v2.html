@@ -744,6 +744,120 @@
   ::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 2px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
 
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE (MOBILE & TABLET: 320px to 1199px)
+     Eliminates 0px squished canvas, enables fluid column stack and card scrolling.
+     ========================================================================== */
+  @media (max-width: 1199px) {
+    html, body {
+      height: auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .cockpit-panoramic-main {
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 6px !important;
+    }
+    .cockpit-panoramic-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      gap: 10px !important;
+    }
+    .cockpit-banner-row {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 8px !important;
+      padding: 8px !important;
+    }
+    .cockpit-col-charts {
+      order: 1 !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 400px !important;
+      overflow: visible !important;
+    }
+    .cockpit-col-charts > .card-lamborghini {
+      height: auto !important;
+      min-height: 400px !important;
+      overflow: visible !important;
+    }
+    #charts-grid-container {
+      height: auto !important;
+      min-height: 340px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      overflow: visible !important;
+    }
+    .chart-card-wrapper {
+      width: 100% !important;
+      height: 340px !important;
+      min-height: 340px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      position: relative !important;
+      overflow: hidden !important;
+    }
+    .chart-card-wrapper > div:last-child {
+      width: 100% !important;
+      height: 290px !important;
+      min-height: 290px !important;
+      position: relative !important;
+      flex: 1 1 290px !important;
+      display: block !important;
+      overflow: hidden !important;
+    }
+    .lw-frame-wrap {
+      width: 100% !important;
+      height: 290px !important;
+      min-height: 290px !important;
+      position: absolute !important;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: block !important;
+    }
+    .cockpit-col-middle {
+      order: 2 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+    .cockpit-col-tables {
+      order: 3 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+    #slots-table-container, #audit-trades-container {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+  }
+
+  @media (max-width: 580px) {
+    .chart-card-wrapper {
+      height: 300px !important;
+      min-height: 300px !important;
+    }
+    .chart-card-wrapper > div:last-child {
+      height: 250px !important;
+      min-height: 250px !important;
+      flex: 1 1 250px !important;
+    }
+    .lw-frame-wrap {
+      height: 250px !important;
+      min-height: 250px !important;
+    }
+  }
+
   </style>
 </head>
 <body>
@@ -4592,5 +4706,21 @@
 
     </div>
   </div>
+<script>
+    // [V192-HALLMARK-MOBILE-RESIZE] Redraw charts when viewport changes
+    window.addEventListener('resize', () => {
+      setTimeout(() => {
+        for (let i = 0; i < 4; i++) {
+          const frameWrap = document.getElementById(`lw-frame-wrap-${i}`);
+          if (nativeCharts[i] && frameWrap) {
+            const w = Math.max(frameWrap.clientWidth || 0, 240);
+            const h = Math.max(frameWrap.clientHeight || 0, 240);
+            nativeCharts[i].applyOptions({ width: w, height: h });
+            try { nativeCharts[i].timeScale().fitContent(); } catch(e){}
+          }
+        }
+      }, 80);
+    });
+</script>
 </body>
 </html>
