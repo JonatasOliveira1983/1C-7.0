@@ -4410,27 +4410,29 @@ class LayaRouterService:
                     ltf_eval = await self.check_lower_tf_exhaustion(sym, direction)
                     if not ltf_eval.get("is_safe", True):
                         ltf_reason = ltf_eval.get("reason", "")
-                        if "LOCOMOTIVA" in ltf_reason or "EXPANSAO" in ltf_reason or "REPIQUE" in ltf_reason or "DESPEJO" in ltf_reason:
+                        # Apenas quedas/altas violentas (faca caindo / locomotiva >= 1.5%) são consideradas hostis para corte antecipado
+                        if "LOCOMOTIVA" in ltf_reason or "QUEDA_LIVRE" in ltf_reason:
                             is_hostile_5m = True
                             ltf_status = "HOSTILE_BREAKOUT"
                 except Exception:
                     pass
 
-                # Detecta condições de estancamento de risco (PANIC_CUT)
+                # Detecta condições de estancamento de risco (PANIC_CUT) calibradas para 50x
+                # Dá respiro de mercado para a posição trabalhar até o stop estrutural (-60% ROI / -1.2% preço)
                 is_panic = False
                 panic_reason = ""
                 if direction == "SHORT":
-                    if is_hostile_5m and current_roi < -5.0:
+                    if is_hostile_5m and current_roi < -35.0:
                         is_panic = True
-                        panic_reason = f"Pump hostil de 5M contra SHORT com ROI {current_roi:+.1f}%"
-                    elif lsr_val < 0.65 and current_roi < -7.0:
+                        panic_reason = f"Locomotiva hostil de 5M contra SHORT com ROI {current_roi:+.1f}%"
+                    elif lsr_val < 0.50 and current_roi < -30.0:
                         is_panic = True
                         panic_reason = f"Short squeeze severo detectado (LSR {lsr_val:.2f})"
                 elif direction == "LONG":
-                    if is_hostile_5m and current_roi < -5.0:
+                    if is_hostile_5m and current_roi < -35.0:
                         is_panic = True
-                        panic_reason = f"Dump hostil de 5M contra LONG com ROI {current_roi:+.1f}%"
-                    elif lsr_val > 1.65 and current_roi < -7.0:
+                        panic_reason = f"Queda livre hostil de 5M contra LONG com ROI {current_roi:+.1f}%"
+                    elif lsr_val > 2.0 and current_roi < -30.0:
                         is_panic = True
                         panic_reason = f"Despejo institucional em cascata (LSR {lsr_val:.2f})"
 
