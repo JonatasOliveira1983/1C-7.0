@@ -1,0 +1,189 @@
+/* ==========================================================================
+   HALLMARK CONSOLE THEME — 1CRYPTEN INSTITUTIONAL WORKBENCH (V192)
+   Design DNA: Hallmark Console (Nutlope / El Mghari)
+   Ground: Graphite in 3 lightness steps | Panels: Hairline 1px seams
+   Display: Host Grotesk 500 | Numbers: Atkinson Hyperlegible Mono (tabular)
+   Zero AI Slop: No blurry glow, no floating card shadows, no double borders.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600&family=Atkinson+Hyperlegible+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* Hallmark Console Palette Tokens */
+  --hm-paper: #0e1115;       /* oklch(14% 0.006 250) Ground Canvas */
+  --hm-paper-2: #151921;     /* oklch(18% 0.008 250) Hairline Panels */
+  --hm-paper-3: #1c222d;     /* oklch(22% 0.010 250) Headers / Active Rows */
+  --hm-paper-elevated: #242c3a;
+  
+  --hm-rule: #232936;        /* 1px Hairline Seams */
+  --hm-rule-strong: #333c4d; /* 1px Active / Accent Seam */
+
+  --hm-ink: #f0f3f8;         /* Primary Crisp Reading */
+  --hm-ink-2: #cbd3e1;       /* Secondary Text */
+  --hm-muted: #828ea3;       /* Metadata, captions, unit labels */
+  --hm-subtle: #4e586b;
+
+  --hm-accent: #fcd535;      /* Binance Iconic Gold / Operator Controls */
+  --hm-accent-ink: #141200;
+  --hm-accent-soft: rgba(252, 213, 53, 0.12);
+
+  --hm-cool: #38bdf8;        /* Laya Sovereign Intelligence / Autonomous Telemetry */
+  --hm-cool-soft: rgba(56, 189, 248, 0.12);
+
+  --hm-ok: #10b981;          /* Positive Realized / Floating PnL */
+  --hm-ok-soft: rgba(16, 185, 129, 0.12);
+
+  --hm-bad: #f43f5e;         /* Negative PnL / Stop Loss / Vetos */
+  --hm-bad-soft: rgba(244, 63, 94, 0.12);
+
+  /* Typography */
+  --font-display: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-reading: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-measured: 'Atkinson Hyperlegible Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Base Reset & Zero AI Slop */
+body.hallmark-workbench {
+  background-color: var(--hm-paper) !important;
+  color: var(--hm-ink) !important;
+  font-family: var(--font-reading) !important;
+  letter-spacing: -0.01em;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular Mono for all numerical data */
+.measured,
+.font-mono,
+#banca-saldo-total,
+#banca-equity-net,
+#banca-pnl-flutuante,
+.slot-pnl-cell,
+.slot-price-cell,
+.telemetry-val {
+  font-family: var(--font-measured) !important;
+  font-variant-numeric: tabular-nums slashed-zero !important;
+  font-feature-settings: "zero" 1, "tnum" 1 !important;
+}
+
+/* Hairline Panels (Hallmark Console Signature) */
+.cockpit-col-charts,
+.cockpit-col-middle,
+.cockpit-col-custodia,
+.cockpit-banner-row,
+.chart-box-native,
+.laya-hud-overlay {
+  background: var(--hm-paper-2) !important;
+  border: 1px solid var(--hm-rule) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important; /* Zero floating glow */
+}
+
+/* Headers without gradient bloat */
+.app-header,
+.cockpit-banner-row,
+.chart-header,
+.panel-header-vip {
+  background: var(--hm-paper-3) !important;
+  border-bottom: 1px solid var(--hm-rule) !important;
+}
+
+/* Tactical Cards */
+.master-card-banca,
+.card-laya-soberana,
+.custodia-slot-card,
+.audit-trade-row {
+  background: var(--hm-paper-2) !important;
+  border: 1px solid var(--hm-rule) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.master-card-banca:hover,
+.card-laya-soberana:hover,
+.custodia-slot-card:hover,
+.audit-trade-row:hover {
+  border-color: var(--hm-rule-strong) !important;
+  background: var(--hm-paper-3) !important;
+}
+
+/* Clean Accent Badges */
+.badge-gold {
+  background: var(--hm-accent-soft) !important;
+  color: var(--hm-accent) !important;
+  border: 1px solid rgba(252, 213, 53, 0.25) !important;
+  font-family: var(--font-measured) !important;
+  font-weight: 500 !important;
+}
+
+.badge-cool,
+.badge-cyan {
+  background: var(--hm-cool-soft) !important;
+  color: var(--hm-cool) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  font-family: var(--font-measured) !important;
+}
+
+.badge-green,
+.badge-up {
+  background: var(--hm-ok-soft) !important;
+  color: var(--hm-ok) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+
+.badge-red,
+.badge-down {
+  background: var(--hm-bad-soft) !important;
+  color: var(--hm-bad) !important;
+  border: 1px solid rgba(244, 63, 94, 0.25) !important;
+}
+
+/* Professional Buttons */
+.btn-gold {
+  background: var(--hm-accent) !important;
+  color: var(--hm-accent-ink) !important;
+  border: 1px solid var(--hm-accent) !important;
+  font-weight: 600 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+.btn-gold:hover {
+  background: #f0c920 !important;
+}
+
+.btn-ghost,
+.btn-subtle {
+  background: var(--hm-paper-3) !important;
+  color: var(--hm-ink) !important;
+  border: 1px solid var(--hm-rule) !important;
+  border-radius: 3px !important;
+}
+.btn-ghost:hover {
+  background: var(--hm-paper-elevated) !important;
+  border-color: var(--hm-rule-strong) !important;
+}
+
+/* S/R and Metric Readouts */
+.metric-tile {
+  background: var(--hm-paper-3) !important;
+  border: 1px solid var(--hm-rule) !important;
+  border-radius: 3px !important;
+}
+
+/* Crisp Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--hm-paper);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hm-rule-strong);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hm-accent);
+}

@@ -1096,6 +1096,22 @@ if settings.SERVE_STATIC_FRONTEND:
                 }
             )
 
+    @app.get("/cockpit-v2")
+    @app.get("/cockpit-v2.html")
+    async def serve_cockpit_v2_page():
+        path = os.path.join(APP_STATIC_DIR, "cockpit_v2.html")
+        if not os.path.exists(path):
+            path = os.path.join(FRONTEND_DIR, "cockpit_v2.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+            return HTMLResponse(
+                content=html_content,
+                headers={
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate",
+                    "ETag": f"1c-cockpit-v2-{time.time()}"
+                }
+            )
+
     @app.get("/plutus")
     @app.get("/plutus.html")
     async def serve_plutus_page():
