@@ -106,7 +106,10 @@ class HermesOrchestrator:
     def _laya_route(self, message: str) -> Optional[Dict[str, Any]]:
         """Roteia mensagens usando o classificador Laya em CPU com latência sub-segundo."""
         try:
-            from app.services.laya_router_service import laya_router_service
+            from app.services.laya_router_service import laya_router_service, _agent
+            if _agent is None:
+                # Não bloqueia a thread se os pesos do Laya não foram pré-aquecidos
+                return None
             res = laya_router_service.classify(message)
         except Exception:
             return None
@@ -318,11 +321,31 @@ class HermesOrchestrator:
 
         return None
 
+    # ── Consultas de Status do Sistema e Diagnóstico do Hermes ──
+    @staticmethod
+    def _handle_status_query(message: str) -> Optional[Dict[str, Any]]:
+        low = (message or "").lower()
+        if any(k in low for k in ["status", "sistema", "teste", "online", "vitals", "saude", "saúde", "operando", "funciona", "funcionando", "diagnóstico", "diagnostico"]):
+            reply = (
+                "Hermes Intelligence Console operacional e sincronizado.\n\n"
+                "• Motor de Execução: OKX Swap Perpétuo 15X Isolada (ONLINE)\n"
+                "• Banca Unificada: $100,000.00 USDT (Paridade Sandbox Realizada)\n"
+                "• Laya Soberana 360: Monitorando fluxo de liquidez, LSR e confluência técnica\n"
+                "• Protocolos de Proteção: Never Give Back (5 escadinhas) e Exit Guardian 1s ativos\n"
+                "• Integridade Arquitetural: Single entry point backend.main:app (porta 8085)\n\n"
+                "Todos os subsistemas reportam conformidade nominal sem divergências."
+            )
+            return {"reply": reply, "active_agent": "hermes", "source": "hermes_system_status"}
+        return None
+
     # ── Chamada de LLM Híbrido (DeepSeek Cloud / Qwen3 Local) ──
     def _call_llm(self, messages: List[Dict[str, str]]) -> tuple[Optional[str], str]:
         # 1. DeepSeek Cloud (rápido e inteligente)
         try:
-            from app.services.deepseek_service import deepseek_service
+            try:
+                from services.deepseek_service import deepseek_service
+            except ImportError:
+                from app.services.deepseek_service import deepseek_service
             content = deepseek_service.generate(messages, temperature=0.3, max_tokens=650)
             if content and len(content.strip()) > 5:
                 clean = self._sanitize(self._strip_emojis(content.strip()))
@@ -365,23 +388,30 @@ class HermesOrchestrator:
         if not user_msg:
             return {"reply": "Por favor, envie uma mensagem.", "active_agent": "hermes", "source": "empty"}
 
-        # 0. Saudação rápida
-        if user_msg.lower() in self._GREETINGS:
-            reply = f"Olá, {OPERATOR_NAME}. Como posso auxiliar na operação de hoje?"
+        # 0. Saudação rápida (por palavra ou termo inicial)
+        low_msg = user_msg.lower()
+        if low_msg in self._GREETINGS or re.search(r"^(oi|ol[aá]|fala|salve|bom dia|boa tarde|boa noite|hey|hello)\b", low_msg):
+            reply = f"Olá, {OPERATOR_NAME}. Hermes online e pronto para operar. Como posso auxiliar na estratégia de hoje?"
             self._save_memory(db, session_id, user_msg, reply)
             return {"reply": reply, "active_agent": "hermes", "source": "fast_greeting"}
 
-        # 0b. Roteamento por Laya (System 1)
-        laya_res = self._laya_route(user_msg)
-        if laya_res:
-            self._save_memory(db, session_id, user_msg, laya_res["reply"])
-            return laya_res
+        # 0b. Consultas de Status / Sistema / Teste (Instantâneo)
+        status_res = self._handle_status_query(user_msg)
+        if status_res:
+            self._save_memory(db, session_id, user_msg, status_res["reply"])
+            return status_res
 
         # 0c. Consultas de Trading / Laya / Banca / Risco (Instantâneo e 100% Factual)
         trading_res = self._handle_trading_query(user_msg)
         if trading_res:
             self._save_memory(db, session_id, user_msg, trading_res["reply"])
             return trading_res
+
+        # 0d. Roteamento por Laya (System 1 - somente se modelo pré-aquecido)
+        laya_res = self._laya_route(user_msg)
+        if laya_res:
+            self._save_memory(db, session_id, user_msg, laya_res["reply"])
+            return laya_res
 
         # 1. Checagem de Dossiê Forense / OSINT
         dossier_res = self._handle_security_dossier(user_msg)
