@@ -229,7 +229,7 @@ class HermesOrchestrator:
 
         active_trades_str = "• Nenhuma posição aberta no momento (Laya aguardando confluência institucional)."
         closed_trades_str = "• Nenhuma ordem finalizada recente registrada no banco."
-        equity_str = "$100,000.00 USDT (Paridade Sandbox Realizada)"
+        equity_str = "$100.00 USDT (Paridade Sandbox Realizada)"
 
         try:
             if os.path.exists(db_path):
