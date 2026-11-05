@@ -566,6 +566,57 @@
     }
   }
 
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — OBSERVATORY (< 1100px)
+     ========================================================================== */
+  @media (max-width: 1100px) {
+    html, body {
+      height: auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .panoramic-subhud {
+      height: auto !important;
+      max-height: none !important;
+      flex-wrap: wrap !important;
+      padding: 8px !important;
+      gap: 6px !important;
+    }
+    .wide-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      height: auto !important;
+      min-height: auto !important;
+      padding: 6px 8px !important;
+      gap: 10px !important;
+      overflow: visible !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .col-panel {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+    }
+    .panel-card {
+      height: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .radar-laya-scroll, .telemetry-card-scroll {
+      max-height: 440px !important;
+      overflow-y: auto !important;
+    }
+  }
+
   </style>
 </head>
 <body>

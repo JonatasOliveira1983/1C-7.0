@@ -211,32 +211,32 @@
     const headerEl = document.createElement("header");
     headerEl.id = "lamborghini-header";
     headerEl.innerHTML = `
-      <div class="shell-header-bar" style="height: 40px; background: #080A0F; border-bottom: 1px solid #1D2330; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; z-index: 100; position: sticky; top: 0;">
+      <div class="shell-header-bar" style="height: 40px; background: #080A0F; border-bottom: 1px solid #1D2330; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 1000; position: sticky; top: 0; box-sizing: border-box; width: 100%; overflow: hidden;">
         
-        <!-- Left: Hamburger Toggle & Brand -->
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <button id="shell-sidebar-toggle" onclick="window.toggleSidebar()" class="shell-menu-btn" title="Menu Lateral" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: #12161F; border: 1px solid #1D2330; border-radius: 3px; color: #94A3B8; cursor: pointer;">
+        <!-- Left: Hamburger Drawer Toggle & Compact Brand -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <button id="shell-sidebar-toggle" onclick="window.toggleSidebar()" class="shell-menu-btn" title="Menu Lateral" style="width: 32px; height: 32px; min-width: 32px; display: flex; align-items: center; justify-content: center; background: #12161F; border: 1px solid #1D2330; border-radius: 4px; color: #94A3B8; cursor: pointer; padding: 0;">
             ${ICONS.menu}
           </button>
 
-          <a href="/" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
-            <div style="width: 10px; height: 10px; background: #FCD535; transform: rotate(45deg); flex-shrink: 0;"></div>
-            <span style="font-weight: 700; font-size: 12px; letter-spacing: 0.1em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
+          <a href="/" style="display: flex; align-items: center; gap: 6px; text-decoration: none;">
+            <div style="width: 9px; height: 9px; background: #FCD535; transform: rotate(45deg); flex-shrink: 0;"></div>
+            <span style="font-weight: 700; font-size: 11.5px; letter-spacing: 0.08em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
               1CRYPTEN
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 5px; border-radius: 2px;">v7.9.5</span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">v7.9.5</span>
           </a>
 
           <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 11px;">|</span>
           
           <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-family: var(--font-mono, monospace); font-size: 9.5px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
-              LAYA SOBERANA • HERMES • PLUTUS • KRONOS
+            <span style="font-family: var(--font-mono, monospace); font-size: 9px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
+              LAYA • HERMES • PLUTUS • KRONOS
             </span>
           </div>
         </div>
 
-        <!-- Center: Navigation (Desktop Quick Links) -->
+        <!-- Center: Navigation (Desktop Only) -->
         <nav class="desktop-nav" style="display: flex; align-items: center; gap: 2px;">
           <a href="/" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
@@ -258,13 +258,13 @@
           </a>
         </nav>
 
-        <!-- Right: Telemetry & State -->
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="text-align: right;">
-            <span style="display: block; font-size: 9px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.08em;">NET WORTH</span>
-            <span id="shell-networth" style="font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: #FCD535;">$100,000.00</span>
+        <!-- Right: Realtime Net Worth & Execution Mode (Clean Single Line) -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <span class="desktop-only" style="font-size: 8.5px; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em;">EQUITY</span>
+            <span id="shell-networth" style="font-family: var(--font-mono, monospace); font-size: 11.5px; font-weight: 700; color: #FCD535; font-variant-numeric: tabular-nums;">$100,000.00</span>
           </div>
-          <span id="shell-mode" class="badge-gold">PAPER</span>
+          <span id="shell-mode" class="badge-gold" style="font-size: 8px; padding: 1px 5px; font-weight: 700;">PAPER</span>
         </div>
       </div>
     `;
@@ -499,7 +499,7 @@
         flex-shrink: 0;
       }
 
-      .app-bottom-bar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; }
+      .app-bottom-bar { display: none !important; }
       .bbar-item {
         display: flex;
         flex-direction: column;
@@ -523,7 +523,7 @@
         .desktop-nav { display: none !important; }
         .desktop-only { display: none !important; }
         .shell-header-bar { padding: 0 10px !important; }
-        .app-bottom-bar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; }
+        .app-bottom-bar { display: none !important; }
       }
     `;
     document.head.appendChild(styleEl);
@@ -564,6 +564,7 @@
       document.body.appendChild(bbar);
     }
     // mountBottomBar disabled per user design requirement: lateral drawer only.
+    // // mountBottomBar disabled
     // mountBottomBar(activePage);
 
     // Mount the Sidebar & Overlay

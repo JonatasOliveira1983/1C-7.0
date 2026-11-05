@@ -754,6 +754,78 @@
     }
   }
 
+  
+  /* ==========================================================================
+     HALLMARK RESPONSIVE ENGINE — LAYA 360 (< 1024px)
+     Eliminates lateral gap; ensures 100% width fluid columns.
+     ========================================================================== */
+  @media (max-width: 1024px) {
+    html, body {
+      height: auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .main-wrap, .laya-viewport-container {
+      padding: 6px 8px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .hero-bar {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      padding: 10px !important;
+      gap: 10px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .hero-bar h1 {
+      font-size: 15px !important;
+      margin: 2px 0 !important;
+    }
+    .hero-stats {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+      width: 100% !important;
+    }
+    .hero-actions {
+      width: 100% !important;
+    }
+    .hero-actions a {
+      width: 100% !important;
+      justify-content: center !important;
+    }
+    .laya-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      gap: 10px !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .laya-grid > aside,
+    .laya-grid > section,
+    .panel,
+    .col-right {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .titans-list {
+      width: 100% !important;
+      max-height: 440px !important;
+      box-sizing: border-box !important;
+    }
+    .titan-card {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      justify-content: space-between !important;
+    }
+  }
+
   </style>
 </head>
 <body>
