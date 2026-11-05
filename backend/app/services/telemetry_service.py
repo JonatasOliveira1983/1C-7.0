@@ -304,6 +304,11 @@ class TelemetryService:
         base_bal = 100000.0
         realized_pnl = round(self._last_equity - base_bal, 2)
 
+        # Estratégia Quantitativa Ativa da Laya
+        quant_strat = "STRAT_TRIPLE_BARRIER_50X" if laya_adx >= 25.0 else "STRAT_COINT_ZSCORE_50X"
+        quant_name = "TRIPLE_BARRIER_50X" if laya_adx >= 25.0 else "COINT_ZSCORE_50X"
+        quant_sub = "EXPANSÃO ATR & TRAILING" if laya_adx >= 25.0 else "STANFORD Z-SCORE"
+
         return {
             "status": "ONLINE",
             "uptime_seconds": round(time.time() - self.start_time, 0),
@@ -317,6 +322,10 @@ class TelemetryService:
             "laya_neural_ms": self._last_laya_neural,
             "laya_regime": laya_regime,
             "laya_adx": laya_adx,
+            "active_quant_strategy": quant_strat,
+            "quant_strategy_name": quant_name,
+            "quant_submodel": quant_sub,
+            "default_leverage": 50.0,
             "btc_info": btc_info,
             "base_balance_usd": base_bal,
             "realized_pnl_usd": realized_pnl,

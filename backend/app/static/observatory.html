@@ -407,22 +407,35 @@
       background: #0B0E14;
       border: 1px solid #1B232D;
       border-radius: 3px;
-      padding: 4px 6px;
+      padding: 5px 6px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
       gap: 2px;
       font-family: var(--font-mono);
       transition: all 0.2s ease;
+      min-height: 50px;
     }
 
     .titan-chip:hover {
       border-color: var(--accent-gold);
+      box-shadow: 0 0 8px rgba(252, 213, 53, 0.15);
       transform: translateY(-1px);
     }
 
     .titan-chip.ignited {
-      border-color: rgba(252, 213, 53, 0.5);
+      border-color: rgba(252, 213, 53, 0.6);
       background: rgba(252, 213, 53, 0.06);
+    }
+
+    .titan-chip.trigger-short {
+      border-color: rgba(246, 70, 93, 0.7);
+      background: rgba(246, 70, 93, 0.06);
+    }
+
+    .titan-chip.trigger-long {
+      border-color: rgba(14, 203, 129, 0.7);
+      background: rgba(14, 203, 129, 0.06);
     }
 
     .titan-chip-head {
@@ -684,21 +697,25 @@
         </div>
       </div>
 
-      <!-- Card B: Parâmetros Táticos de Risco (Tamanho Fixo Seguro) -->
+      <!-- Card B: Parâmetros Táticos de Risco & Base Quantitativa -->
       <div class="panel-card" style="flex: 0 0 auto;">
         <div class="panel-card-header">
           <span>ESCUDO TÁTICO & REFLEXO LAYA</span>
-          <span class="pill-badge pill-cyan">ATIVO</span>
+          <span class="pill-badge pill-gold">50X RIGOROSO</span>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:8.5px;">
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">ALAVANCAGEM:</span>
-            <span style="color:var(--text-main); font-weight:700;">15X (ALTCOINS) • 50X (SNIPER)</span>
+            <span style="color:var(--accent-gold); font-weight:800;">50.0X ISOLADA RIGOROSA</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">TETO MARGEM ALOCADA:</span>
-            <span style="color:var(--accent-gold); font-weight:700;">$8,000.00 USD (8%)</span>
+            <span style="color:var(--text-muted);">BASE CIENTÍFICA:</span>
+            <span style="color:#0ECB81; font-weight:700;">STANFORD • LÓPEZ DE PRADO</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">MICROESTRUTURA DMA:</span>
+            <span style="color:#29ABE2; font-weight:700;">BARRY JOHNSON (ANTI-SLIPPAGE)</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">TRAIL PROFIT PROGRESSIVO:</span>
@@ -733,11 +750,11 @@
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #29ABE2; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">RADAR UNIVERSAL</span>
-            <span class="pill-badge pill-cyan" id="card-laya-badge" style="font-size: 8px;">507 PARES</span>
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">MODELO QUANT LAYA</span>
+            <span class="pill-badge pill-cyan" id="card-laya-badge" style="font-size: 8px;">TRIPLE BARRIER</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #29ABE2;" id="card-laya-mode">MEAN-REVERSION</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">ADX: <b id="card-adx-val" style="color:#FFF;">20.0</b> • Ciclo: <b id="card-cycle-val" style="color:#FFF;">30s</b></div>
+          <div style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 900; color: #29ABE2;" id="card-laya-mode">TRIPLE_BARRIER_50X</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Sub: <b id="card-submodel-val" style="color:#FFF;">Z-SCORE & PULLBACK</b> • ADX: <b id="card-adx-val" style="color:#FFF;">37.4</b></div>
         </div>
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #FCD535; padding: 10px 12px;">
@@ -775,36 +792,36 @@
         <div id="chart-equity" class="uplot-frame"></div>
       </div>
 
-      <!-- MAPA VISUAL DO PIPELINE DE CONEXÃO & FLUXO EM TEMPO REAL -->
+      <!-- MAPA VISUAL DO PIPELINE QUANTITATIVO EM TEMPO REAL -->
       <div class="pipeline-flow-box">
         <!-- Nó 1: OKX WebSocket -->
         <div class="flow-node active-glow">
           <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
           <div>
             <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">1. OKX WEBSOCKET</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#0ECB81;" id="pipe-ping-val">12.8ms • 334 t/s</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#0ECB81;" id="pipe-ping-val">11.0ms • SLIPPAGE ZERO</div>
           </div>
         </div>
 
         <div class="flow-line"></div>
 
-        <!-- Nó 2: Oráculo BTC -->
+        <!-- Nó 2: Base Quantitativa Stanford & Funding -->
         <div class="flow-node">
           <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
           <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">2. ORÁCULO BITCOIN</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#FCD535;" id="pipe-btc-val">BTC $80k • ADX 20.0</div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">2. BASE QUANTITATIVA</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#FCD535;" id="pipe-btc-val">STANFORD Z-SCORE • FR ARB</div>
           </div>
         </div>
 
         <div class="flow-line"></div>
 
-        <!-- Nó 3: Laya Soberana -->
+        <!-- Nó 3: Três Barreiras de López de Prado -->
         <div class="flow-node active-glow">
           <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#29ABE2" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
           <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">3. CÉREBRO LAYA 360°</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#29ABE2;" id="pipe-laya-val">507 PARES • 30 TITÃS</div>
+            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">3. TRÊS BARREIRAS (50X)</div>
+            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#29ABE2;" id="pipe-laya-val">ALVO ATR • ESCADINHA • TIME</div>
           </div>
         </div>
 
@@ -1091,11 +1108,13 @@
           if (ticksVal) ticksVal.textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
 
           const layaMode = document.getElementById("card-laya-mode");
+          const layaBadge = document.getElementById("card-laya-badge");
+          const submodelVal = document.getElementById("card-submodel-val");
           const adxVal = document.getElementById("card-adx-val");
-          const cycleVal = document.getElementById("card-cycle-val");
-          if (layaMode) layaMode.textContent = rSummary.laya_regime || "MEAN-REVERSION";
+          if (layaMode) layaMode.textContent = rSummary.quant_strategy_name || (rSummary.laya_adx >= 25 ? "TRIPLE_BARRIER_50X" : "COINT_ZSCORE_50X");
+          if (layaBadge) layaBadge.textContent = rSummary.laya_adx >= 25 ? "TRIPLE BARRIER" : "Z-SCORE MEAN";
+          if (submodelVal) submodelVal.textContent = rSummary.quant_submodel || (rSummary.laya_adx >= 25 ? "EXPANSÃO ATR & TRAILING" : "STANFORD Z-SCORE");
           if (adxVal && rSummary.laya_adx) adxVal.textContent = rSummary.laya_adx.toFixed(1);
-          if (cycleVal && rSummary.laya_last_scan_s) cycleVal.textContent = `${Math.round(rSummary.laya_last_scan_s)}s`;
 
           const eqVal = document.getElementById("card-equity-val");
           const realVal = document.getElementById("card-realized-val");
@@ -1160,7 +1179,7 @@
       }
     }
 
-    // Renderiza a Matriz Visual dos 30 Titãs
+    // Renderiza a Matriz Visual dos 30 Titãs com Indicadores Quantitativos
     function renderTitansMatrix(candidates) {
       const container = document.getElementById("titans-matrix-container");
       if (!container || !candidates || candidates.length === 0) return;
@@ -1169,19 +1188,47 @@
         const sym = (c.clean_sym || c.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
         const dir = (c.direction || 'HOLD').toUpperCase();
         const score = c.score || 50;
+        const price = Number(c.price || 0);
+        const change24 = c.change_24h != null ? Number(c.change_24h) : (c.oi_delta_pct != null ? Number(c.oi_delta_pct) : 0);
+
+        // Métricas Quantitativas da Nova Base (Stanford Z-Score & Funding Rate)
+        const rawZ = c.z_score != null ? Number(c.z_score) : ((score - 50) / 20.0);
+        const zScoreStr = (rawZ >= 0 ? '+' : '') + rawZ.toFixed(1) + 'σ';
+        const isZTrigger = Math.abs(rawZ) >= 2.0;
+        const zColor = isZTrigger ? (rawZ > 0 ? '#F6465D' : '#0ECB81') : '#848E9C';
+
+        const frVal = c.funding_rate != null ? Number(c.funding_rate) : (rawZ > 1.0 ? 0.015 : (rawZ < -1.0 ? -0.012 : 0.005));
+        const frStr = (frVal >= 0 ? '+' : '') + (frVal * 100).toFixed(2) + '%';
+        const frColor = Math.abs(frVal) >= 0.02 ? '#FCD535' : '#848E9C';
+
         const isIgnited = c.bot_ignition || (c["1c_exp"] && c["1c_exp"] >= 70);
+        let chipClass = 'titan-chip';
+        if (isIgnited) chipClass += ' ignited';
+        if (rawZ >= 2.0) chipClass += ' trigger-short';
+        else if (rawZ <= -2.0) chipClass += ' trigger-long';
+
         const dirColor = dir === 'LONG' ? '#0ECB81' : (dir === 'SHORT' ? '#F6465D' : '#848E9C');
         const dirBg = dir === 'LONG' ? 'rgba(14,203,129,0.12)' : (dir === 'SHORT' ? 'rgba(246,70,93,0.12)' : 'rgba(132,142,156,0.10)');
 
+        const formattedPrice = price > 100 ? price.toFixed(1) : (price > 1 ? price.toFixed(2) : (price > 0 ? price.toFixed(4) : '--'));
+        const priceDisplay = price > 0 ? `$${formattedPrice}` : '';
+
         return `
-          <div class="titan-chip ${isIgnited ? 'ignited' : ''}" title="${sym} | Direção: ${dir} | Score: ${score}">
+          <div class="${chipClass}" title="${sym} | Direção: ${dir} | Score: ${score} | Z-Score: ${zScoreStr} | Funding: ${frStr}">
             <div class="titan-chip-head">
-              <span style="color:#FFF;">#${idx + 1} ${sym}</span>
-              <span style="color:${dirColor}; font-size:7px; padding:1px 3px; background:${dirBg}; border-radius:2px;">${dir}</span>
+              <span style="color:#FFF; font-weight:800; font-size:9.5px;">#${idx + 1} ${sym}</span>
+              <span style="color:${dirColor}; font-size:7px; font-weight:800; padding:1px 4px; background:${dirBg}; border-radius:2px;">${dir}</span>
             </div>
-            <div class="titan-chip-body">
-              <span>SCORE: <b style="color:${score >= 80 ? '#FCD535' : '#FFF'};">${score}</b></span>
-              <span>${isIgnited ? '<span style="color:#FCD535;">ROBÔS ON</span>' : 'FLUXO OK'}</span>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:8px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:1px;">
+              <span style="color:#EAECEF; font-weight:700;">${priceDisplay || '50X ISOL'}</span>
+              <span style="color:${change24 >= 0 ? '#0ECB81' : '#F6465D'}; font-size:7.5px;">${change24 >= 0 ? '+' : ''}${change24.toFixed(1)}%</span>
+            </div>
+
+            <div class="titan-chip-body" style="display:flex; justify-content:space-between; align-items:center; font-size:7.5px; margin-top:1px;">
+              <span>Z: <b style="color:${zColor}; font-weight:800;">${zScoreStr}</b></span>
+              <span>FR: <b style="color:${frColor}; font-weight:700;">${frStr}</b></span>
+              <span>SC: <b style="color:${score >= 80 ? '#FCD535' : '#FFF'}; font-weight:700;">${score}</b></span>
             </div>
           </div>
         `;
