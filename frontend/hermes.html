@@ -24,7 +24,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Container ocupa exatamente a altura total menos a barra superior de 40px */
+    /* Container ocupa exatamente a altura total menos o header institucional de 40px */
     .hermes-container {
       display: flex;
       flex-direction: column;
@@ -49,36 +49,15 @@
       border-radius: 6px;
       overflow: hidden;
       box-sizing: border-box;
+      position: relative;
     }
 
-    /* Cabeçalho minimalista: apenas o Orb e o nome HERMES */
-    .chat-header {
-      height: 44px;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 16px;
-      background: #0E121A;
-      border-bottom: 1px solid #1D2330;
-      flex-shrink: 0;
-    }
-
-    .chat-header-title {
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      color: #F1F5F9;
-      text-transform: uppercase;
-      font-family: var(--font-sans, sans-serif);
-    }
-
-    /* Área de mensagens que rola livremente */
+    /* Área central de mensagens */
     .chat-messages {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
-      padding: 16px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -87,15 +66,59 @@
       -webkit-overflow-scrolling: touch;
     }
 
+    /* Hero central: Orb maior centralizado na tela com o nome Hermes */
+    .hermes-hero {
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 30px 10px;
+      text-align: center;
+      user-select: none;
+      transition: all 0.25s ease-out;
+    }
+
+    .hermes-hero-title {
+      font-family: var(--font-sans, sans-serif);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      color: #F1F5F9;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(252, 213, 53, 0.15);
+    }
+
+    /* Quando há mensagens na tela, o hero passa a ocupar o topo de forma sutil */
+    .hermes-hero.has-messages {
+      margin: 0 auto 12px auto;
+      padding: 6px 0;
+      gap: 8px;
+    }
+
+    .hermes-hero.has-messages .hermes-hero-title {
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: #94A3B8;
+    }
+
+    /* Balões de mensagem */
     .chat-bubble {
       padding: 12px 14px;
       font-size: 13px;
       line-height: 1.55;
-      max-width: 88%;
+      max-width: 86%;
       border-radius: 4px;
       word-break: break-word;
       overflow-wrap: break-word;
       font-family: var(--font-sans, sans-serif);
+      animation: fadeIn 0.18s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .chat-bubble-user {
@@ -115,7 +138,7 @@
 
     .bubble-role {
       font-family: var(--font-mono, monospace);
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.08em;
       margin-bottom: 5px;
@@ -126,7 +149,7 @@
       white-space: pre-wrap;
     }
 
-    /* Barra de digitação colada no fundo sem espaço vazio */
+    /* Barra de digitação colada na base sem espaço morto */
     .chat-input-bar {
       height: 52px;
       min-height: 52px;
@@ -191,19 +214,17 @@
       .hermes-container {
         padding: 4px 6px 6px 6px;
       }
-      .chat-header {
-        height: 40px;
-        min-height: 40px;
-        padding: 0 12px;
-      }
       .chat-messages {
-        padding: 10px 10px;
+        padding: 12px 8px;
         gap: 10px;
       }
       .chat-bubble {
         max-width: 94%;
         padding: 10px 12px;
         font-size: 12.5px;
+      }
+      .hermes-hero-title {
+        font-size: 19px;
       }
       .chat-input-bar {
         padding: 6px 8px;
@@ -216,21 +237,15 @@
   <main class="hermes-container">
     <div class="chat-card">
 
-      <!-- Cabeçalho Único: Orb + HERMES -->
-      <header class="chat-header">
-        <canvas class="thinking-orb-canvas" data-state="solving" data-size="22" data-color="#FCD535" width="22" height="22" style="width:22px;height:22px;"></canvas>
-        <span class="chat-header-title">HERMES</span>
-      </header>
-
-      <!-- Mensagens da Sessão -->
+      <!-- Área de Mensagens com o Hero Centralizado no Início -->
       <div id="chat-messages" class="chat-messages">
-        <div class="chat-bubble chat-bubble-hermes">
-          <div class="bubble-role" style="color: #FCD535;">HERMES ONLINE</div>
-          <div class="bubble-content">Mesa de operações 1Crypten sincronizada. Como posso auxiliar na estratégia ou consulta do sistema agora?</div>
+        <div id="hermes-hero" class="hermes-hero">
+          <canvas id="hermes-main-orb" class="thinking-orb" data-state="solving" data-size="76" data-color="#FCD535" width="76" height="76" style="width:76px;height:76px;"></canvas>
+          <div class="hermes-hero-title">HERMES</div>
         </div>
       </div>
 
-      <!-- Barra de Input (sem folga inferior) -->
+      <!-- Barra de Input (colada ao fundo) -->
       <div class="chat-input-bar">
         <input id="chat-input" class="chat-input-field" type="text" placeholder="Comando para o Hermes..." onkeydown="if(event.key==='Enter') sendMessage()" autofocus autocomplete="off">
         <button id="chat-btn-send" onclick="sendMessage()" class="chat-send-btn">ENVIAR</button>
@@ -253,10 +268,24 @@
 
     function appendMessage(role, text) {
       const container = document.getElementById("chat-messages");
+      const hero = document.getElementById("hermes-hero");
+      
+      if (hero && !hero.classList.contains("has-messages")) {
+        hero.classList.add("has-messages");
+        const orbCanvas = document.getElementById("hermes-main-orb");
+        if (orbCanvas && window.ThinkingOrbsManager) {
+          try {
+            orbCanvas.style.width = "40px";
+            orbCanvas.style.height = "40px";
+            window.ThinkingOrbsManager.update(orbCanvas, { size: 40 });
+          } catch (e) {}
+        }
+      }
+
       const bubble = document.createElement("div");
       bubble.className = `chat-bubble chat-bubble-${role === 'user' ? 'user' : 'hermes'}`;
       
-      const roleLabel = role === 'user' ? 'OPERADOR' : 'HERMES INTEL';
+      const roleLabel = role === 'user' ? 'OPERADOR' : 'HERMES';
       const roleColor = role === 'user' ? '#94A3B8' : '#FCD535';
 
       bubble.innerHTML = `
@@ -295,7 +324,6 @@
           const data = await res.json();
           appendMessage("hermes", data.reply || data.response || "Comando processado.");
         } else {
-          // Fallback para rota secundária se existir
           const res2 = await fetch("/api/hermes/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
