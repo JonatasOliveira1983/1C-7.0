@@ -142,18 +142,18 @@ class BankrollManager:
                 user_doc = await firebase_service.db.collection("users").document(username).get()
                 if user_doc.exists:
                     data = user_doc.to_dict()
-                    ui_saldo_total = float(data.get("bankroll_balance", 100.0))
+                    ui_saldo_total = float(data.get("bankroll_balance", 100000.0))
                     return max(ui_saldo_total, 1.0)
 
             # Fallback Legacy / Admin
             banca_data = await firebase_service.get_banca_status()
-            config_bal = float(banca_data.get("configured_balance", 100.0))
+            config_bal = float(banca_data.get("configured_balance", 100000.0))
             ui_saldo_total = float(banca_data.get("saldo_total", config_bal))
             return max(ui_saldo_total, 1.0)
             
         except Exception as e:
             logger.error(f"Error calculating operating balance for {username}: {e}")
-            return 100.0
+            return 100000.0
 
     async def get_live_operating_equity(self) -> float:
         """

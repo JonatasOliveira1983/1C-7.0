@@ -47,7 +47,7 @@
         }
     ],
     "moonbags": [],
-    "balance": 100.0,
+    "balance": 100000.0,
     "history": [
         {
             "symbol": "UNIUSDT",
