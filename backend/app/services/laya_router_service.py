@@ -4001,22 +4001,25 @@ class LayaRouterService:
                 if not c_bot and not cand.get("alt_pump_ignition") and not cand.get("is_dump_ignition"):
                     continue
 
-                # 4. TRAVA 3: Veto Rígido de Compra de Topo e Venda de Fundo
-                if c_dir == "SHORT":
-                    # NUNCA vender fundo (<45% de range) a menos que haja dump ignition institucional
-                    if c_range < 45.0 and not cand.get("is_dump_ignition"):
-                        continue
-                    # Proibido vender miolo neutro (45% a 55%) sem confirmação institucional
-                    if (45.0 <= c_range < 55.0) and not cand.get("is_dump_ignition"):
-                        continue
+                # 4. TRAVA 3: Veto Rígido de Compra de Topo e Venda de Fundo (Apenas para estratégias sem validação microestrutural)
+                # Setups soberanos (Pullback Hunter 2H/30M, Águia Fusion, Smart Money) já possuem sua própria validação
+                # microestrutural de repique/retração e rejeição de pavio, não devendo ser asfixiados pelo range estático diário de 24h.
+                if c_strat not in ("LAYA_PULLBACK_HUNTER_2H_30M", "LAYA_AGUIA_FUSION", "LAYA_SMART_MONEY_H1", "LAYA_LIQUIDITY_HUNT"):
+                    if c_dir == "SHORT":
+                        # NUNCA vender fundo (<45% de range) a menos que haja dump ignition institucional
+                        if c_range < 45.0 and not cand.get("is_dump_ignition"):
+                            continue
+                        # Proibido vender miolo neutro (45% a 55%) sem confirmação institucional
+                        if (45.0 <= c_range < 55.0) and not cand.get("is_dump_ignition"):
+                            continue
 
-                if c_dir == "LONG":
-                    # NUNCA comprar topo (>=65.0% de range) a menos que haja rompimento comprovado com pump ignition
-                    if c_range >= 65.0 and not cand.get("is_pump_ignition"):
-                        continue
-                    # Proibido comprar miolo neutro (35% a 65%) sem aceleração compradora
-                    if (35.0 < c_range < 65.0) and not cand.get("is_pump_ignition"):
-                        continue
+                    if c_dir == "LONG":
+                        # NUNCA comprar topo (>=65.0% de range) a menos que haja rompimento comprovado com pump ignition
+                        if c_range >= 65.0 and not cand.get("is_pump_ignition"):
+                            continue
+                        # Proibido comprar miolo neutro (35% a 65%) sem aceleração compradora
+                        if (35.0 < c_range < 65.0) and not cand.get("is_pump_ignition"):
+                            continue
 
                 # 5. Farol Macro e Clima
                 if c_strat != "LAYA_LIQUIDITY_HUNT":
