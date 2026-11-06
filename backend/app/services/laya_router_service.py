@@ -2548,7 +2548,13 @@ class LayaRouterService:
             logger.debug(f"[LAYA] Sem pesos calibrados customizados: {e}")
         return {}
 
-    def evaluate_lower_tf_structure(self, candles: List[Any], direction: str) -> Dict[str, Any]:
+    def evaluate_lower_tf_structure(self, candles: list, direction: str) -> dict:
+        """
+        [V195-PRECISION-30M-EXHAUSTION]: Avalia microestrutura em candles de 30M:
+        - Exige candle fechado com rejeição clara de pavio.
+        - Veta terminantemente abrir SHORT em vela verde de expansão ou com volume comprador explosivo.
+        - Veta terminantemente abrir LONG em vela vermelha de despejo ou com volume vendedor explosivo.
+        """
         default_metrics = {
             "upper_wick_ratio": 0.0, "lower_wick_ratio": 0.0, "wick_ratio": 0.0,
             "momentum_pct": 0.0, "open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0
@@ -2559,7 +2565,7 @@ class LayaRouterService:
         if not isinstance(candles, list) or len(candles) < 3:
             return {
                 "is_safe": False,
-                "reason": "DADOS_5M_INSUFICIENTES (Veto preventivo de seguranca em alta alavancagem)",
+                "reason": "DADOS_30M_INSUFICIENTES (Veto preventivo de seguranca em alta alavancagem)",
                 "metrics": default_metrics
             }
 
@@ -2575,6 +2581,11 @@ class LayaRouterService:
         o1, h1, l1, cl1 = float(c_prev1[1]), float(c_prev1[2]), float(c_prev1[3]), float(c_prev1[4])
         o_curr, h_curr, l_curr, cl_curr = float(c_curr[1]), float(c_curr[2]), float(c_curr[3]), float(c_curr[4])
         o_old, h_old, l_old, cl_old = float(c_prev2[1]), float(c_prev2[2]), float(c_prev2[3]), float(c_prev2[4])
+
+        vol_curr = float(c_curr[5]) if len(c_curr) > 5 else 0.0
+        vol_prev1 = float(c_prev1[5]) if len(c_prev1) > 5 else 0.0
+        vol_prev2 = float(c_prev2[5]) if len(c_prev2) > 5 else 0.0
+        vol_avg = max(1.0, (vol_prev1 + vol_prev2) / 2.0)
 
         range_curr = max(1e-8, h_curr - l_curr)
         upper_wick = h_curr - max(o_curr, cl_curr)
@@ -2595,62 +2606,65 @@ class LayaRouterService:
             "close": cl_curr,
             "prev_high": h1,
             "prev_low": l1,
-            "range": round(range_curr, 4)
+            "range": round(range_curr, 4),
+            "vol_ratio": round(vol_curr / vol_avg, 2)
         }
 
         if direction == "SHORT":
-            wick_ratio = upper_wick_ratio
-            is_locomotive = total_gain >= 0.015 or (((cl_curr - o_curr) / o_curr) >= 0.006 and wick_ratio < 0.20)
-            if is_locomotive:
+            # 1. Trava de Volume Explosivo de Compra no Repique
+            if vol_curr > vol_avg * 2.0 and cl_curr > o_curr:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_LOCOMOTIVA_5M (Vela 5M em alta agressiva [+{total_gain*100:.1f}%] sem rejeicao. Aguardar exaustao)",
+                    "reason": f"VETO_VOLUME_EXPLOSIVO_COMPRA_30M (Repique com volume {vol_curr/vol_avg:.1f}x acima da media. Compradores agressivos no controle)",
                     "metrics": metrics
                 }
-            if cl_curr > o_curr * 1.002 and upper_wick_ratio < 0.20:
+            # 2. Trava de Vela Verde em Expansao: Proibido vender candle 30M verde subindo forte sem rejeicao
+            if cl_curr > o_curr * 1.002 and upper_wick_ratio < 0.25:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_REPIQUE_ATIVO_5M (Vela 5M verde ativa [+{((cl_curr-o_curr)/o_curr)*100:.2f}%] sem sombra superior ({upper_wick_ratio*100:.1f}%). Aguardar rejeicao dos vendedores)",
+                    "reason": f"VETO_VELA_VERDE_EXPANSAO_30M (Vela 30M verde ativa [+{((cl_curr-o_curr)/o_curr)*100:.2f}%] sem rejeicao ({upper_wick_ratio*100:.1f}%). Proibido vender candle subindo)",
                     "metrics": metrics
                 }
-            if h_curr > h1 * 1.002 and wick_ratio < 0.15 and cl_curr >= h1:
+            # 3. Trava de Rompimento de Maxima sem Pavio
+            if h_curr > h1 * 1.002 and upper_wick_ratio < 0.20 and cl_curr >= h1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_ALTA_5M (Rompimento ativo de maxima em ${h_curr:.4f} sem rejeicao ({wick_ratio*100:.1f}%))",
+                    "reason": f"VETO_EXPANSAO_ALTA_30M (Rompimento ativo de maxima em ${h_curr:.4f} sem rejeicao ({upper_wick_ratio*100:.1f}%))",
                     "metrics": metrics
                 }
 
         elif direction == "LONG":
-            wick_ratio = lower_wick_ratio
-            is_free_fall = total_drop >= 0.015 or (((o_curr - cl_curr) / o_curr) >= 0.006 and wick_ratio < 0.20)
-            if is_free_fall:
+            # 1. Trava de Volume Explosivo de Venda no Despejo
+            if vol_curr > vol_avg * 2.0 and cl_curr < o_curr:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_QUEDA_LIVRE_5M (Vela 5M em queda agressiva [-{total_drop*100:.1f}%] sem absorcao. Proibido comprar faca caindo)",
+                    "reason": f"VETO_VOLUME_EXPLOSIVO_VENDA_30M (Despejo com volume {vol_curr/vol_avg:.1f}x acima da media. Vendedores agressivos no controle)",
                     "metrics": metrics
                 }
-            if cl_curr < o_curr * 0.998 and lower_wick_ratio < 0.20:
+            # 2. Trava de Vela Vermelha em Queda Ativa: Proibido comprar faca caindo sem absorcao
+            if cl_curr < o_curr * 0.998 and lower_wick_ratio < 0.25:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_DESPEJO_ATIVO_5M (Vela 5M vermelha ativa [-{((o_curr-cl_curr)/o_curr)*100:.2f}%] sem sombra inferior ({lower_wick_ratio*100:.1f}%). Aguardar absorcao dos compradores)",
+                    "reason": f"VETO_VELA_VERMELHA_EXPANSAO_30M (Vela 30M vermelha ativa [-{((o_curr-cl_curr)/o_curr)*100:.2f}%] sem absorcao ({lower_wick_ratio*100:.1f}%). Proibido comprar candle caindo)",
                     "metrics": metrics
                 }
-            if l_curr < l1 * 0.998 and wick_ratio < 0.15 and cl_curr <= l1:
+            # 3. Trava de Rompimento de Minima sem Pavio
+            if l_curr < l1 * 0.998 and lower_wick_ratio < 0.20 and cl_curr <= l1:
                 return {
                     "is_safe": False,
-                    "reason": f"VETO_EXPANSAO_BAIXA_5M (Rompimento ativo de minima em ${l_curr:.4f} sem absorcao ({wick_ratio*100:.1f}%))",
+                    "reason": f"VETO_EXPANSAO_BAIXA_30M (Rompimento ativo de minima em ${l_curr:.4f} sem absorcao ({lower_wick_ratio*100:.1f}%))",
                     "metrics": metrics
                 }
 
         return {
             "is_safe": True,
-            "reason": "CONFIRMADO_MICROESTRUTURA_REATIVA (Exaustao e absorcao validadas em 5M)",
+            "reason": "CONFIRMADO_MICROESTRUTURA_30M (Exaustao e absorcao validadas no timeframe 30M)",
             "metrics": metrics
         }
 
-    async def check_lower_tf_exhaustion(self, symbol: str, direction: str) -> Dict[str, Any]:
+    async def check_lower_tf_exhaustion(self, symbol: str, direction: str) -> dict:
         """
-        [V173-NATIVE-OKX-FEED]: Consulta nativa de velas 5M na OKX Perpétuo
+        [V195-NATIVE-OKX-30M-FEED]: Consulta nativa de velas 30M na OKX Perpétuo
         com fallbacks para OKX Spot e Binance, passando os candles para evaluate_lower_tf_structure.
         """
         clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
@@ -2658,35 +2672,36 @@ class LayaRouterService:
         raw_candles = []
 
         try:
+            import httpx
             async with httpx.AsyncClient(timeout=4.0, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
-                # 1. OKX SWAP Perpétuo (Primário para todos os pares)
+                # 1. OKX SWAP Perpétuo 30M
                 inst_id = f"{clean_coin}-USDT-SWAP"
-                url_okx = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar=5m&limit=10"
+                url_okx = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar=30m&limit=10"
                 resp = await client.get(url_okx)
                 if resp.status_code == 200:
                     d = resp.json()
                     if d.get("code") == "0" and d.get("data") and len(d["data"]) >= 3:
                         raw_candles = d["data"]
 
-                # 2. Fallback OKX Spot
+                # 2. Fallback OKX Spot 30M
                 if not raw_candles:
-                    url_spot = f"https://www.okx.com/api/v5/market/candles?instId={clean_coin}-USDT&bar=5m&limit=10"
+                    url_spot = f"https://www.okx.com/api/v5/market/candles?instId={clean_coin}-USDT&bar=30m&limit=10"
                     resp_s = await client.get(url_spot)
                     if resp_s.status_code == 200:
                         d_s = resp_s.json()
                         if d_s.get("code") == "0" and d_s.get("data") and len(d_s["data"]) >= 3:
                             raw_candles = d_s["data"]
 
-                # 3. Fallback Binance Futures / Spot
+                # 3. Fallback Binance Futures / Spot 30M
                 if not raw_candles:
-                    url_bin = f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval=5m&limit=10"
+                    url_bin = f"https://fapi.binance.com/fapi/v1/klines?symbol={clean}&interval=30m&limit=10"
                     resp_b = await client.get(url_bin)
                     if resp_b.status_code == 200:
                         b_data = resp_b.json()
                         if isinstance(b_data, list) and len(b_data) >= 3:
-                            raw_candles = [[str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])] for k in b_data]
+                            raw_candles = [[str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4]), str(k[5])] for k in b_data]
         except Exception as _e_ltf:
-            logger.debug(f"[LOWER-TF] Erro ao consultar candles 5M para {symbol}: {_e_ltf}")
+            logger.debug(f"[LOWER-TF-30M] Erro ao consultar candles 30M para {symbol}: {_e_ltf}")
 
         if not raw_candles:
             try:
@@ -2701,7 +2716,7 @@ class LayaRouterService:
         if not raw_candles:
             return {
                 "is_safe": False,
-                "reason": f"DADOS_5M_INDISPONIVEIS (Veto preventivo de segurança em {symbol}: confirmação microestrutural ausente)",
+                "reason": f"DADOS_30M_INDISPONIVEIS (Veto preventivo de segurança em {symbol}: confirmação 30M ausente)",
                 "metrics": {"upper_wick_ratio": 0.0, "lower_wick_ratio": 0.0, "wick_ratio": 0.0, "momentum_pct": 0.0}
             }
 
@@ -4251,16 +4266,41 @@ class LayaRouterService:
                 except Exception as heat_err:
                     logger.debug(f"[LAYA-VETO-HEATMAP-ERR] {heat_err}")
 
-                # [V169-TF-MENORES]: Verifica exaustão e ausência de faca caindo em 5m antes do disparo
+                # [V169-TF-MENORES]: Verifica exaustao e ausencia de faca caindo em 30m antes do disparo
                 ltf_check = await self.check_lower_tf_exhaustion(cand_sym, cand_dir)
                 if not ltf_check.get("is_safe", True):
                     self.log_thought(
                         cand.get("clean_sym", cand_sym),
-                        f"️ [VETO TF MENOR]: Ordem {cand_dir} bloqueada: {ltf_check.get('reason')}",
+                        f"[VETO TF MENOR]: Ordem {cand_dir} bloqueada: {ltf_check.get('reason')}",
                         action="VETO_TF_MENOR",
                         confidence=92
                     )
                     continue
+
+                # [V195-STRUCTURAL-STOP-INTEGRITY]: O Stop Loss NUNCA pode ser mutilado ou recalculado para dentro da zona de risco!
+                cand_sl = cand.get("stop_loss")
+                cand_p = float(cand.get("price") or 0.0)
+                if cand_dir == "SHORT" and cand_sl and cand_p > 0 and cand_sl > cand_p:
+                    cand_sl_dist = (cand_sl - cand_p) / cand_p
+                    if cand_sl_dist > 0.016:
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"[VETO DISTANCIA RESISTENCIA]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 1.6% para 50X). Proibido mutilar o stop abaixo da media! Aguardar repique aproximar-se da resistencia.",
+                            action="VETO_DISTANCIA_STOP",
+                            confidence=95
+                        )
+                        continue
+                elif cand_dir == "LONG" and cand_sl and cand_p > 0 and cand_sl < cand_p:
+                    cand_sl_dist = (cand_p - cand_sl) / cand_p
+                    if cand_sl_dist > 0.016:
+                        self.log_thought(
+                            cand.get("clean_sym", cand_sym),
+                            f"[VETO DISTANCIA SUPORTE]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 1.6% para 50X). Proibido mutilar o stop acima do suporte! Aguardar recuo aproximar-se do suporte.",
+                            action="VETO_DISTANCIA_STOP",
+                            confidence=95
+                        )
+                        continue
+
                 chosen = cand
                 break
 
@@ -4271,13 +4311,10 @@ class LayaRouterService:
                 d = chosen["direction"]
                 strat = chosen.get("strategy") or "LAYA_SMART_MONEY_H1"
                 
-                # Stop Loss e Alvo calculados pelo setup específico (H1 Breakout, DVWAP ou Mola)
+                # Stop Loss e Alvo calculados pelo setup especifico (H1 Breakout, DVWAP ou Mola)
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                # [V179-SNIPER-ASYMMETRY] CALIBRAÇÃO ESTRUTURAL DE RISCO:RETORNO (R:R >= 2:1):
-                # Stop estrito entre 1.5% e 1.8% (máximo -18.0% ROI em 10x)
-                # Alvo inicial assimétrico de 3.6% a 5.0% (+36% a +50% ROI em 10x)
                 default_stop_dist = 0.012
                 min_stop_dist = 0.008
                 max_stop_dist = 0.016
@@ -4285,16 +4322,18 @@ class LayaRouterService:
                 from services.order_projection_service import proj_service
                 from app.services.okx_universe_service import okx_universe_service
 
-                if d == "LONG":
-                    if not stop_loss or stop_loss >= p or ((p - stop_loss) / p) > max_stop_dist or ((p - stop_loss) / p) < min_stop_dist:
-                        stop_loss = p * (1.0 - default_stop_dist)
-                    if not target or target <= p or ((target - p) / p) < default_target_dist:
-                        target = p * (1.0 + default_target_dist)
-                elif d == "SHORT":
-                    if not stop_loss or stop_loss <= p or ((stop_loss - p) / p) > max_stop_dist or ((stop_loss - p) / p) < min_stop_dist:
+                # [V195-STRUCTURAL-STOP-INTEGRITY]: Se stop ou target ausentes, preenche com default sem mutilar estrutura
+                if d == "SHORT":
+                    if not stop_loss or stop_loss <= p:
                         stop_loss = p * (1.0 + default_stop_dist)
                     if not target or target >= p or ((p - target) / p) < default_target_dist:
                         target = p * (1.0 - default_target_dist)
+
+                elif d == "LONG":
+                    if not stop_loss or stop_loss >= p:
+                        stop_loss = p * (1.0 - default_stop_dist)
+                    if not target or target <= p or ((target - p) / p) < default_target_dist:
+                        target = p * (1.0 + default_target_dist)
 
                 stop_loss = okx_universe_service.format_price_by_tick(sym, stop_loss)
                 target = okx_universe_service.format_price_by_tick(sym, target)

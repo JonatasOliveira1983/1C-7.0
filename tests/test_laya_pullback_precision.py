@@ -87,3 +87,35 @@ def test_veto_esticado_topo_long():
     assert res["has_pullback_setup"] is False
     assert "VETO_ESTICADO_TOPO" in res["reason"]
     assert res["pullback_type"] == "STRETCHED_OVERBOUGHT"
+
+
+def test_evaluate_30m_tf_structure_veto_vela_verde():
+    """
+    Garante que se a vela 30M atual estiver em expansao de alta (verde)
+    sem rejeicao superior clara, o SHORT e vetado (proibido vender vela verde subindo!).
+    """
+    # 3 candles de 30M: [ts, open, high, low, close, vol]
+    raw_candles = [
+        ["1700000000", "10.60", "10.75", "10.58", "10.70", "50000"],
+        ["1700001800", "10.70", "10.85", "10.68", "10.83", "60000"],
+        ["1700003600", "10.83", "10.96", "10.82", "10.95", "90000"]  # Vela verde subindo forte, close perto da maxima
+    ]
+    res = laya_router_service.evaluate_lower_tf_structure(raw_candles, "SHORT")
+    assert res["is_safe"] is False
+    assert ("VETO" in res["reason"])
+
+
+def test_evaluate_30m_tf_structure_veto_volume_explosivo():
+    """
+    Garante que se o repique estiver subindo com volume explosivo (compradores agressivos),
+    o SHORT e vetado ate o volume secar.
+    """
+    raw_candles = [
+        ["1700000000", "10.60", "10.70", "10.58", "10.65", "20000"],
+        ["1700001800", "10.65", "10.75", "10.62", "10.70", "25000"],
+        ["1700003600", "10.70", "10.95", "10.69", "10.90", "150000"]  # Volume 6x maior que o normal!
+    ]
+    res = laya_router_service.evaluate_lower_tf_structure(raw_candles, "SHORT")
+    assert res["is_safe"] is False
+    assert ("VETO" in res["reason"])
+
