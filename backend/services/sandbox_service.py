@@ -1945,30 +1945,9 @@ class SandboxService:
                 closed_at = time.time()
                 status = "CLOSED_STOP"
 
-        # [V192-FAST-FAILURE-CUT & LOSS CAPPING] Corta perdas rapido em 50x sem deixar sangrar
-        trade_age = time.time() - float(trade.opened_at or time.time())
-        # 1. Hard Cap de Perda: Em 50x, perda nunca pode exceder -20% ROI (-$200 / slot)
-        if not is_closed and current_roi <= -20.0:
-            exit_price = current_price
-            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
-            is_closed = True
-            should_run_blocklist = True
-            closed_at = time.time()
-            status = "CLOSED_STOP_CAP"
-            history.append(f"[LOSS-CAP-20%] Corte imediato em {current_roi:.1f}% ROI aos {int(trade_age/60)}min (limite rigido atingido).")
-            logger.warning(f"[SANDBOX-LOSS-CAP] {symbol} cortado com rigor em {current_roi:.1f}% ROI (limite maximo -20%).")
-
-        # 2. Time Stop Preventivo: se o trade nao ganhou tracao apos 10min (600s) e esta negativo (<= -10% ROI)
-        elif not is_closed and trade_age > 600 and current_roi <= -10.0:
-            exit_price = current_price
-            current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
-            is_closed = True
-            should_run_blocklist = True
-            closed_at = time.time()
-            status = "CLOSED_TIME_STOP"
-            history.append(f"[TIME-STOP-10MIN] Falha de ignicao apos {int(trade_age/60)}min (ROI={current_roi:.1f}%). Abortado para proteger banca.")
-            logger.warning(f"[SANDBOX-TIME-STOP] {symbol} abortado aos {int(trade_age/60)}min com ROI={current_roi:.1f}%.")
-
+        # [V195-LAYA-SOVEREIGN-TIME-SPACE]: Time Stop de 10min e Hard Cap arbitrario de -20% desativados.
+        # Operacoes de 30M/2H agora possuem tempo e espaco tecnico completos para respirar e desenvolver o movimento
+        # ate o Stop Loss Estrutural (ATR/Suporte/Resistencia) ou ate acionar a Escadinha de Trailing Stop / Alvo.
         # 12. Atualizar flash state
         flash_state.update({
             "phase": updated_phase,
