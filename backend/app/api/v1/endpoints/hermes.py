@@ -522,7 +522,7 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
             c_sym = raw_sym.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "") + "USDT"
             holding_map[c_sym] = {
                 "side": getattr(at, "direction", "LONG"),
-                "leverage": getattr(at, "leverage", 20),
+                "leverage": 50,
                 "pnl_pct": getattr(at, "pnl_pct", 0.0) or getattr(at, "current_roi", 0.0),
                 "entry_price": getattr(at, "entry_price", 0.0),
                 "strategy": getattr(at, "strategy", "SMART_MONEY")
@@ -581,7 +581,7 @@ async def laya_360_telemetry_endpoint(symbol: Optional[str] = "SOLUSDT", price: 
                 "is_active": (cp == clean_sym),
                 "is_holding": is_holding,
                 "holding_side": holding_map.get(cp, {}).get("side", "LONG") if is_holding else None,
-                "holding_lev": holding_map.get(cp, {}).get("leverage", 20) if is_holding else None,
+                "holding_lev": holding_map.get(cp, {}).get("leverage", 50) if is_holding else None,
                 "holding_pnl_pct": round(holding_map.get(cp, {}).get("pnl_pct", 0.0), 2) if is_holding else None,
                 "conviction_score": c_score,
                 "posture": c_posture

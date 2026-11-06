@@ -1616,7 +1616,7 @@
               <span class="titan-rank" style="${isHolding ? 'color: var(--gold); font-weight: 800;' : ''}">#${String(t.rank || 0).padStart(2, '0')}</span>
               <span class="titan-sym" style="${isHolding ? 'color: var(--gold); font-weight: 800;' : ''}">${t.symbol.replace("USDT", "")}</span>
               ${isHolding 
-                ? `<span style="background:var(--gold); color:#000; font-weight:800; font-size:7px; padding:1px 5px; border-radius:2px; letter-spacing:0.3px;">ATIVA ${t.holding_side || 'LONG'} ${t.holding_lev || 20}X (${t.holding_pnl_pct >= 0 ? '+' : ''}${t.holding_pnl_pct}%)</span>` 
+                ? `<span style="background:var(--gold); color:#000; font-weight:800; font-size:7px; padding:1px 5px; border-radius:2px; letter-spacing:0.3px;">ATIVA ${t.holding_side || 'LONG'} ${t.holding_lev || 50}X (${t.holding_pnl_pct >= 0 ? '+' : ''}${t.holding_pnl_pct}%)</span>` 
                 : (t.bot_ignition ? '<span class="titan-ignition-pill">IGNIÇÃO</span>' : '')}
             </div>
             <div class="titan-val-box">
