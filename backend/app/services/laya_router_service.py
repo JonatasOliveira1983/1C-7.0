@@ -349,6 +349,39 @@ class LayaRouterService:
             })
         return candles_2h
 
+    def aggregate_15m_to_30m(self, candles_15m: list) -> list:
+        """
+        [V195-AGGREGATE-15M-TO-30M]
+        Agrega candles de 15M em candles de 30M deterministicamente.
+        Cada candle de 30M e a fusao de 2 candles consecutivos de 15M.
+        """
+        parsed = []
+        for c in (candles_15m or []):
+            if isinstance(c, dict) and "close" in c:
+                parsed.append(c)
+            else:
+                p = self._parse_candle(c)
+                if p and p.get("close", 0) > 0:
+                    parsed.append(p)
+        if len(parsed) < 2:
+            return parsed
+        parsed.sort(key=lambda x: x.get("ts", 0))
+        candles_30m = []
+        n = len(parsed)
+        start_idx = n % 2
+        for i in range(start_idx, n, 2):
+            c1 = parsed[i]
+            c2 = parsed[i+1]
+            candles_30m.append({
+                "ts": c2.get("ts", 0),
+                "open": float(c1.get("open", 0.0)),
+                "high": max(float(c1.get("high", 0.0)), float(c2.get("high", 0.0))),
+                "low": min(float(c1.get("low", 0.0)), float(c2.get("low", 0.0))),
+                "close": float(c2.get("close", 0.0)),
+                "vol": float(c1.get("vol", 0.0)) + float(c2.get("vol", 0.0))
+            })
+        return candles_30m
+
     def calculate_sma_cross_2h(self, candles_2h: List[Dict[str, float]]) -> Dict[str, Any]:
         """
         [V187-BRUNO-AGUIAR-SMA-2H]
@@ -515,15 +548,17 @@ class LayaRouterService:
     def calculate_30m_pullback_trigger(
         self,
         symbol: str,
-        klines_30m: List[Any],
+        klines_30m: list,
         current_price: float,
         macro_direction: str
-    ) -> Dict[str, Any]:
+    ) -> dict:
         """
-        [V193-PULLBACK-HUNTER-30M]
-        Detecta o momento em que o preco faz o repique tecnico ate a SMA 8 ou SMA 21 no timeframe 30M.
-        - Em SHORT: preco sobe para retestar a SMA 8/21 e deixa pavio superior (rejeicao).
-        - Em LONG: preco recua para testar suporte da SMA 8/21 e deixa pavio inferior.
+        [V195-PRECISION-PULLBACK-HUNTER-30M]
+        Detecta a exaustao do repique tecnico ate a SMA 8 ou SMA 21 no timeframe 30M.
+        - TRAVA ANTI-FUNDO: Proibe terminantemente abrir SHORT se o preco estiver esticado abaixo da media (>0.6% abaixo da SMA8).
+        - TRAVA ANTI-TOPO: Proibe terminantemente abrir LONG se o preco estiver esticado acima da media (>0.6% acima da SMA8).
+        - GATILHO SHORT: O preco sobe para retestar a SMA8/SMA21, entra na zona de resistencia (+-0.4% da SMA), e rejeita com pavio superior ou fechamento em queda.
+        - GATILHO LONG: O preco recua para testar a SMA8/SMA21, entra na zona de suporte (+-0.4% da SMA), e absorve com pavio inferior ou fechamento em alta.
         """
         parsed = []
         for c in (klines_30m or []):
@@ -542,7 +577,7 @@ class LayaRouterService:
                 "pullback_type": "NONE"
             }
 
-        closes = [c["close"] for c in parsed]
+        closes = [float(c["close"]) for c in parsed]
         n = len(closes)
         len_8 = min(8, n)
         sma8 = sum(closes[-len_8:]) / float(len_8)
@@ -551,66 +586,89 @@ class LayaRouterService:
 
         recent = parsed[-1]
         prev = parsed[-2] if len(parsed) >= 2 else recent
-        c_high = max(recent.get("high", 0.0), prev.get("high", 0.0))
-        c_low = min(recent.get("low", 0.0), prev.get("low", 0.0))
-        c_close = current_price or recent.get("close", 0.0)
+        c_open = float(recent.get("open", recent.get("close", 0.0)))
+        c_high = max(float(recent.get("high", 0.0)), float(prev.get("high", 0.0)))
+        c_low = min(float(recent.get("low", 0.0)), float(prev.get("low", 0.0)))
+        c_close = float(current_price or recent.get("close", 0.0))
+
+        if sma8 <= 0:
+            return {"has_pullback_setup": False, "score_boost": 0, "reason": "SMA8 invalida", "pullback_type": "NONE"}
+
+        diff_from_sma8 = ((c_close - sma8) / sma8) * 100.0
+        candle_range = max(1e-8, c_high - c_low)
 
         # Em regime SHORT:
         if macro_direction == "SHORT":
-            sma_target = min(sma8, sma21) if abs(sma8 - sma21)/sma21 < 0.02 else sma8
-            tested_sma = c_high >= (sma_target * 0.992)
-            rejected = c_close < c_high
-            diff_from_sma = ((c_close - sma8) / sma8) * 100.0 if sma8 > 0 else 0.0
+            # 1. TRAVA ANTI-FUNDO: Se preco ja caiu > 0.6% abaixo da SMA8, o movimento esta esticado para baixo. VETO TOTAL!
+            if diff_from_sma8 < -0.6:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_ESTICADO_FUNDO: Preco a {abs(diff_from_sma8):.2f}% abaixo da SMA8 ({sma8:.4f}). Proibido vender no fundo.",
+                    "pullback_type": "STRETCHED_OVERSOLD"
+                }
 
-            if tested_sma and rejected:
+            # 2. Resistencia alvo: SMA8 ou SMA21
+            res_target = max(sma8, sma21) if abs(sma8 - sma21) / sma21 < 0.015 else sma8
+            tested_res = c_high >= (res_target * 0.997)
+            in_pullback_zone = -0.5 <= diff_from_sma8 <= 0.5
+
+            upper_wick = c_high - max(c_open, c_close)
+            upper_wick_ratio = upper_wick / candle_range
+            has_rejection = upper_wick_ratio >= 0.20 or c_close < c_open or c_close < c_high
+
+            if tested_res and in_pullback_zone and has_rejection:
+                sl_price = round(max(c_high * 1.003, res_target * 1.004), 4)
+                tgt_price = round(min(c_low * 0.985, c_close * 0.965), 4)
                 return {
                     "has_pullback_setup": True,
-                    "score_boost": 15,
-                    "reason": f"PULLBACK_REJEICAO_SHORT: Repique na SMA8 30M ({sma8:.4f}) com rejeicao de pavio (fechamento em {c_close:.4f})",
+                    "score_boost": 18,
+                    "reason": f"PULLBACK_REJEICAO_SHORT: Repique na SMA8 ({sma8:.4f}) rejeitado com pavio {upper_wick_ratio*100:.0f}% (Preco: {c_close:.4f})",
                     "pullback_type": "RETEST_REJECTION_BEAR",
                     "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6)
-                }
-            elif abs(diff_from_sma) <= 1.2:
-                return {
-                    "has_pullback_setup": True,
-                    "score_boost": 10,
-                    "reason": f"PULLBACK_ZONA_SHORT: Preco em zona de reteste da SMA8 30M ({sma8:.4f})",
-                    "pullback_type": "NEAR_SMA_BEAR",
-                    "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6)
+                    "sma21_30m": round(sma21, 6),
+                    "stop_loss": sl_price,
+                    "target": tgt_price
                 }
 
         # Em regime LONG:
         elif macro_direction == "LONG":
-            sma_target = max(sma8, sma21) if abs(sma8 - sma21)/sma21 < 0.02 else sma8
-            tested_sma = c_low <= (sma_target * 1.008)
-            rejected = c_close > c_low
-            diff_from_sma = ((c_close - sma8) / sma8) * 100.0 if sma8 > 0 else 0.0
+            # 1. TRAVA ANTI-TOPO: Se preco ja subiu > 0.6% acima da SMA8, o movimento esta esticado para cima. VETO TOTAL!
+            if diff_from_sma8 > 0.6:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_ESTICADO_TOPO: Preco a {diff_from_sma8:.2f}% acima da SMA8 ({sma8:.4f}). Proibido comprar no topo.",
+                    "pullback_type": "STRETCHED_OVERBOUGHT"
+                }
 
-            if tested_sma and rejected:
+            # 2. Suporte alvo: SMA8 ou SMA21
+            sup_target = min(sma8, sma21) if abs(sma8 - sma21) / sma21 < 0.015 else sma8
+            tested_sup = c_low <= (sup_target * 1.003)
+            in_pullback_zone = -0.4 <= diff_from_sma8 <= 0.5
+
+            lower_wick = min(c_open, c_close) - c_low
+            lower_wick_ratio = lower_wick / candle_range
+            has_absorption = lower_wick_ratio >= 0.20 or c_close > c_open or c_close > c_low
+
+            if tested_sup and in_pullback_zone and has_absorption:
+                sl_price = round(min(c_low * 0.997, sup_target * 0.996), 4)
+                tgt_price = round(max(c_high * 1.015, c_close * 1.035), 4)
                 return {
                     "has_pullback_setup": True,
-                    "score_boost": 15,
-                    "reason": f"PULLBACK_REJEICAO_LONG: Recuo na SMA8 30M ({sma8:.4f}) com absorcao compradora (fechamento em {c_close:.4f})",
+                    "score_boost": 18,
+                    "reason": f"PULLBACK_ABSORCAO_LONG: Recuo na SMA8 ({sma8:.4f}) defendido com absorcao {lower_wick_ratio*100:.0f}% (Preco: {c_close:.4f})",
                     "pullback_type": "RETEST_REJECTION_BULL",
                     "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6)
-                }
-            elif abs(diff_from_sma) <= 1.2:
-                return {
-                    "has_pullback_setup": True,
-                    "score_boost": 10,
-                    "reason": f"PULLBACK_ZONA_LONG: Preco em zona de reteste da SMA8 30M ({sma8:.4f})",
-                    "pullback_type": "NEAR_SMA_BULL",
-                    "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6)
+                    "sma21_30m": round(sma21, 6),
+                    "stop_loss": sl_price,
+                    "target": tgt_price
                 }
 
         return {
             "has_pullback_setup": False,
             "score_boost": 0,
-            "reason": "Sem gatilho de pullback ativo no 30M",
+            "reason": f"Sem gatilho de reteste na SMA 30M (distancia SMA8: {diff_from_sma8:.2f}%)",
             "pullback_type": "NONE"
         }
 
@@ -3462,42 +3520,53 @@ class LayaRouterService:
             c2h_local = self.aggregate_1h_to_2h(h1_candles)
             regime_2h = self.enforce_2h_directional_regime(clean_sym, c2h_local)
 
-            # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro
+            # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro e exige repique autentico no 30M
+            c30m_local = self.aggregate_15m_to_30m(c15m_candles)
             if regime_2h["regime"] == "SHORT_ONLY":
-                if direction == "LONG":
-                    # Proibido forcar compra em canal de baixa! Veta LONG imediatamente.
-                    multi_eval["qualifies"] = False
-                    direction = "SHORT"
-                
-                # Ativa o Pullback Hunter de 30M a favor da tendencia
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c15m_candles, price, "SHORT")
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT")
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "SHORT"
                     multi_eval["qualifies"] = True
+                    multi_eval["strategy"] = strat_name
+                    multi_eval["direction"] = direction
                     score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                    stop_loss = round(price * 1.015, 4)
-                    target = round(price * 0.93, 4)
-                    stop_dist = 0.015
-                    target_dist = 0.070
+                    stop_loss = pullback_30m.get("stop_loss", round(price * 1.008, 4))
+                    target = pullback_30m.get("target", round(price * 0.965, 4))
+                    stop_dist = abs(stop_loss - price) / price if price > 0 else 0.008
+                    target_dist = abs(price - target) / price if price > 0 else 0.035
+                    multi_eval["stop_loss"] = stop_loss
+                    multi_eval["target"] = target
+                    multi_eval["stop_dist"] = stop_dist
+                    multi_eval["target_dist"] = target_dist
                     rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
+                else:
+                    # Se o 2H e de baixa mas o preco esta esticado no fundo (sem repique), VETA SHORT e VETA LONG!
+                    multi_eval["qualifies"] = False
+                    rationale = f"VETO 2H SHORT_ONLY: {pullback_30m.get('reason')}"
             
             elif regime_2h["regime"] == "LONG_ONLY":
-                if direction == "SHORT":
-                    multi_eval["qualifies"] = False
-                    direction = "LONG"
-                
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c15m_candles, price, "LONG")
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "LONG")
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "LONG"
                     multi_eval["qualifies"] = True
+                    multi_eval["strategy"] = strat_name
+                    multi_eval["direction"] = direction
                     score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                    stop_loss = round(price * 0.985, 4)
-                    target = round(price * 1.07, 4)
-                    stop_dist = 0.015
-                    target_dist = 0.070
+                    stop_loss = pullback_30m.get("stop_loss", round(price * 0.992, 4))
+                    target = pullback_30m.get("target", round(price * 1.035, 4))
+                    stop_dist = abs(price - stop_loss) / price if price > 0 else 0.008
+                    target_dist = abs(target - price) / price if price > 0 else 0.035
+                    multi_eval["stop_loss"] = stop_loss
+                    multi_eval["target"] = target
+                    multi_eval["stop_dist"] = stop_dist
+                    multi_eval["target_dist"] = target_dist
                     rationale = f"PULLBACK HUNTER 2H/30M (LONG): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
+                else:
+                    # Se o 2H e de alta mas o preco esta esticado no topo (sem recuo), VETA LONG e VETA SHORT!
+                    multi_eval["qualifies"] = False
+                    rationale = f"VETO 2H LONG_ONLY: {pullback_30m.get('reason')}"
 
             # 2. Confluencia ao Ima de Liquidez (Respeitando a Subordinacao 2H)
             if multi_eval["qualifies"] and strat_name not in ("LAYA_AGUIA_FUSION", "LAYA_INTERMEDIATE_REVERSAL_15M", "LAYA_PULLBACK_HUNTER_2H_30M"):
@@ -3524,6 +3593,8 @@ class LayaRouterService:
                     action_badge = "RANGE_REVERSAL_GATILHO"
                 elif strat_name == "LAYA_INTERMEDIATE_REVERSAL_15M":
                     action_badge = "REVERSAL_15M_GATILHO"
+                elif strat_name == "LAYA_PULLBACK_HUNTER_2H_30M":
+                    action_badge = "PULLBACK_HUNTER_GATILHO"
                 elif strat_name == "LAYA_MOMENTO_MOLA":
                     action_badge = "MOLA_GATILHO"
                 else:
