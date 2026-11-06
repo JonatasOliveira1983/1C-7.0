@@ -251,7 +251,7 @@ class OKXUniverseService:
             return 100.0
         elif clean in ("DOGE", "PEPE", "SHIB", "ADA", "LINK", "NEAR", "APT"):
             return 50.0
-        return 20.0
+        return 50.0
 
     def get_specs(self, symbol: str) -> Dict[str, Any]:
         """Retorna as especificações de contrato reais de qualquer moeda."""
@@ -273,7 +273,7 @@ class OKXUniverseService:
             "tickSize": 0.001,
             "lotSize": 1.0,
             "minSz": 1.0,
-            "maxLeverage": 15.0,
+            "maxLeverage": 50.0,
             "updated_at": 0
         }
 
