@@ -1230,6 +1230,63 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
         * Monitor de Slots: `0 / 10 ATIVOS` com subtítulo dinâmico `(MAX $600 • $60/ORDEM • 6% RISCO | 94% LIVRE)`.
         * Teto de Risco da Mesa: `RISK: 0% / 6%` (substituindo o teto genérico de 40%).
 
+61. **[V197-CROSS-MARGIN-SWING-PARADIGM-50X] Paradigma Soberano de Margem Cruzada 50X, Lotes 4+4 e Alvo Chão 300%** (2026-11-06):
+    - **Invariante de Margem Cruzada Soberana (Cross Margin)**:
+        * Toda e qualquer operação no 1Crypten opera estritamente em **Margem Cruzada (Cross Margin)** com banca base de **$100.000,00**.
+        * A banca inteira é o colateral garantidor; é terminantemente proibido calcular limites de stop baseando-se em liquidação de margem isolada (1.8% a 50X). O stop pertence exclusivamente à resistência técnica estrutural (SMA 21 no 2H/4H ou topo anterior), permitindo folga de 2% a 4% com respiro livre de 12h a 24h sem encerramento prematuro.
+    - **Regra Soberana dos Lotes 4 + 4**:
+        * **Margem Fixa por Ordem**: $1.000,00 USD (50X Cruzada = Volume nocional de $50.000,00 USD por contrato).
+        * **Lote 1 (Em Risco)**: Máximo estrito de 4 ordens abertas simultâneas com risco vivo (sem proteção). Risco máximo inicial da mesa: $4.000 (4% do capital).
+        * **Lote 2 (Expansão até 8 Slots)**: Uma 5ª, 6ª, 7ª ou 8ª ordem só é liberada se ao menos uma das ordens anteriores atingir Breakeven (Risco Zero) ou Trailing Stop no Degrau 1 (+50% de ROI / +1.0% de preço a favor). Se houver 4 ordens desprotegidas, o motor emite `[VETO LOTE ATIVO]` e aguarda proteção antes de novas aberturas.
+    - **Escadinha 50X Calibrada com Alvo Chão 300% (+$3,000.00)**:
+        * *Degrau 1 (+50% ROI / +1.0% Preço)*: Stop Loss movido para o preço de Entrada (Breakeven - Risco Zero absoluto).
+        * *Degrau 2 (+100% ROI / +2.0% Preço)*: Trailing Stop sobe e trava +40% de ROI (+$400.00).
+        * *Degrau 3 (+150% ROI / +3.0% Preço)*: Trailing Stop sobe e trava +80% de ROI (+$800.00).
+        * *Degrau 4 (+200% ROI / +4.0% Preço)*: Trailing Stop sobe e trava +120% de ROI (+$1.200.00).
+        * *Degrau 5 (+300% ROI / +6.0% Preço - ALVO CHÃO)*: Stop sobe e trava +200% de ROI (+$2.000.00 garantidos no bolso), mantendo trailing ativado para surfar expansões de tendência de 4H (+500% a +800% ROI).
+    - **Validação Empírica TDD**: Testes automatizados em `tests/test_cross_margin_swing_paradigms.py` validados com 100% de aprovação.
+
+
+62. **[V198-LAYA-BTC-MACRO-BEAR-FILTER-AND-PULLBACK-PRECISION] Farol BTC Macro 2H e Entrada no Repique com Vela Fechada** (2026-11-06):
+    - **Farol BTC Macro 2H (`VETO_FAROL_BTC`)**:
+        * Leitura institucional contínua do Bitcoin no timeframe 2H via SMA 8 vs SMA 21 e inclinação de tendência.
+        * Enquanto o BTC estiver em regime BEAR (SMA 8 < SMA 21 ou viés vendedor), compras de altcoin são expressamente vetadas (`VETO_FAROL_BTC`). Apenas vendas a favor da gravidade macro ou rompimentos com robôs de alta extrema comprovada (`alt_pump_ignition`) são autorizados.
+    - **Entrada no Repique de Alta em Resistência (Pullback Precision)**:
+        * Proibido vender fundo esticado: se o preço estiver afastado da média móvel no 2H, o trade é vetado por exaustão.
+        * A Laya aguarda o repique do preço até a zona de teste da SMA 8 / SMA 21 ou resistência intraday no 30M.
+        * **Gatilho de Vela Fechada e Volume Decrescente (30M)**: Exige candle de 30M fechado confirmando rejeição (não rompimento) com volume decrescente de compradores antes do disparo da ordem SHORT.
+        * **Stop Loss Ancorado no Topo Estrutural**: O Stop Loss inicial é ancorado no maior entre a SMA 8 e a SMA 21 (SMA 21 no canal de baixa), com folga de 0.2% acima da resistência real, impedindo recálculos que rebaixem o stop para dentro da zona de ruído.
+    - **Validação Empírica TDD**: Testes automatizados em `tests/test_laya_pullback_precision.py` validados com 100% de aprovação.
+
+
+63. **[V199-MCP-SERVER-16-TOOLS-AND-NATIVE-BRIDGE] Servidor MCP Oficial FastMCP (SDK 1.x) com 16 Ferramentas Soberanas** (2026-11-06):
+    - **Arquitetura do Bridge Nativo**:
+        * Entrypoint: `backend/app/mcp/server.py` utilizando o framework oficial `FastMCP` (SDK 1.x).
+        * Montado nativamente no FastAPI em `/mcp` sem necessidade de processo isolado ou sockets paralelos.
+    - **Arsenal de 16 Ferramentas Registradas**:
+        * Oráculos e Inteligência: `laya_evaluate_entry`, `laya_get_thought_stream`, `laya_get_candidates`, `kronos_predict_candles`, `hermes_audit_compliance`.
+        * Liquidez e Mercado: `get_okx_orderbook_depth`, `get_okx_liquidity_zones`, `get_okx_funding_arbitrage`, `get_rubik_sentiment`.
+        * Execução e Risco: `sandbox_open_trade`, `sandbox_close_trade`, `sandbox_get_unified_state`, `sandbox_set_stop_loss`, `emergency_flatten_all`.
+        * RAG e Conhecimento: `hermes_query_rag`, `openviking_search_knowledge`.
+
+
+64. **[V200-HERMES-RAG-AND-OPVIKING-KNOWLEDGE-INTEGRATION] Hermes RAG e OpenViking: Indexação Institucional Unificada** (2026-11-06):
+    - **Rotas RAG (`/api/v1/hermes/rag`)**:
+        * Endpoints de ingestão, busca semântica e auditoria de conformidade regulatória e operacional.
+        * Vetorização de documentos de arquitetura, diários de bordo (`vault_galaxy/`), manuais de trading e diretrizes de risco.
+    - **OpenViking Sovereign Memory**:
+        * Base de conhecimento institucional permanente que armazena a verdade canônica do sistema (Margem Cruzada, Never Give Back, Lotes 4+4).
+        * Elimina a perda de contexto operacional entre sessões de IA e assegura que nenhum agente execute cálculos sob premissas legadas.
+
+
+65. **[V201-LAYA-NEURAL-FINETUNING-PIPELINE] Pipeline de Fine-Tuning Neural da Laya e Pesos Calibrados** (2026-11-06):
+    - **Dataset Canônico de Decisões (`laya_decision_dataset.jsonl`)**:
+        * Amostragem curada de decisões institucionais contendo features completas: ADX, Delta LSR, Distância SMA 8/21 2H, Regime BTC Macro, Volume Ratio e Alvo Chão.
+    - **Treinador Automatizado (`laya_finetune_trainer.py`)**:
+        * Script de regressão e calibração fina de pesos neurais gerando `laya_calibrated_weights.json`.
+        * Alinha a função de perda (loss function) ao payoff assimétrico de 50X: alta penalização para falsos rompimentos em topos/fundos e recompensa máxima para pullbacks surfados até o Alvo Chão de 300%.
+
 ---
 
 *Documento unico de arquitetura. Substitui e consolida os antigos ARCHITECTURE_REFERENCE, DOCUMENTATION_INDEX, STATE, SNIPER_PROTOCOLS, RESET_PROTOCOL, RULES e REQUIREMENTS.*
+

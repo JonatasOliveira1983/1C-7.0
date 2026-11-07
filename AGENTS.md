@@ -14,7 +14,13 @@
    - O ciclo **Red-Green-Refactor (TDD)** é obrigatório para qualquer mudança em motores de trading, stops ou PnL.
    - Nenhuma tarefa é finalizada sem evidência empírica no terminal ([`verification_before_completion`](file:///c:/Users/jonat/Desktop/1C-SET26/.agents/skills/verification_before_completion/SKILL.md)).
 3. **Invariantes Rígidas de Risco e Trading**:
+   - **Margem Cruzada Soberana (Cross Margin 50X)**: Toda e qualquer operação do 1Crypten opera estritamente sob Margem Cruzada. A banca inteira ($100.000) é o colateral garantidor; é terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h.
+   - **Regra dos Lotes 4 + 4**:
+     - *Lote 1 (Em Risco)*: Máximo de 4 ordens abertas simultâneas em risco não protegido ($1.000 de margem fixa por ordem, alavancagem 50X Cruzada).
+     - *Lote 2 (Expansão)*: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven (Risco Zero) ou Trailing Stop no Degrau 1 (+50% ROI / +1.0% de preço a favor). Limite absoluto da frota: 8 ordens.
+   - **Alvo Chão +300% de ROI (+$3,000.00)**: O alvo mínimo de realização por trade é +300% de ROI, garantindo pelo menos +200% de lucro travado no Degrau 5 (+$2.000.00 fixos), deixando o trailing correr solto até a exaustão da tendência no gráfico de 4H.
    - **Never Give Back**: Stops progressivos (5 escadinhas) só sobem, nunca recuam.
+   - **Veto Soberano Farol BTC 2H**: Quando o Bitcoin estiver em regime BEAR (SMA 8 < SMA 21 ou viés vendedor), compras de altcoin são expressamente vetadas (`VETO_FAROL_BTC`). Apenas vendas a favor do canal ou rompimento com robôs de alta extrema (`alt_pump_ignition`) são permitidos.
    - **Anti-Hedge**: Nunca abrir posições opostas simultâneas no mesmo par.
    - **Semântica PAPER vs REAL**: Em PAPER, o Cockpit espelha a Banca Simulada Realizada do Sandbox (`get_sandbox_unified_balance`); em REAL, a OKX recebe as ordens e o Cockpit reflete o saldo real.
 4. **Padrão Visual Lamborghini / Binance Dark**:
