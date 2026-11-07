@@ -3283,7 +3283,26 @@ class LayaRouterService:
         }
 
         # [V196-FAROL-MACRO-BTC-2H]: Avalia estrutura deterministica de 2H do Bitcoin
-        btc_h1_kline = klines_h1_map.get("BTC") or klines_h1_map.get("BTC-USDT-SWAP") or []
+        btc_h1_kline = []
+        try:
+            from services.okx_rest import okx_rest_service
+            btc_h1_kline = await okx_rest_service.get_klines("BTC-USDT-SWAP", interval="60", limit=48)
+            if not btc_h1_kline:
+                btc_h1_kline = await okx_rest_service.get_klines("BTCUSDT", interval="60", limit=48)
+        except Exception as _e_btc_kl:
+            logger.debug(f"[FAROL-BTC] Falha ao coletar klines BTC: {_e_btc_kl}")
+
+        if not btc_h1_kline:
+            try:
+                async with httpx.AsyncClient(timeout=2.5) as client:
+                    r_f = await client.get("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=48")
+                    if r_f.status_code == 200:
+                        raw = r_f.json()
+                        if isinstance(raw, list) and len(raw) >= 6:
+                            btc_h1_kline = [[str(c[0]), str(c[1]), str(c[2]), str(c[3]), str(c[4]), str(c[5])] for c in raw]
+            except Exception:
+                pass
+
         btc_c2h = self.aggregate_1h_to_2h(btc_h1_kline)
         btc_sma_info = self.calculate_sma_cross_2h(btc_c2h)
         btc_macro_regime = self.classify_macro_market_regime(btc_sma_info, btc_dominance=btcd_val)
