@@ -90,6 +90,35 @@ async def get_unified_sandbox_state():
         long_pct = round((long_count / total_active * 100.0), 1) if total_active > 0 else 50.0
         short_pct = round((short_count / total_active * 100.0), 1) if total_active > 0 else 50.0
 
+        # [V198-LOTES-4-PLUS-4] Auditoria de Risco Aberto vs Protegido
+        unprotected_risk_count = 0
+        protected_count = 0
+        all_active_trades = list(scalp_trades) + list(swing_trades)
+        for t in all_active_trades:
+            is_prot = getattr(t, 'is_protected', False)
+            curr_stop = getattr(t, 'current_stop', None)
+            entry_p = getattr(t, 'entry_price', None)
+            direction = str(getattr(t, 'direction', 'LONG')).upper()
+            
+            if is_prot:
+                protected_count += 1
+            elif curr_stop and entry_p:
+                if direction in ('LONG', 'BUY') and curr_stop >= entry_p:
+                    protected_count += 1
+                elif direction not in ('LONG', 'BUY') and curr_stop <= entry_p:
+                    protected_count += 1
+                else:
+                    unprotected_risk_count += 1
+            else:
+                unprotected_risk_count += 1
+
+        # Farol Macro BTC ultra-rapido (le da RAM do processo ativo sem I/O)
+        import sys
+        _laya_mod = sys.modules.get("app.services.laya_router_service")
+        _laya_svc = getattr(_laya_mod, "laya_router_service", None) if _laya_mod else None
+        btc_climate = getattr(_laya_svc, "btc_climate_cache", {}) or {} if _laya_svc else {}
+        btc_bias = btc_climate.get("regime", "BEARISH")
+
         # 5. Margem Alocada %
         allocation_pct = (allocated_margin / (current_balance * 0.40)) * 100.0 if current_balance > 0 else 0.0
         
@@ -107,6 +136,13 @@ async def get_unified_sandbox_state():
             "allocation_percent": round(allocation_pct, 1),
             "max_margin_usd": round(BANCA_BASE * 0.40, 2),
             "max_slots": 8,
+            "unprotected_risk_slots": unprotected_risk_count,
+            "protected_risk_slots": protected_count,
+            "max_unprotected_slots": 4,
+            "max_total_slots": 8,
+            "margin_per_order_usd": 1000.0,
+            "target_floor_roi_pct": 300.0,
+            "btc_macro_bias": btc_bias,
             # [V163] Delta Direcional e Transparência de Custos OKX
             "total_fees_paid_usd": round(getattr(sandbox_service, "total_fees_paid_cache", 0.0), 2),
             "total_gross_pnl_usd": round(getattr(sandbox_service, "total_gross_pnl_cache", 0.0), 2),
