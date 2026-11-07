@@ -511,7 +511,11 @@ class LayaRouterService:
         sma21 = sma_info.get("sma21", 0.0)
         diff_pct = sma_info.get("diff_pct", 0.0)
 
-        if direction == "SHORT" or (sma8 < sma21 and abs(diff_pct) >= 0.15):
+        # [V202-LINK-PRECISION] Filtro Anti-Falso Canal de Alta e Subordinacao Macro BTC
+        is_real_bear_channel = (direction == "SHORT" and diff_pct <= -0.15) or (sma8 < sma21 and diff_pct <= -0.15)
+        is_real_bull_channel = (direction == "LONG" and diff_pct >= 0.35) or (sma8 > sma21 and diff_pct >= 0.35)
+
+        if is_real_bear_channel:
             return {
                 "regime": "SHORT_ONLY",
                 "allowed_direction": "SHORT",
@@ -522,17 +526,18 @@ class LayaRouterService:
                 "diff_pct": diff_pct,
                 "reason": f"Canal de Baixa Soberano 2H (SMA8 {sma8:.4f} < SMA21 {sma21:.4f} | {diff_pct:+.2f}%)"
             }
-        elif direction == "LONG" or (sma8 > sma21 and abs(diff_pct) >= 0.15):
-            if btc_macro_direction == "BEAR":
+        elif is_real_bull_channel:
+            # So autoriza LONG_ONLY se o Bitcoin estiver expressamente em regime BULL
+            if btc_macro_direction != "BULL":
                 return {
-                    "regime": "NEUTRAL",
+                    "regime": "SHORT_ONLY" if btc_macro_direction == "BEAR" else "NEUTRAL",
                     "allowed_direction": "SHORT_OR_HOLD",
                     "long_vetoed": True,
                     "short_vetoed": False,
                     "sma8": sma8,
                     "sma21": sma21,
                     "diff_pct": diff_pct,
-                    "reason": f"VETO FAROL BTC: Alta local 2H da altcoin ({diff_pct:+.2f}%) bloqueada para LONG pois o Bitcoin esta em BEAR macro."
+                    "reason": f"VETO FAROL BTC: Alta local 2H da altcoin ({diff_pct:+.2f}%) bloqueada para LONG pois o Bitcoin nao esta em BULL macro (Status: {btc_macro_direction})."
                 }
             return {
                 "regime": "LONG_ONLY",
@@ -545,15 +550,18 @@ class LayaRouterService:
                 "reason": f"Canal de Alta Soberano 2H (SMA8 {sma8:.4f} > SMA21 {sma21:.4f} | {diff_pct:+.2f}%)"
             }
         else:
+            # Consolidacao plana / micro-afastamento (como +0.01% na LINK)
+            # Se o Bitcoin estiver em BEAR ou NEUTRAL (dreno de liquidez), compras sao estritamente vetadas!
+            is_btc_safe_for_alt_long = (btc_macro_direction == "BULL")
             return {
-                "regime": "NEUTRAL",
-                "allowed_direction": "BOTH",
-                "long_vetoed": False,
+                "regime": "SHORT_ONLY" if btc_macro_direction == "BEAR" else "NEUTRAL",
+                "allowed_direction": "SHORT_OR_HOLD" if not is_btc_safe_for_alt_long else "BOTH",
+                "long_vetoed": not is_btc_safe_for_alt_long,
                 "short_vetoed": False,
                 "sma8": sma8,
                 "sma21": sma21,
                 "diff_pct": diff_pct,
-                "reason": f"Consolidacao 2H (SMA8 colada na SMA21 | {diff_pct:+.2f}%)"
+                "reason": f"Consolidacao 2H (SMA8 colada na SMA21 | {diff_pct:+.2f}%) | {'LONG vetado por macro sem forca compradora' if not is_btc_safe_for_alt_long else 'Neutro'}"
             }
 
     def calculate_30m_pullback_trigger(
