@@ -477,7 +477,7 @@ class LayaRouterService:
             return 0
         return int(record.get("penalty", 0))
 
-    def enforce_2h_directional_regime(self, symbol: str, klines_2h: List[Any]) -> Dict[str, Any]:
+    def enforce_2h_directional_regime(self, symbol: str, klines_2h: List[Any], btc_macro_direction: str = "NEUTRAL") -> Dict[str, Any]:
         """
         [V193-SOVEREIGN-2H-ALIGNMENT]
         Subordina a direcao do par estritamente a tendencia macro do timeframe 2H (SMA 8 x SMA 21).
@@ -523,6 +523,17 @@ class LayaRouterService:
                 "reason": f"Canal de Baixa Soberano 2H (SMA8 {sma8:.4f} < SMA21 {sma21:.4f} | {diff_pct:+.2f}%)"
             }
         elif direction == "LONG" or (sma8 > sma21 and abs(diff_pct) >= 0.15):
+            if btc_macro_direction == "BEAR":
+                return {
+                    "regime": "NEUTRAL",
+                    "allowed_direction": "SHORT_OR_HOLD",
+                    "long_vetoed": True,
+                    "short_vetoed": False,
+                    "sma8": sma8,
+                    "sma21": sma21,
+                    "diff_pct": diff_pct,
+                    "reason": f"VETO FAROL BTC: Alta local 2H da altcoin ({diff_pct:+.2f}%) bloqueada para LONG pois o Bitcoin esta em BEAR macro."
+                }
             return {
                 "regime": "LONG_ONLY",
                 "allowed_direction": "LONG",
@@ -608,17 +619,20 @@ class LayaRouterService:
                     "pullback_type": "STRETCHED_OVERSOLD"
                 }
 
-            # 2. Resistencia alvo: SMA8 ou SMA21
-            res_target = max(sma8, sma21) if abs(sma8 - sma21) / sma21 < 0.015 else sma8
-            tested_res = c_high >= (res_target * 0.997)
-            in_pullback_zone = -0.5 <= diff_from_sma8 <= 0.5
+            # 2. Resistencia alvo: O teto estrutural do canal e a SMA21 (ou SMA8 se coladas)
+            major_res = max(sma8, sma21)
+            minor_res = min(sma8, sma21)
+            # Preco testou ao menos a SMA8 na tentativa de repique
+            tested_res = c_high >= (minor_res * 0.997)
+            in_pullback_zone = -0.5 <= diff_from_sma8 <= 0.6
 
             upper_wick = c_high - max(c_open, c_close)
             upper_wick_ratio = upper_wick / candle_range
             has_rejection = upper_wick_ratio >= 0.20 or c_close < c_open or c_close < c_high
 
             if tested_res and in_pullback_zone and has_rejection:
-                sl_price = round(max(c_high * 1.003, res_target * 1.004), 4)
+                # O Stop Loss DEVE sempre ficar acima do teto maior estrutural (SMA21), nunca mutilado na SMA8!
+                sl_price = round(max(c_high * 1.003, major_res * 1.004), 4)
                 tgt_price = round(min(c_low * 0.985, c_close * 0.965), 4)
                 return {
                     "has_pullback_setup": True,
@@ -3235,6 +3249,15 @@ class LayaRouterService:
             "lead_lag": lead_lag_tag
         }
 
+        # [V196-FAROL-MACRO-BTC-2H]: Avalia estrutura deterministica de 2H do Bitcoin
+        btc_h1_kline = klines_h1_map.get("BTC") or klines_h1_map.get("BTC-USDT-SWAP") or []
+        btc_c2h = self.aggregate_1h_to_2h(btc_h1_kline)
+        btc_sma_info = self.calculate_sma_cross_2h(btc_c2h)
+        btc_macro_regime = self.classify_macro_market_regime(btc_sma_info, btc_dominance=btcd_val)
+        btc_macro_dir = btc_macro_regime.get("direction", "NEUTRAL")
+        if (btc_trend_bias < -0.3 or (btc_sma_info.get("sma8", 0) < btc_sma_info.get("sma21", 0) and btc_sma_info.get("sma21", 0) > 0)):
+            btc_macro_dir = "BEAR"
+
         self.log_thought(
             "BTC-ORACLE",
             f"Farol BTC: ${btc_px:,.0f} ({btc_chg:+.2f}%) | BTC.D: {btcd_val:.2f}% | Spread Spot x Futuros: {spread_val:+.3f}% ({lead_lag_tag}) | Clima Altcoins: {climate_tag}",
@@ -3533,7 +3556,7 @@ class LayaRouterService:
 
             # # [V193-SUBORDINACAO-2H-SOBERANA & PULLBACK HUNTER 30M]
             c2h_local = self.aggregate_1h_to_2h(h1_candles)
-            regime_2h = self.enforce_2h_directional_regime(clean_sym, c2h_local)
+            regime_2h = self.enforce_2h_directional_regime(clean_sym, c2h_local, btc_macro_direction=btc_macro_dir)
 
             # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro e exige repique autentico no 30M
             c30m_local = self.aggregate_15m_to_30m(c15m_candles)
@@ -4178,25 +4201,28 @@ class LayaRouterService:
                     d_data = d_data or {}
                     is_outlier = self.is_decorrelated_outlier(d_data) or bool(cand.get("alt_pump_ignition"))
 
-                    # [MOTOR 1: MARÉ MACRO DO BITCOIN (~90% DOS ATIVOS CORRELACIONADOS)]
-                    # Se NÃO for outlier descorrelacionado, obedece estritamente o Farol Macro do BTC
-                    if not is_outlier:
-                        if btc_trend_bias < -0.3 and cand_dir == "LONG":
-                            self.log_thought(
-                                clean_name,
-                                f"⛔ [VETO FAROL BTC MACRO]: LONG bloqueado para {cand_sym}. Ativo correlacionado ao BTC em maré de queda ({btc_trend_bias:+.2f}%). Proibido comprar altcoins correlacionadas contra o Bitcoin.",
-                                action="VETO_FAROL_BTC",
-                                confidence=98
-                            )
-                            continue
-                        elif btc_trend_bias > 0.8 and cand_dir == "SHORT":
-                            self.log_thought(
-                                clean_name,
-                                f"⛔ [VETO FAROL BTC MACRO]: SHORT bloqueado para {cand_sym}. Ativo correlacionado ao BTC em rali de alta ({btc_trend_bias:+.2f}%). Proibido vender altcoins correlacionadas contra o Bitcoin.",
-                                action="VETO_FAROL_BTC",
-                                confidence=98
-                            )
-                            continue
+                    # [MOTOR 1: VETO SOBERANO DO FAROL BTC MACRO 2H]
+                    # Se o Bitcoin estiver em BEAR no 2H (SMA8 < SMA21 ou btc_trend_bias < -0.3):
+                    # FICA TERMINANTEMENTE PROIBIDO ABRIR LONG EM QUALQUER ALTCOIN!
+                    # Excecao Unica: Rompimento comprovado de acumulacao com alt_pump_ignition E volume explosivo.
+                    is_btc_bear = (btc_macro_dir == "BEAR" or btc_trend_bias < -0.3)
+                    has_exceptional_pump = bool(cand.get("alt_pump_ignition") and cand.get("bot_ignition"))
+                    if cand_dir == "LONG" and is_btc_bear and not has_exceptional_pump:
+                        self.log_thought(
+                            clean_name,
+                            f"[VETO FAROL BTC MACRO 2H]: LONG bloqueado para {cand_sym}. Bitcoin em regime BEAR 2H (Bias: {btc_trend_bias:+.2f}%). Proibido comprar altcoins em mercado macro de queda sem rompimento institucional comprovado.",
+                            action="VETO_FAROL_BTC",
+                            confidence=99
+                        )
+                        continue
+                    elif cand_dir == "SHORT" and btc_trend_bias > 1.2 and not is_outlier:
+                        self.log_thought(
+                            clean_name,
+                            f"[VETO FAROL BTC MACRO]: SHORT bloqueado para {cand_sym}. Ativo correlacionado ao BTC em rali de alta ({btc_trend_bias:+.2f}%). Proibido vender altcoins correlacionadas contra o Bitcoin.",
+                            action="VETO_FAROL_BTC",
+                            confidence=98
+                        )
+                        continue
 
                     # [INVARIANTE DA REVERSÃO ESTRUTURAL 2H - ANTI-FACA CAINDO]
                     # Mesmo para outliers, NUNCA comprar fundo sem rompimento oficial no 2H!
