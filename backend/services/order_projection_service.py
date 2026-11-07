@@ -35,11 +35,12 @@ ORDER_STOP_LADDER_RANGING: List[StopLevel] = [
 ]
 
 ORDER_STOP_LADDER_SCALPING: List[StopLevel] = [
-    # [V190-50X-CALIBRATION] Scalping 50x com folga real e lucro substantivo
-    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 25.0, 5.0, "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 50.0, 25.0, "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 80.0, 50.0, "PROFIT_LOCK"),
-    StopLevel("TRAILING", "TRAILING_SCALP", 120.0, 90.0, "PROFIT_LOCK"),
+    # [V197-CROSS-MARGIN-SWING-50X] Calibrado para dar respiro de 12h-24h sem asfixia precoce
+    StopLevel("ESCADINHA", "GARANTIA_TAXAS_SCALP", 50.0, 5.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "LUCRO_CURTO_SCALP", 100.0, 50.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_MEDIO_SCALP", 200.0, 120.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "TRAILING_SCALP", 300.0, 200.0, "PROFIT_LOCK"),
+    StopLevel("TRAILING", "ALVO_ESTENDIDO_SCALP", 400.0, 300.0, "TRAIL_LOCK"),
 ]
 
 ORDER_STOP_LADDER_IGNITION: List[StopLevel] = [
@@ -75,14 +76,14 @@ ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
 ]
 
 ORDER_STOP_LADDER_SWING: List[StopLevel] = [
-    # [V190-50X-CALIBRATION] Swing 2H calibrado para 50x
-    StopLevel("ESCADINHA", "BREAKEVEN_2H",         25.0,    5.0,  "RISCO_ZERO"),
-    StopLevel("ESCADINHA", "PROTECAO_PARCIAL",    50.0,   25.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_MEDIO_2H",      100.0,   60.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_ALTO_2H",       150.0,  100.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "EMANCIPADO_2H",      200.0,  140.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "SUPER_TENDENCIA",    300.0,  240.0,  "TRAIL_LOCK"),
-    StopLevel("TRAILING",  "ALVO_ESTENDIDO_2H",  400.0,  320.0,  "TRAIL_LOCK"),
+    # [V197-CROSS-MARGIN-SWING-50X] Swing 2H/4H com respiro de 12h-24h e alvo chão de 300%
+    StopLevel("ESCADINHA", "BREAKEVEN_2H",         50.0,    5.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "PROTECAO_LUCRO_100",  100.0,   50.0,  "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_CONSOLIDADO_200", 200.0, 120.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "ALVO_CHAO_300",       300.0,  200.0,  "PROFIT_LOCK"),
+    StopLevel("TRAILING",  "SURFE_LIVRE_400",     400.0,  300.0,  "TRAIL_LOCK"),
+    StopLevel("TRAILING",  "ALVO_MACRO_4H_500",   500.0,  400.0,  "TRAIL_LOCK"),
+    StopLevel("TRAILING",  "ALVO_EXPANSAO_800",   800.0,  650.0,  "TRAIL_LOCK"),
 ]
 
 ORDER_STOP_LADDER_SWING_LATERAL: List[StopLevel] = [

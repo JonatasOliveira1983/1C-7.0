@@ -724,6 +724,39 @@ class LayaRouterService:
             "allow_alt_longs": allow_alt_longs
         }
 
+    def count_unprotected_risk_trades(self, active_trades: list) -> int:
+        """
+        [V197-TIERED-SLOT-ALLOCATION-4-PLUS-4]
+        Conta quantas ordens ativas ainda estao com RISCO VIVO na Margem Cruzada
+        (ou seja, stop ainda nao atingiu Risco Zero / Breakeven).
+        """
+        unprotected_count = 0
+        for t in (active_trades or []):
+            is_prot = getattr(t, "is_protected", False) or (t.get("is_protected") if isinstance(t, dict) else False)
+            curr_sl = getattr(t, "current_stop", None) or (t.get("current_stop") if isinstance(t, dict) else None)
+            ent_p = getattr(t, "entry_price", 0.0) or (t.get("entry_price") if isinstance(t, dict) else 0.0)
+            t_side = getattr(t, "side", None) or (t.get("side") if isinstance(t, dict) else None) or ""
+            t_side = str(t_side).upper()
+
+            if is_prot:
+                continue
+
+            if not curr_sl or not ent_p:
+                unprotected_count += 1
+                continue
+
+            try:
+                curr_sl = float(curr_sl)
+                ent_p = float(ent_p)
+                if ("SHORT" in t_side or "SELL" in t_side) and curr_sl > ent_p:
+                    unprotected_count += 1
+                elif ("LONG" in t_side or "BUY" in t_side) and curr_sl < ent_p:
+                    unprotected_count += 1
+            except Exception:
+                unprotected_count += 1
+
+        return unprotected_count
+
     def is_decorrelated_outlier(self, decorr_info: Dict[str, Any]) -> bool:
         """
         [V188-DECORRELATED-OUTLIER-DETECTOR]
@@ -3961,6 +3994,18 @@ class LayaRouterService:
         # [V180-GLOBAL-CADENCE]: Cadência Global de 15 Minutos (900s) entre entradas para evitar metralhadora de slots
         last_global_open = getattr(self, "_last_global_trade_open_ts", 0.0)
         time_since_last_open = time.time() - last_global_open
+
+        # [V197-TIERED-SLOT-ALLOCATION-4-PLUS-4]: Trava de 4 ordens em risco vivo
+        unprotected_risk_count = self.count_unprotected_risk_trades(active_trades)
+        if unprotected_risk_count >= 4:
+            self.log_thought(
+                "SISTEMA",
+                f"[VETO LOTE ATIVO]: Ja existem {unprotected_risk_count} ordens com risco vivo na Margem Cruzada. Aguardando protecao em Risco Zero (Breakeven) para liberar novos slots do Lote 2.",
+                action="VETO_LOTE_ATIVO",
+                confidence=98
+            )
+            return None
+
         if len(active_trades) > 0 and time_since_last_open < 900:
             rem_cadence = int(900 - time_since_last_open)
             self.log_thought("CADENCIA", f"[CADENCIA ATIVA]: Aguardando {rem_cadence}s para proxima abertura (cadencia de 15min entre ordens para filtrar ruidos).", action="CADENCIA_HOLD", confidence=95)
@@ -4303,25 +4348,25 @@ class LayaRouterService:
                     )
                     continue
 
-                # [V195-STRUCTURAL-STOP-INTEGRITY]: O Stop Loss NUNCA pode ser mutilado ou recalculado para dentro da zona de risco!
+                # [V197-CROSS-MARGIN-STRUCTURAL-STOP]: Stop estrutural real em Margem Cruzada (ate 3.8% de respiro livre 2H/4H)
                 cand_sl = cand.get("stop_loss")
                 cand_p = float(cand.get("price") or 0.0)
                 if cand_dir == "SHORT" and cand_sl and cand_p > 0 and cand_sl > cand_p:
                     cand_sl_dist = (cand_sl - cand_p) / cand_p
-                    if cand_sl_dist > 0.016:
+                    if cand_sl_dist > 0.038:
                         self.log_thought(
                             cand.get("clean_sym", cand_sym),
-                            f"[VETO DISTANCIA RESISTENCIA]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 1.6% para 50X). Proibido mutilar o stop abaixo da media! Aguardar repique aproximar-se da resistencia.",
+                            f"[VETO DISTANCIA RESISTENCIA]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 3.8% na Margem Cruzada). Aguardar repique aproximar-se da resistencia.",
                             action="VETO_DISTANCIA_STOP",
                             confidence=95
                         )
                         continue
                 elif cand_dir == "LONG" and cand_sl and cand_p > 0 and cand_sl < cand_p:
                     cand_sl_dist = (cand_p - cand_sl) / cand_p
-                    if cand_sl_dist > 0.016:
+                    if cand_sl_dist > 0.038:
                         self.log_thought(
                             cand.get("clean_sym", cand_sym),
-                            f"[VETO DISTANCIA SUPORTE]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 1.6% para 50X). Proibido mutilar o stop acima do suporte! Aguardar recuo aproximar-se do suporte.",
+                            f"[VETO DISTANCIA SUPORTE]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 3.8% na Margem Cruzada). Aguardar recuo aproximar-se do suporte.",
                             action="VETO_DISTANCIA_STOP",
                             confidence=95
                         )
@@ -4341,10 +4386,10 @@ class LayaRouterService:
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                default_stop_dist = 0.012
+                default_stop_dist = 0.020
                 min_stop_dist = 0.008
-                max_stop_dist = 0.016
-                default_target_dist = 0.045
+                max_stop_dist = 0.038
+                default_target_dist = 0.060
                 from services.order_projection_service import proj_service
                 from app.services.okx_universe_service import okx_universe_service
 
@@ -4382,7 +4427,7 @@ class LayaRouterService:
                 # 10 slots = $10.000 em risco (10% total), mantendo 90% liquida ($90.000) como colchao contra liquidacao
                 from config import settings
                 base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
-                margin_planned = round(max(100.0, min(1000.0, realized_bal * 0.01)), 2)
+                margin_planned = 1000.0  # [V197-CROSS-MARGIN-SWING-50X]: Margem fixa de $1.000,00 por ordem
 
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,

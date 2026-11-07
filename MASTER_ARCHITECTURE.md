@@ -291,17 +291,24 @@ Calibração específica para reversões em consolidação com alavancagem 15x e
 | 35.0% | 24.0% | PROFIT_LOCK_LAYA | PROFIT_LOCK |
 | 50.0% | 38.0% | ALVO_MAXIMO_REVERSION | PROFIT_LOCK |
 
-### 3.4 `ORDER_STOP_LADDER_SWING` (swing tendencia - V146 2H 50x)
-Protege lucros contra devolução total (impede que trades de +30% voltem para o zero a zero):
-| Gatilho | Stop | Nome | Status |
-|---|---|---|---|
-| 15% | 2% | BREAKEVEN_2H | RISCO_ZERO |
-| 25% | 12% | PROTECAO_PARCIAL | RISCO_ZERO |
-| 40% | 25% | LUCRO_MEDIO_2H | PROFIT_LOCK |
-| 65% | 45% | LUCRO_ALTO_2H | PROFIT_LOCK |
-| 100% | 75% | EMANCIPADO_2H | PROFIT_LOCK |
-| 200% | 150% | SUPER_TENDENCIA | PROFIT_LOCK |
-| 350% | 280% | ALVO_ESTENDIDO_2H | PROFIT_LOCK |
+### 3.4 `ORDER_STOP_LADDER_SWING` (Swing 2H/4H 50X em Margem Cruzada) [V197]
+Calibrada para conceder respiro amplo de 12h a 24h sem asfixia precoce. A ordem tem liberdade total de oscilação até +50% ROI (+1.0% de preço), onde o breakeven é acionado para blindar a banca em Risco Zero:
+| Gatilho ROI | Stop ROI | Nome | Status | Descrição Operacional |
+|---|---|---|---|---|
+| **50.0%** | **5.0%** | **BREAKEVEN_2H** | **RISCO_ZERO** | Aciona após avanço real de ~1.0%. Blinda posição e libera vaga no Lote 2 |
+| **100.0%** | **50.0%** | **PROTECAO_LUCRO_100** | **PROFIT_LOCK** | Garante lucro mínimo de +$500,00 no bolso |
+| **200.0%** | **120.0%** | **LUCRO_CONSOLIDADO_200**| **PROFIT_LOCK** | Garante lucro de +$1.200,00 no bolso |
+| **300.0%** | **200.0%** | **ALVO_CHAO_300** | **PROFIT_LOCK** | **Alvo Chão Obrigatório**: Garante +$2.000,00 mínimos por ordem |
+| **400.0%** | **300.0%** | **SURFE_LIVRE_400** | **TRAIL_LOCK** | Trailing dinâmico que persegue a tendência macro |
+| **500.0%** | **400.0%** | **ALVO_MACRO_4H_500** | **TRAIL_LOCK** | Rompimento até o grande suporte/resistência do 4H |
+| **800.0%** | **650.0%** | **ALVO_EXPANSAO_800** | **TRAIL_LOCK** | Expansão máxima institucional |
+
+### 3.4.1 Protocolo Soberano dos Lotes 4 + 4 em Margem Cruzada [V197]
+- **Margem Fixa**: $1.000,00 por ordem em 50.0X (nocional $50.000,00). Lastreada pelo saldo total de $100.000,00 em Margem Cruzada (`mgn_mode="cross"`).
+- **Lote 1 (Risco Ativo)**: A Laya abre no máximo 4 posições com risco vivo simultâneo (exposição máxima de $4.000,00 ou 4.0% da banca).
+- **Gatilho de Desbloqueio (Lote 2)**: Os slots 5 a 8 permanecem estritamente bloqueados até que ordens do Lote 1 atinjam Breakeven (+50% ROI / Risco Zero). Conforme uma ordem zera seu risco, uma nova vaga é destravada para o Lote 2, mantendo uma esteira contínua sem nunca ultrapassar 4 ordens em risco vivo.
+- **Stop Estrutural Livre (2H/4H)**: O Stop Loss é ancorado nos topos/fundos reais do 2H/4H em até 3.8% de distância de preço, sem tetos artificiais de scalping que causem violinadas.
+- **Alvo Chão de +300%**: Toda ordem vencedora busca no mínimo +300% de ROI (+$3.000,00 brutos), estendendo o ganho até os suportes/resistências do 4H via trailing stop de 2H.
 
 ### 3.5 `ORDER_STOP_LADDER_SWING_LATERAL` (swing em lateral)
 | Gatilho | Stop | Nome |
