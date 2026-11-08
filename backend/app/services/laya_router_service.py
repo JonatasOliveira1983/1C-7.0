@@ -4018,9 +4018,11 @@ class LayaRouterService:
             self.log_thought("CIRCUIT_BREAKER", f"️ [ANTI-TILT ATIVO]: Resfriamento global de banca ativo ({rem_freeze}s restantes). Novas ordens congeladas.", action="GLOBAL_FREEZE", confidence=99)
             force_open_if_empty = False
 
-        # [V180-GLOBAL-CADENCE]: Cadência Global de 15 Minutos (900s) entre entradas para evitar metralhadora de slots
+        # [V204-AGILE-FLEET-CADENCE]: Cadência Ágil de 45 Segundos entre entradas
+        # Permite montar a frota direcional de até 4 ordens do Lote 1 durante a janela do repique técnico 30M
         last_global_open = getattr(self, "_last_global_trade_open_ts", 0.0)
         time_since_last_open = time.time() - last_global_open
+        fleet_cadence_seconds = 45.0
 
         # [V197-TIERED-SLOT-ALLOCATION-4-PLUS-4]: Trava de 4 ordens em risco vivo
         unprotected_risk_count = self.count_unprotected_risk_trades(active_trades)
@@ -4033,9 +4035,9 @@ class LayaRouterService:
             )
             return None
 
-        if len(active_trades) > 0 and time_since_last_open < 900:
-            rem_cadence = int(900 - time_since_last_open)
-            self.log_thought("CADENCIA", f"[CADENCIA ATIVA]: Aguardando {rem_cadence}s para proxima abertura (cadencia de 15min entre ordens para filtrar ruidos).", action="CADENCIA_HOLD", confidence=95)
+        if len(active_trades) > 0 and time_since_last_open < fleet_cadence_seconds:
+            rem_cadence = int(fleet_cadence_seconds - time_since_last_open)
+            self.log_thought("CADENCIA", f"[CADENCIA ATIVA]: Aguardando {rem_cadence}s para proxima abertura (cadencia de {int(fleet_cadence_seconds)}s entre ordens).", action="CADENCIA_HOLD", confidence=95)
         elif len(active_trades) < max_allowed_slots:
             eligible = []
             for cand in self.candidate_setups.values():
@@ -4171,15 +4173,31 @@ class LayaRouterService:
                 reverse=True
             )
 
-            # [V189-DIRECTIONAL-CLUSTER-PROTECTION]: Contabiliza posicoes ativas por direcao
-            active_direction_counts = {"LONG": 0, "SHORT": 0}
+            # [V204-SOVEREIGN-FLEET-4-PLUS-4]: Contabiliza ordens em RISCO VIVO por direção
+            # A frota soberana permite até 4 ordens em risco vivo na mesma direção macro a favor do Farol BTC (Lote 1).
+            # Ordens já protegidas em Breakeven (Risco Zero) liberam expansão para o Lote 2 (até o teto de 8 ordens da frota).
+            unprotected_dir_counts = {"LONG": 0, "SHORT": 0}
             for t in active_trades:
-                t_side = getattr(t, "side", None) or (t.get("side") if isinstance(t, dict) else None) or ""
-                t_side = str(t_side).upper()
-                if "LONG" in t_side or "BUY" in t_side:
-                    active_direction_counts["LONG"] += 1
-                elif "SHORT" in t_side or "SELL" in t_side:
-                    active_direction_counts["SHORT"] += 1
+                is_prot = getattr(t, "is_protected", False) or (t.get("is_protected") if isinstance(t, dict) else False)
+                curr_sl = getattr(t, "current_stop", None) or (t.get("current_stop") if isinstance(t, dict) else None) or getattr(t, "stop_loss", None)
+                ent_p = getattr(t, "entry_price", 0.0) or (t.get("entry_price") if isinstance(t, dict) else 0.0)
+                t_side = str(getattr(t, "side", "") or (t.get("direction") if isinstance(t, dict) else "") or "").upper()
+                dir_key = "SHORT" if ("SHORT" in t_side or "SELL" in t_side) else "LONG"
+
+                is_be = False
+                if curr_sl and ent_p:
+                    try:
+                        curr_sl = float(curr_sl)
+                        ent_p = float(ent_p)
+                        if dir_key == "SHORT" and curr_sl <= ent_p:
+                            is_be = True
+                        elif dir_key == "LONG" and curr_sl >= ent_p:
+                            is_be = True
+                    except (ValueError, TypeError):
+                        pass
+
+                if not is_prot and not is_be:
+                    unprotected_dir_counts[dir_key] += 1
 
             chosen = None
             for cand in eligible:
@@ -4187,12 +4205,14 @@ class LayaRouterService:
                 cand_dir = cand["direction"]
                 clean_name = cand.get("clean_sym", cand_sym)
 
-                # [ANTI-CLUSTER SOBERANO]: Maximo de 2 posicoes na mesma direcao (evita cesto correlacionado de 3 shorts)
-                if active_direction_counts.get(cand_dir, 0) >= 2 and not cand.get("alt_pump_ignition"):
+                # [REGRA SOBERANA LOTES 4 + 4]:
+                # Máximo de 4 ordens em RISCO VIVO na mesma direção (Lote 1).
+                # Conforme ordens anteriores atingem Breakeven, novas ordens são liberadas até o teto de 8 ordens.
+                if unprotected_dir_counts.get(cand_dir, 0) >= 4 and not cand.get("alt_pump_ignition"):
                     self.log_thought(
                         clean_name,
-                        f"[VETO CLUSTER DIRECIONAL]: Ja existem {active_direction_counts.get(cand_dir, 0)} posicoes ativas em {cand_dir}. Limite de correlacao atingido para blindar a banca.",
-                        action="VETO_CLUSTER_DIRECIONAL",
+                        f"[VETO LOTE 1 CHEIO]: Ja existem {unprotected_dir_counts.get(cand_dir, 0)} ordens em risco vivo em {cand_dir}. Aguardando Breakeven para liberar expansao do Lote 2.",
+                        action="VETO_LOTE_1_CHEIO",
                         confidence=96
                     )
                     continue
