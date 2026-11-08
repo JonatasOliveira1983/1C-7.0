@@ -12,7 +12,7 @@ def test_swing_strategy_classification_and_ladder():
     ladder_aguia = proj.get_stop_ladder(0.0, is_ranging=False, strategy_class="LAYA_AGUIA_FUSION")
     
     triggers = [lvl.trigger_roi for lvl in ladder_pullback]
-    assert 50.0 in triggers
+    assert 60.0 in triggers
     assert 100.0 in triggers
     assert 200.0 in triggers
     assert 300.0 in triggers

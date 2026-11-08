@@ -1205,8 +1205,9 @@ class LayaRouterService:
         has_vol_spike = (recent_vol >= avg_vol * 1.35) or bot_ignition
 
         if is_discount_support:
-            if btc_trend_bias < -0.6:
-                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "FAROL_BTC_QUEDA_FORTE"}
+            # [V205-ZERO-TOLERANCE-ALT-LONG] Tolerância Zero para compras de altcoin sem Bitcoin em regime BULL
+            if btc_trend_bias <= 0.0 or btc_macro_direction != "BULL":
+                return {"qualifies": False, "direction": "HOLD", "score": 0, "reason": "FAROL_BTC_NAO_E_BULL"}
             
             # Gatilho no 15M: Preco sustentando acima da SMA 8 com absorcao e volume
             if current_price < sma8 * 0.995:
@@ -3767,11 +3768,21 @@ class LayaRouterService:
                         score = 50
                         rationale = f"ÍMÃ DE BAIXA ({target_region}): Muralha de ${target_vol_m:.1f}M USD em ${target_p:.4f} puxando o preço. Aguardando pullback para vender caro."
                 elif target_region == "ACIMA" or dom_magnet == "BULLISH_SWEEP":
-                    _macro_vetoed = False
-                    if _sma_macro_dir == "SHORT":
+                    # [V205-ZERO-TOLERANCE-ALT-LONG] Tolerância Zero para compras de altcoin sem Bitcoin em regime BULL
+                    if btc_macro_dir != "BULL" or btc_trend_bias <= 0.0:
+                        multi_eval["qualifies"] = False
+                        strat_name = "MONITOR"
+                        score = 30
+                        rationale = f"VETO FAROL BTC SOBERANO: Imã ACIMA bloqueado. Bitcoin nao esta em regime BULL (Regime: {btc_macro_dir}, Bias: {btc_trend_bias:+.2f}%). Proibido comprar altcoins sem BTC em alta confirmada."
                         _macro_vetoed = True
                         is_hunt_zone = False
                         is_dip_or_edge = False
+                    else:
+                        _macro_vetoed = False
+                        if _sma_macro_dir == "SHORT":
+                            _macro_vetoed = True
+                            is_hunt_zone = False
+                            is_dip_or_edge = False
                     direction = "LONG" 
                     target = target_p if target_p > 0 else round(price * 1.035, 4)
                     stop_loss = round(price * 0.975, 4)
@@ -4133,9 +4144,10 @@ class LayaRouterService:
                         if (35.0 < c_range < 65.0) and not cand.get("is_pump_ignition"):
                             continue
 
-                # 5. Farol Macro e Clima
-                if c_strat != "LAYA_LIQUIDITY_HUNT":
-                    if btc_trend_bias < -0.4 and c_dir == "LONG":
+                # 5. Farol Macro e Clima (Aplicável a 100% das estratégias sem exceção)
+                if True:
+                    # Tolerância Zero para compras de altcoin sem BTC em alta confirmada
+                    if btc_trend_bias <= 0.0 and c_dir == "LONG":
                         continue
                     if btc_trend_bias > 1.0 and c_dir == "SHORT":
                         continue
@@ -4294,15 +4306,14 @@ class LayaRouterService:
                     is_outlier = self.is_decorrelated_outlier(d_data) or bool(cand.get("alt_pump_ignition"))
 
                     # [MOTOR 1: VETO SOBERANO DO FAROL BTC MACRO 2H]
-                    # Se o Bitcoin estiver em BEAR no 2H (SMA8 < SMA21 ou btc_trend_bias < -0.3):
-                    # FICA TERMINANTEMENTE PROIBIDO ABRIR LONG EM QUALQUER ALTCOIN!
+                    # Tolerância Zero: Proibido abrir LONG em qualquer altcoin sem Bitcoin estritamente em BULL no 2H!
                     # Excecao Unica: Rompimento comprovado de acumulacao com alt_pump_ignition E volume explosivo.
-                    is_btc_bear = (btc_macro_dir == "BEAR" or btc_trend_bias < -0.3)
+                    is_btc_bull = (btc_macro_dir == "BULL" and btc_trend_bias >= 0.0)
                     has_exceptional_pump = bool(cand.get("alt_pump_ignition") and cand.get("bot_ignition"))
-                    if cand_dir == "LONG" and is_btc_bear and not has_exceptional_pump:
+                    if cand_dir == "LONG" and not is_btc_bull and not has_exceptional_pump:
                         self.log_thought(
                             clean_name,
-                            f"[VETO FAROL BTC MACRO 2H]: LONG bloqueado para {cand_sym}. Bitcoin em regime BEAR 2H (Bias: {btc_trend_bias:+.2f}%). Proibido comprar altcoins em mercado macro de queda sem rompimento institucional comprovado.",
+                            f"[VETO FAROL BTC SOBERANO]: LONG bloqueado para {cand_sym}. Bitcoin nao esta em regime BULL 2H (Regime: {btc_macro_dir}, Bias: {btc_trend_bias:+.2f}%). Tolerancia zero para compras de altcoins sem BTC em alta confirmada.",
                             action="VETO_FAROL_BTC",
                             confidence=99
                         )
