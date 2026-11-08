@@ -641,7 +641,7 @@ class LayaRouterService:
             if tested_res and in_pullback_zone and has_rejection:
                 # O Stop Loss DEVE sempre ficar acima do teto maior estrutural (SMA21), nunca mutilado na SMA8!
                 sl_price = round(max(c_high * 1.003, major_res * 1.004), 4)
-                tgt_price = round(min(c_low * 0.985, c_close * 0.965), 4)
+                tgt_price = round(min(c_low * 0.970, c_close * 0.940), 4)
                 return {
                     "has_pullback_setup": True,
                     "score_boost": 18,
@@ -675,7 +675,7 @@ class LayaRouterService:
 
             if tested_sup and in_pullback_zone and has_absorption:
                 sl_price = round(min(c_low * 0.997, sup_target * 0.996), 4)
-                tgt_price = round(max(c_high * 1.015, c_close * 1.035), 4)
+                tgt_price = round(max(c_high * 1.030, c_close * 1.060), 4)
                 return {
                     "has_pullback_setup": True,
                     "score_boost": 18,
@@ -1065,10 +1065,10 @@ class LayaRouterService:
                     target_dist = calc_target_dist
                     target = structural_tp
                 else:
-                    target_dist = 0.045
+                    target_dist = 0.060
                     target = round(current_price * (1.0 + target_dist), 6)
             else:
-                target_dist = 0.045
+                target_dist = 0.060
                 target = round(current_price * (1.0 + target_dist), 6)
         else: # SHORT
             if res_h1 > current_price:
@@ -1094,10 +1094,10 @@ class LayaRouterService:
                     target_dist = calc_target_dist
                     target = structural_tp
                 else:
-                    target_dist = 0.045
+                    target_dist = 0.060
                     target = round(current_price * (1.0 - target_dist), 6)
             else:
-                target_dist = 0.045
+                target_dist = 0.060
                 target = round(current_price * (1.0 - target_dist), 6)
 
         rationale = (
@@ -3630,7 +3630,7 @@ class LayaRouterService:
                     multi_eval["direction"] = direction
                     score = min(99, 88 + pullback_30m.get("score_boost", 0))
                     stop_loss = pullback_30m.get("stop_loss", round(price * 1.008, 4))
-                    target = pullback_30m.get("target", round(price * 0.965, 4))
+                    target = pullback_30m.get("target", round(price * 0.940, 4))
                     stop_dist = abs(stop_loss - price) / price if price > 0 else 0.008
                     target_dist = abs(price - target) / price if price > 0 else 0.035
                     multi_eval["stop_loss"] = stop_loss
@@ -3653,7 +3653,7 @@ class LayaRouterService:
                     multi_eval["direction"] = direction
                     score = min(99, 88 + pullback_30m.get("score_boost", 0))
                     stop_loss = pullback_30m.get("stop_loss", round(price * 0.992, 4))
-                    target = pullback_30m.get("target", round(price * 1.035, 4))
+                    target = pullback_30m.get("target", round(price * 1.060, 4))
                     stop_dist = abs(price - stop_loss) / price if price > 0 else 0.008
                     target_dist = abs(target - price) / price if price > 0 else 0.035
                     multi_eval["stop_loss"] = stop_loss

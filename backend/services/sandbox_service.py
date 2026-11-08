@@ -1809,20 +1809,50 @@ class SandboxService:
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
 
-        # [V181-SUPER-RUNNERS-TRAIL] Trailing institucional com respiro amplo:
-        # Para ignição/runners, só aciona acima de +35.0% ROI para não asfixiar o movimento
-        trail_min_trigger = 35.0 if is_ignition else 30.0
+        # [V203-SOVEREIGN-SWING-EXPANSION]
+        # Invariante Alvo Chão +300% ROI & Margem Cruzada 50X:
+        # 1. Para estratégias Swing (2H/30M): A Escadinha Soberana dos Degraus reina entre 0% e 300% ROI.
+        #    O trailing aritmético NUNCA é acionado abaixo de +300.0% ROI, permitindo respiro livre de 1.0% a 2.0% de preço.
+        # 2. Acima de +300.0% ROI: Trailing de expansão ativa travando no mínimo +200.0% ROI fixos ($2.000 garantidos)
+        #    e mantendo folga generosa (>= 100.0% ROI / 2.0% de preço) para o ativo surfar até 500% ou 800% no 4H.
+        is_swing = (
+            strat_class in (
+                "LAYA_PULLBACK_HUNTER_2H_30M",
+                "LAYA_AGUIA_FUSION",
+                "LAYA_SMART_MONEY_H1",
+                "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "VELOCITY FLOW",
+                "ALPHA SHIELD",
+                "DECOR SHADOW"
+            )
+            or "SWING" in str(strat_class).upper()
+            or "PULLBACK" in str(strat_class).upper()
+            or "AGUIA" in str(strat_class).upper()
+        )
+
+        if is_swing:
+            trail_min_trigger = 300.0
+        elif is_ignition:
+            trail_min_trigger = 50.0
+        else:
+            trail_min_trigger = 100.0
+
         if max_roi >= trail_min_trigger:
-            trail_stop_roi = max(20.0 if is_ignition else 15.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.70, 1))
-            trail_pct_label = "75%" if is_ignition else "70%"
+            if is_swing:
+                # Acima de 300% ROI: Garante no mínimo 200% ROI e dá respiro amplo de 100% ROI
+                trail_stop_roi = max(200.0, round(max_roi - 100.0, 1))
+                trail_pct_label = "EXPANSAO_MACRO_100ROI"
+            else:
+                trail_stop_roi = max(50.0 if is_ignition else 40.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.70, 1))
+                trail_pct_label = "75%" if is_ignition else "70%"
 
             if trail_stop_roi > updated_stop_roi:
                 updated_stop_roi = trail_stop_roi
                 updated_level_name = "GARANTIA_TRAIL"
-                updated_phase = "ESCADINHA"
+                updated_phase = "TRAILING"
                 history.append(
                     f"GARANTIA_TRAIL [{trail_pct_label}]: trailing ativado a {max_roi:.1f}% pico "
-                    f"— stop → {trail_stop_roi:.1f}% ROI ({trail_pct_label} do pico)"
+                    f"— stop → {trail_stop_roi:.1f}% ROI"
                 )
                 logger.info(
                     f"🧪 [SANDBOX-FLASH] {symbol} GARANTIA_TRAIL [{trail_pct_label}] ativado "

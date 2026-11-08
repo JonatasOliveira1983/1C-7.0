@@ -77,9 +77,9 @@ ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
 
 ORDER_STOP_LADDER_SWING: List[StopLevel] = [
     # [V197-CROSS-MARGIN-SWING-50X] Swing 2H/4H com respiro de 12h-24h e alvo chão de 300%
-    StopLevel("ESCADINHA", "BREAKEVEN_2H",         50.0,    5.0,  "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "BREAKEVEN_2H",         50.0,    8.5,  "RISCO_ZERO"),
     StopLevel("ESCADINHA", "PROTECAO_LUCRO_100",  100.0,   50.0,  "PROFIT_LOCK"),
-    StopLevel("ESCADINHA", "LUCRO_CONSOLIDADO_200", 200.0, 120.0, "PROFIT_LOCK"),
+    StopLevel("ESCADINHA", "LUCRO_CONSOLIDADO_200", 200.0, 100.0, "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "ALVO_CHAO_300",       300.0,  200.0,  "PROFIT_LOCK"),
     StopLevel("TRAILING",  "SURFE_LIVRE_400",     400.0,  300.0,  "TRAIL_LOCK"),
     StopLevel("TRAILING",  "ALVO_MACRO_4H_500",   500.0,  400.0,  "TRAIL_LOCK"),
@@ -195,7 +195,21 @@ class OrderProjectionService:
             "ABSORÇÃO BALEIA (FUNDO)",
             "REVERSÃO DE CANAL"
         )
-        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW", "LAYA_SMART_MONEY_H1")
+        is_swing = (
+            slot_type in ("BLITZ_30M", "SWING")
+            or strategy_class in (
+                "VELOCITY FLOW",
+                "ALPHA SHIELD",
+                "DECOR SHADOW",
+                "LAYA_SMART_MONEY_H1",
+                "LAYA_PULLBACK_HUNTER_2H_30M",
+                "LAYA_AGUIA_FUSION",
+                "LAYA_INTERMEDIATE_REVERSAL_15M",
+            )
+            or "SWING" in str(strategy_class).upper()
+            or "PULLBACK" in str(strategy_class).upper()
+            or "AGUIA" in str(strategy_class).upper()
+        )
         is_scalping = strategy_class == "VWAP SNIPER" or slot_type == "SCALPING"
         
         is_ignition = strategy_class in (
@@ -266,7 +280,21 @@ class OrderProjectionService:
         
         # [V124.6] Se estiver em Ranging e em trailing stop ativo
         # Para Swing, o trailing nativo da escada já é adequado
-        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW")
+        is_swing = (
+            slot_type in ("BLITZ_30M", "SWING")
+            or strategy_class in (
+                "VELOCITY FLOW",
+                "ALPHA SHIELD",
+                "DECOR SHADOW",
+                "LAYA_SMART_MONEY_H1",
+                "LAYA_PULLBACK_HUNTER_2H_30M",
+                "LAYA_AGUIA_FUSION",
+                "LAYA_INTERMEDIATE_REVERSAL_15M",
+            )
+            or "SWING" in str(strategy_class).upper()
+            or "PULLBACK" in str(strategy_class).upper()
+            or "AGUIA" in str(strategy_class).upper()
+        )
         if is_ranging and active and active.phase == "TRAILING" and roi_percent >= 50.0:
             if not is_swing:
                 active = StopLevel(
@@ -286,7 +314,21 @@ class OrderProjectionService:
         return None
 
     def get_phase(self, roi_percent: float, phase_hint: Optional[str] = None, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> str:
-        is_swing = slot_type in ("BLITZ_30M", "SWING") or strategy_class in ("VELOCITY FLOW", "ALPHA SHIELD", "DECOR SHADOW")
+        is_swing = (
+            slot_type in ("BLITZ_30M", "SWING")
+            or strategy_class in (
+                "VELOCITY FLOW",
+                "ALPHA SHIELD",
+                "DECOR SHADOW",
+                "LAYA_SMART_MONEY_H1",
+                "LAYA_PULLBACK_HUNTER_2H_30M",
+                "LAYA_AGUIA_FUSION",
+                "LAYA_INTERMEDIATE_REVERSAL_15M",
+            )
+            or "SWING" in str(strategy_class).upper()
+            or "PULLBACK" in str(strategy_class).upper()
+            or "AGUIA" in str(strategy_class).upper()
+        )
         if is_swing:
             if roi_percent >= 300.0:
                 return "TRAILING"
