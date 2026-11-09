@@ -295,14 +295,14 @@ class OrderProjectionService:
             or "PULLBACK" in str(strategy_class).upper()
             or "AGUIA" in str(strategy_class).upper()
         )
-        # [V211-TRAILING-DINAMICO-SWING-100] Trailing dinâmico de 35% de gap após +100% ROI
-        # Impede que trades vencedores (ex: 150% a 180%) devolvam lucro excessivo.
+        # [V211-TRAILING-DINAMICO-ELASTICO-50] Trailing dinâmico com Gap Elástico de 50% de ROI (1.0% de preço a 50X) após +100% ROI
+        # Dá 1.0% de respiro livre para o ativo buscar o Alvo Chão de +300% sem estrangulamento precoce
         if is_swing and active and roi_percent >= 100.0:
             if roi_percent < 300.0:
-                trail_roi = max(65.0, round(roi_percent - 35.0, 1))
+                trail_roi = max(50.0, round(roi_percent - 50.0, 1))
                 active = StopLevel(
                     phase="TRAILING",
-                    name="TRAILING_DINAMICO_35",
+                    name="TRAILING_ELASTICO_50",
                     trigger_roi=100.0,
                     stop_roi=trail_roi,
                     status_risco="TRAIL_LOCK"

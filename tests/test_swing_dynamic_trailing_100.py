@@ -4,13 +4,16 @@ import pytest
 from services.order_projection_service import OrderProjectionService
 
 
-def test_swing_dynamic_trailing_gap_35_above_100():
+def test_swing_dynamic_trailing_gap_50_above_100():
     """
-    Abordagem 2: Trailing Dinâmico Conectado ao Pico para Swing 2H / 30M.
-    - < 60% ROI: Respiro técnico estrutural.
-    - >= 60% ROI: Breakeven Soberano (+30.0% ROI).
-    - >= 100% ROI: Trailing Dinâmico com gap de 35% de ROI (0.70% de preço a 50X).
-    - >= 300% ROI: Alvo Chão garantindo no mínimo 200% ROI e surfe macro.
+    Alternativa A: Gap Elástico de Respiro Técnico (50.0% de ROI / 1.0% de Preço a 50X)
+    - < 60% ROI: Respiro técnico estrutural 2H.
+    - >= 60% ROI: Breakeven Soberano (+30.0% ROI líquido / +$300).
+    - >= 100% ROI: Trailing Dinâmico com gap de 50% de ROI (1.0% de preço a 50X).
+      * Atingiu +100% ROI -> Trava +50% (+$500 garantidos).
+      * Atingiu +150% ROI -> Trava +100% (+$1.000 garantidos no cofre, 1.0% de respiro).
+      * Atingiu +200% ROI -> Trava +150% (+$1.500 garantidos).
+    - >= 300% ROI: Alvo Chão garantindo no mínimo 200% ROI (+$2.000) e surfe macro 4H.
     """
     proj = OrderProjectionService()
     strat = "LAYA_PULLBACK_HUNTER_2H_30M"
@@ -24,23 +27,25 @@ def test_swing_dynamic_trailing_gap_35_above_100():
     assert lvl_60 is not None
     assert lvl_60.stop_roi == 30.0
 
-    # 3. A 100%: Trailing Dinâmico aciona e trava 65% ROI (100 - 35)
+    # 3. A 100%: Trailing Dinâmico aciona e trava 50% ROI (100 - 50)
     lvl_100 = proj.get_active_level(100.0, strategy_class=strat)
     assert lvl_100 is not None
-    assert lvl_100.stop_roi == 65.0
+    assert lvl_100.stop_roi == 50.0
     assert lvl_100.phase == "TRAILING"
 
-    # 4. Caso real de LINK no pico de 151.9%: trava 116.9% ROI (em vez de sair a 50%)
-    lvl_link = proj.get_active_level(151.9, strategy_class=strat)
-    assert lvl_link is not None
-    assert lvl_link.stop_roi == 116.9
-    assert lvl_link.phase == "TRAILING"
+    # 4. A 150%: Trava 100% ROI líquido (+$1.000 garantidos com 1.0% de respiro para buscar 300%)
+    lvl_150 = proj.get_active_level(150.0, strategy_class=strat)
+    assert lvl_150 is not None
+    assert lvl_150.stop_roi == 100.0
+    assert lvl_150.phase == "TRAILING"
+    respiro_150 = round(150.0 - lvl_150.stop_roi, 1)
+    assert respiro_150 == 50.0  # 1.0% de preço a 50X
 
-    # 5. Caso real de UNI no pico de 161.4%: trava 126.4% ROI (em vez de 50%)
-    lvl_uni = proj.get_active_level(161.4, strategy_class=strat)
-    assert lvl_uni is not None
-    assert lvl_uni.stop_roi == 126.4
-    assert lvl_uni.phase == "TRAILING"
+    # 5. A 200%: Trava 150% ROI líquido (+$1.500 garantidos)
+    lvl_200 = proj.get_active_level(200.0, strategy_class=strat)
+    assert lvl_200 is not None
+    assert lvl_200.stop_roi == 150.0
+    assert lvl_200.phase == "TRAILING"
 
     # 6. A 300% (Alvo Chão): Garante pelo menos 200% ROI
     lvl_300 = proj.get_active_level(300.0, strategy_class=strat)

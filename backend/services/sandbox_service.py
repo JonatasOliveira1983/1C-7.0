@@ -1841,9 +1841,9 @@ class SandboxService:
         if max_roi >= trail_min_trigger:
             if is_swing:
                 if max_roi < 300.0:
-                    # [V211-TRAILING-DINAMICO-SWING-100] Trailing dinâmico de 35% de gap após +100% ROI
-                    trail_stop_roi = max(65.0, round(max_roi - 35.0, 1))
-                    trail_pct_label = "GAP_35ROI"
+                    # [V211-TRAILING-DINAMICO-ELASTICO-50] Trailing dinâmico com Gap Elástico de 50% de ROI (1.0% de preço a 50X) após +100% ROI
+                    trail_stop_roi = max(50.0, round(max_roi - 50.0, 1))
+                    trail_pct_label = "GAP_ELASTICO_50ROI"
                 else:
                     # Acima de 300% ROI: Garante no mínimo 200% ROI e dá respiro amplo de 70% ROI
                     trail_stop_roi = max(200.0, round(max_roi - 70.0, 1))
