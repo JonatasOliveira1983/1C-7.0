@@ -909,7 +909,7 @@
               <button id="btn-chart-solo" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('solo')">SOLO (1)</button>
               <button id="btn-chart-dual" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('dual')">DUAL (2)</button>
               <button id="btn-chart-quad" class="btn-gold" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('quad')">QUAD (4)</button>
-              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $100,000.00 pristine">RESET BANCA ($100K)</button>
+              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $10,000.00 pristine">RESET BANCA ($10K)</button>
             </div>
           </div>
 
@@ -1121,7 +1121,7 @@
                 <span style="font-size: 8px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
                 <span style="font-size: 7.5px; color: #0ECB81; background: rgba(14, 203, 129, 0.12); border: 1px solid rgba(14, 203, 129, 0.3); border-radius: 2px; padding: 0 4px; font-weight: 700; font-family: var(--font-mono);">100% LÍQUIDO</span>
               </div>
-              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$100,000.00</span>
+              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$10,000.00</span>
             </div>
             <div style="text-align: right;">
               <span style="display: block; font-size: 7.5px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 1px;">PERFORMANCE</span>
@@ -1133,7 +1133,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
-              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$100,000.00</b>
+              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: flex; align-items: center; gap: 3px; font-size: 8px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO <span style="font-size: 7px; color: #0ECB81; font-weight: 700;">(PÓS-TAXAS)</span></span>
@@ -1141,11 +1141,11 @@
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
-              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$100,000.00</b>
+              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
-              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$100,000.00</b>
+              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
@@ -3068,8 +3068,8 @@
         if (!res.ok) return;
         const d = await res.json();
         
-        const baseBal = 100000.00;
-        const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 100000.00));
+        const baseBal = Number(d.base_balance || 10000.00);
+        const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 10000.00));
         const realizedPnlUsd = Number(d.realized_pnl_usd !== undefined ? d.realized_pnl_usd : (d.total_pnl_usd || 0.0));
         const floatingPnlUsd = Number(d.floating_pnl_usd !== undefined ? d.floating_pnl_usd : 0.0);
         const totalPnlPct = Number(d.pnl_percent !== undefined ? d.pnl_percent : ((totalEquity - baseBal) / baseBal * 100.0));
@@ -4209,7 +4209,7 @@
       } catch(e) {
         console.error("Erro ao resetar:", e);
         resetBtns.forEach(b => {
-          b.textContent = b.dataset.prevText || "RESET BANCA ($100K)";
+          b.textContent = b.dataset.prevText || "RESET BANCA ($10K)";
           b.disabled = false;
           b.style.opacity = "1";
         });

@@ -35,7 +35,7 @@ async def get_unified_sandbox_state():
         
         # 2. Configuracoes de banca e margem
         from config import settings
-        BANCA_BASE = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+        BANCA_BASE = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
         
         # 3. Contadores
         active_scalp = len(scalp_trades)
@@ -216,7 +216,7 @@ async def get_sandbox_stats():
         total_pnl_usd = 0.0
         # [V129] Banca consolidada dinâmica (Juros Compostos)
         from config import settings
-        BANCA = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+        BANCA = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
         # [V119] Inicializa preventivamente as 3 estratégias para garantir telemetria consistente na UI
         strategy_stats = {
             "ALPHA SHIELD": {"total": 0, "wins": 0, "losses": 0, "pnl": 0.0, "pnl_usd": 0.0},

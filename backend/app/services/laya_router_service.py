@@ -4005,7 +4005,7 @@ class LayaRouterService:
         try:
             from services.sandbox_service import sandbox_service
             from config import settings
-            base_bank = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
+            base_bank = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
             current_sandbox_balance = getattr(sandbox_service, "base_balance_cache", base_bank)
         except Exception:
             base_bank = 100000.0
@@ -4035,13 +4035,14 @@ class LayaRouterService:
         time_since_last_open = time.time() - last_global_open
         fleet_cadence_seconds = 45.0
 
-        # [V197-TIERED-SLOT-ALLOCATION-4-PLUS-4]: Trava de 4 ordens em risco vivo
+        # [V206-SNOWBALL-FLEET-2-PLUS-EXPANSION]: Trava de 2 ordens em risco vivo simultâneo (Banca $10k)
         unprotected_risk_count = self.count_unprotected_risk_trades(active_trades)
-        if unprotected_risk_count >= 4:
+        max_unprotected_allowed = 2
+        if unprotected_risk_count >= max_unprotected_allowed:
             self.log_thought(
                 "SISTEMA",
-                f"[VETO LOTE ATIVO]: Ja existem {unprotected_risk_count} ordens com risco vivo na Margem Cruzada. Aguardando protecao em Risco Zero (Breakeven) para liberar novos slots do Lote 2.",
-                action="VETO_LOTE_ATIVO",
+                f"[VETO RISCO VIVO]: Ja existem {unprotected_risk_count} ordens com risco vivo na Margem Cruzada (limite: {max_unprotected_allowed}). Aguardando protecao em Risco Zero (Breakeven) para liberar novos slots de expansao.",
+                action="VETO_RISCO_VIVO_CHEIO",
                 confidence=98
             )
             return None
@@ -4217,14 +4218,14 @@ class LayaRouterService:
                 cand_dir = cand["direction"]
                 clean_name = cand.get("clean_sym", cand_sym)
 
-                # [REGRA SOBERANA LOTES 4 + 4]:
-                # Máximo de 4 ordens em RISCO VIVO na mesma direção (Lote 1).
-                # Conforme ordens anteriores atingem Breakeven, novas ordens são liberadas até o teto de 8 ordens.
-                if unprotected_dir_counts.get(cand_dir, 0) >= 4 and not cand.get("alt_pump_ignition"):
+                # [REGRA SOBERANA DE EXPANSÃO 2+2+2+2 (Banca $10k)]:
+                # Máximo de 2 ordens em RISCO VIVO na mesma direção.
+                # Conforme ordens anteriores atingem Breakeven (+60% ROI), novas ordens são liberadas de 2 em 2 até o teto de 8 ordens (6 em risco zero e 2 em risco vivo).
+                if unprotected_dir_counts.get(cand_dir, 0) >= 2 and not cand.get("alt_pump_ignition"):
                     self.log_thought(
                         clean_name,
-                        f"[VETO LOTE 1 CHEIO]: Ja existem {unprotected_dir_counts.get(cand_dir, 0)} ordens em risco vivo em {cand_dir}. Aguardando Breakeven para liberar expansao do Lote 2.",
-                        action="VETO_LOTE_1_CHEIO",
+                        f"[VETO RISCO VIVO DIR]: Ja existem {unprotected_dir_counts.get(cand_dir, 0)} ordens em risco vivo em {cand_dir} (limite: 2). Aguardando Breakeven para liberar expansao.",
+                        action="VETO_RISCO_DIR_CHEIO",
                         confidence=96
                     )
                     continue
@@ -4484,7 +4485,7 @@ class LayaRouterService:
                 # 2. Margem por Slot: 1.0% da banca realizada ($1.000 numa banca de $100.000)
                 # 10 slots = $10.000 em risco (10% total), mantendo 90% liquida ($90.000) como colchao contra liquidacao
                 from config import settings
-                base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
+                base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
                 margin_planned = 1000.0  # [V197-CROSS-MARGIN-SWING-50X]: Margem fixa de $1.000,00 por ordem
 
                 quant_res = okx_universe_service.quantize_order_contracts(

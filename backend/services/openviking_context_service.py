@@ -513,8 +513,8 @@ class OpenVikingContextService:
         l0_v205_pat = "V205 Versão Canônica Vencedora: Expansão de banca de $100.000 para $107.550,49 (+7.55% líquido) com zero drawdown. Alvo Chão +300% superado com XPL (+365.91% / +$3.659,14) e UNI (+155.88% / +$1.558,82)."
         l1_v205_pat = (
             "ARQUITETURA VENCEDORA COMPROVADA (V205):\n"
-            "• Margem Cruzada Soberana (Cross 50X): Banca de $100.000 como colateral total, margem fixa de $1.000 por ordem (exposição nocional $50.000).\n"
-            "• Regra dos Lotes 4 + 4: Máximo 4 ordens em risco direcional ativo (Lote 1). Slots 5 a 8 (Lote 2) só abrem conforme ordens anteriores atinjam Breakeven com lucro travado.\n"
+            "• Margem Cruzada Soberana (Cross 50X): Banca de $10.000 como colateral garantidor, margem fixa de $1.000 por ordem (exposição nocional $50.000).\n"
+            "• Regra de Expansão em Bola de Neve (2 + 2 + 2 + 2): Máximo de 2 ordens simultâneas em risco ativo vivo (20% da banca; 80% ou $8.000 livres como colateral). Slots 3 a 8 só abrem conforme ordens anteriores atinjam Breakeven Soberano (+60% ROI / Trava +30% ROI). No ápice da frota (8 slots cheios), exatamente 6 ordens estão em risco zero e 2 em risco vivo.\n"
             "• Breakeven Soberano +60.0% de ROI: Disparo calibrado em +60% (1.2% de preço a favor), eliminando saídas prematuras de $21. Stop travando +30% de ROI líquido (+ $300 no bolso).\n"
             "• Alvo Chão +300% de ROI: Escadinha progressiva que trava +200% de ROI (+ $2.000 no bolso) no Degrau 5 e deixa o trailing correr solto no 4H.\n"
             "• Tolerância Zero Farol BTC 2H: Nenhuma altcoin abre LONG se Bitcoin não estiver estritamente em BULL no 2H (SMA 8 > SMA 21 e viés positivo). Sem exceções.\n"

@@ -46,7 +46,7 @@ async def _tool_get_balance() -> Dict[str, Any]:
             "status": "success",
             "execution_mode": "PAPER" if is_paper else "REAL",
             "unified_balance_usd": round(sandbox_balance, 2),
-            "simulated_base_usd": 100000.0,
+            "simulated_base_usd": 10000.0,
             "currency": "USDT"
         }
     except Exception as e:

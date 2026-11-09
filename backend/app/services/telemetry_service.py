@@ -115,7 +115,7 @@ class TelemetryService:
         try:
             from services.sandbox_service import sandbox_service
             from config import settings
-            base_bal = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+            base_bal = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
 
             # Puxa trades ativos do Sandbox
             slots = getattr(sandbox_service, "active_trades", {})

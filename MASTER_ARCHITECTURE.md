@@ -153,13 +153,14 @@ flowchart TD
 ## 2. Invariantes Soberanas e Constantes Principais
 
 ### 2.0 Invariantes Rígidas de Risco e Trading (Escritas em Pedra)
-1. **Margem Cruzada Soberana (Cross Margin 50X)**:
-   - Toda e qualquer operação do 1Crypten opera estritamente sob **Margem Cruzada 50X**. A banca inteira ($100.000) atua como colateral garantidor soberano.
-   - É terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h (amplitude de até 3.8% no preço à vista).
-2. **Regra dos Lotes 4 + 4**:
-   - **Lote 1 (Em Risco)**: Máximo de 4 ordens abertas simultâneas em risco não protegido ($1.000 de margem fixa por ordem, 50X Cruzada). Em tendências direcionais soberanas (Farol BTC), o Lote 1 permite as 4 ordens na mesma direção a favor da tendência.
-   - **Lote 2 (Expansão)**: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven Soberano (+60.0% ROI / +1.2% de preço a favor com stop travando +30.0% ROI líquido / +$300.00). Limite absoluto da frota: 8 ordens.
-   - **Cadência Ágil de Despacho (45s)**: Intervalo de 45 segundos entre entradas, permitindo a formação do cesto de 4 ordens do Lote 1 durante a janela do repique no 30M sem sobreposição no livro.
+1. **Margem Cruzada Soberana (Cross Margin 50X - Banca $10k)**:
+   - Toda e qualquer operação do 1Crypten opera estritamente sob **Margem Cruzada 50X**. A banca de **$10.000,00** atua como colateral garantidor soberano.
+   - É terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Margem fixa de $1.000,00 por lote (exposição nocional de $50.000,00). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h (amplitude de até 3.8% no preço à vista).
+2. **Regra de Expansão em Bola de Neve (2 + 2 + 2 + 2)**:
+   - **Risco Inicial (Máx 2 Ordens)**: Máximo de 2 ordens abertas simultâneas em risco não protegido ($2.000 de margem comprometida = 20% da banca; 80% ou $8.000 livres em colateral garantidor na Margem Cruzada 50X).
+   - **Expansão Autofinanciada (Slots 3 a 8)**: A 3ª, 4ª, 5ª, 6ª, 7ª e 8ª ordens só abrem conforme ordens anteriores atinjam Breakeven Soberano (+60.0% ROI / +1.2% de preço a favor com stop travando +30.0% ROI líquido / +$300.00 fixos).
+   - **Ápice da Frota (8 Slots Cheios)**: Exatamente 6 ordens com Risco Zero (lucro travado) e no máximo 2 ordens em risco ativo vivo.
+   - **Cadência Ágil de Despacho (45s)**: Intervalo de 45 segundos entre entradas, garantindo formação ordenada da frota sem sobreposição no livro.
 3. **Alvo Chão +300% de ROI (+$3,000.00)**:
    - O alvo mínimo de realização por trade é +300% de ROI, garantindo pelo menos +200% de lucro travado no Degrau 5 (+$2.000.00 fixos garantidos), deixando o trailing correr solto com colchão largo (>= 100% ROI de respiro livre) até a exaustão da tendência no gráfico de 4H.
    - Desativação do trailing aritmético de 70% abaixo dos +300% ROI para evitar asfixia prematura no ruído de 5 minutos.
@@ -169,7 +170,8 @@ flowchart TD
 | Constante | Valor | Fonte |
 |-----------|-------|-------|
 | `LEVERAGE` (Laya Soberana) | 50x (Cross Margin Soberana) | `MASTER_ARCHITECTURE.md` / AGENTS.md |
-| `MAX_FLEET_SLOTS` | 8 Slots Simultâneos (Lote 1: 4 em risco + Lote 2: 4 expansão) | `laya_router_service.py` / V204 |
+| `MAX_FLEET_SLOTS` | 8 Slots Simultâneos (2 em risco vivo + 6 em expansão Breakeven) | `laya_router_service.py` / V206 |
+| `UNPROTECTED_RISK_LIMIT` | 2 Ordens em Risco Simultâneo ($2.000 margem = 20% banca) | `laya_router_service.py` / V206 |
 | `FLEET_DISPATCH_CADENCE` | 45 Segundos entre aberturas | `laya_router_service.py` / V204 |
 | `MARGIN_PER_TRADE` (Laya) | $1.000.00 Fixo por Ordem (50X Cruzada) | `laya_router_service.py:4457` / V197 |
 | `ALVO_CHAO_MIN_ROI` | +300% ROI (+$3.000.00 por ordem) | `order_projection_service.py` / V203 |

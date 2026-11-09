@@ -909,7 +909,7 @@
               <button id="btn-chart-solo" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('solo')">SOLO (1)</button>
               <button id="btn-chart-dual" class="btn-ghost" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('dual')">DUAL (2)</button>
               <button id="btn-chart-quad" class="btn-gold" style="padding: 4px 8px; font-size: 10px;" onclick="setChartGridMode('quad')">QUAD (4)</button>
-              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $100,000.00 pristine">RESET BANCA ($100K)</button>
+              <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; color: #FF1744; border-color: #551010; margin-left: 6px;" onclick="openResetModal()" title="Limpa todo o histórico e restaura a banca para $10,000.00 pristine">RESET BANCA ($10K)</button>
             </div>
           </div>
 
@@ -1121,7 +1121,7 @@
                 <span style="font-size: 8px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
                 <span style="font-size: 7.5px; color: #0ECB81; background: rgba(14, 203, 129, 0.12); border: 1px solid rgba(14, 203, 129, 0.3); border-radius: 2px; padding: 0 4px; font-weight: 700; font-family: var(--font-mono);">100% LÍQUIDO</span>
               </div>
-              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$100,000.00</span>
+              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$10,000.00</span>
             </div>
             <div style="text-align: right;">
               <span style="display: block; font-size: 7.5px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 1px;">PERFORMANCE</span>
@@ -1133,7 +1133,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
-              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$100,000.00</b>
+              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: flex; align-items: center; gap: 3px; font-size: 8px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO <span style="font-size: 7px; color: #0ECB81; font-weight: 700;">(PÓS-TAXAS)</span></span>
@@ -1141,11 +1141,11 @@
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
-              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$100,000.00</b>
+              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
-              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$100,000.00</b>
+              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$10,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
@@ -1156,10 +1156,12 @@
               <b id="side-margin-allocated" style="color: #29ABE2; font-size: 11.5px;">$0.00 (0%)</b>
             </div>
             <div style="padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SLOTS EM OPERAÇÃO (DAY TRADE 1H/2H)</span>
-              <div style="display: flex; align-items: baseline; gap: 6px;">
-                <b id="kpi-slots" style="color: #FFF; font-size: 11.5px;"><span id="kpi-scalp-slots" style="color:#0ECB81; font-weight: 900;">0</span> / 8 ATIVOS</b>
-                <span id="kpi-slots-sub" style="font-size: 7.5px; color: #848E9C; font-family: var(--font-mono);">(MAX $8,000 • $1,000/ORDEM • 8% RISCO | 92% LIVRE)</span>
+              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">ALOCAÇÃO DE LOTES (50X CRUZADA)</span>
+              <div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
+                <b id="kpi-slots" style="color: #FFF; font-size: 11px;">
+                  LOTE 1: <span id="kpi-unprotected-slots" style="color:#FCD535; font-weight: 900;">0</span>/4 EM RISCO • TOTAL: <span id="kpi-scalp-slots" style="color:#0ECB81; font-weight: 900;">0</span>/8
+                </b>
+                <span id="kpi-slots-sub" style="font-size: 7.5px; color: #848E9C; font-family: var(--font-mono);">$1,000/ORDEM • ALVO CHÃO 300% (+$3,000)</span>
               </div>
             </div>
             <div style="padding: 2px 0;">
@@ -1236,7 +1238,7 @@
           </div>
 
           <!-- Telemetria do Regime & Farol Macro -->
-          <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; border-radius: 2px; flex-shrink: 0;">
+          <div style="background: #0B0E11; border: 1px solid #2B3139; padding: 4px 8px; font-family: var(--font-mono); font-size: 9px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; border-radius: 2px; flex-shrink: 0;">
             <div>
               <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">MODO ATIVO</span>
               <b id="laya-regime-mode" style="color: #0ECB81; font-size: 10px;">MEAN-REVERSION</b>
@@ -1246,8 +1248,12 @@
               <b id="laya-master-adx" style="color: #EAECEF; font-size: 10px;">14.5</b>
             </div>
             <div>
+              <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">FAROL BTC 2H</span>
+              <b id="laya-btc-bias-badge" style="color: #F6465D; font-size: 10px;">BEAR (VETO LONG)</b>
+            </div>
+            <div>
               <span style="color: #848E9C; font-size: 7.5px; display: block; text-transform: uppercase; font-weight: 700;">STATUS FLASH</span>
-              <b style="color: #29ABE2; font-size: 10px;">GUARD ARMADO</b>
+              <b style="color: #29ABE2; font-size: 10px;">GUARD 50X</b>
             </div>
           </div>
 
@@ -1310,8 +1316,8 @@
               <span id="laya-entry-decision" style="color: #0ECB81; font-weight: 800;">BUY • AUTORIZADO</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-              <span style="color: #848E9C;">MANEJO FLASH:</span>
-              <span id="laya-exit-decision" style="color: #29ABE2; font-weight: 800;">BREAKEVEN @ +1.0% | TRAIL @ +2.5%</span>
+              <span style="color: #848E9C;">ESCADINHA 50X:</span>
+              <span id="laya-exit-decision" style="color: #29ABE2; font-weight: 800;">D1(+50% BE) ➔ D5(+300% CHÃO / +$3,000)</span>
             </div>
           </div>
         </div>
@@ -1326,10 +1332,10 @@
           <div class="card-lamborghini-header" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
               <span class="card-title">
-                <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> PAINEL DE CUSTÓDIA GERAL — DAY TRADE H1 (8 SLOTS)
+                <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> PAINEL DE CUSTÓDIA GERAL — SWING 2H (8 SLOTS)
               </span>
               <span id="active-slots-count" class="badge-gold">0 ATIVAS</span>
-              <span style="font-size: 8px; color: #848E9C; font-family: var(--font-mono);">(MAX 10 ORDENS • $60/SLOT | 50X CRUZADA)</span>
+              <span style="font-size: 8.5px; color: #848E9C; font-family: var(--font-mono);">(LOTE 1: 4 EM RISCO • EXPANSÃO ATÉ 8 C/ RISCO ZERO • $1,000/ORDEM • 50X CRUZADA)</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <button onclick="emergencyCloseAll()" class="btn-ghost" style="padding: 3px 10px; font-size: 9.5px; font-weight: 800; border-color: #f6465d; color: #f6465d; background: rgba(246, 70, 93, 0.12); letter-spacing: 0.04em;" title="Fecha todas as ordens abertas a mercado imediatamente em caso de emergência">
@@ -2816,10 +2822,10 @@
                     <button class="btn-ghost" style="padding: 1px 5px; font-size: 8px; font-weight: 800; border-color: rgba(255,192,0,0.5); color: #FCD535; border-radius: 2px; background: rgba(255,192,0,0.08);" onclick="event.stopPropagation(); openLayaThoughtModal(window._activeSlotsData[${idx}])" title="Ver Consciência Cognitiva da Laya para este Trade">❖ LAYA AI</button>
                   </div>
                 </td>
-                <td><span class="badge-gold" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${s.slot_type === 'SWING' ? 'SWING' : 'DAY TRADE (1H)'}</span></td>
+                <td><span class="badge-gold" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${s.slot_type === 'SWING' ? 'SWING 2H' : 'SWING 2H'}</span></td>
                 <td>
                   <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 900; padding: 5px 12px; border-radius: 4px; letter-spacing: 0.06em; background: ${isLong ? 'rgba(14, 203, 129, 0.22)' : 'rgba(246, 70, 93, 0.22)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'}; text-shadow: 0 0 8px ${isLong ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'};">
-                    ${isLong ? '▲ LONG' : '▼ SHORT'} ${s.leverage || 15}X
+                    ${isLong ? '▲ LONG' : '▼ SHORT'} ${s.leverage || 50}X
                   </span>
                 </td>
                 <td class="font-mono" style="font-size: 12px; font-weight: 600; color: #DDD;">$${formatPriceSmart(s.entry_price)}</td>
@@ -3062,8 +3068,8 @@
         if (!res.ok) return;
         const d = await res.json();
         
-        const baseBal = 100000.00;
-        const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 100000.00));
+        const baseBal = Number(d.base_balance || 10000.00);
+        const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 10000.00));
         const realizedPnlUsd = Number(d.realized_pnl_usd !== undefined ? d.realized_pnl_usd : (d.total_pnl_usd || 0.0));
         const floatingPnlUsd = Number(d.floating_pnl_usd !== undefined ? d.floating_pnl_usd : 0.0);
         const totalPnlPct = Number(d.pnl_percent !== undefined ? d.pnl_percent : ((totalEquity - baseBal) / baseBal * 100.0));
@@ -3133,19 +3139,27 @@
         if (d.total_active_slots !== undefined) {
           const scalpCount = d.active_scalping_slots !== undefined ? d.active_scalping_slots : d.total_active_slots;
           const scalpEl = document.getElementById("kpi-scalp-slots");
-          if (scalpEl) {
-            scalpEl.textContent = scalpCount;
-          } else {
-            const slotsEl = document.getElementById("kpi-slots");
-            if (slotsEl) slotsEl.textContent = `${scalpCount} / 8`;
+          if (scalpEl) scalpEl.textContent = scalpCount;
+
+          const unprotEl = document.getElementById("kpi-unprotected-slots");
+          const unprotCount = d.unprotected_risk_slots !== undefined ? d.unprotected_risk_slots : scalpCount;
+          if (unprotEl) {
+            unprotEl.textContent = unprotCount;
+            unprotEl.style.color = unprotCount >= 4 ? "#F6465D" : (unprotCount > 0 ? "#FCD535" : "#0ECB81");
           }
+
           const slotsSubEl = document.getElementById("kpi-slots-sub");
           if (slotsSubEl) {
-            const vb = Number(d.virtual_balance || 100000);
-            const maxRisk = (vb * 0.08).toFixed(0);
-            const perOrder = (vb * 0.01).toFixed(0);
-            slotsSubEl.textContent = `(MAX $${maxRisk} • $${perOrder}/ORDEM • 8% RISCO | 92% LIVRE)`;
+            slotsSubEl.textContent = `$1,000/ORDEM • 50X CRUZADA • ALVO CHÃO 300% (+$3,000)`;
           }
+        }
+
+        // Atualização do Farol Macro BTC
+        const btcBiasBadge = document.getElementById("laya-btc-bias-badge");
+        if (btcBiasBadge && d.btc_macro_bias) {
+          const isBear = String(d.btc_macro_bias).includes("BEAR");
+          btcBiasBadge.textContent = isBear ? "BEAR (VETO LONGS)" : "BULL (EXPANSÃO)";
+          btcBiasBadge.style.color = isBear ? "#F6465D" : "#0ECB81";
         }
 
         // Atualização de Delta Direcional e Comissões OKX
@@ -4195,7 +4209,7 @@
       } catch(e) {
         console.error("Erro ao resetar:", e);
         resetBtns.forEach(b => {
-          b.textContent = b.dataset.prevText || "RESET BANCA ($100K)";
+          b.textContent = b.dataset.prevText || "RESET BANCA ($10K)";
           b.disabled = false;
           b.style.opacity = "1";
         });

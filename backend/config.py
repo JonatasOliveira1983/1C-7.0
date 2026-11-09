@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     OKX_API_SECRET: Optional[str] = None
     OKX_INST_TYPE: str = "SWAP" # OKX API: SPOT / MARGIN / SWAP / FUTURES
     OKX_EXECUTION_MODE: str = os.getenv("OKX_EXECUTION_MODE", "PAPER") # "PAPER" = Simulated Execution
-    OKX_SIMULATED_BALANCE: float = 100000.0 # Padrão $100k
+    OKX_SIMULATED_BALANCE: float = 10000.0 # Padrão $100k
     FACTORY_RESET_V110: bool = False # [V110.29.0] Reset atômico do sistema
 
     @field_validator('OKX_SIMULATED_BALANCE', mode='before')
