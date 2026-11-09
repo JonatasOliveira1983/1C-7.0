@@ -628,19 +628,42 @@ class LayaRouterService:
         if macro_direction == "SHORT":
             # --- CAMADA 1: AS 3 BARREIRAS MECANICAS INEGOCIAVEIS ---
             
-            # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8)
+            # [V208-UNIFIED-SNIPER-A-PLUS-B]
+            sma8_2h = float(kwargs.get("sma8_2h", 0.0))
+            sma21_2h = float(kwargs.get("sma21_2h", 0.0))
+
+            # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M)
             recent_high = float(recent.get("high", c_close))
-            touched_sma8 = recent_high >= (sma8 * 0.998) or diff_from_sma8 >= -0.30
-            if not touched_sma8 or diff_from_sma8 < -0.30:
+            touched_sma8_30m = recent_high >= (sma8 * 0.998) or diff_from_sma8 >= -0.30
+            if sma8_2h > 0:
+                diff_2h = ((c_close - sma8_2h) / sma8_2h) * 100.0
+                touched_sma8_2h = recent_high >= (sma8_2h * 0.996) or diff_2h >= -0.45
+                touched_sma8 = touched_sma8_2h or touched_sma8_30m
+                if not touched_sma8:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {abs(diff_from_sma8):.2f}% da SMA8 30M e {abs(diff_2h):.2f}% da SMA8 2H ({sma8_2h:.4f}). Aguardando repique na linha branca.",
+                        "pullback_type": "VACUUM_BELOW_SMA8"
+                    }
+            else:
+                if not touched_sma8_30m or diff_from_sma8 < -0.30:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {abs(diff_from_sma8):.2f}% abaixo da SMA8 ({sma8:.4f}). Aguardando repique alcancar a linha branca para armar gatilho sniper.",
+                        "pullback_type": "VACUUM_BELOW_SMA8"
+                    }
+
+            # Barreira 1b: Se preco ja rompeu acima da SMA21 com folga, o repique virou reversao de alta local
+            if sma21_2h > 0 and c_close > (sma21_2h * 1.004):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {abs(diff_from_sma8):.2f}% abaixo da SMA8 ({sma8:.4f}). Aguardando repique alcancar a linha branca para armar gatilho sniper.",
-                    "pullback_type": "VACUUM_BELOW_SMA8"
+                    "reason": f"VETO_ROMPIMENTO_ALTA: Preco ultrapassou a SMA21 2H ({sma21_2h:.4f}). Gatilho desarmado.",
+                    "pullback_type": "PULLBACK_INVALIDATED"
                 }
-
-            # Barreira 1b: Se preco ja rompeu acima da SMA21 com folga, o repique virou reversao de alta local
-            if c_close > (sma21 * 1.004):
+            elif c_close > (sma21 * 1.004):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
@@ -648,7 +671,7 @@ class LayaRouterService:
                     "pullback_type": "PULLBACK_INVALIDATED"
                 }
 
-            # Barreira 2: Anti-Candle de Forca Compradora (Exaustao Obrigatoria)
+            # Barreira 2: Anti-Candle de Forca Compradora (Exaustao Obrigatoria no 30M)
             upper_wick = c_high - max(c_open, c_close)
             upper_wick_ratio = upper_wick / candle_range
             is_green_candle = c_close > c_open
@@ -662,18 +685,21 @@ class LayaRouterService:
                     "pullback_type": "BULL_BODY_IMPULSE"
                 }
 
-            # Barreira 3: Calculo e Posicionamento do Stop Loss ACIMA da Linha Amarela (SMA21)
-            major_res = max(sma8, sma21)
-            sl_price = round(max(c_high * 1.004, major_res * 1.005, (sma8 + abs(sma21 - sma8) * 1.25)), 4)
-            if sl_price <= major_res:
+            # Barreira 3: Calculo e Posicionamento do Stop Loss ACIMA da Linha Amarela (SMA21 2H Soberana)
+            major_res = max(sma8, sma21, sma21_2h if sma21_2h > 0 else 0.0)
+            sl_price = round(max(c_high * 1.004, major_res * 1.006, (sma8 + abs(sma21 - sma8) * 1.25)), 4)
+            if sma21_2h > 0 and sl_price <= sma21_2h:
+                sl_price = round(sma21_2h * 1.006, 4)
+            elif sl_price <= major_res:
                 sl_price = round(major_res * 1.006, 4)
 
             stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.015
-            if stop_dist_pct > 0.035:
+            max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
+            if stop_dist_pct > max_stop_dist:
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_STOP_MUITO_LONGO: Distancia do Stop Loss ({stop_dist_pct*100:.2f}%) acima do limite de 3.5%.",
+                    "reason": f"VETO_STOP_MUITO_LONGO: Distancia do Stop Loss ({stop_dist_pct*100:.2f}%) acima do limite institucional de {max_stop_dist*100:.1f}%.",
                     "pullback_type": "STOP_TOO_FAR"
                 }
 
@@ -713,17 +739,39 @@ class LayaRouterService:
 
         # Em regime LONG:
         elif macro_direction == "LONG":
+            sma8_2h = float(kwargs.get("sma8_2h", 0.0))
+            sma21_2h = float(kwargs.get("sma21_2h", 0.0))
+
             recent_low = float(recent.get("low", c_close))
-            touched_sma8 = recent_low <= (sma8 * 1.002) or diff_from_sma8 <= 0.30
-            if not touched_sma8 or diff_from_sma8 > 0.30:
+            touched_sma8_30m = recent_low <= (sma8 * 1.002) or diff_from_sma8 <= 0.30
+            if sma8_2h > 0:
+                diff_2h = ((c_close - sma8_2h) / sma8_2h) * 100.0
+                touched_sma8_2h = recent_low <= (sma8_2h * 1.004) or diff_2h <= 0.45
+                touched_sma8 = touched_sma8_2h or touched_sma8_30m
+                if not touched_sma8:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {diff_from_sma8:.2f}% da SMA8 30M e {diff_2h:.2f}% da SMA8 2H ({sma8_2h:.4f}). Aguardando recuo na linha branca.",
+                        "pullback_type": "VACUUM_ABOVE_SMA8"
+                    }
+            else:
+                if not touched_sma8_30m or diff_from_sma8 > 0.30:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {diff_from_sma8:.2f}% acima da SMA8 ({sma8:.4f}). Aguardando recuo na linha branca para armar gatilho.",
+                        "pullback_type": "VACUUM_ABOVE_SMA8"
+                    }
+
+            if sma21_2h > 0 and c_close < (sma21_2h * 0.996):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {diff_from_sma8:.2f}% acima da SMA8 ({sma8:.4f}). Aguardando recuo na linha branca para armar gatilho.",
-                    "pullback_type": "VACUUM_ABOVE_SMA8"
+                    "reason": f"VETO_ROMPIMENTO_BAIXA: Preco perdeu a SMA21 2H ({sma21_2h:.4f}). Gatilho LONG desarmado.",
+                    "pullback_type": "PULLBACK_INVALIDATED"
                 }
-
-            if c_close < (sma21 * 0.996):
+            elif c_close < (sma21 * 0.996):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
@@ -744,13 +792,16 @@ class LayaRouterService:
                     "pullback_type": "BEAR_BODY_IMPULSE"
                 }
 
-            minor_sup = min(sma8, sma21)
-            sl_price = round(min(c_low * 0.996, minor_sup * 0.995, (sma8 - abs(sma21 - sma8) * 1.25)), 4)
-            if sl_price >= minor_sup:
+            minor_sup = min(sma8, sma21, sma21_2h if sma21_2h > 0 else 999999.0)
+            sl_price = round(min(c_low * 0.996, minor_sup * 0.994, (sma8 - abs(sma21 - sma8) * 1.25)), 4)
+            if sma21_2h > 0 and sl_price >= sma21_2h:
+                sl_price = round(sma21_2h * 0.994, 4)
+            elif sl_price >= minor_sup:
                 sl_price = round(minor_sup * 0.994, 4)
 
             stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.015
-            if stop_dist_pct > 0.035:
+            max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
+            if stop_dist_pct > max_stop_dist:
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
@@ -3726,7 +3777,7 @@ class LayaRouterService:
             # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro e exige repique autentico no 30M
             c30m_local = self.aggregate_15m_to_30m(c15m_candles)
             if regime_2h["regime"] == "SHORT_ONLY":
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp)
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "SHORT"
@@ -3749,7 +3800,7 @@ class LayaRouterService:
                     rationale = f"VETO 2H SHORT_ONLY: {pullback_30m.get('reason')}"
             
             elif regime_2h["regime"] == "LONG_ONLY":
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "LONG", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp)
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "LONG", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "LONG"

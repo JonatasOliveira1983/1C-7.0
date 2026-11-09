@@ -853,8 +853,8 @@ async def get_candles_proxy(symbol: str = "BTCUSDT", bar: str = "1m", limit: int
     clean = symbol.replace("-SWAP", "").replace("-", "").replace(".P", "").upper()
     inst_id = f"{clean.replace('USDT', '')}-USDT-SWAP"
     
-    okx_bar = "2H" if bar in ("2H", "120", "2h") else ("1H" if bar in ("1H", "60", "1h") else ("15m" if bar in ("15m", "15") else ("5m" if bar in ("5m", "5") else "1m")))
-    bin_bar = "2h" if bar in ("2H", "120", "2h") else ("1h" if bar in ("1H", "60", "1h") else ("15m" if bar in ("15m", "15") else ("5m" if bar in ("5m", "5") else "1m")))
+    okx_bar = "2H" if bar in ("2H", "120", "2h") else ("1H" if bar in ("1H", "60", "1h") else ("30m" if bar in ("30m", "30", "30M") else ("15m" if bar in ("15m", "15") else ("5m" if bar in ("5m", "5") else "1m"))))
+    bin_bar = "2h" if bar in ("2H", "120", "2h") else ("1h" if bar in ("1H", "60", "1h") else ("30m" if bar in ("30m", "30", "30M") else ("15m" if bar in ("15m", "15") else ("5m" if bar in ("5m", "5") else "1m"))))
 
     async def _fetch_okx(client):
         url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={okx_bar}&limit={limit}"

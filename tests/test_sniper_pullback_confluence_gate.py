@@ -90,3 +90,37 @@ def test_sniper_fires_when_touched_sma8_with_rejection_wick_and_confluences():
     assert res["has_pullback_setup"] is True
     assert res["stop_loss"] > 10.60, "Stop Loss deve ficar acima da máxima do repique e da SMA21"
     assert "SNIPER" in res["reason"] or "REJEICAO" in res["reason"]
+
+
+def test_sniper_anchors_stop_above_2h_sma21_when_provided():
+    """
+    [UNIFIED A + B]: Quando sma8_2h e sma21_2h são fornecidas (ex: BCH com sma21_2h = 247.64),
+    o Stop Loss estrutural deve ficar estritamente ACIMA da SMA 21 do 2H (ex: > 248.00),
+    respeitando a blindagem macro do 2H.
+    """
+    router = LayaRouterService()
+    klines_30m = [
+        {"open": 245.0, "high": 245.5, "low": 243.0, "close": 244.0},
+        {"open": 244.0, "high": 244.5, "low": 242.0, "close": 243.0},
+        {"open": 243.0, "high": 243.5, "low": 241.0, "close": 241.5},
+        {"open": 241.5, "high": 242.0, "low": 240.5, "close": 241.0},
+        {"open": 241.0, "high": 242.0, "low": 240.0, "close": 241.2},
+        {"open": 241.2, "high": 243.0, "low": 241.0, "close": 242.8},
+        {"open": 242.8, "high": 243.5, "low": 242.0, "close": 243.0}, # Tocou na SMA8 do 2H (243.32) com pavio
+    ]
+    res = router.calculate_30m_pullback_trigger(
+        symbol="BCH",
+        klines_30m=klines_30m,
+        current_price=243.0,
+        macro_direction="SHORT",
+        lsr=3.10,
+        btc_dominance=60.0,
+        btc_trend_bias=-0.3,
+        bot_ignition=True,
+        sma8_2h=243.32,
+        sma21_2h=247.64
+    )
+    assert res["has_pullback_setup"] is True
+    assert res["stop_loss"] >= 247.64, "Stop Loss DEVE ficar acima da SMA 21 do 2H (247.64)"
+    assert res["stop_loss"] > 248.00, "Stop Loss deve ter folga institucional acima da SMA 21 do 2H"
+
