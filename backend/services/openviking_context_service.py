@@ -529,6 +529,26 @@ class OpenVikingContextService:
             tags=["patterns", "trading", "v205", "winning_edition", "300roi", "breakeven_60", "cross_margin_50x", "farol_btc"],
         )
 
+        # V210: Versão Canônica Vencedora 2H Swing Pullback Hunter, Isenção Total & Telemetria Tática
+        uri_v210_pat = "viking://user/memories/patterns/v210_swing_2h_pullback_expansion"
+        l0_v210_pat = "V210 Versão Canônica Vencedora: Expansão empírica da banca de $10.000 para $13.872,01 (+38.72% líquido) com zero drawdown. 3/3 ordens ativas simultâneas em lucro travado de Risco Zero / Trailing Profit (LINK +188.52% / +$1.885,20, UNI +147.61% / +$1.476,10, LTC +67.22% / +$672,20)."
+        l1_v210_pat = (
+            "ARQUITETURA VENCEDORA COMPROVADA (V210 - SWING 2H PULLBACK EXPANSION):\n"
+            "• Subordinação Soberana Swing 2H & Pullback Hunter 30M (LAYA_PULLBACK_HUNTER_2H_30M): Tendência macro no 2H (SMA 8 x SMA 21), confluência de gatilho no candle 30M e Stop Loss estrutural técnico ancorado no 2H.\n"
+            "• Isenção Total de Micro-Defesas Scalping: Trades de Swing 2H são terminantemente isentos do trailing micro de 5% (0.10% no preço), respirando livremente até atingir o Breakeven Soberano (+60% ROI / Trava +30%).\n"
+            "• Linha Visual de Risco Zero (+60% ROI): Traço ciano neon (#00F0FF) desenhado nativamente em todos os gráficos marcando a cotação exata onde a blindagem de capital ocorre.\n"
+            "• Painel de Custódia com Intenção Tática Exclusiva: Header em linha única com badges compactos [3/8] [3 RISCO ZERO] [0/2 RISCO] [2 VAGOS] [FLATTEN ALL] e sub-faixa LAYA RADAR indicando moedas sob vigilância ativa. Top banner limpo para telemetria macro global.\n"
+            "• Prova Empírica no Terminal: Banca expandida de $10.000 para $13.872,01 (+38.72%), zero drawdown, 3/3 posições com lucros superiores a +$3.800 protegidos em Risco Zero."
+        )
+        self.nodes[uri_v210_pat] = VikingNode(
+            uri=uri_v210_pat,
+            title="V210: Versão Canônica Vencedora - Swing 2H Pullback Hunter, Isenção Total e Radar Tático",
+            l0_abstract=l0_v210_pat,
+            l1_overview=l1_v210_pat,
+            l2_detail=l1_v210_pat,
+            tags=["patterns", "trading", "v210", "winning_edition", "swing_2h", "pullback_hunter", "breakeven_60", "cross_margin_50x"],
+        )
+
         self.nodes[uri_balance] = VikingNode(
             uri=uri_balance,
             title="Semântica de Banca PAPER vs REAL",

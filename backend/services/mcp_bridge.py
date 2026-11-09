@@ -305,7 +305,7 @@ async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict
         guardian = await laya_router_service.evaluate_open_positions_lifecycle()
         return {
             "status": "success",
-            "version": "v0.4.22-ModernBERT-149M-V205-WINNING",
+            "version": "v0.4.22-ModernBERT-149M-V210-WINNING",
             "sr_retest_sniper_active": True,
             "symbol": symbol,
             "reflex_bias": reflex,

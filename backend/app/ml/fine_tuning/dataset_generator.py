@@ -134,7 +134,7 @@ class DatasetGenerator:
             scenario = random.choice([
                 "ARMADILHA_SARDINHA", "ABSORCAO_BALEIA", "ROMPIMENTO_INSTITUCIONAL", "CONSOLIDACAO",
                 "BTC_DUMP_VETO_LONG", "TREND_ALIGNMENT_SHORT", "EXPANSAO_VOLATILIDADE_1C_EXP",
-                "CANAL_LATERAL_1C_RANGE", "IGNITION_BALEIAS"
+                "CANAL_LATERAL_1C_RANGE", "IGNITION_BALEIAS", "V210_PULLBACK_HUNTER_2H_30M"
             ])
 
             if scenario == "EXPANSAO_VOLATILIDADE_1C_EXP":
@@ -177,6 +177,14 @@ class DatasetGenerator:
                 conf = 0.95
                 pnl = 0.0
                 rationale = "Preço esticado abaixo da VWAP mas Bitcoin em forte queda livre. Compra na faca caindo estritamente vetada."
+            elif scenario == "V210_PULLBACK_HUNTER_2H_30M":
+                lsr = round(random.uniform(1.20, 1.65), 2)
+                oi_delta = round(random.uniform(0.5, 2.5), 2)
+                decision = "SELL"
+                regime = "V210_SWING_2H_PULLBACK"
+                conf = 0.98
+                pnl = round(random.uniform(6.0, 20.0), 2)
+                rationale = "V210 Swing 2H: Tendência macro 2H (SMA 8 < SMA 21), confluência de candle no 30M com rejeição na média. Stop estrutural 2H e Breakeven em +60% ROI com alvo chão 300%."
             elif scenario == "TREND_ALIGNMENT_SHORT":
                 lsr = round(random.uniform(1.15, 1.50), 2)
                 oi_delta = round(random.uniform(0.3, 1.8), 2)
