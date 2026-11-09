@@ -1832,7 +1832,7 @@ class SandboxService:
         )
 
         if is_swing:
-            trail_min_trigger = 300.0
+            trail_min_trigger = 100.0
         elif is_ignition:
             trail_min_trigger = 50.0
         else:
@@ -1840,9 +1840,14 @@ class SandboxService:
 
         if max_roi >= trail_min_trigger:
             if is_swing:
-                # Acima de 300% ROI: Garante no mínimo 200% ROI e dá respiro amplo de 100% ROI
-                trail_stop_roi = max(200.0, round(max_roi - 100.0, 1))
-                trail_pct_label = "EXPANSAO_MACRO_100ROI"
+                if max_roi < 300.0:
+                    # [V211-TRAILING-DINAMICO-SWING-100] Trailing dinâmico de 35% de gap após +100% ROI
+                    trail_stop_roi = max(65.0, round(max_roi - 35.0, 1))
+                    trail_pct_label = "GAP_35ROI"
+                else:
+                    # Acima de 300% ROI: Garante no mínimo 200% ROI e dá respiro amplo de 70% ROI
+                    trail_stop_roi = max(200.0, round(max_roi - 70.0, 1))
+                    trail_pct_label = "EXPANSAO_MACRO_70ROI"
             else:
                 trail_stop_roi = max(50.0 if is_ignition else 40.0, round(max_roi * 0.75 if is_ignition else max_roi * 0.70, 1))
                 trail_pct_label = "75%" if is_ignition else "70%"

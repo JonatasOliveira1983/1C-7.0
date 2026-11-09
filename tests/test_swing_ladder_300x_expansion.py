@@ -33,11 +33,12 @@ def test_max_roi_139_does_not_choke_trade():
     proj = OrderProjectionService()
     active_lvl = proj.get_active_level(139.3, strategy_class="LAYA_PULLBACK_HUNTER_2H_30M")
     assert active_lvl is not None
-    # Deve estar em ESCADINHA, não travado apertado em 97.5%
-    assert active_lvl.stop_roi in (50.0, 100.0)
-    # A folga de respiro deve ser de pelo menos 39.3% a 89.3% de ROI (0.78% a 1.78% no preço a 50X)
-    respiro_roi = 139.3 - active_lvl.stop_roi
-    assert respiro_roi >= 39.0
+    # Com a regra V211 de Trailing Dinâmico (gap de 35% após +100%), a 139.3% o stop é 104.3% ROI
+    assert active_lvl.stop_roi == 104.3
+    assert active_lvl.phase == "TRAILING"
+    # A folga de respiro deve ser exatamente 35.0% de ROI (0.70% no preço a 50X)
+    respiro_roi = round(139.3 - active_lvl.stop_roi, 1)
+    assert respiro_roi == 35.0
 
 
 def test_alvo_chao_300_locks_200_roi():
