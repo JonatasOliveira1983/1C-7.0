@@ -1575,6 +1575,7 @@ class SandboxService:
                 
                 # A cada segundo, adiciona o PnL aberto de todos os trades ativos (scalp + swing)
                 active_trades_for_pnl = await database_service.get_sandbox_trades(active_only=True)
+                self.active_trades_cache = active_trades_for_pnl
                 active_pnl_usd = 0.0
                 for t in active_trades_for_pnl:
                     _m = float((t.contract_meta or {}).get("margin", 100.0))

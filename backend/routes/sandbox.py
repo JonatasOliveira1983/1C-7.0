@@ -95,19 +95,35 @@ async def get_unified_sandbox_state():
         protected_count = 0
         all_active_trades = list(scalp_trades) + list(swing_trades)
         for t in all_active_trades:
-            is_prot = getattr(t, 'is_protected', False)
-            curr_stop = getattr(t, 'current_stop', None)
-            entry_p = getattr(t, 'entry_price', None)
-            direction = str(getattr(t, 'direction', 'LONG')).upper()
+            is_prot = getattr(t, 'is_protected', False) or (t.get('is_protected') if isinstance(t, dict) else False)
+            curr_stop = (
+                getattr(t, 'current_stop', None)
+                or (t.get('current_stop') if isinstance(t, dict) else None)
+                or getattr(t, 'stop_loss', None)
+                or (t.get('stop_loss') if isinstance(t, dict) else None)
+            )
+            entry_p = getattr(t, 'entry_price', None) or (t.get('entry_price') if isinstance(t, dict) else None)
+            direction = str(
+                getattr(t, 'direction', None)
+                or getattr(t, 'side', None)
+                or (t.get('direction') if isinstance(t, dict) else None)
+                or (t.get('side') if isinstance(t, dict) else None)
+                or 'LONG'
+            ).upper()
             
             if is_prot:
                 protected_count += 1
             elif curr_stop and entry_p:
-                if direction in ('LONG', 'BUY') and curr_stop >= entry_p:
-                    protected_count += 1
-                elif direction not in ('LONG', 'BUY') and curr_stop <= entry_p:
-                    protected_count += 1
-                else:
+                try:
+                    c_s = float(curr_stop)
+                    e_p = float(entry_p)
+                    if ('LONG' in direction or 'BUY' in direction) and c_s >= e_p:
+                        protected_count += 1
+                    elif ('SHORT' in direction or 'SELL' in direction) and c_s <= e_p:
+                        protected_count += 1
+                    else:
+                        unprotected_risk_count += 1
+                except (ValueError, TypeError):
                     unprotected_risk_count += 1
             else:
                 unprotected_risk_count += 1

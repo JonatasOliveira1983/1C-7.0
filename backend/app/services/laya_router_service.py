@@ -896,9 +896,20 @@ class LayaRouterService:
         unprotected_count = 0
         for t in (active_trades or []):
             is_prot = getattr(t, "is_protected", False) or (t.get("is_protected") if isinstance(t, dict) else False)
-            curr_sl = getattr(t, "current_stop", None) or (t.get("current_stop") if isinstance(t, dict) else None)
+            curr_sl = (
+                getattr(t, "current_stop", None)
+                or (t.get("current_stop") if isinstance(t, dict) else None)
+                or getattr(t, "stop_loss", None)
+                or (t.get("stop_loss") if isinstance(t, dict) else None)
+            )
             ent_p = getattr(t, "entry_price", 0.0) or (t.get("entry_price") if isinstance(t, dict) else 0.0)
-            t_side = getattr(t, "side", None) or (t.get("side") if isinstance(t, dict) else None) or ""
+            t_side = (
+                getattr(t, "side", None)
+                or (t.get("side") if isinstance(t, dict) else None)
+                or getattr(t, "direction", None)
+                or (t.get("direction") if isinstance(t, dict) else None)
+                or ""
+            )
             t_side = str(t_side).upper()
 
             if is_prot:
@@ -3118,7 +3129,43 @@ class LayaRouterService:
         reg_mode = "MEAN_REVERSION" if self.master_adx < 25.0 else "TREND_SNIPER"
         self.regime_mode = reg_mode
 
+        # [V207-TACTICAL-INTENTION]: Intenção Tática da Laya em Tempo Real para o Cabeçalho
+        fleet_status = "0/8 ATIVAS"
+        laya_intention = "ONLINE (AGUARDANDO OPORTUNIDADE)"
+        unprotected_count = 0
+        protected_count = 0
+        try:
+            from services.sandbox_service import sandbox_service
+            active_trades_list = getattr(sandbox_service, "active_trades_cache", [])
+            total_active = len(active_trades_list)
+            unprotected_count = self.count_unprotected_risk_trades(active_trades_list)
+            protected_count = max(0, total_active - unprotected_count)
+            
+            top_syms = []
+            if self.candidate_setups:
+                sorted_cands = sorted(self.candidate_setups.values(), key=lambda x: x.get("score", 0), reverse=True)
+                top_syms = [c.get("clean_sym", c.get("symbol", "")).replace("-USDT-SWAP", "").replace("USDT", "") for c in sorted_cands if c.get("clean_sym") or c.get("symbol")][:3]
+
+            if total_active >= 8:
+                fleet_status = f"{total_active}/8 ATIVAS (TETO MÁXIMO)"
+                laya_intention = "TETO DA FROTA (8/8) • MONITORANDO TRAILING"
+            elif unprotected_count >= 2:
+                fleet_status = f"{total_active}/8 ATIVAS ({protected_count} RISCO ZERO • {unprotected_count} EM RISCO)"
+                laya_intention = f"2/2 EM RISCO VIVO • AGUARDANDO BREAKEVEN (+60% ROI) PARA EXPANDIR"
+            else:
+                fleet_status = f"{total_active}/8 ATIVAS ({protected_count} RISCO ZERO • {unprotected_count} EM RISCO)"
+                if top_syms:
+                    laya_intention = f"SLOT {total_active+1}/8 LIVRE • VIGIANDO PULLBACK EM [{', '.join(top_syms)}] • FAROL BTC SHORT"
+                else:
+                    laya_intention = f"SLOT {total_active+1}/8 LIVRE • VARRENDO UNIVERSO OKX POR PULLBACK 30M"
+        except Exception as e_intent:
+            pass
+
         return {
+            "laya_intention": laya_intention,
+            "fleet_status": fleet_status,
+            "unprotected_risk_slots": unprotected_count,
+            "protected_risk_slots": protected_count,
             "status": "ONLINE (SOVEREIGN COMMANDER)",
             "sovereign": True,
             "regime": self.current_regime,

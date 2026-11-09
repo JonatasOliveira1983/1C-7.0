@@ -870,8 +870,9 @@
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <canvas class="thinking-orb-canvas" data-state="solving" data-size="20" data-color="#FCD535" width="20" height="20" style="width:20px;height:20px;"></canvas>
         <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #fff;">1CRYPTEN COCKPIT</span>
-        <span class="badge-gold" style="font-size: 8.5px; font-weight: 700; padding: 2px 6px;">V190 SOBERANA</span>
-        <span id="laya-header-badge" class="badge-cyan" style="font-size: 10px; font-weight: 700; padding: 2px 8px;">LAYA SOBERANA • ONLINE [MODO: MEAN-REVERSION]</span>
+        <span class="badge-gold" style="font-size: 8.5px; font-weight: 700; padding: 2px 6px;">V205 SOBERANA</span>
+        <span id="fleet-expansion-badge" class="badge-gold" style="font-size: 9.5px; font-weight: 800; padding: 2px 8px; border: 1px solid rgba(252,213,53,0.35);">FROTA: 3/8</span>
+        <span id="laya-header-badge" class="badge-cyan" style="font-size: 10px; font-weight: 700; padding: 2px 8px;">LAYA: CONECTANDO...</span>
         <span id="kpi-regime-badge" class="badge-gold" style="font-size: 9px; padding: 2px 6px;">LATERAL</span>
         <span id="kpi-btc-bias" class="badge-up" style="font-size: 9px; padding: 2px 6px;">BTC NEUTRO</span>
       </div>
@@ -3409,10 +3410,32 @@
 
         // 1. Header Badge & Live Top HUD Indicators
         const adxFormatted = (d.master_adx || 14.5).toFixed(1);
+
+        const fleetBadge = document.getElementById("fleet-expansion-badge");
+        if (fleetBadge && d.fleet_status) {
+          fleetBadge.textContent = "FROTA: " + d.fleet_status;
+          if (d.unprotected_risk_slots !== undefined && d.unprotected_risk_slots < 2) {
+            fleetBadge.style.borderColor = "var(--accent-gold)";
+            fleetBadge.style.color = "var(--accent-gold)";
+          } else {
+            fleetBadge.style.borderColor = "rgba(255,255,255,0.2)";
+            fleetBadge.style.color = "#EAECEF";
+          }
+        }
+
         const hdr = document.getElementById("laya-header-badge");
         if (hdr) {
-          const mode = d.regime_mode || "MEAN_REVERSION";
-          hdr.textContent = `LAYA SOBERANA • ONLINE [MODO: ${mode} (ADX ${adxFormatted})]`;
+          if (d.laya_intention) {
+            hdr.textContent = "LAYA: " + d.laya_intention.replace(/^LAYA:\s*/i, "");
+            if (d.unprotected_risk_slots !== undefined && d.unprotected_risk_slots < 2) {
+              hdr.className = "badge-gold";
+            } else {
+              hdr.className = "badge-cyan";
+            }
+          } else {
+            const mode = d.regime_mode || "MEAN_REVERSION";
+            hdr.textContent = `LAYA SOBERANA • ONLINE [MODO: ${mode} (ADX ${adxFormatted})]`;
+          }
         }
 
         const kpiAdx = document.getElementById("kpi-adx");
