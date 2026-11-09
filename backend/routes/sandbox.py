@@ -138,7 +138,7 @@ async def get_unified_sandbox_state():
             "max_slots": 8,
             "unprotected_risk_slots": unprotected_risk_count,
             "protected_risk_slots": protected_count,
-            "max_unprotected_slots": 4,
+            "max_unprotected_slots": 2,
             "max_total_slots": 8,
             "margin_per_order_usd": 1000.0,
             "target_floor_roi_pct": 300.0,

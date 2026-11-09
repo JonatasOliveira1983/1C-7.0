@@ -569,15 +569,23 @@ class LayaRouterService:
         symbol: str,
         klines_30m: list,
         current_price: float,
-        macro_direction: str
+        macro_direction: str,
+        lsr: float = 1.0,
+        btc_dominance: float = 58.0,
+        btc_trend_bias: float = 0.0,
+        bot_ignition: bool = False,
+        c_exp: float = 50.0,
+        **kwargs
     ) -> dict:
         """
-        [V195-PRECISION-PULLBACK-HUNTER-30M]
-        Detecta a exaustao do repique tecnico ate a SMA 8 ou SMA 21 no timeframe 30M.
-        - TRAVA ANTI-FUNDO: Proibe terminantemente abrir SHORT se o preco estiver esticado abaixo da media (>0.6% abaixo da SMA8).
-        - TRAVA ANTI-TOPO: Proibe terminantemente abrir LONG se o preco estiver esticado acima da media (>0.6% acima da SMA8).
-        - GATILHO SHORT: O preco sobe para retestar a SMA8/SMA21, entra na zona de resistencia (+-0.4% da SMA), e rejeita com pavio superior ou fechamento em queda.
-        - GATILHO LONG: O preco recua para testar a SMA8/SMA21, entra na zona de suporte (+-0.4% da SMA), e absorve com pavio inferior ou fechamento em alta.
+        [V207-SNIPER-CONFLUENCE-PULLBACK-GATE]
+        Gatilho Sniper em 2 Camadas:
+        - CAMADA 1 (Barreiras Mecanicas Inegociaveis):
+          1. Toque Real na Linha Branca (SMA8): Preco deve ter testado a SMA8 (diff >= -0.30% e c_high >= sma8 * 0.998). Veto sumario para entradas no vacuo!
+          2. Anti-Candle de Forca: Proibido vender se vela for de alta com corpo longo (>50%) sem pavio superior relevante (<25%).
+          3. Stop Estrutural: Stop Loss posicionado obrigatoriamente ACIMA da Linha Amarela (SMA21) e da maxima local.
+        - CAMADA 2 (Cesto de Confluencias Inteligentes):
+          Exige pelo menos 3 confluencias ativas (Pavio/Candle, LSR Anti-Squeeze, Farol BTC/Dominancia, Robos/EXP, Alinhamento de Medias).
         """
         parsed = []
         for c in (klines_30m or []):
@@ -618,74 +626,170 @@ class LayaRouterService:
 
         # Em regime SHORT:
         if macro_direction == "SHORT":
-            # 1. TRAVA ANTI-FUNDO: Se preco ja caiu > 0.6% abaixo da SMA8, o movimento esta esticado para baixo. VETO TOTAL!
-            if diff_from_sma8 < -0.6:
+            # --- CAMADA 1: AS 3 BARREIRAS MECANICAS INEGOCIAVEIS ---
+            
+            # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8)
+            recent_high = float(recent.get("high", c_close))
+            touched_sma8 = recent_high >= (sma8 * 0.998) or diff_from_sma8 >= -0.30
+            if not touched_sma8 or diff_from_sma8 < -0.30:
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_ESTICADO_FUNDO: Preco a {abs(diff_from_sma8):.2f}% abaixo da SMA8 ({sma8:.4f}). Proibido vender no fundo.",
-                    "pullback_type": "STRETCHED_OVERSOLD"
+                    "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {abs(diff_from_sma8):.2f}% abaixo da SMA8 ({sma8:.4f}). Aguardando repique alcancar a linha branca para armar gatilho sniper.",
+                    "pullback_type": "VACUUM_BELOW_SMA8"
                 }
 
-            # 2. Resistencia alvo: O teto estrutural do canal e a SMA21 (ou SMA8 se coladas)
-            major_res = max(sma8, sma21)
-            minor_res = min(sma8, sma21)
-            # Preco testou ao menos a SMA8 na tentativa de repique
-            tested_res = c_high >= (minor_res * 0.997)
-            in_pullback_zone = -0.5 <= diff_from_sma8 <= 0.6
+            # Barreira 1b: Se preco ja rompeu acima da SMA21 com folga, o repique virou reversao de alta local
+            if c_close > (sma21 * 1.004):
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_ROMPIMENTO_ALTA: Preco ultrapassou a SMA21 ({sma21:.4f}) em {((c_close-sma21)/sma21)*100:.2f}%. Gatilho desarmado.",
+                    "pullback_type": "PULLBACK_INVALIDATED"
+                }
 
+            # Barreira 2: Anti-Candle de Forca Compradora (Exaustao Obrigatoria)
             upper_wick = c_high - max(c_open, c_close)
             upper_wick_ratio = upper_wick / candle_range
-            has_rejection = upper_wick_ratio >= 0.20 or c_close < c_open or c_close < c_high
+            is_green_candle = c_close > c_open
+            body_ratio = abs(c_close - c_open) / candle_range
 
-            if tested_res and in_pullback_zone and has_rejection:
-                # O Stop Loss DEVE sempre ficar acima do teto maior estrutural (SMA21), nunca mutilado na SMA8!
-                sl_price = round(max(c_high * 1.003, major_res * 1.004), 4)
-                tgt_price = round(min(c_low * 0.970, c_close * 0.940), 4)
+            if is_green_candle and body_ratio > 0.50 and upper_wick_ratio < 0.25:
                 return {
-                    "has_pullback_setup": True,
-                    "score_boost": 18,
-                    "reason": f"PULLBACK_REJEICAO_SHORT: Repique na SMA8 ({sma8:.4f}) rejeitado com pavio {upper_wick_ratio*100:.0f}% (Preco: {c_close:.4f})",
-                    "pullback_type": "RETEST_REJECTION_BEAR",
-                    "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6),
-                    "stop_loss": sl_price,
-                    "target": tgt_price
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_CANDLE_FORCA_COMPRADORA: Vela de alta com corpo dominante ({body_ratio*100:.0f}%) e sem pavio superior ({upper_wick_ratio*100:.0f}%). Proibido vender contra expansao verde.",
+                    "pullback_type": "BULL_BODY_IMPULSE"
                 }
+
+            # Barreira 3: Calculo e Posicionamento do Stop Loss ACIMA da Linha Amarela (SMA21)
+            major_res = max(sma8, sma21)
+            sl_price = round(max(c_high * 1.004, major_res * 1.005, (sma8 + abs(sma21 - sma8) * 1.25)), 4)
+            if sl_price <= major_res:
+                sl_price = round(major_res * 1.006, 4)
+
+            stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.015
+            if stop_dist_pct > 0.035:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_STOP_MUITO_LONGO: Distancia do Stop Loss ({stop_dist_pct*100:.2f}%) acima do limite de 3.5%.",
+                    "pullback_type": "STOP_TOO_FAR"
+                }
+
+            # --- CAMADA 2: CESTO DE CONFLUÊNCIAS INTELIGENTES (CHECKLIST PONDERADO) ---
+            confluences = []
+            if upper_wick_ratio >= 0.25 or c_close < c_open:
+                confluences.append(f"PAVIO_REJEICAO({upper_wick_ratio*100:.0f}%)")
+            if lsr >= 0.85:
+                confluences.append(f"LSR_LIVRE({lsr:.2f})")
+            if btc_trend_bias <= 0.0 or btc_dominance >= 57.5:
+                confluences.append("FAROL_BTC_FAVORAVEL")
+            if bot_ignition or c_exp >= 60.0:
+                confluences.append("ALGO_IGNITION")
+            if sma8 < sma21 and ((sma21 - sma8) / sma21) >= 0.0010:
+                confluences.append("CANAL_DESCENDENTE")
+
+            if len(confluences) < 3:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_CONFLUENCIA_INSUFICIENTE: Apenas {len(confluences)}/5 confluencias ativas ({', '.join(confluences)}). Minimo exigido: 3.",
+                    "pullback_type": "LOW_CONFLUENCE"
+                }
+
+            tgt_price = round(min(c_low * 0.970, c_close * 0.940), 4)
+            return {
+                "has_pullback_setup": True,
+                "score_boost": 15 + len(confluences) * 2,
+                "reason": f"GATILHO_SNIPER_SHORT: Toque na SMA8 ({sma8:.4f}) com {len(confluences)} confluencias ({', '.join(confluences)}) | Stop blindado acima da SMA21 em {sl_price:.4f}",
+                "pullback_type": "SNIPER_RETEST_SHORT",
+                "sma8_30m": round(sma8, 6),
+                "sma21_30m": round(sma21, 6),
+                "stop_loss": sl_price,
+                "target": tgt_price,
+                "confluences": confluences
+            }
 
         # Em regime LONG:
         elif macro_direction == "LONG":
-            # 1. TRAVA ANTI-TOPO: Se preco ja subiu > 0.6% acima da SMA8, o movimento esta esticado para cima. VETO TOTAL!
-            if diff_from_sma8 > 0.6:
+            recent_low = float(recent.get("low", c_close))
+            touched_sma8 = recent_low <= (sma8 * 1.002) or diff_from_sma8 <= 0.30
+            if not touched_sma8 or diff_from_sma8 > 0.30:
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_ESTICADO_TOPO: Preco a {diff_from_sma8:.2f}% acima da SMA8 ({sma8:.4f}). Proibido comprar no topo.",
-                    "pullback_type": "STRETCHED_OVERBOUGHT"
+                    "reason": f"VETO_AGUARDANDO_TOQUE_SMA8: Preco a {diff_from_sma8:.2f}% acima da SMA8 ({sma8:.4f}). Aguardando recuo na linha branca para armar gatilho.",
+                    "pullback_type": "VACUUM_ABOVE_SMA8"
                 }
 
-            # 2. Suporte alvo: SMA8 ou SMA21
-            sup_target = min(sma8, sma21) if abs(sma8 - sma21) / sma21 < 0.015 else sma8
-            tested_sup = c_low <= (sup_target * 1.003)
-            in_pullback_zone = -0.4 <= diff_from_sma8 <= 0.5
+            if c_close < (sma21 * 0.996):
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_ROMPIMENTO_BAIXA: Preco perdeu a SMA21 ({sma21:.4f}). Gatilho LONG desarmado.",
+                    "pullback_type": "PULLBACK_INVALIDATED"
+                }
 
             lower_wick = min(c_open, c_close) - c_low
             lower_wick_ratio = lower_wick / candle_range
-            has_absorption = lower_wick_ratio >= 0.20 or c_close > c_open or c_close > c_low
+            is_red_candle = c_close < c_open
+            body_ratio = abs(c_open - c_close) / candle_range
 
-            if tested_sup and in_pullback_zone and has_absorption:
-                sl_price = round(min(c_low * 0.997, sup_target * 0.996), 4)
-                tgt_price = round(max(c_high * 1.030, c_close * 1.060), 4)
+            if is_red_candle and body_ratio > 0.50 and lower_wick_ratio < 0.25:
                 return {
-                    "has_pullback_setup": True,
-                    "score_boost": 18,
-                    "reason": f"PULLBACK_ABSORCAO_LONG: Recuo na SMA8 ({sma8:.4f}) defendido com absorcao {lower_wick_ratio*100:.0f}% (Preco: {c_close:.4f})",
-                    "pullback_type": "RETEST_REJECTION_BULL",
-                    "sma8_30m": round(sma8, 6),
-                    "sma21_30m": round(sma21, 6),
-                    "stop_loss": sl_price,
-                    "target": tgt_price
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_CANDLE_FORCA_VENDEDORA: Vela de baixa com corpo dominante ({body_ratio*100:.0f}%) e sem pavio inferior ({lower_wick_ratio*100:.0f}%).",
+                    "pullback_type": "BEAR_BODY_IMPULSE"
                 }
+
+            minor_sup = min(sma8, sma21)
+            sl_price = round(min(c_low * 0.996, minor_sup * 0.995, (sma8 - abs(sma21 - sma8) * 1.25)), 4)
+            if sl_price >= minor_sup:
+                sl_price = round(minor_sup * 0.994, 4)
+
+            stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.015
+            if stop_dist_pct > 0.035:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_STOP_MUITO_LONGO: Distancia do Stop Loss ({stop_dist_pct*100:.2f}%) acima do limite.",
+                    "pullback_type": "STOP_TOO_FAR"
+                }
+
+            confluences = []
+            if lower_wick_ratio >= 0.25 or c_close > c_open:
+                confluences.append(f"PAVIO_ABSORCAO({lower_wick_ratio*100:.0f}%)")
+            if lsr <= 1.35:
+                confluences.append(f"LSR_LIVRE({lsr:.2f})")
+            if btc_trend_bias >= 0.0:
+                confluences.append("FAROL_BTC_FAVORAVEL")
+            if bot_ignition or c_exp >= 60.0:
+                confluences.append("ALGO_IGNITION")
+            if sma8 > sma21 and ((sma8 - sma21) / sma21) >= 0.0010:
+                confluences.append("CANAL_ASCENDENTE")
+
+            if len(confluences) < 3:
+                return {
+                    "has_pullback_setup": False,
+                    "score_boost": 0,
+                    "reason": f"VETO_CONFLUENCIA_INSUFICIENTE: Apenas {len(confluences)}/5 confluencias ativas. Minimo: 3.",
+                    "pullback_type": "LOW_CONFLUENCE"
+                }
+
+            tgt_price = round(max(c_high * 1.030, c_close * 1.060), 4)
+            return {
+                "has_pullback_setup": True,
+                "score_boost": 15 + len(confluences) * 2,
+                "reason": f"GATILHO_SNIPER_LONG: Toque na SMA8 ({sma8:.4f}) com {len(confluences)} confluencias | Stop protegido abaixo da SMA21 em {sl_price:.4f}",
+                "pullback_type": "SNIPER_RETEST_LONG",
+                "sma8_30m": round(sma8, 6),
+                "sma21_30m": round(sma21, 6),
+                "stop_loss": sl_price,
+                "target": tgt_price,
+                "confluences": confluences
+            }
 
         return {
             "has_pullback_setup": False,
@@ -3622,7 +3726,7 @@ class LayaRouterService:
             # 1. Subordinacao Estrita ao 2H: Proibe operacoes contra a tendencia macro e exige repique autentico no 30M
             c30m_local = self.aggregate_15m_to_30m(c15m_candles)
             if regime_2h["regime"] == "SHORT_ONLY":
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT")
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp)
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "SHORT"
@@ -3645,7 +3749,7 @@ class LayaRouterService:
                     rationale = f"VETO 2H SHORT_ONLY: {pullback_30m.get('reason')}"
             
             elif regime_2h["regime"] == "LONG_ONLY":
-                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "LONG")
+                pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "LONG", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp)
                 if pullback_30m["has_pullback_setup"]:
                     strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
                     direction = "LONG"

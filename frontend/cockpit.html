@@ -1159,7 +1159,7 @@
               <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">ALOCAÇÃO DE LOTES (50X CRUZADA)</span>
               <div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
                 <b id="kpi-slots" style="color: #FFF; font-size: 11px;">
-                  LOTE 1: <span id="kpi-unprotected-slots" style="color:#FCD535; font-weight: 900;">0</span>/4 EM RISCO • TOTAL: <span id="kpi-scalp-slots" style="color:#0ECB81; font-weight: 900;">0</span>/8
+                  LOTE 1: <span id="kpi-unprotected-slots" style="color:#FCD535; font-weight: 900;">0</span>/2 EM RISCO • TOTAL: <span id="kpi-scalp-slots" style="color:#0ECB81; font-weight: 900;">0</span>/8
                 </b>
                 <span id="kpi-slots-sub" style="font-size: 7.5px; color: #848E9C; font-family: var(--font-mono);">$1,000/ORDEM • ALVO CHÃO 300% (+$3,000)</span>
               </div>
@@ -1335,7 +1335,7 @@
                 <canvas class="thinking-orb-canvas" data-state="working" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> PAINEL DE CUSTÓDIA GERAL — SWING 2H (8 SLOTS)
               </span>
               <span id="active-slots-count" class="badge-gold">0 ATIVAS</span>
-              <span style="font-size: 8.5px; color: #848E9C; font-family: var(--font-mono);">(LOTE 1: 4 EM RISCO • EXPANSÃO ATÉ 8 C/ RISCO ZERO • $1,000/ORDEM • 50X CRUZADA)</span>
+              <span style="font-size: 8.5px; color: #848E9C; font-family: var(--font-mono);">(LOTE 1: 2 EM RISCO • EXPANSÃO ATÉ 8 C/ RISCO ZERO • $1,000/ORDEM • 50X CRUZADA)</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <button onclick="emergencyCloseAll()" class="btn-ghost" style="padding: 3px 10px; font-size: 9.5px; font-weight: 800; border-color: #f6465d; color: #f6465d; background: rgba(246, 70, 93, 0.12); letter-spacing: 0.04em;" title="Fecha todas as ordens abertas a mercado imediatamente em caso de emergência">
@@ -3145,7 +3145,7 @@
           const unprotCount = d.unprotected_risk_slots !== undefined ? d.unprotected_risk_slots : scalpCount;
           if (unprotEl) {
             unprotEl.textContent = unprotCount;
-            unprotEl.style.color = unprotCount >= 4 ? "#F6465D" : (unprotCount > 0 ? "#FCD535" : "#0ECB81");
+            unprotEl.style.color = unprotCount >= 2 ? "#F6465D" : (unprotCount > 0 ? "#FCD535" : "#0ECB81");
           }
 
           const slotsSubEl = document.getElementById("kpi-slots-sub");
