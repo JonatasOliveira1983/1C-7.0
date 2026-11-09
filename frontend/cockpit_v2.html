@@ -2349,6 +2349,25 @@
         } catch(e){}
       }
 
+      
+      // 3.5 Linha de GATILHO RISCO ZERO (+60.0% ROI / Breakeven Soberano V205)
+      if (!isRiskFree && !isProfitLocked && ne > 0) {
+        try {
+          const lev = (slotObj && slotObj.leverage) ? Number(slotObj.leverage) : 50;
+          const bePct = 60.0 / (lev * 100);
+          const rzPrice = isLong ? Number((ne * (1 + bePct)).toFixed(6)) : Number((ne * (1 - bePct)).toFixed(6));
+          const rzLine = series.createPriceLine({
+            price: rzPrice,
+            color: '#00F0FF',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `RISCO ZERO (+60% ROI) $${formatPriceSmart(rzPrice)}`
+          });
+          priceLinesList[i].push(rzLine);
+        } catch(e){}
+      }
+
       // 4. Linha de PROJEÇÃO KRONOS AI (Roxo Neon / Pontilhada Larga)
       if (nk && !isNaN(nk) && nk > 0) {
         try {
