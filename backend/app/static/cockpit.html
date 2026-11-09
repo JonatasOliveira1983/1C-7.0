@@ -2314,10 +2314,17 @@
 
       // 3. Linha de STOP DINÂMICO (Breakeven Azul Neon / Trailing Profit Verde / Stop Loss Inicial Vermelho)
       let finalStatus = statusTag || 'ATIVA';
+      let isProfitLocked = false;
+      let isRiskFree = false;
+      if (safeStop && !isNaN(safeStop) && safeStop > 0) {
+        isProfitLocked = isLong ? (safeStop > ne) : (safeStop < ne);
+        isRiskFree = isProfitLocked || (Math.abs(safeStop - ne) / ne < 0.001);
+      }
+      if (String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || (slotObj && slotObj.is_protected)) {
+        isRiskFree = true;
+      }
       if (safeStop && !isNaN(safeStop) && safeStop > 0) {
         try {
-          const isProfitLocked = isLong ? (safeStop > ne) : (safeStop < ne);
-          const isRiskFree = isProfitLocked || (Math.abs(safeStop - ne) / ne < 0.001);
           const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
           
           let slColor = '#FF1744';
