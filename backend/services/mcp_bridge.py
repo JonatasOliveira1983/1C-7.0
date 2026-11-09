@@ -46,7 +46,7 @@ async def _tool_get_balance() -> Dict[str, Any]:
             "status": "success",
             "execution_mode": "PAPER" if is_paper else "REAL",
             "unified_balance_usd": round(sandbox_balance, 2),
-            "simulated_base_usd": 10000.0,
+            "simulated_base_usd": 100000.0,
             "currency": "USDT"
         }
     except Exception as e:
@@ -305,7 +305,7 @@ async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict
         guardian = await laya_router_service.evaluate_open_positions_lifecycle()
         return {
             "status": "success",
-            "version": "v0.4.22-ModernBERT-149M-V191",
+            "version": "v0.4.22-ModernBERT-149M-V205-WINNING",
             "sr_retest_sniper_active": True,
             "symbol": symbol,
             "reflex_bias": reflex,

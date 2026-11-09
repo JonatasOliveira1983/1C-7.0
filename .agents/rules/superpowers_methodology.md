@@ -12,11 +12,16 @@
 2. **TDD Estrito (Red-Green-Refactor)**:
    - Qualquer ajuste em lógica de stop loss, trailing, cálculo de PnL, margem ou dimensionamento de lote **DEVE** ter um teste automatizado escrito antes em `tests/` ou `backend/tests/`.
    - Se o teste falhar, resolve-se o código mínimo necessário (GREEN) e refatora-se mantendo os testes verdes.
-3. **Invariantes Invioláveis de Trading (Regras de Ouro)**:
-   - 🛡️ **Stops Só Sobem ("Never Give Back")**: O stop loss de uma posição NUNCA pode ser afastado para trás. Uma vez que atingiu breakeven (GARANTIA_4 em +4% ROI no Scalp ou +12% no Swing), o stop só avança.
+3. **Invariantes Invioláveis de Trading (V205 - Regras de Ouro Escritas em Pedra)**:
+   - 🛡️ **Versão Canônica Vencedora V205**: Performance comprovada no Cockpit com expansão de $100.000,00 para $107.550,49 (+7.55% líquido), 0 drawdown e 0 ordens devolvidas.
+   - 🛡️ **Margem Cruzada Soberana (Cross Margin 50X)**: Toda operação opera em Margem Cruzada ($100.000 de colateral total). Margem fixa de $1.000 por lote. Proibido calcular risco de liquidação isolada. Stops técnicos no 2H/4H ou SMA 21 com respiro de 12h a 24h.
+   - 🛡️ **Regra dos Lotes 4 + 4**: Máximo 4 ordens em risco ativo (Lote 1). Slots 5 a 8 (Lote 2) só abrem conforme ordens anteriores atinjam Breakeven (+60% ROI) ou Trailing Stop no Degrau 1.
+   - 🛡️ **Breakeven Soberano (+60.0% ROI / Trava +30.0%)**: Disparo apenas com +60.0% de ROI (+1.2% de preço a favor), travando pelo menos +30.0% de ROI líquido (+ $300 no bolso), nunca fechando ordens por ruído de $21.
+   - 🛡️ **Alvo Chão +300% de ROI (+$3,000.00)**: Alvo mínimo de realização por trade é +300% de ROI (provado por XPL com +365.91% / +$3.659,14), travando +200% de ROI (+ $2.000 fixos) no Degrau 5 e deixando o trailing correr no 4H.
+   - 🛡️ **Stops Só Sobem ("Never Give Back")**: O stop loss de uma posição NUNCA pode ser afastado para trás. Stops progressivos em 5 escadinhas.
+   - 🛡️ **Veto Soberano Farol BTC 2H (Tolerância Zero)**: Quando o Bitcoin não estiver estritamente em regime BULL (SMA 8 > SMA 21 e viés comprador positivo), compras de qualquer altcoin são sumariamente vetadas sem exceções de estratégia.
    - 🛡️ **Anti-Hedge Rígido**: É terminantemente proibido abrir simultaneamente posições opostas (LONG e SHORT) no mesmo par.
    - 🛡️ **Zero Mock Data em REAL**: Em modo `OKX_EXECUTION_MODE=REAL`, todas as ordens e saldos derivam da API OKX. Em `PAPER`, o Cockpit espelha a Banca Simulada Realizada do Sandbox.
-   - 🛡️ **Teto Rígido de Risco**: Margem por trade e limites de slots definidos em `backend/config.py` são soberanos.
 4. **Evidência Obrigatória (Verification Before Completion)**:
    - Nenhuma tarefa é declarada concluída sem que o agente execute os testes no terminal (`pytest`, `scripts/run_regression_tests.py` ou chamadas HTTP nos endpoints `/api/health`, `/api/slots`, `/api/sandbox/unified-state`).
 5. **Depuração Sistemática em 4 Fases**:

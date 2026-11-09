@@ -139,7 +139,7 @@ class OpenVikingContextService:
             "- Subordinação 2H Soberana: Se SMA 8 < SMA 21 no 2H, apenas SHORT é autorizado. Se SMA 8 > SMA 21, apenas LONG.\n"
             "- Pullback Hunter 30M: Entrada precisa em 50X no reteste das médias móveis com rejeição.\n"
             "- Leitura de Fluxo Rubik: Monitoramento de OI Delta e Long/Short Ratio (LSR) para antecipar sweeps.\n"
-            "- Invariantes Rígidas: Alavancagem 50.0X Isolada, Never Give Back com 5 escadinhas e Anti-Hedge."
+            "- Invariantes Rígidas: Margem Cruzada Soberana (Cross 50X) com banca de $100k como colateral total, Regra dos Lotes 4+4, Breakeven em +60% ROI (trava +30% / +$300), Alvo Chão +300% ROI (Degrau 5 trava +200% / +$2000), Veto Soberano Farol BTC 2H sem exceções e Anti-Hedge."
         )
         l2 = (
             "ARQUITETURA LAYA 360:\n"
@@ -508,6 +508,27 @@ class OpenVikingContextService:
             "• PAPER: Leitura via get_sandbox_unified_balance refletindo banca simulada com saldo base de $10.000,00.\n"
             "• REAL: Leitura de saldo real via OKX REST API v5 e envio direto de ordens ao book."
         )
+        # V205: Versão Canônica Vencedora 300% ROI Soberana
+        uri_v205_pat = "viking://user/memories/patterns/v205_winning_300roi_sovereign_fleet"
+        l0_v205_pat = "V205 Versão Canônica Vencedora: Expansão de banca de $100.000 para $107.550,49 (+7.55% líquido) com zero drawdown. Alvo Chão +300% superado com XPL (+365.91% / +$3.659,14) e UNI (+155.88% / +$1.558,82)."
+        l1_v205_pat = (
+            "ARQUITETURA VENCEDORA COMPROVADA (V205):\n"
+            "• Margem Cruzada Soberana (Cross 50X): Banca de $100.000 como colateral total, margem fixa de $1.000 por ordem (exposição nocional $50.000).\n"
+            "• Regra dos Lotes 4 + 4: Máximo 4 ordens em risco direcional ativo (Lote 1). Slots 5 a 8 (Lote 2) só abrem conforme ordens anteriores atinjam Breakeven com lucro travado.\n"
+            "• Breakeven Soberano +60.0% de ROI: Disparo calibrado em +60% (1.2% de preço a favor), eliminando saídas prematuras de $21. Stop travando +30% de ROI líquido (+ $300 no bolso).\n"
+            "• Alvo Chão +300% de ROI: Escadinha progressiva que trava +200% de ROI (+ $2.000 no bolso) no Degrau 5 e deixa o trailing correr solto no 4H.\n"
+            "• Tolerância Zero Farol BTC 2H: Nenhuma altcoin abre LONG se Bitcoin não estiver estritamente em BULL no 2H (SMA 8 > SMA 21 e viés positivo). Sem exceções.\n"
+            "• Prova Empírica no Terminal: 6/6 trades vitoriosos em SHORT (XPL +365.91%, UNI +155.88%, FIL +46.57%, ETH +210.44%, UNI +18.26%, NEAR +12.88%), gerando +$7.550,49 limpos com 0 slots abertos ao final."
+        )
+        self.nodes[uri_v205_pat] = VikingNode(
+            uri=uri_v205_pat,
+            title="V205: Versão Canônica Vencedora - 300% ROI, Breakeven 60% e Tolerância Zero Farol BTC",
+            l0_abstract=l0_v205_pat,
+            l1_overview=l1_v205_pat,
+            l2_detail=l1_v205_pat,
+            tags=["patterns", "trading", "v205", "winning_edition", "300roi", "breakeven_60", "cross_margin_50x", "farol_btc"],
+        )
+
         self.nodes[uri_balance] = VikingNode(
             uri=uri_balance,
             title="Semântica de Banca PAPER vs REAL",

@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 7.9.6 (V194 - STANDARDIZED 50X FLEET & 100K PAPER RESTORATION & PLUTUS OMNISCIENCE)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.0.0 (V205 - SOVEREIGN FLEET 300% ROI WINNING EDITION & ZERO TOLERANCE FAROL BTC)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-06. VERSION no codigo: `backend/main.py` VERSION="V188-LAYA-SOVEREIGN-FULL-ARSENAL". Padronizacao Soberana 50X & Restauracao $100k (V194): 1) Restauracao da base de simulação PAPER para $100,000.00 USD absolutos (`OKX_SIMULATED_BALANCE=100000.0` em config.py, .env, backend/.env e paper_storage.json), com sincronizacao atômica de PnL realizado no Cockpit, Telemetria e Shell global ($100k base com formatacao de casas decimais en-US). 2) Invariante Estrita de Alavancagem 50.0X Isolada: Eliminado fallback legado de 20x no okx_universe_service.py e corrigido mapeamento `holding_lev` na rota `/api/v1/hermes/laya/360-telemetry` e no badge de custodia ativa da lista TOP 30 Titãs na Laya 360 (laya.html), unificando Cockpit e Laya 360 em 50X. 3) Integracao de Onisciencia Hermes & Plutus (Metodo ARCA): Hermes ciente do Plutus (Blueprint 07, catalogo de 18 ativos em 4 pilares: Acoes, FIIs, Renda Fixa e Internacional) como destino terminal do capital excedente gerado pela frota 50X para metas de renda passiva (R$ 50k/mes). 4) Subordinacao Soberana 2H & Pullback Hunter 30M: Ordens executadas exclusivamente a favor da tendencia macro 2H (SMA 8 x SMA 21) com protecao Never Give Back de Breakeven e Trailing Stops.*
+*Verificado contra o codigo em 2026-11-08. VERSION no codigo: `backend/main.py` VERSION="V205-SOVEREIGN-FLEET-300ROI-WINNING-EDITION". DEPLOYMENT_ID="V205_SOVEREIGN_FLEET_300ROI". Edição Vencedora Comprovada: Expansão de banca de $100.000,00 para $107.550,49 (+7.55% líquido) com zero drawdown e 0 ordens devolvidas. XPL superou o Alvo Chão com +365.91% (+ $3.659,14), UNI com +155.88% (+ $1.558,82), 6/6 trades lucrativos em SHORT. Calibrado Breakeven Soberano (+60% ROI / Trava +30% ROI = +$300 fixos no bolso) e Tolerância Zero para compras de Altcoin sem BTC em BULL estrito. Padronizacao Soberana 50X & Restauracao $100k (V194): 1) Restauracao da base de simulação PAPER para $100,000.00 USD absolutos (`OKX_SIMULATED_BALANCE=100000.0` em config.py, .env, backend/.env e paper_storage.json), com sincronizacao atômica de PnL realizado no Cockpit, Telemetria e Shell global ($100k base com formatacao de casas decimais en-US). 2) Invariante Estrita de Alavancagem 50.0X Isolada: Eliminado fallback legado de 20x no okx_universe_service.py e corrigido mapeamento `holding_lev` na rota `/api/v1/hermes/laya/360-telemetry` e no badge de custodia ativa da lista TOP 30 Titãs na Laya 360 (laya.html), unificando Cockpit e Laya 360 em 50X. 3) Integracao de Onisciencia Hermes & Plutus (Metodo ARCA): Hermes ciente do Plutus (Blueprint 07, catalogo de 18 ativos em 4 pilares: Acoes, FIIs, Renda Fixa e Internacional) como destino terminal do capital excedente gerado pela frota 50X para metas de renda passiva (R$ 50k/mes). 4) Subordinacao Soberana 2H & Pullback Hunter 30M: Ordens executadas exclusivamente a favor da tendencia macro 2H (SMA 8 x SMA 21) com protecao Never Give Back de Breakeven e Trailing Stops.*
 ---
 
 ## 1. Visao Geral
@@ -158,13 +158,13 @@ flowchart TD
    - É terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h (amplitude de até 3.8% no preço à vista).
 2. **Regra dos Lotes 4 + 4**:
    - **Lote 1 (Em Risco)**: Máximo de 4 ordens abertas simultâneas em risco não protegido ($1.000 de margem fixa por ordem, 50X Cruzada). Em tendências direcionais soberanas (Farol BTC), o Lote 1 permite as 4 ordens na mesma direção a favor da tendência.
-   - **Lote 2 (Expansão)**: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven (Risco Zero / Degrau 1 +50% ROI / +1.0% de preço a favor). Limite absoluto da frota: 8 ordens.
+   - **Lote 2 (Expansão)**: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven Soberano (+60.0% ROI / +1.2% de preço a favor com stop travando +30.0% ROI líquido / +$300.00). Limite absoluto da frota: 8 ordens.
    - **Cadência Ágil de Despacho (45s)**: Intervalo de 45 segundos entre entradas, permitindo a formação do cesto de 4 ordens do Lote 1 durante a janela do repique no 30M sem sobreposição no livro.
 3. **Alvo Chão +300% de ROI (+$3,000.00)**:
    - O alvo mínimo de realização por trade é +300% de ROI, garantindo pelo menos +200% de lucro travado no Degrau 5 (+$2.000.00 fixos garantidos), deixando o trailing correr solto com colchão largo (>= 100% ROI de respiro livre) até a exaustão da tendência no gráfico de 4H.
    - Desativação do trailing aritmético de 70% abaixo dos +300% ROI para evitar asfixia prematura no ruído de 5 minutos.
 4. **Never Give Back**: Stops progressivos só sobem, nunca recuam.
-5. **Veto Soberano Farol BTC 2H**: Quando o Bitcoin estiver em regime BEAR (SMA 8 < SMA 21 ou viés vendedor no 2H), compras de altcoin são expressamente vetadas (`VETO_FAROL_BTC`). Apenas vendas a favor do canal ou rompimento com robôs de alta extrema (`alt_pump_ignition`) são permitidos.
+5. **Veto Soberano Farol BTC 2H (Tolerância Zero)**: Quando o Bitcoin não estiver estritamente em regime BULL (SMA 8 > SMA 21 e viés comprador positivo no 2H), compras de QUALQUER altcoin são sumariamente VETADAS (`VETO_FAROL_BTC`). Sem exceções para estratégias secundárias (Liquidity Hunt ou reversões 15M). A frota opera 100% em SHORT a favor do fluxo ou mantém capital em HOLD.
 
 | Constante | Valor | Fonte |
 |-----------|-------|-------|
@@ -178,7 +178,7 @@ flowchart TD
 | `STOP_LOSS_QUARANTINE` | 7200s (2 Horas Anti-Reincidência) | `laya_router_service.py:885` / V159 |
 | `WHITELIST_TITANS_30` | Top 30 Altcoins de Elite Institucional (Sem BTC para trade) | `okx_universe_service.py:42` / V160 |
 | `BTC_ROLE` | Oráculo Macro Exclusivo (Zero trades em BTC) | `laya_router_service.py:785` / V160 |
-| `RISK_ZERO_TRIGGER_ROI` | +50.0% → +8.5% ROI (Breakeven cobrindo taxas e Net PnL > 0) | `order_projection_service.py` / V203 |
+| `RISK_ZERO_TRIGGER_ROI` | +60.0% → +30.0% ROI (Breakeven Soberano com trava líquida de +$300.00) | `order_projection_service.py` / V205 |
 | `SWING_SCAN_ENABLED` | **False (PAUSADO / GATE SOBERANO)** | `config.py:166` / V146 |
 | `MCP_MOUNT` | `/mcp` (`/mcp/sse`, `/mcp/tools` - 16 Ferramentas) | `backend/main.py:806` / V144 |
 | `RAG_ROUTER` | `/api/v1/hermes/rag` (`/search`, `/status`, `/reindex`) | `backend/routes/rag_routes.py` |

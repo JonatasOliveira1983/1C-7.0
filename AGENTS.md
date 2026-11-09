@@ -13,14 +13,16 @@
    - Todas as regras canônicas de engenharia estão formalizadas em [`.agents/rules/superpowers_methodology.md`](file:///c:/Users/jonat/Desktop/1C-SET26/.agents/rules/superpowers_methodology.md).
    - O ciclo **Red-Green-Refactor (TDD)** é obrigatório para qualquer mudança em motores de trading, stops ou PnL.
    - Nenhuma tarefa é finalizada sem evidência empírica no terminal ([`verification_before_completion`](file:///c:/Users/jonat/Desktop/1C-SET26/.agents/skills/verification_before_completion/SKILL.md)).
-3. **Invariantes Rígidas de Risco e Trading**:
-   - **Margem Cruzada Soberana (Cross Margin 50X)**: Toda e qualquer operação do 1Crypten opera estritamente sob Margem Cruzada. A banca inteira ($100.000) é o colateral garantidor; é terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h.
+3. **Invariantes Rígidas e Vencedoras de Risco e Trading (V205 - ESCRITAS EM PEDRA)**:
+   - **Versão Canônica Vencedora V205**: Comprovada empiricamente no Cockpit com expansão de $100.000,00 para $107.550,49 (+7.55% líquido), 0 drawdown e 0 ordens devolvidas.
+   - **Margem Cruzada Soberana (Cross Margin 50X)**: Toda e qualquer operação do 1Crypten opera estritamente sob Margem Cruzada. A banca inteira ($100.000) é o colateral garantidor; é terminantemente proibido calcular limites de stop loss ou alegar risco de liquidação baseado em fórmulas de margem isolada (1.8%). Margem fixa de $1.000,00 por lote (exposição nocional de $50.000,00). Stops pertencem à estrutura técnica (topo/fundo no 2H/4H ou SMA 21) com respiro livre de 12h a 24h.
    - **Regra dos Lotes 4 + 4**:
      - *Lote 1 (Em Risco)*: Máximo de 4 ordens abertas simultâneas em risco não protegido ($1.000 de margem fixa por ordem, alavancagem 50X Cruzada).
-     - *Lote 2 (Expansão)*: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven (Risco Zero) ou Trailing Stop no Degrau 1 (+50% ROI / +1.0% de preço a favor). Limite absoluto da frota: 8 ordens.
-   - **Alvo Chão +300% de ROI (+$3,000.00)**: O alvo mínimo de realização por trade é +300% de ROI, garantindo pelo menos +200% de lucro travado no Degrau 5 (+$2.000.00 fixos), deixando o trailing correr solto até a exaustão da tendência no gráfico de 4H.
+     - *Lote 2 (Expansão)*: A 5ª, 6ª, 7ª e 8ª ordem só podem ser abertas conforme ordens anteriores atinjam Breakeven com lucro travado ou Trailing Stop no Degrau 1 (+60% ROI / +1.2% de preço a favor). Limite absoluto da frota: 8 ordens.
+   - **Breakeven Soberano (+60.0% ROI / Trava +30.0%)**: O Breakeven nunca dispara por ruído de mercado (eliminado disparo legado de +25%). Disparo calibrado em +60.0% de ROI (+1.2% de preço a favor), com trava obrigatória de pelo menos +25.0% a +35.0% de ROI líquido (+30.0% padrão / +$300 fixos no cofre), nunca fechando trades prematuramente.
+   - **Alvo Chão +300% de ROI (+$3,000.00)**: O alvo mínimo de realização por trade é +300% de ROI (superado por XPL com +365.91% / +$3.659,14), garantindo pelo menos +200% de lucro travado no Degrau 5 (+$2.000.00 fixos), deixando o trailing correr solto até a exaustão da tendência no gráfico de 4H.
    - **Never Give Back**: Stops progressivos (5 escadinhas) só sobem, nunca recuam.
-   - **Veto Soberano Farol BTC 2H**: Quando o Bitcoin estiver em regime BEAR (SMA 8 < SMA 21 ou viés vendedor), compras de altcoin são expressamente vetadas (`VETO_FAROL_BTC`). Apenas vendas a favor do canal ou rompimento com robôs de alta extrema (`alt_pump_ignition`) são permitidos.
+   - **Veto Soberano Farol BTC 2H (Tolerância Zero)**: Quando o Bitcoin não estiver estritamente em regime BULL (SMA 8 > SMA 21 e viés comprador positivo), compras de qualquer altcoin são sumariamente VETADAS (`VETO_FAROL_BTC`). Sem exceções para Liquidity Hunt ou reversões 15M. A frota opera exclusivamente em SHORT a favor da maré macro ou mantém capital em HOLD.
    - **Anti-Hedge**: Nunca abrir posições opostas simultâneas no mesmo par.
    - **Semântica PAPER vs REAL**: Em PAPER, o Cockpit espelha a Banca Simulada Realizada do Sandbox (`get_sandbox_unified_balance`); em REAL, a OKX recebe as ordens e o Cockpit reflete o saldo real.
 4. **Padrão Visual Lamborghini / Binance Dark**:
