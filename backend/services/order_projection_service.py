@@ -205,10 +205,12 @@ class OrderProjectionService:
                 "LAYA_PULLBACK_HUNTER_2H_30M",
                 "LAYA_AGUIA_FUSION",
                 "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "LAYA_LIQUIDITY_HUNT",
             )
             or "SWING" in str(strategy_class).upper()
             or "PULLBACK" in str(strategy_class).upper()
             or "AGUIA" in str(strategy_class).upper()
+            or "LIQUIDITY" in str(strategy_class).upper()
         )
         is_scalping = strategy_class == "VWAP SNIPER" or slot_type == "SCALPING"
         
@@ -290,10 +292,12 @@ class OrderProjectionService:
                 "LAYA_PULLBACK_HUNTER_2H_30M",
                 "LAYA_AGUIA_FUSION",
                 "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "LAYA_LIQUIDITY_HUNT",
             )
             or "SWING" in str(strategy_class).upper()
             or "PULLBACK" in str(strategy_class).upper()
             or "AGUIA" in str(strategy_class).upper()
+            or "LIQUIDITY" in str(strategy_class).upper()
         )
         # [V211-TRAILING-DINAMICO-ELASTICO-50] Trailing dinâmico com Gap Elástico de 50% de ROI (1.0% de preço a 50X) após +100% ROI
         # Dá 1.0% de respiro livre para o ativo buscar o Alvo Chão de +300% sem estrangulamento precoce
@@ -316,15 +320,6 @@ class OrderProjectionService:
                     stop_roi=trail_roi,
                     status_risco="TRAIL_LOCK"
                 )
-        elif is_ranging and active and active.phase == "TRAILING" and roi_percent >= 50.0:
-            if not is_swing:
-                active = StopLevel(
-                    phase=active.phase,
-                    name=active.name,
-                    trigger_roi=active.trigger_roi,
-                    stop_roi=round(roi_percent - 2.0, 2), # Trailing stop apertado de 2% para fechar no pico
-                    status_risco=active.status_risco
-                )
         return active
 
     def get_next_level(self, roi_percent: float, ladder: Optional[List[StopLevel]] = None, is_ranging: bool = False, slot_type: str = "", strategy_class: str = "") -> Optional[StopLevel]:
@@ -345,10 +340,12 @@ class OrderProjectionService:
                 "LAYA_PULLBACK_HUNTER_2H_30M",
                 "LAYA_AGUIA_FUSION",
                 "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "LAYA_LIQUIDITY_HUNT",
             )
             or "SWING" in str(strategy_class).upper()
             or "PULLBACK" in str(strategy_class).upper()
             or "AGUIA" in str(strategy_class).upper()
+            or "LIQUIDITY" in str(strategy_class).upper()
         )
         if is_swing:
             if roi_percent >= 300.0:

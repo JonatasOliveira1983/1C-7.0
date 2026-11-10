@@ -1822,6 +1822,7 @@ class SandboxService:
                 "LAYA_AGUIA_FUSION",
                 "LAYA_SMART_MONEY_H1",
                 "LAYA_INTERMEDIATE_REVERSAL_15M",
+                "LAYA_LIQUIDITY_HUNT",
                 "VELOCITY FLOW",
                 "ALPHA SHIELD",
                 "DECOR SHADOW"
@@ -1829,6 +1830,7 @@ class SandboxService:
             or "SWING" in str(strat_class).upper()
             or "PULLBACK" in str(strat_class).upper()
             or "AGUIA" in str(strat_class).upper()
+            or "LIQUIDITY" in str(strat_class).upper()
         )
 
         if is_swing:
@@ -1898,51 +1900,9 @@ class SandboxService:
                     history.append(f"[ALVO_ATINGIDO] Alvo de projeção ${target_price:.4f} atingido (+{target_roi:.1f}% ROI)! Stop travado em +{target_protected_stop:.1f}% ROI. Escadinha ativa para expansão máxima.")
                     logger.info(f"🎯 [SANDBOX-ALVO-EXPANSAO] {symbol} atingiu alvo ${target_price:.4f}! Stop garantido em +{target_protected_stop:.1f}% ROI — buscando expansão máxima.")
 
-        # [V209-SWING-2H-SOVEREIGN-EXEMPTION]: Trades de Swing 2H são estritamente isentos de micro-defesas de scalping
-        # O Breakeven e o Trailing Stop do Swing pertencem soberanamente à estrutura de 2H e à Escadinha V205 (+60% ROI).
-        if not is_swing:
-            # [V126-LOCK-IN] Protocolo Lock-In de Defesa
-            if getattr(database_service, "lock_in_active", False):
-                from config import settings
-                stop_pct = getattr(settings, "SANDBOX_LOCK_IN_STOP_PERCENT", 5.0)
-                lock_in_stop_roi = max_roi - stop_pct
-                if lock_in_stop_roi > updated_stop_roi:
-                    updated_stop_roi = lock_in_stop_roi
-                    updated_level_name = "LOCK_IN_5%"
-                    updated_phase = "DEFESA"
-                    if not any("LOCK_IN" in str(h) for h in history[-2:]):
-                        history.append(f"[LOCK-IN] Stop de Defesa ativado: stop em {lock_in_stop_roi:.1f}% ROI (-5.0% do pico de {max_roi:.1f}%)")
-                        logger.warning(f"🔒 [SANDBOX-LOCK-IN] {symbol} stop de defesa recalculado para {lock_in_stop_roi:.1f}% ROI")
-
-            # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
-            defense_level = getattr(database_service, "equity_defense_level", 0)
-            defense_stop_pct = getattr(database_service, "equity_defense_stop_pct", 0.0)
-
-            if defense_level == 4:
-                logger.warning(f"🛡️ [EQUITY-CRITICO] {symbol} Fechando trade — piso de patrimônio violado")
-                history.append(f"[EQUITY-CRITICO] Piso violado. Fechando trade.")
-                is_closed = True
-                should_run_blocklist = True
-                exit_price = current_price
-                closed_at = time.time()
-                status = "CLOSED_EQUITY_DEFENSE"
-
-            elif defense_level >= 1:
-                try:
-                    from config import settings as _cfg
-                except ImportError:
-                    from backend.config import settings as _cfg
-                _min_roi = getattr(_cfg, "EQUITY_DEFENSE_MIN_ROI", 5.0)
-                if max_roi >= _min_roi:
-                    defense_stop_roi = max_roi - defense_stop_pct
-                    if defense_stop_roi > updated_stop_roi:
-                        updated_stop_roi = defense_stop_roi
-                        level_labels = {1: "EQUITY_L1", 2: "EQUITY_L2", 3: "EQUITY_L3"}
-                        updated_level_name = level_labels.get(defense_level, "EQUITY_DEF")
-                        updated_phase = "DEFESA"
-                        if not any("EQUITY_L" in str(h) for h in history[-2:]):
-                            history.append(f"[EQUITY-DEFENSE L{defense_level}] Stop recalculado: {defense_stop_roi:.1f}% ROI (-{defense_stop_pct:.0f}% do pico {max_roi:.1f}%)")
-                            logger.warning(f"🛡️ [SANDBOX-EQUITY-DEF] {symbol} stop defesa L{defense_level}: {defense_stop_roi:.1f}% ROI")
+        # [V211-LEGACY-DEFENSE-EXTIRPATED]: As antigas micro-defesas de scalping (lock_in_active a 5% e equity_defense L1-L3 a 3%)
+        # foram permanentemente desativadas. Em 50X, oscilações de 3% a 5% de ROI equivalem a 0.06%-0.10% de preço (ruído puro).
+        # A governança de risco é 100% soberana via Escadinha V205, Breakeven (+60% ROI) e Trailing Dinâmico (+50% Gap Elástico).
 
         # 10. Stop price com tick_size rounding
         stop_price = proj_service.raw_price_from_roi(entry_price, updated_stop_roi, side, leverage)
