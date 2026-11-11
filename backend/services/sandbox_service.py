@@ -1792,20 +1792,25 @@ class SandboxService:
 
         is_ignition = strat_class in ("ALT_PUMP_IGNITION", "LAYA_LIQUIDITY_HUNT", "EXPLOSION_RUNNER") or "IGNITION" in str(strat_class).upper()
 
-        # [V187.3-NET-BREAKEVEN-PROTECTION]: O Stop do Breakeven DEVE cobrir 100% das taxas OKX e slippage
-        # [V205-SOVEREIGN-BREAKEVEN-CALIBRATION]
-        # O Breakeven institucional NÃO dispara com +25.0% ROI (0.5% de preço), que fechava a ordem em +$21.
-        # Ele só é acionado quando o trade atinge no mínimo +60.0% de ROI (1.2% de preço a favor).
-        # Ao ser acionado, trava +30.0% de ROI líquido (+25% a +35% / +$300,00 reais no bolso numa margem de $1.000).
-        breakeven_trigger = 60.0
-        breakeven_target_stop = 30.0
-
-        if max_roi >= breakeven_trigger and current_stop_roi < breakeven_target_stop:
-            updated_stop_roi = breakeven_target_stop
+        # [V212-DUAL-BREAKEVEN-35-60]:
+        # 1. Breakeven Protetivo Taxas OKX: Acionado a +35.0% de ROI (+0.70% de preço a favor).
+        #    Trava +7.0% de ROI líquido (+0.14% de preço a favor), cobrindo 100% das taxas da OKX e slippage (Zero a Zero Real).
+        # 2. Breakeven Soberano Consolidado: Acionado a +60.0% de ROI (+1.20% de preço a favor).
+        #    Trava +30.0% de ROI líquido (+$300 fixos garantidos no cofre).
+        if max_roi >= 60.0 and current_stop_roi < 30.0:
+            updated_stop_roi = 30.0
             updated_level_name = "BREAKEVEN_LUCRO_60"
             updated_phase = "ESCADINHA"
-            history.append(f"Breakeven Soberano (+60% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +{breakeven_target_stop:.1f}% ROI (Lucro Garantido +${breakeven_target_stop*10:.0f})")
-            logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven +60%: stop movido para +{breakeven_target_stop:.1f}% ROI")
+            if not any("BREAKEVEN_LUCRO_60" in str(h) for h in history[-2:]):
+                history.append(f"Breakeven Soberano (+60% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +30.0% ROI (Lucro Garantido +$300)")
+                logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven +60%: stop movido para +30.0% ROI")
+        elif max_roi >= 35.0 and current_stop_roi < 7.0:
+            updated_stop_roi = 7.0
+            updated_level_name = "BREAKEVEN_PROTETIVO_TAXAS"
+            updated_phase = "ESCADINHA"
+            if not any("BREAKEVEN_PROTETIVO" in str(h) for h in history[-2:]):
+                history.append(f"Breakeven Protetivo (+35% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +7.0% ROI (Taxas OKX Cobertas / Risco Zero)")
+                logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +35%: stop movido para +7.0% ROI")
 
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
