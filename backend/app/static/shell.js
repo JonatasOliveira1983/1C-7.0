@@ -97,7 +97,7 @@
           </a>
           <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
             ${ICONS.laya}
-            <span>LAYA 360 (CÉREBRO SOBERANO)</span>
+            <span>TITAN 360 (RADAR & SCANNER SOBERANO)</span>
             <span class="sh-badge-gold">360°</span>
           </a>
           <a href="/telemetry" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
@@ -124,10 +124,15 @@
         <!-- Fleet Section -->
         <div class="sh-sec-title" style="margin-top: 18px;">AGENTES DA FROTA</div>
         <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
+          <a href="/cockpit" class="sh-link">
+            ${ICONS.captain}
+            <span>TITAN ENGINE · MOTOR QUANTITATIVO</span>
+            <span class="sh-status-pill ok">50X ON</span>
+          </a>
           <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
             ${ICONS.laya}
-            <span>LAYA · CÉREBRO SOBERANO</span>
-            <span class="sh-status-pill ok">360° ON</span>
+            <span>LAYA NEURAL · REDE SYSTEM 1</span>
+            <span class="sh-status-pill ok">v0.4.31</span>
           </a>
           <a href="/hermes" class="sh-link">
             ${ICONS.hermes}
@@ -166,7 +171,7 @@
         <div id="vitals-strip" style="padding: 6px 14px; display: flex; flex-direction: column; gap: 8px;">
           <div class="sh-vital-item">
             <span class="sh-vital-dot" data-vital="laya"></span>
-            <span style="font-family: var(--font-mono); font-size: 10px; color: #AAAAAA;">LAYA 360 RADAR</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: #AAAAAA;">TITAN ENGINE & RADAR</span>
             <span style="margin-left: auto; font-family: var(--font-mono); font-size: 9px; color: #00E676;">ACTIVE</span>
           </div>
           <div class="sh-vital-item">
@@ -224,14 +229,14 @@
             <span style="font-weight: 700; font-size: 11.5px; letter-spacing: 0.08em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
               1CRYPTEN
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">v7.9.5</span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">v7.9.6</span>
           </a>
 
           <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 11px;">|</span>
           
           <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 6px;">
             <span style="font-family: var(--font-mono, monospace); font-size: 9px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
-              LAYA • HERMES • PLUTUS • KRONOS
+              TITAN • LAYA NEURAL • HERMES • PLUTUS
             </span>
           </div>
         </div>
@@ -242,7 +247,7 @@
             ${ICONS.cockpit} <span>COCKPIT</span>
           </a>
           <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
-            ${ICONS.laya} <span>LAYA 360</span>
+            ${ICONS.laya} <span>TITAN 360</span>
           </a>
           <a href="/telemetry" class="nav-item ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse} <span>TELEMETRIA</span>
@@ -542,7 +547,7 @@
         </a>
         <a href="/laya" class="bbar-item ${page === 'laya' ? 'active' : ''}">
           ${ICONS.laya}
-          <span>Laya 360</span>
+          <span>Titan 360</span>
         </a>
         <a href="/telemetry" class="bbar-item ${(page === 'observatory' || page === 'telemetry') ? 'active' : ''}">
           ${ICONS.pulse}

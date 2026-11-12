@@ -1,8 +1,8 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.7.5 (V175-DYNAMIC-WS-PARITY-IMMEDIATE-PRICE-GUARD)  
-> **Data de Atualização**: 28/10/2026  
+> **Versão**: 7.9.6 (V213-DUAL-BREAKEVEN-35-60-ELASTIC-TRAILING-TITAN-ENGINE-LAYA-0.4.31)  
+> **Data de Atualização**: 12/11/2026  
 > **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
@@ -48,25 +48,26 @@ O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade s
      - **Cursor IDE** (`Settings > Features > MCP Servers`).
      - **Hermes / n8n / Agentes Autônomos**.
 
-### 1.2. Catálogo Oficial de Ferramentas Expostas (15 Tools)
+### 1.2. Catálogo Oficial de Ferramentas Expostas (16 Tools)
 
 | Ferramenta | Descrição | Parâmetros | Retorno Principal |
 | :--- | :--- | :--- | :--- |
 | `get_balance` | Consulta banca consolidada, equity unificado e modo de execução. | Nenhum | `unified_balance_usd`, `execution_mode`, `simulated_base_usd` |
 | `get_positions` | Lista todas as posições ativas em tempo real (Scalp e Swing). | Nenhum | Lista de posições com `entry_price`, `current_stop`, `target`, `pnl_percent` |
-| `get_active_orders` | Recupera ordens pendentes e em aberto no motor e na OKX. | Nenhum | Lista de ordens ativas com tipo, quantidade e status |
 | `get_radar_signals` | Captura pulso de fluxo institucional (Whale vs Retail) da Laya. | Nenhum | Top tickers com LSR, Open Interest, Bias direcional e convicção |
 | `evaluate_asset` | Avalia confluência de entrada combinando Laya Flow e Kronos AI. | `symbol` (str), `side` (str, default "BUY") | Status de confluência, score Kronos, regime de fluxo e validação institucional |
 | `get_system_snapshot` | Retorna telemetria macro do sistema e governança de risco. | Nenhum | `regime_mode`, `master_adx`, `unified_balance_usd`, `doctrine` |
-| `close_position_emergency` | Executa desarme e liquidação emergencial a mercado de um par. | `symbol` (str) | Confirmação de fechamento forçado e cancelamento de ordens |
-| `get_risk_telemetry` | Auditoria completa de exposição, margem, drawdown e limites. | Nenhum | Alocação por cluster, margem consumida, stops armados |
-| `get_market_intel_screener` | Varre os 507 pares perpétuos da OKX com métricas de volume e volatilidade. | `top_n` (int, default 15) | Top pares por volume 24h em USDT, spread, volatilidade e filtros de liquidez |
+| `quarantine_symbol` | Aplica quarentena temporária a um símbolo violador de regras. | `symbol` (str), `duration_seconds` (int, default 7200) | Status de quarentena, timestamp de expiração e motivo |
+| `get_quarantines` | Lista todos os ativos atualmente em quarentena operacional. | Nenhum | Dicionário de ativos quarentenados com tempos restantes |
+| `query_rag_intelligence` | Consulta semântica de alta performance na base documental e Obsidian. | `query` (str), `top_k` (int, default 4) | Chunks mais relevantes com score de similaridade e contexto |
+| `get_market_intel_screener` | Varre os 507 pares perpétuos da OKX com métricas de volume e volatilidade. | `universe` (str, default "all") | Top pares por volume 24h em USDT, spread, volatilidade e filtros de liquidez |
 | `get_contract_precision_audit`| Inspeciona as especificações exatas de contrato OKX (`tickSz`, `lotSz`, `ctVal`, multiplicador). | `symbol` (str) | `instId`, `tick_sz`, `lot_sz`, `ct_val`, `min_sz`, exemplos quantizados de preço e lote |
-| `get_liquidity_zones_heatmap`| Mapa de calor 2D de liquidações, ímãs institucionais e classificação em 3 zonas Encryptos. | `symbol` (str, default 'SOLUSDT') | Bolsões de liquidez, zonas Hunt, Dead Zone e Exhaustion |
-| `viking_tree` | Navega pela árvore de arquivos virtuais do OpenViking (`viking://`). | Nenhum | Estrutura hierárquica de recursos, memórias e skills |
-| `viking_read` | Leitura multi-nível com progressive disclosure (L0 abstract, L1 overview, L2 detail). | `uri` (str), `level` (str) | Conteúdo sintetizado ou detalhado da diretriz ou caso |
-| `viking_search` | Busca semântica por padrões, diretrizes de risco e memórias episódicas. | `query` (str), `limit` (int) | Chunks mais relevantes com score de similaridade |
+| `viking_tree` | Navega pela árvore de arquivos virtuais do OpenViking (`viking://`). | `path` (str, default "viking://") | Estrutura hierárquica de recursos, memórias e skills |
+| `viking_read` | Leitura multi-nível com progressive disclosure (L0 abstract, L1 overview, L2 detail). | `uri` (str), `level` (int, default 1) | Conteúdo sintetizado ou detalhado da diretriz ou caso |
+| `viking_search` | Busca semântica por padrões, diretrizes de risco e memórias episódicas. | `query` (str), `level` (int, default 1), `limit` (int, default 5) | Chunks mais relevantes com score de similaridade |
 | `viking_commit_lesson` | Grava um novo caso ou aprendizado permanente no OpenViking e no Obsidian Vault. | `category` (str), `title` (str), `content` (str) | Confirmação de gravação e sincronização com o Vault |
+| `get_laya_sovereign_intelligence` | Retorna o estado do Titan Engine (motor quantitativo) e Laya Neural v0.4.31. | `symbol` (str, default "BTCUSDT") | Versão `v0.4.31-TitanEngine-LayaNeural-V213`, dual breakeven, trailing e reflex bias |
+| `get_liquidity_zones_heatmap` | Mapa de calor 2D de liquidações, ímãs institucionais e classificação em 3 zonas Encryptos. | `symbol` (str, default "SOLUSDT") | Bolsões de liquidez, zonas Hunt, Dead Zone e Exhaustion |
 
 ### 1.3. Como Conectar o MCP aos Clientes
 
@@ -288,6 +289,39 @@ A versão **V187** formaliza a fusão entre a análise de tendência macro via m
    - Monitor Multi-Gráfico exibe os 4 gráficos nativos configurados por padrão em **2H**.
    - Linhas vetoriais de **SMA 8 (Branca)** e **SMA 21 (Amarela)** renderizadas sobre os candles com legendas ativas.
    - Card de Banca Soberana com badge `ATÉ 50X CRUZADA`, monitor de slots `X / 10 ATIVOS`, subtítulo dinâmico `MAX $600 • $60/ORDEM • 6% RISCO | 94% LIVRE` e teto de risco calibrado em `RISK: X% / 6%`.
+
+
+### 3.10. [V212/V213] Dual Breakeven V212 (35% Taxas OKX / 60% Lucro) & Trailing Dinâmico com Gap Elástico de 50% de ROI
+
+A versão **V212/V213** consolida a arquitetura matemática de proteção em dois degraus e o respiro elástico de posições vencedoras:
+
+1. **Degrau 1 (Breakeven Protetivo Taxas OKX)**:
+   - Dispara em **+35.0% de ROI** (+0.70% de preço a favor em 50X).
+   - Trava o stop em **+7.0% de ROI** (+0.14% de preço a favor).
+   - Cobre integralmente as taxas de taker da OKX (0.05% abertura + 0.05% fechamento = ~0.10% ou +5.0% de ROI) e slippage de 0.04% (+2.0% de ROI).
+   - Garante Zero a Zero Real e impede reversão de ordens vencedoras para stop loss cheio (-100%).
+
+2. **Degrau 2 (Breakeven Soberano Consolidado)**:
+   - Dispara em **+60.0% de ROI** (+1.20% de preço a favor em 50X).
+   - Trava o stop em **+30.0% de ROI** líquido (+$300 fixos no cofre).
+   - Libera novos slots de expansão na frota sob a regra de bola de neve (2 + 2 + 2 + 2).
+
+3. **Trailing Dinâmico com Gap Elástico de 50% de ROI**:
+   - Ativado a partir de **+100% de ROI** (`trail_stop_roi = max(50.0, max_roi - 50.0)`).
+   - Garante 1.0% de respiro livre para o ativo buscar o Alvo Chão de +300% de ROI sem estrangulamento prematuro por volatilidade transitória.
+   - Acima de +300% de ROI, trava no mínimo +200% de ROI fixos ($2.000 garantidos) e mantém 70% de folga até 500% no 4H.
+
+
+### 3.11. [V213] Separação Arquitetural: Titan Engine vs Laya Neural v0.4.31
+
+Na versão **V213**, foi formalizada a separação de papéis na governança do sistema:
+1. **TITAN ENGINE**:
+   - Motor quantitativo soberano, Radar Universal de 507 pares e Scanner OKX.
+   - Gerencia alocação de banca ($1.000/lote em 50X Cruzada), Farol BTC 2H, cálculo de PnL e execução de ordens via Sandbox/OKX.
+   - Exibido no Cockpit, no Titan Radar e nas rotas táticas `/cockpit`, `/laya` (Titan 360) e `/telemetry`.
+2. **LAYA NEURAL (v0.4.31)**:
+   - Rede Neural System 1 (biblioteca `laya` oficial v0.4.31 com Transformers 5.x e VegaML).
+   - Responsável pela cognição reflexa rápida, calibração Bayesiana, supervisão de padrões harmônicos e orquestração RLCD (Reinforcement Learning from Contextual Demonstrations).
 
 ---
 

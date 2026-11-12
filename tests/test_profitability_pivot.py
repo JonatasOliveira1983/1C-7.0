@@ -35,17 +35,17 @@ def test_v146_laya_reversion_rr_asymmetry():
 
 
 def test_v146_swing_ladder_prevents_full_giveback():
-    """Valida que ordens de swing com +30% ROI NUNCA voltam para o zero."""
-    active_at_30 = order_projection_service.get_active_level(
-        roi_percent=30.0,
+    """Valida que ordens de swing com +35% ROI (Degrau 1 Taxas OKX V212) NUNCA voltam para o zero."""
+    active_at_35 = order_projection_service.get_active_level(
+        roi_percent=35.0,
         ladder=ORDER_STOP_LADDER_SWING,
         is_ranging=False,
         strategy_class="SWING"
     )
     
-    assert active_at_30 is not None
-    # Deve travar pelo menos 5% no bolso se atingiu 30% (degrau 1 bateu em 25%)
-    assert active_at_30.stop_roi >= 5.0, f"Deveria travar >= 5% de ROI, obtido {active_at_30.stop_roi}"
+    assert active_at_35 is not None
+    # Deve travar pelo menos 7% no bolso se atingiu 35% (degrau 1 protetivo de taxas)
+    assert active_at_35.stop_roi >= 7.0, f"Deveria travar >= 7% de ROI, obtido {active_at_35.stop_roi}"
 
 
 def test_v146_never_give_back_invariant():

@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 8.3.0 (V214 - SCRATCH GUARD REJECTION SHIELD & DUAL BREAKEVEN 35/60)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.3.1 (V215 - TITAN ENGINE & LAYA NEURAL 0.4.31 UNIFIED ARCHITECTURE)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-12. VERSION no codigo: `backend/main.py` VERSION="V214-SCRATCH-GUARD-REJECTION-SHIELD". DEPLOYMENT_ID="V214_SCRATCH_GUARD_POSITIVE_LOCK". Invariantes V214 Escritas em Pedra: 1) Scratch Guard contra Rejeição de Impulso (`SCRATCH_GUARD_REJECTION`): Se o trade atingir impulso >= +20.0% ROI mas recuar para <= +7.0% ROI antes de bater no Breakeven de +35%, o stop sobe instantaneamente para +5.0% ROI, impedindo que trades lucrativos desabem para o stop loss negativo (-50% / -$400+). 2) Subordinação Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`): Filtro macro no 2H (SMA 8 x SMA 21), confluência de candle no 30M e Stop Estrutural no 2H além da SMA 21. 3) Arquitetura Dual Breakeven (+35% / +60%): Degrau 1 com Breakeven Protetivo Taxas OKX a +35% ROI (+0.70% de preço a favor) travando +7.0% de ROI (+0.14% de preço a favor); Degrau 2 com Breakeven Soberano a +60% ROI (+1.20% de preço) travando +30% ROI líquido (+$300 fixos). 4) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`). 5) Re-entry Tático de 5min após saída por Scratch Guard. 6) Nomenclatura Soberana: O motor quantitativo de trading e execução passa a ser denominado TITAN ENGINE (TITAN RADAR), enquanto a Laya atua estritamente como a Rede Neural System 1 de decisão e linguagem (v0.4.31).*
+*Verificado contra o codigo em 2026-11-12. VERSION no codigo: `backend/main.py` VERSION="V215-TITAN-ENGINE-LAYA-0.4.31-UNIFIED-UI". DEPLOYMENT_ID="V215_TITAN_ENGINE_SOVEREIGN". Invariantes V215 Escritas em Pedra: 1) Nomenclatura Soberana & Unificação de UI: O motor quantitativo de trading e execução é o TITAN ENGINE (TITAN RADAR / TITAN 360), unificado em todas as interfaces (`cockpit.html`, `laya.html`, `telemetry.html`, `shell.js`), enquanto a Laya atua estritamente como a Rede Neural System 1 de decisão reflexa, calibração Bayesiana e cognição (v0.4.31). 2) Scratch Guard contra Rejeição de Impulso (`SCRATCH_GUARD_REJECTION`): Se o trade atingir impulso >= +20.0% ROI mas recuar para <= +7.0% ROI antes de bater no Breakeven de +35%, o stop sobe instantaneamente para +5.0% ROI, impedindo que trades lucrativos desabem para o stop loss negativo (-50% / -$400+). 3) Subordinação Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`): Filtro macro no 2H (SMA 8 x SMA 21), confluência de candle no 30M e Stop Estrutural no 2H além da SMA 21. 4) Arquitetura Dual Breakeven (+35% / +60%): Degrau 1 com Breakeven Protetivo Taxas OKX a +35% ROI (+0.70% de preço a favor) travando +7.0% de ROI (+0.14% de preço a favor); Degrau 2 com Breakeven Soberano a +60% ROI (+1.20% de preço) travando +30% ROI líquido (+$300 fixos). 5) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`). 6) Re-entry Tático de 5min após saída por Scratch Guard.*
 ---
 
 ## 1. Visao Geral
@@ -28,11 +28,13 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 ```mermaid
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
-        UI_Cockpit["cockpit.html (Binance Dark #0B0E11 + 15x Thinking Orbs + 8 Slots Day Trade)"]
-        UI_Plutus["plutus.html (Método ARCA Renda Perpétua + 100% Widescreen Universal Shell)"]
-        UI_Observatory["observatory.html (Widescreen 3-Col uPlot 60 FPS + Laya Mind + Slots Live PnL)"]
+        UI_Cockpit["cockpit.html (Titan Engine & Titan Radar + Dual Breakeven 35/60 + 8 Slots Swing 2H)"]
+        UI_Titan360["laya.html (TITAN 360 - Radar Quantitativo Soberano 507 Pares / 30 Titãs)"]
+        UI_Telemetry["telemetry.html (Telemetria Titan Engine + Escudo Tático + uPlot 60 FPS)"]
+        UI_Plutus["plutus.html (Método ARCA Renda Perpétua + Universal Shell)"]
+        UI_Hermes["hermes.html (Hermes Orchestrator & Forensic Audit)"]
         UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
-        UI_LayaHUD["Laya Sovereign Mind Stream & Solving Orbs"]
+        UI_TitanHUD["Titan Radar HUD & Laya Neural Supervision"]
         UI_Screener["Screener Modal (Universal 507 Pares / 30 Titãs)"]
     end
 
@@ -54,21 +56,23 @@ flowchart TD
         MCP_Bridge["MCP 2.x Starlette Mount (/mcp/sse, /mcp/tools - 16 Ferramentas)"]
         OpenViking_Engine["OpenViking Context Engine (viking:// Virtual FS - L0/L1/L2 Progressive Disclosure)"]
         RAG_Engine["RAGService (BM25 / TF-IDF Second Brain: Blueprints + Vault)"]
+        LayaNeural["Laya Neural v0.4.31 (Rede Neural System 1, Cognição Reflexa & Calibração RLCD)"]
     end
 
     subgraph Decision_Engines["Tactical & Decision Engines"]
-        LayaRouter["LayaRouterService (Sovereign Whale/Retail Hunter + Calibrated Weights)"]
+        TitanEngine["Titan Engine (Motor Quantitativo Soberano, Alocação $1.000 Cross 50X)"]
+        TitanRadar["Titan Radar (Scanner Universal 507 Pares OKX + Farol BTC 2H)"]
         AltPump["AltPumpIgnition Engine (Triple Confluence: BTC.D Drop + Pearson < 0.45 + 1C-EXP >= 70)"]
-        BTCSpecialist["LayaBTCSpecialist (BTC.D Matrix, Lead-Lag Spot x Swap, Macro Climate)"]
+        BTCSpecialist["BTCSpecialist (Farol BTC 2H: SMA 8 x SMA 21 & Veto Bull/Bear)"]
         SignalGen["SignalGenerator (Pearson 15h/4h Return Correlation & Decorrelation Hunter)"]
         Kronos["KronosScorer (AAAI 2026 Temporal Trajectory)"]
         LayaFlow["LayaFlowService (OKX Rubik LSR & OI Delta)"]
         OKXUniverse["OKXUniverseService (507 Pares OKX + TickSz/LotSz/CtVal Engine)"]
         MarketIntel["MarketIntelEngine (Universal Screener 507 Pares, 1C-EXP, 1C-RANGE)"]
-        StopLadder["OrderProjectionService (Never Give Back Trailing Ladder)"]
+        StopLadder["OrderProjectionService (Dual Breakeven V212 35/60 & Elastic Trailing 50%)"]
         SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.5%)"]
         CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
-        TelemetryEngine["TelemetryService (Sub-ms Ingestion, Throughput, Net Worth Tick-a-Tick & Sismografo Laya)"]
+        TelemetryEngine["TelemetryService (Sub-ms Ingestion, Throughput, Net Worth Tick-a-Tick)"]
     end
 
     subgraph Sandbox_Labs["Dual-Engine Execution Labs"]

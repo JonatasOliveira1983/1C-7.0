@@ -1797,6 +1797,10 @@ class SandboxService:
         #    Trava +7.0% de ROI líquido (+0.14% de preço a favor), cobrindo 100% das taxas da OKX e slippage (Zero a Zero Real).
         # 2. Breakeven Soberano Consolidado: Acionado a +60.0% de ROI (+1.20% de preço a favor).
         #    Trava +30.0% de ROI líquido (+$300 fixos garantidos no cofre).
+        # 3. [V214-SCRATCH-GUARD-REJECTION]: Proteção contra Rejeição de Impulso Próximo ao Breakeven
+        #    Se o trade teve impulso forte (max_roi >= 20.0%), mas fraquejou antes de bater +35% e está
+        #    voltando em direção à entrada (current_roi <= 7.0%), a Laya trava o stop imediatamente em +5.0% ROI.
+        #    Isso impede que uma ordem com lucro de +20% a +34% desabe até o stop loss negativo (-50% / -$400+).
         if max_roi >= 60.0 and current_stop_roi < 30.0:
             updated_stop_roi = 30.0
             updated_level_name = "BREAKEVEN_LUCRO_60"
@@ -1811,6 +1815,13 @@ class SandboxService:
             if not any("BREAKEVEN_PROTETIVO" in str(h) for h in history[-2:]):
                 history.append(f"Breakeven Protetivo (+35% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +7.0% ROI (Taxas OKX Cobertas / Risco Zero)")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +35%: stop movido para +7.0% ROI")
+        elif max_roi >= 20.0 and current_roi <= 7.0 and current_stop_roi < 5.0:
+            updated_stop_roi = 5.0
+            updated_level_name = "SCRATCH_GUARD_REJECTION"
+            updated_phase = "ESCADINHA"
+            if not any("SCRATCH_GUARD" in str(h) for h in history[-2:]):
+                history.append(f"🛡️ [SCRATCH-GUARD] Rejeição de impulso detectada: pico={max_roi:.1f}%, recuo={current_roi:.1f}% -> stop travado em +5.0% ROI (Proteção contra devolução)")
+                logger.info(f"🛡️ [SANDBOX-FLASH] {symbol} SCRATCH_GUARD ativado (pico {max_roi:.1f}%, atual {current_roi:.1f}%): stop travado em +5.0% ROI")
 
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
@@ -2107,6 +2118,17 @@ class SandboxService:
                     laya_router_service.record_trade_profit(clean_sym, final_pnl)
                 except Exception as rec_p_err:
                     logger.debug(f"[SANDBOX] Erro ao registrar lucro na Laya: {rec_p_err}")
+                
+                # [V214-SCRATCH-RECOVERY-COOLDOWN]: Se foi fechado pelo Scratch Guard (+5% ROI),
+                # ativa cooldown curto tático de 5 minutos (300s) para esperar a correção da vela antes do Re-entry.
+                if updated_level_name == "SCRATCH_GUARD_REJECTION":
+                    clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
+                    trade_dir = trade.direction
+                    now = time.time()
+                    cooldown_reentry = 300.0  # 5 minutos para esperar o preço assentar
+                    self._stop_cooldown[(clean_sym, trade_dir)] = now - (7200.0 - cooldown_reentry)
+                    self._stop_cooldown[(symbol, trade_dir)] = now - (7200.0 - cooldown_reentry)
+                    logger.info(f"⏳ [SCRATCH-GUARD-RE-ENTRY] {symbol} {trade_dir} em espera tática de 5min (300s) para pullback antes de re-entrada.")
             elif status == "CLOSED_TIME_STOP":
                 history.append(f"[TIME-STOP] Posição encerrada preventivamente aos {int(trade_age/60)}min com {final_pnl:.1f}% ROI (perda mitigada)")
             else:

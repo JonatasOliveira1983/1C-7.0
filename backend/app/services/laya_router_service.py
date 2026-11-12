@@ -4952,8 +4952,8 @@ class LayaRouterService:
                 "btc_regime": self.current_regime,
                 "btc_adx": self.master_adx,
                 "btc_price": btc_price,
-                "radar_mode": f"LAYA_{self.regime_mode}",
-                "conductor": "LAYA SOBERANA (AUTÔNOMA)",
+                "radar_mode": f"TITAN_{self.regime_mode}",
+                "conductor": "TITAN ENGINE (AUTÔNOMO)",
                 "doctrine": "INSTITUTIONAL_LIQUIDITY_HUNTER"
             },
             "updated_at": int(time.time() * 1000)

@@ -13,8 +13,9 @@
    - Todas as regras canônicas de engenharia estão formalizadas em [`.agents/rules/superpowers_methodology.md`](file:///c:/Users/jonat/Desktop/1C-SET26/.agents/rules/superpowers_methodology.md).
    - O ciclo **Red-Green-Refactor (TDD)** é obrigatório para qualquer mudança em motores de trading, stops ou PnL.
    - Nenhuma tarefa é finalizada sem evidência empírica no terminal ([`verification_before_completion`](file:///c:/Users/jonat/Desktop/1C-SET26/.agents/skills/verification_before_completion/SKILL.md)).
-3. **Invariantes Rígidas e Vencedoras de Risco e Trading (V212 - ESCRITAS EM PEDRA)**:
-   - **Versão Canônica Vencedora V212 (Dual Breakeven 35/60 & Gap Elástico 50%)**:
+3. **Invariantes Rígidas e Vencedoras de Risco e Trading (V215 - ESCRITAS EM PEDRA)**:
+   - **Nomenclatura Soberana & Unificação de UI**: O motor quantitativo de trading e execução é o **TITAN ENGINE** (**TITAN RADAR** / **TITAN 360**), enquanto a Laya atua estritamente como a **Rede Neural System 1** de cognição reflexa e calibração RLCD (v0.4.31).
+   - **Versão Canônica Vencedora V212/V215 (Dual Breakeven 35/60 & Gap Elástico 50%)**:
      - *Degrau 1 (Breakeven Protetivo Taxas OKX)*: Dispara em **+35.0% de ROI** (+0.70% de preço a favor), travando o stop em **+7.0% de ROI** (+0.14% de preço a favor), cobrindo integralmente taxas da OKX e slippage (Zero a Zero Real) e impedindo que trades positivos sofram reversão para stop loss cheio (-100%).
      - *Degrau 2 (Breakeven Soberano Consolidado)*: Dispara em **+60.0% de ROI** (+1.20% de preço a favor), travando o stop em **+30.0% de ROI** líquido (+$300 fixos no cofre) e liberando novos slots de expansão na frota.
    - **Estratégia Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`)**: Subordinação hierárquica estrita. O filtro direcional macro opera na tendência de 2H (SMA 8 x SMA 21). O gatilho de entrada confluencia o candle de confirmação no 30M. O Stop Loss é técnico e estrutural ancorado estritamente no 2H (topo/fundo estrutural ou além da SMA 21 de 2H).

@@ -296,7 +296,7 @@ async def _tool_viking_commit_lesson(category: str, title: str, content: str) ->
 
 
 async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict[str, Any]:
-    """Retorna o estado soberano da Laya v0.4.22: Exit Guardian, ModernBERT 149M, Breakeven Protection e Trade Reflex."""
+    """Retorna o estado conjunto do Titan Engine (motor quantitativo) e Laya Neural v0.4.31: Dual Breakeven V212 (35/60), Elastic Trailing 50% e Trade Reflex."""
     try:
         from app.services.laya_router_service import laya_router_service
         from app.services.memory_service import memory_service
@@ -305,8 +305,9 @@ async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict
         guardian = await laya_router_service.evaluate_open_positions_lifecycle()
         return {
             "status": "success",
-            "version": "v0.4.22-ModernBERT-149M-V210-WINNING",
-            "sr_retest_sniper_active": True,
+            "version": "v0.4.31-TitanEngine-LayaNeural-V213-WINNING",
+            "dual_breakeven_active": True,
+            "elastic_trailing_active": True,
             "symbol": symbol,
             "reflex_bias": reflex,
             "exit_guardian": guardian,
