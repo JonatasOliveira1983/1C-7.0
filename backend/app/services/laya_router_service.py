@@ -132,11 +132,11 @@ def _get_agent():
             except Exception:
                 pass
             import laya
-            logger.info(f"[*] Carregando Laya {getattr(laya, '__version__', '0.4.22')} na CPU (eager mode)...")
+            logger.info(f"[*] Carregando Laya Neural {getattr(laya, '__version__', '0.4.31')} na CPU (eager mode)...")
             _agent = laya.load(ckpt, device="cpu", backend="eager", compile=False, compile_warmup=False)
             _load_status["status"] = "READY"
             _load_status["load_time_s"] = round(time.time() - t0, 2)
-            logger.info(f"[OK] Laya {getattr(laya, '__version__', '0.4.22')} pronto em {_load_status['load_time_s']}s.")
+            logger.info(f"[OK] Laya Neural {getattr(laya, '__version__', '0.4.31')} pronta em {_load_status['load_time_s']}s.")
             return _agent
         except Exception as e:
             _load_status["status"] = "ERROR"
@@ -3151,7 +3151,7 @@ class LayaRouterService:
                 laya_intention = "TETO DA FROTA (8/8) • MONITORANDO TRAILING"
             elif unprotected_count >= 2:
                 fleet_status = f"{total_active}/8 ATIVAS ({protected_count} RISCO ZERO • {unprotected_count} EM RISCO)"
-                laya_intention = f"2/2 EM RISCO VIVO • AGUARDANDO BREAKEVEN (+60% ROI) PARA EXPANDIR"
+                laya_intention = f"2/2 EM RISCO VIVO • AGUARDANDO BREAKEVEN (+35% ROI) PARA EXPANDIR"
             else:
                 fleet_status = f"{total_active}/8 ATIVAS ({protected_count} RISCO ZERO • {unprotected_count} EM RISCO)"
                 if top_syms:

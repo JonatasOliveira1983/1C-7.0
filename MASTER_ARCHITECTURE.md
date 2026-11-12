@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 8.2.0 (V212 - SOVEREIGN 2H SWING DUAL BREAKEVEN 35/60 & ELASTIC TRAILING 50% GAP EDITION)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.3.0 (V214 - SCRATCH GUARD REJECTION SHIELD & DUAL BREAKEVEN 35/60)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-11. VERSION no codigo: `backend/main.py` VERSION="V212-SOVEREIGN-2H-SWING-DUAL-BREAKEVEN-35-60". DEPLOYMENT_ID="V212_SOVEREIGN_2H_SWING_DUAL_BREAKEVEN". Invariantes V212 Escritas em Pedra: 1) Subordinação Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`): Filtro macro no 2H (SMA 8 x SMA 21), confluência de candle no 30M e Stop Estrutural no 2H além da SMA 21. 2) Arquitetura Dual Breakeven (+35% / +60%): Degrau 1 com Breakeven Protetivo Taxas OKX a +35% ROI (+0.70% de preço a favor) travando +7.0% de ROI (+0.14% de preço a favor), cobrindo 100% das taxas OKX e slippage (Zero a Zero Real) e impedindo que trades positivos voltem para o loss; Degrau 2 com Breakeven Soberano a +60% ROI (+1.20% de preço) travando +30% ROI líquido (+$300 fixos). 3) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`), dando 1.0% de respiro livre para buscar o Alvo Chão de +300% de ROI; acima de +300%, trava no mínimo +200% fixos ($2.000) com 70% de folga. 4) Linha Visual de Risco Zero (+35% ROI) desenhada em Azul Ciano Neon (#00F0FF) nos gráficos. 5) Extirpação Total de Micro-Defesas Legadas de Scalping.*
+*Verificado contra o codigo em 2026-11-12. VERSION no codigo: `backend/main.py` VERSION="V214-SCRATCH-GUARD-REJECTION-SHIELD". DEPLOYMENT_ID="V214_SCRATCH_GUARD_POSITIVE_LOCK". Invariantes V214 Escritas em Pedra: 1) Scratch Guard contra Rejeição de Impulso (`SCRATCH_GUARD_REJECTION`): Se o trade atingir impulso >= +20.0% ROI mas recuar para <= +7.0% ROI antes de bater no Breakeven de +35%, o stop sobe instantaneamente para +5.0% ROI, impedindo que trades lucrativos desabem para o stop loss negativo (-50% / -$400+). 2) Subordinação Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`): Filtro macro no 2H (SMA 8 x SMA 21), confluência de candle no 30M e Stop Estrutural no 2H além da SMA 21. 3) Arquitetura Dual Breakeven (+35% / +60%): Degrau 1 com Breakeven Protetivo Taxas OKX a +35% ROI (+0.70% de preço a favor) travando +7.0% de ROI (+0.14% de preço a favor); Degrau 2 com Breakeven Soberano a +60% ROI (+1.20% de preço) travando +30% ROI líquido (+$300 fixos). 4) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`). 5) Re-entry Tático de 5min após saída por Scratch Guard. 6) Nomenclatura Soberana: O motor quantitativo de trading e execução passa a ser denominado TITAN ENGINE (TITAN RADAR), enquanto a Laya atua estritamente como a Rede Neural System 1 de decisão e linguagem (v0.4.31).*
 ---
 
 ## 1. Visao Geral
@@ -1295,6 +1295,17 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
     - **Treinador Automatizado (`laya_finetune_trainer.py`)**:
         * Script de regressão e calibração fina de pesos neurais gerando `laya_calibrated_weights.json`.
         * Alinha a função de perda (loss function) ao payoff assimétrico de 50X: alta penalização para falsos rompimentos em topos/fundos e recompensa máxima para pullbacks surfados até o Alvo Chão de 300%.
+
+66. **[V214-SCRATCH-GUARD-REJECTION-SHIELD] Proteção contra Rejeição de Impulso Próximo ao Breakeven e Re-entry Inteligente** (2026-11-12):
+    - **Diagnóstico da Zona Morta (Caso LINK -$491 e AVAX +25% devolvidos)**:
+        * Identificado ponto cego entre 0% e +35% de ROI: quando o trade desenvolvia forte impulso (atingindo +20% a +34% de ROI) mas encontrava resistência antes dos +35% e revertia, o stop original continuava inalterado lá no fundo (-50% a -60%), transformando ordens vencedoras em prejuízos catastróficos.
+    - **Mecanismo Scratch Guard (`SCRATCH_GUARD_REJECTION`)**:
+        * Injetado no loop central de avaliação de stops (`sandbox_service.py`):
+        * **Regra**: Se `max_roi >= 20.0%` e o preço recuar para `current_roi <= 7.0%`, a Laya sobe o stop loss imediatamente para **`+5.0% ROI`**.
+        * Garante encerramento no verde, cobre taxas de corretagem e slippage da OKX, protegendo 100% do capital contra violinadas reversas.
+    - **Tocaia de Re-entrada (Reset & Re-entry)**:
+        * Em vez de aplicar a quarentena longa de 2 horas (7200s usada apenas para Stop Loss com perda), trades encerrados pelo Scratch Guard entram em quarentena tática curta de **5 minutos (300s)** para aguardar o término da vela de rejeição e o repique em suporte (SMA 21 no 30M/2H).
+        * Quando o ativo reestabelecer o alinhamento técnico, a Laya re-entra com preço médio descontado e novo fôlego.
 
 ---
 
