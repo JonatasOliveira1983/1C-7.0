@@ -4172,10 +4172,11 @@ class LayaRouterService:
                 if c_score < self.MIN_ENTRY_SCORE:
                     continue
 
-                # 3. TRAVA 2: Exigência Absoluta de ROBÔS INSTITUCIONAIS ATIVOS (bot_ignition / is_dump_ignition)
-                # Proibido abrir qualquer ordem com ROBÔS OFF! (Elimina compras/vendas frouxas sem aceleração institucional)
-                if not c_bot and not cand.get("alt_pump_ignition") and not cand.get("is_dump_ignition"):
-                    continue
+                # 3. TRAVA 2: Exigência de ROBÔS INSTITUCIONAIS ATIVOS para setups gerais
+                # Setups soberanos (Pullback Hunter 2H/30M e Águia Fusion) já possuem gate microestrutural próprio
+                if c_strat not in ("LAYA_PULLBACK_HUNTER_2H_30M", "LAYA_AGUIA_FUSION"):
+                    if not c_bot and not cand.get("alt_pump_ignition") and not cand.get("is_dump_ignition"):
+                        continue
 
                 # 4. TRAVA 3: Veto Rígido de Compra de Topo e Venda de Fundo (Apenas para estratégias sem validação microestrutural)
                 # Setups soberanos (Pullback Hunter 2H/30M, Águia Fusion, Smart Money) já possuem sua própria validação
