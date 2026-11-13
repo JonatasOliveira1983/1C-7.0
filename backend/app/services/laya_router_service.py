@@ -614,8 +614,9 @@ class LayaRouterService:
         recent = parsed[-1]
         prev = parsed[-2] if len(parsed) >= 2 else recent
         c_open = float(recent.get("open", recent.get("close", 0.0)))
-        c_high = max(float(recent.get("high", 0.0)), float(prev.get("high", 0.0)))
-        c_low = min(float(recent.get("low", 0.0)), float(prev.get("low", 0.0)))
+        # Janela recente de 3 candles de 30M (ultimos 60-90min para captura precisa de repique e rejeicao)
+        c_high = max(float(c.get("high", 0.0)) for c in parsed[-3:])
+        c_low = min(float(c.get("low", 999999.0)) for c in parsed[-3:])
         c_close = float(current_price or recent.get("close", 0.0))
 
         if sma8 <= 0:
@@ -632,8 +633,8 @@ class LayaRouterService:
             sma8_2h = float(kwargs.get("sma8_2h", 0.0))
             sma21_2h = float(kwargs.get("sma21_2h", 0.0))
 
-        # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M)
-            recent_high = float(recent.get("high", c_close))
+            # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M na janela de repique)
+            recent_high = max(float(c.get("high", c_close)) for c in parsed[-3:])
             touched_sma8_30m = recent_high >= (sma8 * 0.999)
             if sma8_2h > 0:
                 diff_2h = ((c_close - sma8_2h) / sma8_2h) * 100.0
@@ -744,7 +745,8 @@ class LayaRouterService:
             sma8_2h = float(kwargs.get("sma8_2h", 0.0))
             sma21_2h = float(kwargs.get("sma21_2h", 0.0))
 
-            recent_low = float(recent.get("low", c_close))
+            # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M na janela de recuo)
+            recent_low = min(float(c.get("low", c_close)) for c in parsed[-3:])
             touched_sma8_30m = recent_low <= (sma8 * 1.001)
             if sma8_2h > 0:
                 diff_2h = ((c_close - sma8_2h) / sma8_2h) * 100.0
