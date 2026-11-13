@@ -201,7 +201,7 @@ class MarketIntelEngine:
         self,
         tickers_cache: Dict[str, Any],
         min_volume_usd: float = 500_000.0,
-        exclude_btc: bool = True,
+        exclude_btc: bool = False,
         btc_climate: str = "ALTCOIN_EXPANSION"
     ) -> List[Dict[str, Any]]:
         """
@@ -212,7 +212,7 @@ class MarketIntelEngine:
         active_assets = []
 
         FORBIDDEN_BASE = {
-            "BTC", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
+            "DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF", "MEME", "BOME", "NEIRO", "PUMP", "LUNA", "USTC",
             "PENGU", "TRUTH", "WAL", "TURBO", "BRETT", "POPCAT", "MOG", "CAT", "FARTCOIN", "USELESS", "CASHCAT",
             "MUBARAK", "TRUMP", "WLFI", "RSR", "ONE", "RVN", "STRK",
             "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "GOOG", "META", "XAU", "XAG", "XCU", "CL", "BRENT", "NG", "MRVL", "SPCX", "DJI", "SPX", "NDX", "QQQ"

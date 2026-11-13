@@ -2127,21 +2127,7 @@ class LayaRouterService:
         5. Prioridade 4: DVWAP Reversion 5M (Preço esticado da VWAP com BTC favorável).
         6. Neutro: Diagnóstico integrado das camadas.
         """
-        # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordens de trade nele
-        sym_clean = symbol.upper().replace("-", "").replace("_", "")
-        if sym_clean.startswith("BTC"):
-            return {
-                "qualifies": False,
-                "direction": "HOLD",
-                "score": 0,
-                "strategy": "BTC_ORACLE_MONITOR",
-                "stop_loss": 0.0,
-                "target": 0.0,
-                "stop_dist": 0.0,
-                "target_dist": 0.0,
-                "rationale": "[ORÁCULO MACRO]: BTC é utilizado exclusivamente como bússola de dominância e fluxo. Proibido abrir ordens de trade no BTC."
-            }
-
+        # [V215]: BTC é tanto o Farol Macro quanto ativo flagship negociável da frota Titan 50X
         setup_res = None
 
         # CAMADA 0 [V187-BRUNO-PHENIX-SOVEREIGN-FUSION]: Prioridade Absoluta Águia + Encryptos
@@ -3162,17 +3148,17 @@ class LayaRouterService:
         except Exception as _e_exit_mgr:
             logger.debug(f"[LAYA-EXIT-GUARDIAN-ERR] {_e_exit_mgr}")
         
-        # [V160-TITANS-30] Catálogo das Top 30 Altcoins de liquidez soberana da OKX (Zero BTC para trade)
+        # [V215-TITANS-30] Catálogo dos Top 30 Titãs da OKX com BTC habilitado como Flagship
         intel_map = {}
         total_ignited = 0
         try:
             from app.services.okx_universe_service import okx_universe_service
             from app.services.market_intel_engine import market_intel_engine
-            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=True)
+            dynamic_assets = await okx_universe_service.get_tradable_universe(limit=30, exclude_btc=False)
             if dynamic_assets:
                 assets = list(dynamic_assets)
             else:
-                assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
+                assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins]
 
             # [V163] Injeção Universal Encryptos: Varre os 507 pares da OKX e injeta altcoins com Robôs Institucionais Ativos
             try:
@@ -3181,7 +3167,7 @@ class LayaRouterService:
                 ignited_assets = market_intel_engine.scan_universal_market(
                     tickers_cache=tickers,
                     min_volume_usd=15_000_000.0,
-                    exclude_btc=True,
+                    exclude_btc=False,
                     btc_climate=btc_climate_val
                 )
                 total_ignited = sum(1 for ign in ignited_assets if ign.get("bot_ignition"))
@@ -3219,9 +3205,9 @@ class LayaRouterService:
                 logger.warning(f"[LAYA-IGNITION] Injeção de robôs universal: {_e_ign}")
 
         except Exception as _e_uni:
-            logger.debug(f"[LAYA-UNIVERSE] Fallback para 30 Altcoins: {_e_uni}")
+            logger.debug(f"[LAYA-UNIVERSE] Fallback para 30 Titãs: {_e_uni}")
             from app.services.okx_universe_service import okx_universe_service
-            assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins if not sym.startswith("BTC")]
+            assets = [{"symbol": sym, "pair": sym.replace("-USDT-SWAP", "USDT")} for sym in okx_universe_service._titans_30_altcoins]
 
         tot_p = self.universal_market_stats.get("total_pairs", 507)
         self.log_thought("SISTEMA", f"Radar Universal Encryptos: {tot_p} contratos OKX | {total_ignited} altcoins com robôs ligados. Monitorando {len(assets)} ativos em confluência profunda. Farol: BTC. Modo: {self.regime_mode} (ADX {self.master_adx:.1f}).", action="VARREDURA", confidence=90)
@@ -3395,7 +3381,7 @@ class LayaRouterService:
             valid_candidates.append((momentum_score, a))
 
         valid_candidates.sort(key=lambda x: x[0], reverse=True)
-        priority_prefixes = {"SOL", "ETH", "AVAX", "NEAR", "LINK", "MON", "AEON", "DOGE", "XRP"}
+        priority_prefixes = {"BTC", "SOL", "ETH", "AVAX", "NEAR", "LINK", "MON", "AEON", "DOGE", "XRP"}
         seen_pairs = set()
         selected_assets = []
         for _, a in valid_candidates:
@@ -3522,10 +3508,7 @@ class LayaRouterService:
             sym = a["symbol"]
             clean_sym = a["pair"]
 
-            # [REGRA ENCRYPTOS]: BTC é estritamente o Farol Macro, proibido abrir ordens de trade nele
-            if clean_sym.startswith("BTC") or sym.startswith("BTC"):
-                continue
-
+            # [V215]: BTC é Farol Macro E ativo flagship da frota (50X Margem Cruzada)
             price = prices.get(clean_sym, 0.0)
             if price <= 0:
                 continue
@@ -4331,12 +4314,30 @@ class LayaRouterService:
 
                 # [INVARIANTE SOBERANA INVIOLÁVEL 2H SMA BRUNO AGUIAR + ENCRYPTOS]
                 # Nenhuma estratégia pode operar contra a tendência do timeframe 2H!
-                if not ("BTC" in cand_sym.upper()):
+                if "BTC" in cand_sym.upper():
+                    # Para o proprio BTC, valida sua direcao contra seu regime macro 2H
+                    if cand_dir == "LONG" and (btc_macro_dir != "BULL" or btc_trend_bias < 0.0):
+                        self.log_thought(
+                            clean_name,
+                            f"[VETO FAROL BTC SOBERANO]: LONG bloqueado para BTC. Bitcoin em regime {btc_macro_dir} (bias {btc_trend_bias:+.2f}%).",
+                            action="VETO_FAROL_BTC",
+                            confidence=99
+                        )
+                        continue
+                    elif cand_dir == "SHORT" and (btc_macro_dir != "BEAR" or btc_trend_bias > 0.0):
+                        self.log_thought(
+                            clean_name,
+                            f"[VETO FAROL BTC SOBERANO]: SHORT bloqueado para BTC. Bitcoin em regime {btc_macro_dir} (bias {btc_trend_bias:+.2f}%).",
+                            action="VETO_FAROL_BTC",
+                            confidence=99
+                        )
+                        continue
+                else:
                     # REGRA FAIL-CLOSED: Se klines não estão disponíveis, VETA IMEDIATAMENTE!
                     if not cand_kline or len(cand_kline) < 6:
                         self.log_thought(
                             clean_name,
-                            f"⛔ [VETO SOBERANO SMA 2H]: Klines 2H indisponíveis para {cand_sym}. Proibido operar sem confirmação macro do timeframe 2H.",
+                            f"[VETO SOBERANO SMA 2H]: Klines 2H indisponíveis para {cand_sym}. Proibido operar sem confirmação macro do timeframe 2H.",
                             action="VETO_SEM_KLINES_2H",
                             confidence=99
                         )
@@ -4423,26 +4424,27 @@ class LayaRouterService:
                         )
                         continue
 
-                    # 2. Veto Direcional do Ima
-                    if cand_dir == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_reg == "ACIMA") and (btc_trend_bias >= -0.2):
-                        vol_m = heat.get("target_volume_usd", 0) / 1e6
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"[VETO IMA DE LIQUIDEZ]: SHORT proibido: muralha dominante de ${vol_m:.2f}M ACIMA DO PRECO.",
-                            action="VETO_IMA_LIQUIDEZ",
-                            confidence=98
-                        )
-                        continue
+                    # 2. Veto Direcional do Ima (Isento para Pullback Hunter e Aguia Fusion)
+                    if cand.get("strategy") not in ("LAYA_PULLBACK_HUNTER_2H_30M", "LAYA_AGUIA_FUSION"):
+                        if cand_dir == "SHORT" and (dom_magnet == "BULLISH_SWEEP" or target_reg == "ACIMA") and (btc_trend_bias >= -0.2):
+                            vol_m = heat.get("target_volume_usd", 0) / 1e6
+                            self.log_thought(
+                                cand.get("clean_sym", cand_sym),
+                                f"[VETO IMA DE LIQUIDEZ]: SHORT proibido: muralha dominante de ${vol_m:.2f}M ACIMA DO PRECO.",
+                                action="VETO_IMA_LIQUIDEZ",
+                                confidence=98
+                            )
+                            continue
 
-                    if cand_dir == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_reg == "ABAIXO") and (btc_trend_bias <= 0.2):
-                        vol_m = heat.get("target_volume_usd", 0) / 1e6
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"[VETO IMA DE LIQUIDEZ]: LONG proibido: muralha dominante de ${vol_m:.2f}M ABAIXO DO PRECO.",
-                            action="VETO_IMA_LIQUIDEZ",
-                            confidence=98
-                        )
-                        continue
+                        if cand_dir == "LONG" and (dom_magnet == "BEARISH_SWEEP" or target_reg == "ABAIXO") and (btc_trend_bias <= 0.2):
+                            vol_m = heat.get("target_volume_usd", 0) / 1e6
+                            self.log_thought(
+                                cand.get("clean_sym", cand_sym),
+                                f"[VETO IMA DE LIQUIDEZ]: LONG proibido: muralha dominante de ${vol_m:.2f}M ABAIXO DO PRECO.",
+                                action="VETO_IMA_LIQUIDEZ",
+                                confidence=98
+                            )
+                            continue
                 except Exception as heat_err:
                     logger.debug(f"[LAYA-VETO-HEATMAP-ERR] {heat_err}")
 
@@ -4858,18 +4860,8 @@ class LayaRouterService:
         text = (market_summary or "").upper()
         data = structured_data or {}
 
-        # [REGRA ENCRYPTOS]: BTC é estritamente o Oráculo Macro da Laya, proibido abrir ordem de trade nele
+        # [V215]: BTC é tanto Farol Macro quanto negociável na frota 50X
         sym_check = (data.get("symbol") or "").upper().replace("-", "")
-        if sym_check.startswith("BTC") or "BTCUSDT" in text or "BTC-USDT" in text:
-            return {
-                "available": False,
-                "decision": "HOLD",
-                "confidence": 0.0,
-                "confluence_score": 0.0,
-                "strategy": "BTC_ORACLE_MONITOR",
-                "regime_mode": "ORACLE",
-                "reason": "[ORÁCULO MACRO]: BTC é utilizado exclusivamente como bússola de dominância e fluxo. Proibido abrir ordens de trade no BTC."
-            }
         
         # 1. Extração de Parâmetros
         import re
