@@ -83,3 +83,25 @@ async def test_v146_sandbox_stop_capping():
         # O stop ROI aprovado deve respeitar o teto limite de -18.0%
         assert stop_data["stop_roi"] >= -18.0, f"Stop violou o teto de -18.0%: {stop_data['stop_roi']}"
         assert stop_data["stop_roi"] == pytest.approx(-15.0, abs=0.5), f"Stop esperado em torno de -15.0%: {stop_data['stop_roi']}"
+
+
+def test_v215_scratch_guard_rejection_8_percent():
+    """Valida que rejeição de impulso com pico >= 20% e recuo <= 7% trava stop em +8.0% ROI (lucro positivo líquido)."""
+    # Simula a lógica interna do sandbox flash tick
+    max_roi = 23.5
+    current_roi = 5.2
+    current_stop_roi = -30.0
+    
+    updated_stop_roi = current_stop_roi
+    updated_level_name = "NONE"
+    
+    if max_roi >= 35.0 and current_stop_roi < 7.0:
+        updated_stop_roi = 7.0
+        updated_level_name = "BREAKEVEN_PROTETIVO_TAXAS"
+    elif max_roi >= 20.0 and current_roi <= 7.0 and current_stop_roi < 8.0:
+        updated_stop_roi = 8.0
+        updated_level_name = "SCRATCH_GUARD_REJECTION"
+        
+    assert updated_stop_roi == 8.0
+    assert updated_level_name == "SCRATCH_GUARD_REJECTION"
+

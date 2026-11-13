@@ -1815,13 +1815,13 @@ class SandboxService:
             if not any("BREAKEVEN_PROTETIVO" in str(h) for h in history[-2:]):
                 history.append(f"Breakeven Protetivo (+35% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +7.0% ROI (Taxas OKX Cobertas / Risco Zero)")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +35%: stop movido para +7.0% ROI")
-        elif max_roi >= 20.0 and current_roi <= 7.0 and current_stop_roi < 5.0:
-            updated_stop_roi = 5.0
+        elif max_roi >= 20.0 and current_roi <= 7.0 and current_stop_roi < 8.0:
+            updated_stop_roi = 8.0
             updated_level_name = "SCRATCH_GUARD_REJECTION"
             updated_phase = "ESCADINHA"
             if not any("SCRATCH_GUARD" in str(h) for h in history[-2:]):
-                history.append(f"🛡️ [SCRATCH-GUARD] Rejeição de impulso detectada: pico={max_roi:.1f}%, recuo={current_roi:.1f}% -> stop travado em +5.0% ROI (Proteção contra devolução)")
-                logger.info(f"🛡️ [SANDBOX-FLASH] {symbol} SCRATCH_GUARD ativado (pico {max_roi:.1f}%, atual {current_roi:.1f}%): stop travado em +5.0% ROI")
+                history.append(f"[SCRATCH-GUARD] Rejeicao de impulso detectada: pico={max_roi:.1f}%, recuo={current_roi:.1f}% -> stop travado em +8.0% ROI (Protecao contra devolucao / Lucro liquido garantido pos-taxas OKX)")
+                logger.info(f"[SANDBOX-FLASH] {symbol} SCRATCH_GUARD ativado (pico {max_roi:.1f}%, atual {current_roi:.1f}%): stop travado em +8.0% ROI")
 
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)
@@ -2119,7 +2119,7 @@ class SandboxService:
                 except Exception as rec_p_err:
                     logger.debug(f"[SANDBOX] Erro ao registrar lucro na Laya: {rec_p_err}")
                 
-                # [V214-SCRATCH-RECOVERY-COOLDOWN]: Se foi fechado pelo Scratch Guard (+5% ROI),
+                # [V214-SCRATCH-RECOVERY-COOLDOWN]: Se foi fechado pelo Scratch Guard (+8% ROI),
                 # ativa cooldown curto tático de 5 minutos (300s) para esperar a correção da vela antes do Re-entry.
                 if updated_level_name == "SCRATCH_GUARD_REJECTION":
                     clean_sym = symbol.replace("-USDT-SWAP", "").replace("USDT", "").replace(".P", "").upper()
