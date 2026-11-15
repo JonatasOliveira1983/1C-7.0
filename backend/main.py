@@ -981,7 +981,9 @@ if settings.SERVE_STATIC_FRONTEND:
     @app.get("/telemetry.html", response_class=HTMLResponse)
     @app.get("/telemetry/{symbol}", response_class=HTMLResponse)
     async def telemetry_page(symbol: str = "AVAXUSDT"):
-        path = os.path.join(APP_STATIC_DIR, "telemetry.html")
+        path = os.path.join(FRONTEND_DIR, "telemetry.html")
+        if not os.path.exists(path):
+            path = os.path.join(APP_STATIC_DIR, "telemetry.html")
         if not os.path.exists(path):
             path = os.path.join(FRONTEND_DIR, "observatory.html")
         

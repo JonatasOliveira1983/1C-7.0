@@ -2154,6 +2154,7 @@
     }
  
     function clearOrderLinesForChart(i) {
+      if (window._priceLinesSignatures) window._priceLinesSignatures[i] = null;
       const series = candleSeriesList[i];
       if (series && priceLinesList[i]) {
         priceLinesList[i].forEach(l => {
@@ -2274,13 +2275,16 @@
       const nk = Number(kronosTarget);
       const ni = Number(initialStop || 0);
 
-      // Limpar linhas anteriores do chart i
-      (priceLinesList[i] || []).forEach(l => {
-        try { series.removePriceLine(l); } catch(e){}
-      });
-      priceLinesList[i] = [];
-
-      if (!ne || isNaN(ne) || ne <= 0) return;
+      if (!ne || isNaN(ne) || ne <= 0) {
+        if (priceLinesList[i] && priceLinesList[i].length > 0) {
+          priceLinesList[i].forEach(l => {
+            try { series.removePriceLine(l); } catch(e){}
+          });
+          priceLinesList[i] = [];
+        }
+        if (window._priceLinesSignatures) window._priceLinesSignatures[i] = null;
+        return;
+      }
 
       const normSide = (side || 'BUY').toUpperCase();
       const isLong = normSide === 'BUY' || normSide === 'LONG';
@@ -2300,36 +2304,6 @@
         safeStop = isLong ? Number((ne * 0.988).toFixed(6)) : Number((ne * 1.012).toFixed(6));
       }
 
-      // 1. Linha de ENTRADA (Gold)
-      try {
-        const entryLine = series.createPriceLine({
-          price: ne,
-          color: '#FFC000',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Solid,
-          axisLabelVisible: true,
-          title: `ENTRADA $${formatPriceSmart(ne)}`
-        });
-        priceLinesList[i].push(entryLine);
-      } catch(e){}
-
-      // 2. Linha de ALVO (Take Profit / Verde)
-      if (safeTarget && !isNaN(safeTarget) && safeTarget > 0) {
-        try {
-          const tgtPct = ((safeTarget - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-          const targetLine = series.createPriceLine({
-            price: safeTarget,
-            color: '#00E676',
-            lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Dashed,
-            axisLabelVisible: true,
-            title: `ALVO $${formatPriceSmart(safeTarget)} (+${Math.abs(tgtPct)}%)`
-          });
-          priceLinesList[i].push(targetLine);
-        } catch(e){}
-      }
-
-      // 3. Linha de STOP DINÂMICO (Breakeven Azul Neon / Trailing Profit Verde / Stop Loss Inicial Vermelho)
       let finalStatus = statusTag || 'ATIVA';
       let isProfitLocked = false;
       let isRiskFree = false;
@@ -2340,85 +2314,130 @@
       if (String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || (slotObj && slotObj.is_protected)) {
         isRiskFree = true;
       }
-      if (safeStop && !isNaN(safeStop) && safeStop > 0) {
+
+      // [OTIMIZACAO V216: CACHE DE LINHAS NO CANVAS - EVITA INVALIDAÇÃO CONTINUA DO BUFFER GPU]
+      window._priceLinesSignatures = window._priceLinesSignatures || {};
+      const lineSig = `${i}_${ne}_${safeTarget}_${safeStop}_${nk}_${ni}_${normSide}_${finalStatus}_${isRiskFree}_${isProfitLocked}`;
+      const canSkipCanvasRedraw = (window._priceLinesSignatures[i] === lineSig) && (priceLinesList[i] && priceLinesList[i].length > 0);
+
+      if (!canSkipCanvasRedraw) {
+        window._priceLinesSignatures[i] = lineSig;
+
+        // Limpar linhas anteriores do chart i
+        (priceLinesList[i] || []).forEach(l => {
+          try { series.removePriceLine(l); } catch(e){}
+        });
+        priceLinesList[i] = [];
+
+        // 1. Linha de ENTRADA (Gold)
         try {
-          const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
-          
-          let slColor = '#FF1744';
-          let slTitle = `STOP LOSS (${stopPct}%)`;
-          let slStyle = LightweightCharts.LineStyle.Dashed;
-
-          if (isProfitLocked && Math.abs(safeStop - ne) / ne > 0.003) {
-            slColor = '#00E676';
-            slTitle = `TRAILING STOP PROTEGIDO (+${Math.abs(stopPct)}%)`;
-            slStyle = LightweightCharts.LineStyle.Solid;
-            finalStatus = 'TRAILING PROFIT';
-          } else if (isRiskFree || String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || (slotObj && slotObj.is_protected)) {
-            slColor = '#00F0FF';
-            slTitle = `PROTEÇÃO BREAKEVEN - RISCO ZERO`;
-            slStyle = LightweightCharts.LineStyle.Solid;
-            finalStatus = 'PROTEGIDA (BE)';
-          }
-
-          const stopLine = series.createPriceLine({
-            price: safeStop,
-            color: slColor,
+          const entryLine = series.createPriceLine({
+            price: ne,
+            color: '#FFC000',
             lineWidth: 2,
-            lineStyle: slStyle,
+            lineStyle: LightweightCharts.LineStyle.Solid,
             axisLabelVisible: true,
-            title: `${slTitle} $${formatPriceSmart(safeStop)}`
+            title: `ENTRADA $${formatPriceSmart(ne)}`
           });
-          priceLinesList[i].push(stopLine);
+          priceLinesList[i].push(entryLine);
+        } catch(e){}
 
-          // Linha fantasma do Stop Inicial Superado (se o stop já se moveu para a proteção)
-          if ((isRiskFree || isProfitLocked) && ni > 0 && Math.abs(ni - safeStop) > (ne * 0.001)) {
-            const oldStopLine = series.createPriceLine({
-              price: ni,
-              color: 'rgba(255, 70, 93, 0.45)',
-              lineWidth: 1,
-              lineStyle: LightweightCharts.LineStyle.SparseDotted,
-              axisLabelVisible: false,
-              title: `STOP INICIAL (SUPERADO) $${formatPriceSmart(ni)}`
+        // 2. Linha de ALVO (Take Profit / Verde)
+        if (safeTarget && !isNaN(safeTarget) && safeTarget > 0) {
+          try {
+            const tgtPct = ((safeTarget - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+            const targetLine = series.createPriceLine({
+              price: safeTarget,
+              color: '#00E676',
+              lineWidth: 2,
+              lineStyle: LightweightCharts.LineStyle.Dashed,
+              axisLabelVisible: true,
+              title: `ALVO $${formatPriceSmart(safeTarget)} (+${Math.abs(tgtPct)}%)`
             });
-            priceLinesList[i].push(oldStopLine);
-          }
-        } catch(e){}
-      }
+            priceLinesList[i].push(targetLine);
+          } catch(e){}
+        }
 
-      
-      // 3.5 Linha de GATILHO RISCO ZERO (+35.0% ROI / Breakeven Protetivo Taxas V212)
-      if (!isRiskFree && !isProfitLocked && ne > 0) {
-        try {
-          const lev = (slotObj && slotObj.leverage) ? Number(slotObj.leverage) : 50;
-          const bePct = 35.0 / (lev * 100);
-          const rzPrice = isLong ? Number((ne * (1 + bePct)).toFixed(6)) : Number((ne * (1 - bePct)).toFixed(6));
-          const rzLine = series.createPriceLine({
-            price: rzPrice,
-            color: '#00F0FF',
-            lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Dashed,
-            axisLabelVisible: true,
-            title: `RISCO ZERO (+35% ROI) $${formatPriceSmart(rzPrice)}`
-          });
-          priceLinesList[i].push(rzLine);
-        } catch(e){}
-      }
+        // 3. Linha de STOP DINÂMICO (Breakeven Azul Neon / Trailing Profit Verde / Stop Loss Inicial Vermelho)
+        if (safeStop && !isNaN(safeStop) && safeStop > 0) {
+          try {
+            const stopPct = ((safeStop - ne) / ne * 100 * (isLong ? 1 : -1)).toFixed(2);
+            
+            let slColor = '#FF1744';
+            let slTitle = `STOP LOSS (${stopPct}%)`;
+            let slStyle = LightweightCharts.LineStyle.Dashed;
 
-      // 4. Linha de PROJEÇÃO KRONOS AI (Roxo Neon / Pontilhada Larga)
-      if (nk && !isNaN(nk) && nk > 0) {
-        try {
-          const kDiff = ((nk - ne) / ne * 100).toFixed(2);
-          const kSign = Number(kDiff) >= 0 ? '+' : '';
-          const kronosLine = series.createPriceLine({
-            price: nk,
-            color: '#B388FF',
-            lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.LargeDashed,
-            axisLabelVisible: true,
-            title: `❖ KRONOS ${kronosDir || ''} $${formatPriceSmart(nk)} (${kSign}${kDiff}%)`
-          });
-          priceLinesList[i].push(kronosLine);
-        } catch(e){}
+            if (isProfitLocked && Math.abs(safeStop - ne) / ne > 0.003) {
+              slColor = '#00E676';
+              slTitle = `TRAILING STOP PROTEGIDO (+${Math.abs(stopPct)}%)`;
+              slStyle = LightweightCharts.LineStyle.Solid;
+              finalStatus = 'TRAILING PROFIT';
+            } else if (isRiskFree || String(statusTag).includes('BE') || String(statusTag).includes('PROTEGIDA') || (slotObj && slotObj.is_protected)) {
+              slColor = '#00F0FF';
+              slTitle = `PROTEÇÃO BREAKEVEN - RISCO ZERO`;
+              slStyle = LightweightCharts.LineStyle.Solid;
+              finalStatus = 'PROTEGIDA (BE)';
+            }
+
+            const stopLine = series.createPriceLine({
+              price: safeStop,
+              color: slColor,
+              lineWidth: 2,
+              lineStyle: slStyle,
+              axisLabelVisible: true,
+              title: `${slTitle} $${formatPriceSmart(safeStop)}`
+            });
+            priceLinesList[i].push(stopLine);
+
+            // Linha fantasma do Stop Inicial Superado (se o stop já se moveu para a proteção)
+            if ((isRiskFree || isProfitLocked) && ni > 0 && Math.abs(ni - safeStop) > (ne * 0.001)) {
+              const oldStopLine = series.createPriceLine({
+                price: ni,
+                color: 'rgba(255, 70, 93, 0.45)',
+                lineWidth: 1,
+                lineStyle: LightweightCharts.LineStyle.SparseDotted,
+                axisLabelVisible: false,
+                title: `STOP INICIAL (SUPERADO) $${formatPriceSmart(ni)}`
+              });
+              priceLinesList[i].push(oldStopLine);
+            }
+          } catch(e){}
+        }
+
+        // 3.5 Linha de GATILHO RISCO ZERO (+35.0% ROI / Breakeven Protetivo Taxas V212)
+        if (!isRiskFree && !isProfitLocked && ne > 0) {
+          try {
+            const lev = (slotObj && slotObj.leverage) ? Number(slotObj.leverage) : 50;
+            const bePct = 35.0 / (lev * 100);
+            const rzPrice = isLong ? Number((ne * (1 + bePct)).toFixed(6)) : Number((ne * (1 - bePct)).toFixed(6));
+            const rzLine = series.createPriceLine({
+              price: rzPrice,
+              color: '#00F0FF',
+              lineWidth: 2,
+              lineStyle: LightweightCharts.LineStyle.Dashed,
+              axisLabelVisible: true,
+              title: `RISCO ZERO (+35% ROI) $${formatPriceSmart(rzPrice)}`
+            });
+            priceLinesList[i].push(rzLine);
+          } catch(e){}
+        }
+
+        // 4. Linha de PROJEÇÃO KRONOS AI (Roxo Neon / Pontilhada Larga)
+        if (nk && !isNaN(nk) && nk > 0) {
+          try {
+            const kDiff = ((nk - ne) / ne * 100).toFixed(2);
+            const kSign = Number(kDiff) >= 0 ? '+' : '';
+            const kronosLine = series.createPriceLine({
+              price: nk,
+              color: '#B388FF',
+              lineWidth: 2,
+              lineStyle: LightweightCharts.LineStyle.LargeDashed,
+              axisLabelVisible: true,
+              title: `❖ KRONOS ${kronosDir || ''} $${formatPriceSmart(nk)} (${kSign}${kDiff}%)`
+            });
+            priceLinesList[i].push(kronosLine);
+          } catch(e){}
+        }
       }
 
       // Atualiza textos do HUD flutuante do Gráfico i
@@ -2654,14 +2673,9 @@
     /* ==========================================================================
        DATA TELEMETRY & LIVE SLOTS
        ========================================================================== */
-    async function fetchSlots() {
+    function renderSlotsData(slots) {
+      if (!slots) return;
       try {
-        const res = await fetch("/api/slots");
-        if (!res.ok) {
-          console.warn("[FETCH SLOTS] HTTP not ok:", res.status);
-          return;
-        }
-        const slots = await res.json();
         const tbody = document.getElementById("slots-tbody");
         const activeCountEl = document.getElementById("active-slots-count");
         const sideCountEl = document.getElementById("side-slots-count");
@@ -3075,17 +3089,25 @@
       }
     }
 
+    async function fetchSlots() {
+      try {
+        const res = await fetch("/api/slots");
+        if (!res.ok) return;
+        const slots = await res.json();
+        renderSlotsData(slots);
+      } catch (err) {
+        console.error("Erro ao fazer fetch de slots:", err);
+      }
+    }
+
     /* ==========================================================================
        TAXA DE FINANCIAMENTO OKX (FUNDING RATE) TELEMETRY
        ========================================================================== */
     let _fundingCountdownSeconds = 0;
 
-    async function fetchFundingSummary() {
+    function renderFundingSummaryData(d) {
+      if (!d) return;
       try {
-        const res = await fetch("/api/funding/summary");
-        if (!res.ok) return;
-        const d = await res.json();
-        
         const el8h = document.getElementById("kpi-funding-8h");
         const el24h = document.getElementById("kpi-funding-24h");
         const elDetail = document.getElementById("kpi-funding-detail");
@@ -3131,6 +3153,17 @@
           updateFundingCountdownUI();
         }
       } catch (e) {
+        console.warn("[FUNDING-UI] Erro:", e);
+      }
+    }
+
+    async function fetchFundingSummary() {
+      try {
+        const res = await fetch("/api/funding/summary");
+        if (!res.ok) return;
+        const d = await res.json();
+        renderFundingSummaryData(d);
+      } catch (e) {
         console.warn("[FUNDING] Erro ao carregar resumo de funding:", e);
       }
     }
@@ -3152,12 +3185,9 @@
       }
     }, 1000);
 
-    async function fetchUnifiedState() {
+    function renderUnifiedStateData(d) {
+      if (!d) return;
       try {
-        const res = await fetch("/api/sandbox/unified-state");
-        if (!res.ok) return;
-        const d = await res.json();
-        
         const baseBal = Number(d.base_balance || 10000.00);
         const totalEquity = Number(d.virtual_balance !== undefined ? d.virtual_balance : (d.consolidated_balance || 10000.00));
         const realizedPnlUsd = Number(d.realized_pnl_usd !== undefined ? d.realized_pnl_usd : (d.total_pnl_usd || 0.0));
@@ -3284,6 +3314,15 @@
         if (feesEl) {
           feesEl.textContent = `-$${totalFees.toFixed(2)}`;
         }
+      } catch (e) {}
+    }
+
+    async function fetchUnifiedState() {
+      try {
+        const res = await fetch("/api/sandbox/unified-state");
+        if (!res.ok) return;
+        const d = await res.json();
+        renderUnifiedStateData(d);
       } catch (e) {}
     }
 
@@ -3476,12 +3515,9 @@
       }
     }
 
-    async function fetchLayaPulse() {
+    function renderLayaPulseData(d) {
+      if (!d) return;
       try {
-        const res = await fetch("/api/v1/hermes/laya/pulse");
-        if (!res.ok) return;
-        const d = await res.json();
-        
         window._currentMasterAdx = d.master_adx || 14.5;
         window._currentRegimeMode = d.regime_mode || "MEAN_REVERSION";
 
@@ -3624,6 +3660,17 @@
         }
       } catch (err) {
         console.warn("[LAYA-PULSE] Erro:", err);
+      }
+    }
+
+    async function fetchLayaPulse() {
+      try {
+        const res = await fetch("/api/v1/hermes/laya/pulse");
+        if (!res.ok) return;
+        const d = await res.json();
+        renderLayaPulseData(d);
+      } catch (err) {
+        console.warn("[LAYA-PULSE] Erro ao carregar pulse:", err);
       }
     }
 
@@ -4327,24 +4374,42 @@
     initOkxCandleWs();
     evaluateLayaForCharts();
 
-    // Loop unificado de telemetria de alta frequência (2s) sem engarrafamento (concurrency guard)
+    // [V216] Loop unificado ultraleve de telemetria consolidada sem engarrafamento (concurrency guard)
     let _isPolling = false;
     async function unifiedCockpitPoll() {
       if (_isPolling) return;
       _isPolling = true;
       try {
-        await Promise.allSettled([
-          fetchSlots(),
-          fetchFundingSummary(),
-          fetchUnifiedState(),
-          fetchLayaPulse()
-        ]);
+        const res = await fetch("/api/cockpit/telemetry");
+        if (res.ok) {
+          const d = await res.json();
+          if (d.slots !== undefined) renderSlotsData(d.slots);
+          if (d.unified_state !== undefined) renderUnifiedStateData(d.unified_state);
+          if (d.funding !== undefined) renderFundingSummaryData(d.funding);
+          if (d.pulse !== undefined) renderLayaPulseData(d.pulse);
+        } else {
+          await Promise.allSettled([
+            fetchSlots(),
+            fetchFundingSummary(),
+            fetchUnifiedState(),
+            fetchLayaPulse()
+          ]);
+        }
+      } catch (err) {
+        try {
+          await Promise.allSettled([
+            fetchSlots(),
+            fetchFundingSummary(),
+            fetchUnifiedState(),
+            fetchLayaPulse()
+          ]);
+        } catch(e){}
       } finally {
         _isPolling = false;
       }
     }
 
-    setInterval(unifiedCockpitPoll, 2000);
+    setInterval(unifiedCockpitPoll, 3000);
     setInterval(fetchRecentHistory, 15000);
     setInterval(evaluateLayaForCharts, 90000);
     setInterval(updateCockpitClock, 1000);
@@ -4412,6 +4477,10 @@
       let metricRight = cRange > 0 ? `MIOLO ${cRange.toFixed(0)}%` : 'CHOP';
       let strategyLabel = (cand.strategy || 'MONITOR').replace('LAYA_', '');
 
+      const qualifies = cand.qualifies !== false;
+      const rationale = cand.rationale || '';
+      const isVetoed = !qualifies || rationale.toUpperCase().includes('VETO');
+
       if (isHolding) {
         // ATIVO EM CUSTODIA ATIVA (AVAX, RENDER, ETC.)
         const isLong = (slot.side === 'BUY' || slot.side === 'LONG' || slot.side === 'Buy');
@@ -4434,25 +4503,48 @@
       } else if (rawDir === 'BUY' || rawDir === 'LONG') {
         const isFusion = cand.strategy === 'LAYA_AGUIA_FUSION' || cand.aguia_fusion;
         const lev = Math.round(cand.leverage_cap || 50);
-        postureLabel = `GATILHO: LONG ${lev}X`;
-        if (isFusion) strategyLabel = 'AGUIA FUSION';
-        readinessScore = Math.max(85, baseScore);
-        barColor = '#0ECB81';
-        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
-        textColor = '#0ECB81';
-        cardBorder = 'rgba(14,203,129,0.35)';
-        metricRight = 'GATILHO';
+        if (isVetoed) {
+          postureLabel = 'VETO: FAROL BTC';
+          strategyLabel = 'VETO MACRO';
+          readinessScore = Math.min(40, baseScore);
+          barColor = '#848E9C';
+          barFillGrad = 'linear-gradient(90deg, rgba(132,142,156,0.15), rgba(132,142,156,0.5))';
+          textColor = '#848E9C';
+          cardBorder = 'rgba(132,142,156,0.25)';
+          metricRight = 'VETO BTC';
+        } else {
+          postureLabel = `GATILHO: LONG ${lev}X`;
+          if (isFusion) strategyLabel = 'AGUIA FUSION';
+          readinessScore = Math.max(85, baseScore);
+          barColor = '#0ECB81';
+          barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
+          textColor = '#0ECB81';
+          cardBorder = 'rgba(14,203,129,0.35)';
+          metricRight = 'GATILHO';
+        }
       } else if (rawDir === 'SELL' || rawDir === 'SHORT') {
         const isFusion = cand.strategy === 'LAYA_AGUIA_FUSION' || cand.aguia_fusion;
         const lev = Math.round(cand.leverage_cap || 50);
-        postureLabel = `GATILHO: SHORT ${lev}X`;
-        if (isFusion) strategyLabel = 'AGUIA FUSION';
-        readinessScore = Math.max(85, baseScore);
-        barColor = '#F6465D';
-        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
-        textColor = '#F6465D';
-        cardBorder = 'rgba(246,70,93,0.35)';
-        metricRight = 'GATILHO';
+        if (isVetoed) {
+          const isStopLong = rationale.toUpperCase().includes('STOP_MUITO_LONGO');
+          postureLabel = isStopLong ? 'VIGÍLIA: STOP ESTICADO' : 'VIGÍLIA: AGUARDA REPIQUE';
+          strategyLabel = 'PULLBACK HUNTER';
+          readinessScore = Math.min(65, baseScore);
+          barColor = '#E5A93C';
+          barFillGrad = 'linear-gradient(90deg, rgba(229,169,60,0.15), rgba(229,169,60,0.65))';
+          textColor = '#E5A93C';
+          cardBorder = 'rgba(229,169,60,0.35)';
+          metricRight = isStopLong ? 'STOP >5%' : 'SEM REPIQUE';
+        } else {
+          postureLabel = `GATILHO: SHORT ${lev}X`;
+          if (isFusion) strategyLabel = 'AGUIA FUSION';
+          readinessScore = Math.max(85, baseScore);
+          barColor = '#F6465D';
+          barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
+          textColor = '#F6465D';
+          cardBorder = 'rgba(246,70,93,0.35)';
+          metricRight = 'GATILHO';
+        }
       } else if (botOn || cExp >= 70) {
         // IGNICAO / BREAKOUT MOMENTUM — CONFLUENTE COM O ÍMÃ DE LIQUIDEZ (V174)
         const isMagnetBelow = (cand.magnet_region === 'ABAIXO') || (cand.magnet_direction === 'BEARISH_SWEEP');
