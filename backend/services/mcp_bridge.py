@@ -296,23 +296,29 @@ async def _tool_viking_commit_lesson(category: str, title: str, content: str) ->
 
 
 async def _tool_get_laya_sovereign_intelligence(symbol: str = "BTCUSDT") -> Dict[str, Any]:
-    """Retorna o estado conjunto do Titan Engine (motor quantitativo) e Laya Neural v0.4.31: Dual Breakeven V212 (35/60), Elastic Trailing 50% e Trade Reflex."""
+    """Retorna o estado conjunto do Titan Engine (motor quantitativo) e Laya Neural v0.4.31: V216 Telemetria Soberana, Dual Breakeven (35/60), Elastic Trailing 50%, Farol BTC 2H e Frota 2+2+2+2."""
     try:
         from app.services.laya_router_service import laya_router_service
         from app.services.memory_service import memory_service
+        from app.services.telemetry_service import telemetry_service
         pulse = await laya_router_service.get_laya_pulse()
         reflex = memory_service.get_pair_reflex_bias(symbol)
         guardian = await laya_router_service.evaluate_open_positions_lifecycle()
+        telem_summary = telemetry_service.get_summary()
         return {
             "status": "success",
-            "version": "v0.4.31-TitanEngine-LayaNeural-V213-WINNING",
+            "version": "v0.4.31-TitanEngine-LayaNeural-V216-SOVEREIGN-TELEMETRY",
+            "canonical_strategy": "LAYA_PULLBACK_HUNTER_2H_30M",
             "dual_breakeven_active": True,
             "elastic_trailing_active": True,
+            "scan_cycle_30s": telem_summary.get("scan_cycle"),
+            "btc_beacon_2h": telem_summary.get("btc_beacon"),
+            "fleet_summary": telem_summary.get("fleet_summary"),
             "symbol": symbol,
             "reflex_bias": reflex,
             "exit_guardian": guardian,
-            "pulse_regime": pulse.get("regime_mode", "MEAN_REVERSION"),
-            "master_adx": pulse.get("master_adx", 14.5),
+            "pulse_regime": pulse.get("regime_mode", "TREND_SNIPER"),
+            "master_adx": pulse.get("master_adx", 45.0),
             "timestamp": time.time()
         }
     except Exception as e:

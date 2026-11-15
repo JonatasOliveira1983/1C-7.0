@@ -370,6 +370,32 @@ async def get_funding_summary():
     active = [s for s in slots if s.get("symbol")]
     return funding_service.calculate_fleet_funding_summary(active)
 
+@router.get("/cockpit/telemetry")
+async def get_cockpit_telemetry():
+    """[V216] Endpoint Unificado de Telemetria Ultraleve para o Cockpit.
+    Consolida slots, funding summary, unified state e laya pulse em um único roundtrip HTTP."""
+    from routes.sandbox import get_unified_sandbox_state
+    from app.services.funding_service import funding_service
+    
+    slots = await get_slots()
+    active = [s for s in slots if s.get("symbol")]
+    funding = funding_service.calculate_fleet_funding_summary(active)
+    unified_state = await get_unified_sandbox_state()
+    
+    pulse = {}
+    try:
+        from app.services.laya_router_service import laya_router_service
+        pulse = laya_router_service.get_pulse() or {}
+    except Exception as e:
+        logger.debug(f"Error fetching laya pulse for telemetry: {e}")
+
+    return {
+        "slots": slots,
+        "funding": funding,
+        "unified_state": unified_state,
+        "pulse": pulse
+    }
+
 @router.get("/signals")
 async def get_signals(min_score: int = 0, limit: int = 20):
     firebase_service, _, _, _, _ = get_services()

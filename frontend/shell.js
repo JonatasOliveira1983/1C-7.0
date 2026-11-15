@@ -64,7 +64,7 @@
           <div style="width: 14px; height: 14px; background: #FFC000; transform: rotate(45deg); flex-shrink: 0;"></div>
           <div>
             <div style="font-weight: 900; font-size: 13px; letter-spacing: 0.12em; color: #FFFFFF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FFC000;">7.9.3</span> <span style="font-size: 9px; color: #0ECB81; padding: 1px 4px; background: rgba(14, 203, 129, 0.15); border: 1px solid #0ECB81; border-radius: 2px;">V190 SOBERANA</span>
+              1CRYPTEN <span style="color: #FFC000;">7.9.3</span> <span style="font-size: 9px; color: #00F0FF; padding: 1px 4px; background: rgba(0, 240, 255, 0.15); border: 1px solid #00F0FF; border-radius: 2px;">V216 SOBERANA</span>
             </div>
             <div style="font-family: var(--font-mono); font-size: 9px; color: #777777; letter-spacing: 0.08em; text-transform: uppercase;">
               UNIVERSAL PRECISION OS
@@ -229,7 +229,7 @@
             <span style="font-weight: 700; font-size: 11.5px; letter-spacing: 0.08em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
               1CRYPTEN
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">v7.9.6</span>
+            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">V216</span>
           </a>
 
           <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 11px;">|</span>

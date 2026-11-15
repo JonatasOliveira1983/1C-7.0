@@ -1304,18 +1304,10 @@ async def toggle_swing_mirror(mode: str = Query(..., description="ON para habili
 
 @router.get("/scalping-diag")
 async def get_scalping_diagnostic():
-    """[V128] Diagnóstico do último scan do Scalping Engine."""
-    from services.sandbox_scalping_engine import sandbox_scalping_engine
-    import time
-    ls = sandbox_scalping_engine._last_scan
-    if not ls:
-        return {"status": "no_scan_yet"}
-    elapsed = time.time() - ls.get("time", 0)
+    """[V216] Diagnóstico do Scalping Engine legado descomissionado."""
     return {
-        "last_scan_ago_s": round(elapsed, 0),
-        "watchlist_size": ls.get("watchlist", 0),
-        "signals_found": ls.get("signals", 0),
-        "rejected_count": len(ls.get("rejected", [])),
-        "errors": ls.get("errors", []),
-        "signal_details": ls.get("signal_details", []),
+        "status": "decommissioned",
+        "engine": "SANDBOX_SCALPING_M1_LEGACY_PURGED",
+        "active_sovereign_engine": "LAYA_PULLBACK_HUNTER_2H_30M",
+        "message": "Motor scalping M1/M5 legado descomissionado na V216 em favor da arquitetura soberana 2H/30M."
     }

@@ -20,8 +20,9 @@ import logging
 import time
 logger = logging.getLogger("1CRYPTEN-MAIN")
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse, ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 
 class ManualChatRequest(BaseModel):
@@ -78,8 +79,9 @@ except RuntimeError:
 # V205: SOVEREIGN FLEET 300% ROI WINNING EDITION
 # V210: SOVEREIGN 2H SWING PULLBACK EXPANSION & TACTICAL RADAR INTENTION
 # V215: TITAN ENGINE & LAYA NEURAL 0.4.31 UNIFIED ARCHITECTURE & DUAL BREAKEVEN 35/60
-VERSION = "V215-TITAN-ENGINE-LAYA-0.4.31-UNIFIED-UI"
-DEPLOYMENT_ID = "V215_TITAN_ENGINE_SOVEREIGN"
+# V216: SOVEREIGN TELEMETRY LIVE HEARTBEAT & SCALPING PURGE
+VERSION = "V216-SOVEREIGN-TELEMETRY-CLEAN"
+DEPLOYMENT_ID = "V216_TITAN_SOVEREIGN_TELEMETRY"
 
 # Global Directory Configurations - Hardened for Docker/Cloud Run
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -635,13 +637,6 @@ async def lifespan(app: FastAPI):
             await sandbox_swing_service.stop()
         except Exception as sw_stop_err:
             logger.debug(f"Erro ao parar SandboxSwingService: {sw_stop_err}")
-
-        try:
-            from services.sandbox_scalping_engine import sandbox_scalping_engine
-            logger.info("[VWAP-SNIPER] Desligando Scalping Engine...")
-            await sandbox_scalping_engine.stop()
-        except Exception as sniper_stop_err:
-            logger.debug(f"Erro ao parar VWAP SNIPER Engine: {sniper_stop_err}")
     except Exception as shutdown_err:
         logger.error(f"Error during shutdown: {shutdown_err}")
     
@@ -683,6 +678,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(NoCacheMiddleware)
 
 # [V1.0] Servir provas visuais do Agente Visão

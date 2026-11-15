@@ -1,8 +1,8 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 7.9.6 (V213-DUAL-BREAKEVEN-35-60-ELASTIC-TRAILING-TITAN-ENGINE-LAYA-0.4.31)  
-> **Data de Atualização**: 12/11/2026  
+> **Versão**: 8.3.1 (V216-SOVEREIGN-TELEMETRY-CLEAN-TITAN-ENGINE-LAYA-0.4.31)  
+> **Data de Atualização**: 14/11/2026  
 > **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
@@ -66,7 +66,7 @@ O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade s
 | `viking_read` | Leitura multi-nível com progressive disclosure (L0 abstract, L1 overview, L2 detail). | `uri` (str), `level` (int, default 1) | Conteúdo sintetizado ou detalhado da diretriz ou caso |
 | `viking_search` | Busca semântica por padrões, diretrizes de risco e memórias episódicas. | `query` (str), `level` (int, default 1), `limit` (int, default 5) | Chunks mais relevantes com score de similaridade |
 | `viking_commit_lesson` | Grava um novo caso ou aprendizado permanente no OpenViking e no Obsidian Vault. | `category` (str), `title` (str), `content` (str) | Confirmação de gravação e sincronização com o Vault |
-| `get_laya_sovereign_intelligence` | Retorna o estado do Titan Engine (motor quantitativo) e Laya Neural v0.4.31. | `symbol` (str, default "BTCUSDT") | Versão `v0.4.31-TitanEngine-LayaNeural-V213`, dual breakeven, trailing e reflex bias |
+| `get_laya_sovereign_intelligence` | Retorna o estado do Titan Engine (motor quantitativo) e Laya Neural v0.4.31. | `symbol` (str, default "BTCUSDT") | Versão `v0.4.31-TitanEngine-LayaNeural-V216-SOVEREIGN-TELEMETRY`, heartbeat 30s, Farol BTC 2H, frota 2+2+2+2 e estratégia canônica |
 | `get_liquidity_zones_heatmap` | Mapa de calor 2D de liquidações, ímãs institucionais e classificação em 3 zonas Encryptos. | `symbol` (str, default "SOLUSDT") | Bolsões de liquidez, zonas Hunt, Dead Zone e Exhaustion |
 
 ### 1.3. Como Conectar o MCP aos Clientes

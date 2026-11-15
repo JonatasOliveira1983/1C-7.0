@@ -396,37 +396,27 @@
     .titans-matrix-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: 4px;
-      overflow-y: auto;
-      flex: 1;
-      min-height: 0;
-      padding-right: 2px;
-    }
-
-    .titans-matrix-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-auto-rows: min-content;
       gap: 5px;
       overflow-y: auto;
       flex: 1 1 auto;
       min-height: 0;
       padding-right: 2px;
-      align-content: stretch;
+      align-content: start;
     }
 
     .titan-chip {
       background: #0B0E14;
       border: 1px solid #1B232D;
       border-radius: 4px;
-      padding: 6px 8px;
+      padding: 5px 7px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      gap: 3px;
       font-family: var(--font-mono);
       transition: all 0.2s ease;
       box-sizing: border-box;
-      height: 100%;
-      min-height: 62px;
+      min-height: 58px;
     }
 
     .titan-chip:hover {
@@ -477,8 +467,8 @@
       gap: 3px;
       font-family: var(--font-mono);
       font-size: 8.5px;
-      height: 64px;
-      max-height: 64px;
+      height: 72px;
+      max-height: 72px;
       flex-shrink: 0;
       overflow: hidden;
     }
@@ -653,37 +643,42 @@
   <div class="panoramic-subhud">
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
       <div class="hud-stat-box">
-        <span class="hud-stat-label">FAROL BTC:</span>
-        <span class="hud-stat-val" style="color:#fff;" id="top-btc-val">$80,413.00</span>
-        <span class="pill-badge pill-green" id="top-btc-chg">+0.28%</span>
-        <span class="pill-badge pill-gold" id="top-btc-climate">ALTCOIN_EXPANSION</span>
+        <span class="hud-stat-label">FAROL BTC 2H:</span>
+        <span class="hud-stat-val" style="color:#fff;" id="top-btc-val">$64,000.00</span>
+        <span class="pill-badge pill-red" id="top-btc-chg">-0.32%</span>
+        <span class="pill-badge pill-red" id="top-btc-verdict">BEAR (SMA8 < SMA21) • COMPRAS VETADAS</span>
+      </div>
+
+      <div style="color:#222;">|</div>
+
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">FROTA SOBERANA:</span>
+        <span class="pill-badge pill-gold" id="top-fleet-status">[0/2 RISCO VIVO] [1/6 RISCO ZERO]</span>
       </div>
 
       <div style="color:#222;">|</div>
 
       <div class="hud-stat-box">
         <span class="hud-stat-label">REGIME TITAN:</span>
-        <span class="pill-badge pill-gold" id="top-laya-mode">MEAN-REVERSION</span>
+        <span class="pill-badge pill-gold" id="top-laya-mode">TREND_SNIPER</span>
         <span class="hud-stat-label" style="margin-left:2px;">ADX:</span>
-        <span class="hud-stat-val" id="top-laya-adx">14.5</span>
-      </div>
-
-      <div style="color:#222;">|</div>
-
-      <div class="hud-stat-box">
-        <span class="hud-stat-label">LATÊNCIA:</span>
-        <span class="pill-badge pill-green" id="top-circuit-badge">ANTI-SLIPPAGE OK</span>
+        <span class="hud-stat-val" id="top-laya-adx">45.0</span>
       </div>
     </div>
 
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:nowrap;">
-      <div class="hud-stat-box">
-        <span class="hud-stat-label">THROUGHPUT REAL:</span>
-        <span class="hud-stat-val" style="color:var(--accent-cyan);" id="top-cur-ticks">-- ticks/s</span>
+      <div class="hud-stat-box" style="border-left: 2px solid #00F0FF; padding-left: 8px;">
+        <span class="hud-stat-label" style="color: #00F0FF;">VARREDURA LAYA 30S:</span>
+        <span class="hud-stat-val" style="color:#00F0FF; font-weight:800;" id="top-scan-countdown">30s</span>
+        <span class="pill-badge pill-cyan" id="top-scan-duration">SCAN: 3.2s</span>
       </div>
       <div class="hud-stat-box">
         <span class="hud-stat-label">PING OKX:</span>
         <span class="hud-stat-val" style="color:var(--accent-gold);" id="top-cur-ping">-- ms</span>
+      </div>
+      <div class="hud-stat-box">
+        <span class="hud-stat-label">TICKS:</span>
+        <span class="hud-stat-val" style="color:var(--accent-gold);" id="top-cur-ticks">-- ticks/s</span>
       </div>
     </div>
   </div>
@@ -713,29 +708,33 @@
       <div class="panel-card" style="flex: 0 0 auto;">
         <div class="panel-card-header">
           <span>ESCUDO TÁTICO & TITAN ENGINE</span>
-          <span class="pill-badge pill-gold">50X RIGOROSO</span>
+          <span class="pill-badge pill-gold">50X CRUZADA</span>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:8.5px;">
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">ALAVANCAGEM:</span>
-            <span style="color:var(--accent-gold); font-weight:800;">50.0X ISOLADA RIGOROSA</span>
+            <span style="color:var(--text-muted);">MARGEM:</span>
+            <span style="color:var(--accent-gold); font-weight:800;">50.0X CRUZADA SOBERANA ($1k/LOTE)</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">BASE CIENTÍFICA:</span>
-            <span style="color:#0ECB81; font-weight:700;">STANFORD • LÓPEZ DE PRADO</span>
+            <span style="color:var(--text-muted);">ESTRATÉGIA CANÔNICA:</span>
+            <span style="color:#0ECB81; font-weight:700;">LAYA_PULLBACK_HUNTER_2H_30M</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">MICROESTRUTURA DMA:</span>
-            <span style="color:#29ABE2; font-weight:700;">BARRY JOHNSON (ANTI-SLIPPAGE)</span>
+            <span style="color:var(--text-muted);">FAROL MACRO:</span>
+            <span style="color:#29ABE2; font-weight:700;">BITCOIN 2H (SMA 8 X SMA 21)</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">TRAIL PROFIT PROGRESSIVO:</span>
-            <span style="color:var(--accent-green); font-weight:700;">NEVER GIVE BACK (5 ESC.)</span>
+            <span style="color:var(--text-muted);">DUAL BREAKEVEN:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;">+35% (ZERO TAXAS) • +60% (+$300)</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
-            <span style="color:var(--text-muted);">PISO PROTEGIDO:</span>
-            <span style="color:var(--accent-gold); font-weight:700;">$85,000.00 USD (LOCK-IN)</span>
+            <span style="color:var(--text-muted);">TRAILING GAP ELÁSTICO:</span>
+            <span style="color:var(--accent-green); font-weight:700;">GAP 50% ROI • ALVO +300%</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
+            <span style="color:var(--text-muted);">EXPANSÃO DA FROTA:</span>
+            <span style="color:var(--accent-gold); font-weight:700;">REGRA 2+2+2+2 (MÁX 2 RISCO)</span>
           </div>
           <div style="display:flex; justify-content:space-between;">
             <span style="color:var(--text-muted);">ANTI-HEDGE SOBERANO:</span>
@@ -749,6 +748,25 @@
     <!-- COLUNA 2: PAINEL EXECUTIVO DE SAÚDE & PERFORMANCE (LINGUAGEM OPERACIONAL CLARA) -->
     <section class="charts-main-panel" style="display: flex; flex-direction: column; gap: 8px;">
       
+      <!-- SINAL DE VIDA TITAN // HEARTBEAT & VARREDURA CONTÍNUA 30S -->
+      <div style="background:#06080C; border:1px solid #1B232D; border-left:3px solid #00F0FF; border-radius:4px; padding:6px 12px; display:flex; align-items:center; justify-content:space-between; font-family:var(--font-mono); font-size:8.5px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00F0FF; box-shadow:0 0 8px #00F0FF;"></span>
+          <span style="color:#00F0FF; font-weight:800; letter-spacing:0.05em;">VARREDURA CONTÍNUA TITAN 30S:</span>
+          <span style="color:#FFF;">Próximo ciclo em <b id="scan-countdown-sec" style="color:#00F0FF; font-size:10px; font-weight:900;">30.0s</b></span>
+          <div style="width:70px; height:4px; background:#141A22; border-radius:2px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:4px;">
+            <div id="scan-progress-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #00F0FF, #0ECB81); transition:width 1s linear;"></div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span>ÚLTIMA VARREDURA: <b id="scan-last-duration" style="color:#0ECB81;">3.2s</b></span>
+          <span style="color:#333;">|</span>
+          <span>UNIVERSO: <b style="color:#FCD535;">507 PARES OKX</b></span>
+          <span style="color:#333;">|</span>
+          <span>ESTRATÉGIA: <b style="color:#00F0FF;">PULLBACK HUNTER 2H/30M</b></span>
+        </div>
+      </div>
+
       <!-- 4 CARDS EXECUTIVOS DE SAÚDE & PERFORMANCE -->
       <div class="exec-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #0ECB81; padding: 10px 12px;">
@@ -876,7 +894,7 @@
           <span style="color:var(--accent-gold); font-size:8px; font-weight:800; text-transform:uppercase;">RADAR COGNITIVO // FLUXO DE PENSAMENTO EM TEMPO REAL</span>
           <span style="color:#64748B; font-size:7.5px;">STREAM DE DECISÕES AUTÔNOMAS</span>
         </div>
-        <div id="laya-terminal-feed" style="display:flex; flex-direction:column; gap:2px; overflow:hidden;">
+        <div id="laya-terminal-feed" style="display:flex; flex-direction:column; gap:2px; overflow-y:auto; max-height:52px;">
           <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[VARREDURA]</span> <span>Titan Engine ativo em 507 contratos OKX + 30 Titãs.</span></div>
           <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[BTC-ORACLE]</span> <span>Farol Macro Bitcoin sincronizado. ADX 20.0 (Modo Mean-Reversion).</span></div>
           <div class="terminal-line"><span class="t-time">15:03:22</span> <span class="t-tag">[SMART-MONEY]</span> <span>Radar Encryptos ativo: monitorando 1C-EXP, 1C-RANGE e aceleração de robôs...</span></div>
@@ -953,6 +971,8 @@
 
   <script>
     let _activeWindowSeconds = 1800;
+    let _timeseriesCounter = 0;
+    let _isTelemetryFetching = false;
     let _uPlotNetwork = null;
     let _uPlotEquity = null;
     let _uPlotLaya = null;
@@ -960,11 +980,12 @@
 
     function setTimeWindow(seconds, btn) {
       _activeWindowSeconds = seconds;
+      _timeseriesCounter = 0;
       document.querySelectorAll(".tf-btn").forEach(b => {
         if (b.textContent === btn.textContent) b.classList.add("active");
         else b.classList.remove("active");
       });
-      fetchTelemetryData();
+      fetchTelemetryData(true);
     }
 
     function getFrameDimensions(el) {
@@ -1055,44 +1076,83 @@
       }
     }
 
-    // Coleta Contínua de Telemetria e Renderização Tática
-    async function fetchTelemetryData() {
+    // Coleta Contínua de Telemetria e Renderização Tática (Otimizada & Leve)
+    async function fetchTelemetryData(forceSeries = false) {
+      if (_isTelemetryFetching) return;
+      _isTelemetryFetching = true;
       try {
-        const [rSummary, rSeries] = await Promise.all([
-          fetch('/api/telemetry/stats').then(r => r.json()),
-          fetch(`/api/telemetry/timeseries?limit=${_activeWindowSeconds}`).then(r => r.json())
-        ]);
+        _timeseriesCounter++;
+        const shouldFetchSeries = forceSeries || (_timeseriesCounter === 1) || (_timeseriesCounter % 5 === 0);
+
+        const promises = [fetch('/api/telemetry/stats').then(r => r.json())];
+        if (shouldFetchSeries) {
+          promises.push(fetch(`/api/telemetry/timeseries?limit=${_activeWindowSeconds}`).then(r => r.json()));
+        } else {
+          promises.push(Promise.resolve(null));
+        }
+
+        const [rSummary, rSeries] = await Promise.all(promises);
 
         if (rSummary) {
-          // 1. Atualizar SubHUD
+          // 1. Atualizar SubHUD & Farol BTC 2H
           const btc = rSummary.btc_info || {};
-          if (btc.price) document.getElementById('top-btc-val').textContent = `$${Number(btc.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-          if (btc.change_24h !== undefined) {
-            const chgEl = document.getElementById('top-btc-chg');
+          const btcValEl = document.getElementById('top-btc-val');
+          if (btcValEl && btc.price) {
+            btcValEl.textContent = `$${Number(btc.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+          }
+          const chgEl = document.getElementById('top-btc-chg');
+          if (chgEl && btc.change_24h !== undefined) {
             const sign = btc.change_24h >= 0 ? '+' : '';
             chgEl.textContent = `${sign}${btc.change_24h.toFixed(2)}%`;
             chgEl.className = `pill-badge ${btc.change_24h >= 0 ? 'pill-green' : 'pill-red'}`;
           }
-          if (btc.climate) document.getElementById('top-btc-climate').textContent = btc.climate;
+          const btcBeacon = rSummary.btc_beacon || {};
+          const btcVerdictEl = document.getElementById('top-btc-verdict');
+          if (btcVerdictEl) {
+            btcVerdictEl.textContent = btcBeacon.verdict || (btc.change_24h < -0.3 ? 'BEAR (SMA8 < SMA21) • COMPRAS VETADAS' : 'BULL (SMA8 > SMA21) • LONGS HABILITADOS');
+            btcVerdictEl.className = `pill-badge ${btcBeacon.regime === 'BEAR' ? 'pill-red' : (btcBeacon.regime === 'BULL' ? 'pill-green' : 'pill-gold')}`;
+          }
 
-          if (rSummary.laya_regime) document.getElementById('top-laya-mode').textContent = rSummary.laya_regime;
-          if (rSummary.laya_adx) document.getElementById('top-laya-adx').textContent = rSummary.laya_adx.toFixed(1);
+          // Frota Soberana 2+2+2+2
+          const fleet = rSummary.fleet_summary || {};
+          const fleetEl = document.getElementById('top-fleet-status');
+          if (fleetEl) {
+            fleetEl.textContent = `[${fleet.active_risk || 0}/2 RISCO VIVO] [${fleet.zero_risk || 0}/6 RISCO ZERO] [${fleet.free_slots || 8} VAGOS]`;
+          }
+
+          const layaModeEl = document.getElementById('top-laya-mode');
+          if (layaModeEl && rSummary.laya_regime) layaModeEl.textContent = rSummary.laya_regime;
+          const layaAdxEl = document.getElementById('top-laya-adx');
+          if (layaAdxEl && rSummary.laya_adx) layaAdxEl.textContent = rSummary.laya_adx.toFixed(1);
+
+          // Varredura Contínua 30s Heartbeat
+          const scanCycle = rSummary.scan_cycle || {};
+          const scanSec = scanCycle.next_scan_seconds !== undefined ? scanCycle.next_scan_seconds : 30.0;
+          const scanDur = scanCycle.last_duration_s || rSummary.laya_last_scan_s || 3.2;
+
+          const topCountdown = document.getElementById('top-scan-countdown');
+          if (topCountdown) topCountdown.textContent = `${Math.round(scanSec)}s`;
+
+          const topDur = document.getElementById('top-scan-duration');
+          if (topDur) topDur.textContent = `SCAN: ${scanDur.toFixed(1)}s`;
+
+          const scanSecEl = document.getElementById('scan-countdown-sec');
+          if (scanSecEl) scanSecEl.textContent = `${scanSec.toFixed(1)}s`;
+
+          const scanDurEl = document.getElementById('scan-last-duration');
+          if (scanDurEl) scanDurEl.textContent = `${scanDur.toFixed(1)}s`;
+
+          const scanBar = document.getElementById('scan-progress-bar');
+          if (scanBar) {
+            const pct = Math.max(5, Math.min(100, (scanSec / 30.0) * 100));
+            scanBar.style.width = `${pct}%`;
+          }
 
           const curPing = rSummary.current_ping_ms || 24;
-          document.getElementById('top-cur-ping').textContent = `${curPing.toFixed(1)} ms`;
-          document.getElementById('top-cur-ticks').textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
-
-          const circuitBadge = document.getElementById('top-circuit-badge');
-          if (curPing < 60) {
-            circuitBadge.textContent = 'ANTI-SLIPPAGE OK';
-            circuitBadge.className = 'pill-badge pill-green';
-          } else if (curPing < 120) {
-            circuitBadge.textContent = 'LATÊNCIA ATENÇÃO';
-            circuitBadge.className = 'pill-badge pill-gold';
-          } else {
-            circuitBadge.textContent = 'CIRCUIT BREAKER VETO';
-            circuitBadge.className = 'pill-badge pill-red';
-          }
+          const curPingEl = document.getElementById('top-cur-ping');
+          if (curPingEl) curPingEl.textContent = `${curPing.toFixed(1)} ms`;
+          const curTicksEl = document.getElementById('top-cur-ticks');
+          if (curTicksEl) curTicksEl.textContent = `${rSummary.current_ticks_sec || 0} ticks/s`;
 
           // 2. Renderizar Slots em Custódia Ativa do Cockpit
           renderActiveSlots(rSummary.active_slots || []);
@@ -1167,13 +1227,19 @@
           renderCognitiveTerminal(rSummary.laya_thoughts || []);
 
           // Métricas de Infraestrutura
-          document.getElementById('hud-raw-ticks').textContent = (rSummary.total_raw_ticks || 0).toLocaleString();
-          document.getElementById('hud-avg-ticks').textContent = `${rSummary.avg_ticks_sec || 0} ticks/s`;
-          document.getElementById('hud-avg-ping').textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
-          document.getElementById('hud-max-ping').textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
-          document.getElementById('hud-uptime-val').textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
+          const elRawTicks = document.getElementById('hud-raw-ticks');
+          if (elRawTicks) elRawTicks.textContent = (rSummary.total_raw_ticks || 0).toLocaleString();
+          const elAvgTicks = document.getElementById('hud-avg-ticks');
+          if (elAvgTicks) elAvgTicks.textContent = `${rSummary.avg_ticks_sec || 0} ticks/s`;
+          const elAvgPing = document.getElementById('hud-avg-ping');
+          if (elAvgPing) elAvgPing.textContent = `${(rSummary.avg_ping_1m_ms || curPing).toFixed(1)} ms`;
+          const elMaxPing = document.getElementById('hud-max-ping');
+          if (elMaxPing) elMaxPing.textContent = `${(rSummary.max_ping_1m_ms || curPing).toFixed(1)} ms`;
+          const elUptime = document.getElementById('hud-uptime-val');
+          if (elUptime) elUptime.textContent = `${Math.round(rSummary.uptime_seconds || 0)}s`;
 
-          document.getElementById('chart-networth-hud').textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+          const elNetworthHud = document.getElementById('chart-networth-hud');
+          if (elNetworthHud) elNetworthHud.textContent = `$${nw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
           
           if (window.updateShellNetWorth) {
             window.updateShellNetWorth(nw);
@@ -1188,6 +1254,8 @@
         }
       } catch (err) {
         console.warn("[TELEMETRY-OBSERVATORY] Erro no ciclo de telemetria:", err);
+      } finally {
+        _isTelemetryFetching = false;
       }
     }
 
@@ -1261,24 +1329,62 @@
       }).join('');
     }
 
-    // Renderiza o Terminal Cognitivo da Laya
+    // Renderiza o Terminal Cognitivo da Laya (Stream ao Vivo de Decisões)
     function renderCognitiveTerminal(thoughts) {
       const container = document.getElementById("laya-terminal-feed");
       if (!container || !thoughts || thoughts.length === 0) return;
 
-      container.innerHTML = thoughts.slice(-4).map(t => {
+      container.innerHTML = thoughts.slice(-8).map(t => {
         const time = t.time || (t.timestamp ? new Date(t.timestamp * 1000).toISOString().substr(11, 8) : '15:00:00');
         const sym = t.symbol || 'SISTEMA';
         const txt = t.thought || t.reason || t.action || '';
+        const act = (t.action || '').toUpperCase();
+        
+        let tagColor = '#848E9C';
+        let tagBorder = 'rgba(255,255,255,0.1)';
+        let tagBg = 'rgba(255,255,255,0.04)';
+        if (act.includes('GATILHO') || act.includes('PULLBACK')) {
+          tagColor = '#00F0FF';
+          tagBorder = 'rgba(0, 240, 255, 0.3)';
+          tagBg = 'rgba(0, 240, 255, 0.1)';
+        } else if (act.includes('VETO') || act.includes('FACA') || act.includes('ABORT')) {
+          tagColor = '#F6465D';
+          tagBorder = 'rgba(246, 70, 93, 0.3)';
+          tagBg = 'rgba(246, 70, 93, 0.1)';
+        } else if (act.includes('CAPITAL') || act.includes('LUCRO') || act.includes('ZERO')) {
+          tagColor = '#0ECB81';
+          tagBorder = 'rgba(14, 203, 129, 0.3)';
+          tagBg = 'rgba(14, 203, 129, 0.1)';
+        } else if (act.includes('ORACULO') || act.includes('FAROL') || act.includes('IGNICAO')) {
+          tagColor = '#FCD535';
+          tagBorder = 'rgba(252, 213, 53, 0.3)';
+          tagBg = 'rgba(252, 213, 53, 0.1)';
+        }
+
         return `
-          <div class="terminal-line">
-            <span class="t-time">${time}</span>
-            <span class="t-tag">[${sym}]</span>
-            <span>${txt}</span>
+          <div class="terminal-line" style="display:flex; align-items:flex-start; gap:6px; font-size:8px; line-height:1.3; margin-bottom:2px;">
+            <span class="t-time" style="color:#64748B; flex-shrink:0;">${time}</span>
+            <span style="color:${tagColor}; background:${tagBg}; border:1px solid ${tagBorder}; border-radius:2px; padding:0 3px; font-size:7.5px; font-weight:800; flex-shrink:0;">[${sym}]</span>
+            <span style="color:#CBD5E1;">${txt}</span>
           </div>
         `;
       }).join('');
+      container.scrollTop = container.scrollHeight;
     }
+
+    // Tick suave de 1 segundo para animação regressiva contínua entre polls da API
+    setInterval(() => {
+      const el = document.getElementById('scan-countdown-sec');
+      const topEl = document.getElementById('top-scan-countdown');
+      const bar = document.getElementById('scan-progress-bar');
+      if (el) {
+        let cur = parseFloat(el.textContent) || 30.0;
+        cur = cur > 1.0 ? cur - 1.0 : 30.0;
+        el.textContent = `${cur.toFixed(1)}s`;
+        if (topEl) topEl.textContent = `${Math.round(cur)}s`;
+        if (bar) bar.style.width = `${Math.max(5, Math.min(100, (cur / 30.0) * 100))}%`;
+      }
+    }, 1000);
 
     // Renderiza Cards dos Slots em Custódia
     function renderActiveSlots(slots) {

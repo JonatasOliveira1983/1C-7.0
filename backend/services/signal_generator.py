@@ -4072,6 +4072,35 @@ class SignalGenerator:
         rsi = 100 - (100 / (1 + rs))
         return rsi.fillna(50).tolist()
 
+    def _calculate_stoch_rsi_15m(self, closes, rsi_period=14, stoch_period=14, k_smooth=3, d_smooth=3):
+        """Calcula Stochastic RSI autônomo sem dependência externa."""
+        empty = {"k": 50.0, "d": 50.0, "prev_k": 50.0, "prev_d": 50.0}
+        if not closes or len(closes) < rsi_period + stoch_period + k_smooth + d_smooth:
+            return empty
+        rsi = self.calculate_rsi(closes, rsi_period)
+        if len(rsi) < stoch_period + k_smooth + d_smooth:
+            return empty
+        raw = []
+        for i in range(stoch_period - 1, len(rsi)):
+            w = rsi[i - stoch_period + 1: i + 1]
+            lo, hi = min(w), max(w)
+            rng = hi - lo
+            raw.append(((rsi[i] - lo) / rng * 100.0) if rng > 0 else 50.0)
+        if len(raw) < k_smooth + d_smooth:
+            return empty
+        k_vals = [sum(raw[i - k_smooth + 1: i + 1]) / k_smooth for i in range(k_smooth - 1, len(raw))]
+        if len(k_vals) < d_smooth + 1:
+            return empty
+        d_vals = [sum(k_vals[i - d_smooth + 1: i + 1]) / d_smooth for i in range(d_smooth - 1, len(k_vals))]
+        if len(d_vals) < 2:
+            return empty
+        return {
+            "k": round(k_vals[-1], 2),
+            "d": round(d_vals[-1], 2),
+            "prev_k": round(k_vals[-2], 2),
+            "prev_d": round(d_vals[-2], 2),
+        }
+
     def check_ifr_divergence(self, closes, highs, lows, period=14):
         """
         [V110.999] Detecta divergências clássicas no RSI(14)
@@ -4291,9 +4320,8 @@ class SignalGenerator:
                     c15m_chron = list(reversed(klines_15m))
                     closes_15m = [float(c[4]) for c in c15m_chron]
                     
-                    # Calcular Stochastic RSI 15m
-                    from services.sandbox_scalping_engine import _calculate_stoch_rsi
-                    stoch_15m = _calculate_stoch_rsi(closes_15m)
+                    # Calcular Stochastic RSI 15m internamente (autônomo - sem dependência de scalping legado)
+                    stoch_15m = self._calculate_stoch_rsi_15m(closes_15m)
                     k_15m, d_15m = stoch_15m.get("k", 50.0), stoch_15m.get("d", 50.0)
                     
                     # Decidir direção recomendada baseada no cruzamento de 15m

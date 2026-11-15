@@ -639,22 +639,24 @@ class OpenVikingContextService:
                     l2_detail=l1_v174 + "\n\nImplementado em backend/app/services/coinglass_heatmap_service.py e renderizado no Canvas Retina da Laya 360.",
                     tags=["resources", "architecture", "v174", "encryptos", "liquidity", "heatmap"]
                 )
-                # V175: WebSocket Dynamic Sync & Immediate Price Guard
-                uri_v175 = "viking://resources/architecture/v175_ws_sync_immediate_price_guard"
-                l0_v175 = "V175: Sincronizacao Dinamica WebSocket OKX e Guarda Imediata de Preco de Stop (RAM O(1) Sub-5ms) com Filtro de Pullback Intra-Range."
-                l1_v175 = (
-                    "INVARIANTES DE MONITORAMENTO E STOP IMEDIATO (V175):\n"
-                    "1. Sincronizacao Dinamica WebSocket: Toda ordem aberta adiciona seu par automaticamente ao okx_ws_public_service.sync_topics(), eliminando chamadas REST sincronas que geravam 429.\n"
-                    "2. Guarda Imediata de Stop (Sub-5ms): Comparacao matematica instantanea no loop de 1s (Long <= stop_price, Short >= stop_price) que aciona stop_hit sem aguardar chamadas REST secundarias.\n"
-                    "3. Filtro de Pullback Intra-Range: Em consolidacao/reversao a media, SHORT requer pullback estrutural (c_range >= 50% ou preco >= vwap; veto em c_range < 35%), e LONG requer dip (c_range <= 50% ou preco <= vwap; veto em c_range > 65%)."
+                # V216: Sovereign Telemetry Live Heartbeat & Scalping Purge
+                uri_v216 = "viking://resources/architecture/v216_sovereign_telemetry_clean"
+                l0_v216 = "V216: Telemetria Soberana com Sinal de Vida (Heartbeat 30s), Farol BTC 2H, Frota 2+2+2+2, Purga Canônica de Scalping M1/M5 e Estratégia Única LAYA_PULLBACK_HUNTER_2H_30M."
+                l1_v216 = (
+                    "INVARIANTES CANÔNICAS V216 (SOVEREIGN TELEMETRY & CLEAN PURGE):\n"
+                    "1. Sinal de Vida em Tempo Real: Varredura contínua de 30 segundos, stream cognitivo da Laya, Farol BTC 2H determinístico e composição viva 2+2+2+2 na Telemetria (/telemetry).\n"
+                    "2. Purga Canônica de Scalping: Motor legado de scalping M1/M5 (sandbox_scalping_engine.py) purgado definitivamente em prol da estratégia única vencedora LAYA_PULLBACK_HUNTER_2H_30M.\n"
+                    "3. Dual Breakeven 35/60: Degrau 1 (+35% ROI / +7% trava taxas OKX) e Degrau 2 (+60% ROI / +30% trava lucro soberano fixo de +$300).\n"
+                    "4. Trailing com Gap Elástico de 50%: Ativado em +100% ROI, respiro livre de 1.0% de preço para buscar Alvo Chão de +300% de ROI sem estrangulamento precoce.\n"
+                    "5. Margem Cruzada 50X: $1.000 de margem fixa por slot ($50.000 nocional) com colateral soberano da banca de $10.000,00."
                 )
-                self.nodes[uri_v175] = VikingNode(
-                    uri=uri_v175,
-                    title="V175: Sincronizacao Dinamica WebSocket & Guarda Imediata de Stop",
-                    l0_abstract=l0_v175,
-                    l1_overview=l1_v175,
-                    l2_detail=l1_v175 + "\n\nImplementado em backend/services/sandbox_service.py e backend/app/services/laya_router_service.py.",
-                    tags=["resources", "architecture", "v175", "websocket", "stop_loss", "pullback", "guard"]
+                self.nodes[uri_v216] = VikingNode(
+                    uri=uri_v216,
+                    title="V216: Telemetria Soberana em Tempo Real & Purga Canônica de Scalping",
+                    l0_abstract=l0_v216,
+                    l1_overview=l1_v216,
+                    l2_detail=l1_v216 + "\n\nImplementado em backend/main.py, backend/app/services/telemetry_service.py, backend/app/services/laya_router_service.py e frontend/telemetry.html.",
+                    tags=["resources", "architecture", "v216", "telemetry", "heartbeat", "pullback_hunter", "sovereign"]
                 )
             except Exception:
                 pass

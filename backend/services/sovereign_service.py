@@ -51,24 +51,35 @@ class SovereignServiceBridge:
         return await database_service.update_banca_status({"saldo_total": amount})
         
     async def hard_reset_slot(self, slot_id: int, reason: str = "Tolerancia Zero", pnl: float = 0, trade_data: dict = None):
-        """Reseta totalmente um slot no banco, envia para o histórico e limpa a UI."""
-        from services.firebase_service import firebase_service
-        return await firebase_service.hard_reset_slot(slot_id, reason, pnl, trade_data)
+        """Reseta totalmente um slot no banco local e propaga atualização."""
+        from services.database_service import database_service
+        return await database_service.update_slot(slot_id, {
+            "symbol": None,
+            "status_risco": "LIVRE",
+            "pnl_percent": 0.0,
+            "pensamento": f"Reset: {reason}"
+        })
     
     async def free_slot(self, slot_id: int, reason: str = "Promoted to Moonbag"):
-        """Libera o slot no Firebase/RTDB."""
-        from services.firebase_service import firebase_service
-        return await firebase_service.free_slot(slot_id, reason)
+        """Libera o slot no banco local."""
+        from services.database_service import database_service
+        return await database_service.update_slot(slot_id, {
+            "symbol": None,
+            "status_risco": "LIVRE",
+            "pnl_percent": 0.0,
+            "pensamento": reason
+        })
         
     async def get_paper_state(self):
         """Retorna o estado do simulador de papel (Paper Mode)."""
-        from services.firebase_service import firebase_service
-        return await firebase_service.get_paper_state()
+        from services.database_service import database_service
+        banca = await database_service.get_banca_status()
+        return banca or {}
         
     async def update_paper_state(self, data: dict):
         """Atualiza o estado do simulador de papel (Paper Mode)."""
-        from services.firebase_service import firebase_service
-        return await firebase_service.update_paper_state(data)
+        from services.database_service import database_service
+        return await database_service.update_banca_status(data)
     
     async def get_conformidades(self):
         """Retorna conformidades simuladas (para Hermes)."""
