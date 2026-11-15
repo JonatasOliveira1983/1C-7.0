@@ -4477,6 +4477,10 @@
       let metricRight = cRange > 0 ? `MIOLO ${cRange.toFixed(0)}%` : 'CHOP';
       let strategyLabel = (cand.strategy || 'MONITOR').replace('LAYA_', '');
 
+      const qualifies = cand.qualifies !== false;
+      const rationale = cand.rationale || '';
+      const isVetoed = !qualifies || rationale.toUpperCase().includes('VETO');
+
       if (isHolding) {
         // ATIVO EM CUSTODIA ATIVA (AVAX, RENDER, ETC.)
         const isLong = (slot.side === 'BUY' || slot.side === 'LONG' || slot.side === 'Buy');
@@ -4499,25 +4503,48 @@
       } else if (rawDir === 'BUY' || rawDir === 'LONG') {
         const isFusion = cand.strategy === 'LAYA_AGUIA_FUSION' || cand.aguia_fusion;
         const lev = Math.round(cand.leverage_cap || 50);
-        postureLabel = `GATILHO: LONG ${lev}X`;
-        if (isFusion) strategyLabel = 'AGUIA FUSION';
-        readinessScore = Math.max(85, baseScore);
-        barColor = '#0ECB81';
-        barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
-        textColor = '#0ECB81';
-        cardBorder = 'rgba(14,203,129,0.35)';
-        metricRight = 'GATILHO';
+        if (isVetoed) {
+          postureLabel = 'VETO: FAROL BTC';
+          strategyLabel = 'VETO MACRO';
+          readinessScore = Math.min(40, baseScore);
+          barColor = '#848E9C';
+          barFillGrad = 'linear-gradient(90deg, rgba(132,142,156,0.15), rgba(132,142,156,0.5))';
+          textColor = '#848E9C';
+          cardBorder = 'rgba(132,142,156,0.25)';
+          metricRight = 'VETO BTC';
+        } else {
+          postureLabel = `GATILHO: LONG ${lev}X`;
+          if (isFusion) strategyLabel = 'AGUIA FUSION';
+          readinessScore = Math.max(85, baseScore);
+          barColor = '#0ECB81';
+          barFillGrad = 'linear-gradient(90deg, rgba(14,203,129,0.25), rgba(14,203,129,0.9))';
+          textColor = '#0ECB81';
+          cardBorder = 'rgba(14,203,129,0.35)';
+          metricRight = 'GATILHO';
+        }
       } else if (rawDir === 'SELL' || rawDir === 'SHORT') {
         const isFusion = cand.strategy === 'LAYA_AGUIA_FUSION' || cand.aguia_fusion;
         const lev = Math.round(cand.leverage_cap || 50);
-        postureLabel = `GATILHO: SHORT ${lev}X`;
-        if (isFusion) strategyLabel = 'AGUIA FUSION';
-        readinessScore = Math.max(85, baseScore);
-        barColor = '#F6465D';
-        barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
-        textColor = '#F6465D';
-        cardBorder = 'rgba(246,70,93,0.35)';
-        metricRight = 'GATILHO';
+        if (isVetoed) {
+          const isStopLong = rationale.toUpperCase().includes('STOP_MUITO_LONGO');
+          postureLabel = isStopLong ? 'VIGÍLIA: STOP ESTICADO' : 'VIGÍLIA: AGUARDA REPIQUE';
+          strategyLabel = 'PULLBACK HUNTER';
+          readinessScore = Math.min(65, baseScore);
+          barColor = '#E5A93C';
+          barFillGrad = 'linear-gradient(90deg, rgba(229,169,60,0.15), rgba(229,169,60,0.65))';
+          textColor = '#E5A93C';
+          cardBorder = 'rgba(229,169,60,0.35)';
+          metricRight = isStopLong ? 'STOP >5%' : 'SEM REPIQUE';
+        } else {
+          postureLabel = `GATILHO: SHORT ${lev}X`;
+          if (isFusion) strategyLabel = 'AGUIA FUSION';
+          readinessScore = Math.max(85, baseScore);
+          barColor = '#F6465D';
+          barFillGrad = 'linear-gradient(90deg, rgba(246,70,93,0.25), rgba(246,70,93,0.9))';
+          textColor = '#F6465D';
+          cardBorder = 'rgba(246,70,93,0.35)';
+          metricRight = 'GATILHO';
+        }
       } else if (botOn || cExp >= 70) {
         // IGNICAO / BREAKOUT MOMENTUM — CONFLUENTE COM O ÍMÃ DE LIQUIDEZ (V174)
         const isMagnetBelow = (cand.magnet_region === 'ABAIXO') || (cand.magnet_direction === 'BEARISH_SWEEP');
