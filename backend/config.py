@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     OKX_API_SECRET: Optional[str] = None
     OKX_INST_TYPE: str = "SWAP" # OKX API: SPOT / MARGIN / SWAP / FUTURES
     OKX_EXECUTION_MODE: str = os.getenv("OKX_EXECUTION_MODE", "PAPER") # "PAPER" = Simulated Execution
-    OKX_SIMULATED_BALANCE: float = 10000.0 # Padrão $100k
+    OKX_SIMULATED_BALANCE: float = 100000.0 # Padrão $100k Institucional
     FACTORY_RESET_V110: bool = False # [V110.29.0] Reset atômico do sistema
 
     @field_validator('OKX_SIMULATED_BALANCE', mode='before')
@@ -170,12 +170,12 @@ class Settings(BaseSettings):
     SWING_LEVERAGE: int = int(os.getenv("SWING_LEVERAGE", 15))
 
     # Margem em USD por trade swing na conta virtual
-    # [V126] $200/trade | 10 slots | 40% de $10.000 = $4.000 total
-    SWING_MARGIN_PER_TRADE: float = float(os.getenv("SWING_MARGIN_PER_TRADE", 200.0))
+    # [V217] $10.000/trade | 50X Margem Cruzada = $500.000 nocional
+    SWING_MARGIN_PER_TRADE: float = float(os.getenv("SWING_MARGIN_PER_TRADE", 10000.0))
 
     # Banca virtual do Swing Lab em USD
-    # [V126] Banca simulada de $10.000
-    SWING_VIRTUAL_BALANCE: float = float(os.getenv("SWING_VIRTUAL_BALANCE", 10000.0))
+    # [V217] Banca simulada de $100.000 Institucional
+    SWING_VIRTUAL_BALANCE: float = float(os.getenv("SWING_VIRTUAL_BALANCE", 100000.0))
 
     # Intervalo entre scans do Swing Lab em segundos (padrão 45s para agilidade operacional)
     SWING_SCAN_INTERVAL: int = int(os.getenv("SWING_SCAN_INTERVAL", 45))

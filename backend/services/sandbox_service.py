@@ -84,8 +84,8 @@ class SandboxService:
         self._process_lock = asyncio.Lock()
         self._processed_signals = set()
 
-        # [V126-LOCK-IN] Variáveis para controle local e cache de saldo consolidado
-        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+        # [V217-INSTITUTIONAL-100K] Variáveis para controle local e cache de saldo consolidado ($100k)
+        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         self.total_fees_paid_cache = 0.0
         self.total_gross_pnl_cache = 0.0
         self.last_balance_recalc = 0.0
@@ -164,10 +164,36 @@ class SandboxService:
         except Exception as e:
             logger.error(f"Erro ao carregar sinais existentes no Sandbox: {e}")
 
+    def get_dynamic_slippage_rate(self, symbol: str, notional_usd: float = 500000.0) -> float:
+        """
+        [V217-HI-FI-REAL-FRICTION] Slippage dinâmico do livro de ofertas da OKX para ordens institucionais de $500k nocionais.
+        - Tier 1 (BTC, ETH): 0.025% (0.00025) -> $125 sobre $500k
+        - Tier 2 (SOL, XRP, BNB, AVAX, LINK, DOGE): 0.050% (0.00050) -> $250 sobre $500k
+        - Tier 3 (Altcoins: CRV, NEAR, APT, SEI, SAND, SUI, OP, etc.): 0.100% (0.00100) -> $500 sobre $500k
+        """
+        sym_clean = str(symbol or "").upper().replace("-USDT-SWAP", "").replace("USDT", "").replace("-", "")
+        if sym_clean in ("BTC", "ETH"):
+            return 0.00025
+        elif sym_clean in ("SOL", "XRP", "BNB", "AVAX", "LINK", "DOGE"):
+            return 0.00050
+        else:
+            return 0.00100
+
+    def get_stop_gap_penalty_rate(self, symbol: str, is_loss: bool = True) -> float:
+        """
+        [V217-HI-FI-REAL-FRICTION] Penalidade de gap na execução a mercado de Stops em alta volatilidade.
+        Em stop loss técnico (loss), o livro de ofertas sofre gap adverso maior.
+        Em breakeven ou trailing (lucro), o gap é amortecido.
+        """
+        base_slip = self.get_dynamic_slippage_rate(symbol)
+        return (base_slip * 0.8) if is_loss else (base_slip * 0.3)
+
     def reset_balance_cache(self):
-        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+        self.base_balance_cache = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         self.last_balance_recalc = 0.0
-        logger.info("🧪 Sandbox Service: balance cache resetado para $10,000.")
+        self.total_fees_paid_cache = 0.0
+        self.total_gross_pnl_cache = 0.0
+        logger.info("🧪 Sandbox Service: balance cache resetado para $100,000.00.")
 
     def stop(self):
         self.is_running = False
@@ -1454,7 +1480,7 @@ class SandboxService:
                         fee = round(_m * lev * 0.0013, 2)
                     total_fees_usd += fee
                     
-            base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+            base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
             self.base_balance_cache = round(base_sim + closed_pnl_usd, 2)
             self.total_fees_paid_cache = round(total_fees_usd, 2)
             self.total_gross_pnl_cache = round(closed_pnl_usd + total_fees_usd, 2)
@@ -1486,16 +1512,20 @@ class SandboxService:
             side = "buy" if target.direction == "LONG" else "sell"
             meta = dict(target.contract_meta or {})
             leverage = float(meta.get("leverage") or 12.0)
-            margin = float(meta.get("margin", 100.0))
+            margin = float(meta.get("margin", 10000.0))
 
             exit_roi = proj_service.calculate_roi(entry_p, p, side, leverage)
-            operational_cost_roi = 0.0013 * leverage * 100.0
+            notional = round(margin * leverage, 2)
+            slip_rate = self.get_dynamic_slippage_rate(target.symbol, notional)
+            fee_open_rate = 0.0005
+            fee_close_rate = 0.0005
+            total_friction_rate = fee_open_rate + fee_close_rate + (slip_rate * 2.0)
+            operational_cost_roi = total_friction_rate * leverage * 100.0
             final_pnl = round(exit_roi - operational_cost_roi, 4)
 
-            notional = round(margin * leverage, 2)
-            fee_open = round(notional * 0.0005, 2)
-            fee_close = round(notional * 0.0005, 2)
-            slippage = round(notional * 0.0003, 2)
+            fee_open = round(notional * fee_open_rate, 2)
+            fee_close = round(notional * fee_close_rate, 2)
+            slippage = round(notional * (slip_rate * 2.0), 2)
             total_fees = round(fee_open + fee_close + slippage, 2)
             net_usd = round((final_pnl / 100.0) * margin, 2)
 
@@ -1595,7 +1625,7 @@ class SandboxService:
                 
                 # Configurar limites com base no config.py
                 trigger_pct = getattr(settings, "SANDBOX_LOCK_IN_TRIGGER_PERCENT", 10.0)
-                base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+                base_sim = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
                 database_service.lock_in_trigger_balance = base_sim * (1 + trigger_pct / 100.0)
                 database_service.lock_in_floor_balance = base_sim * (1 + (trigger_pct / 2.0) / 100.0)
                 
@@ -1604,14 +1634,14 @@ class SandboxService:
                     if not database_service.lock_in_active:
                         database_service.lock_in_active = True
                         logger.warning(f"🔒 [LOCK-IN-ACTIVATED] Banca consolidada atingiu ${consolidated:.2f}! Protocolo de Defesa Ativo.")
-                elif consolidated <= float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0)):
+                elif consolidated <= float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0)):
                     if database_service.lock_in_active:
                         database_service.lock_in_active = False
                         logger.info("🛡️ [LOCK-IN-DEACTIVATED] Banca recuou abaixo do valor inicial. Protocolo inativado.")
 
-                # [V128-EQUITY-DEFENSE] Defesa Progressiva de Patrimônio
-                base = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
-                emergency_floor = base * 0.85  # Piso de emergência de -15% caso não haja lucro travado
+                # [V217-EQUITY-DEFENSE-100K] Defesa Progressiva de Patrimônio ($100k)
+                base = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
+                emergency_floor = base * 0.85  # Piso de emergência de -15% ($85.000,00) caso não haja lucro travado
 
                 if consolidated > database_service.equity_peak:
                     database_service.equity_peak = consolidated
@@ -1950,9 +1980,18 @@ class SandboxService:
                     stop_hit = True
 
             if stop_hit:
-                # [V119] Sem confirmações REST lentas para o Sandbox. Fecha instantaneamente!
-                # [V186-PARIDADE-EXECUCAO-STOP-OKX]: Stop Loss e Trailing Stop disparam no stop_price configurado
-                exit_price = stop_price if stop_price > 0 else current_price
+                # [V217-HI-FI-REAL-FRICTION] Execução a mercado realista com Stop Gap Penalty em volatilidade
+                base_exit = stop_price if stop_price > 0 else current_price
+                is_loss = (updated_stop_roi < 0)
+                gap_rate = self.get_stop_gap_penalty_rate(symbol, is_loss=is_loss)
+                is_short_pos = str(side).lower() in ("sell", "short", "s")
+                if is_loss:
+                    # Em stop loss negativo, desvio adverso (compra mais caro em short / vende mais barato em long)
+                    exit_price = base_exit * (1.0 + gap_rate) if is_short_pos else base_exit * (1.0 - gap_rate)
+                else:
+                    # Em breakeven/trailing, leve fricção de preenchimento
+                    exit_price = base_exit * (1.0 - (gap_rate * 0.3)) if is_short_pos else base_exit * (1.0 + (gap_rate * 0.3))
+
                 current_price = exit_price
                 current_roi = proj_service.calculate_roi(entry_price, current_price, side, leverage)
                 is_closed = True
@@ -2002,6 +2041,35 @@ class SandboxService:
             except Exception as dyn_meta_err:
                 logger.debug(f"[SANDBOX] Erro ao resolver metadados dinâmicos de contrato no tick de {symbol}: {dyn_meta_err}")
 
+        # [V217-FUNDING-8H-TRACKER] Rastreio de Funding Rates (ciclos de 8h: 00:00, 08:00, 16:00 UTC)
+        try:
+            curr_meta = dict(trade.contract_meta or {})
+            t_margin = float(curr_meta.get("margin", 10000.0) or 10000.0)
+            t_notional = t_margin * float(leverage)
+            t_created_ts = float(getattr(trade, "opened_at", 0.0) or (trade.created_at.timestamp() if hasattr(trade, "created_at") and trade.created_at else time.time()))
+            hours_elapsed = max(0.0, (time.time() - t_created_ts) / 3600.0)
+            cycles_8h = int(hours_elapsed // 8.0)
+            logged_cycles = int(curr_meta.get("funding_cycles_counted", 0) or 0)
+            if cycles_8h > logged_cycles:
+                from services.okx_rest import okx_rest_service
+                rate = await okx_rest_service.get_funding_rate(symbol)
+                is_short_dir = str(side).lower() in ("sell", "short", "s")
+                cycle_diff = cycles_8h - logged_cycles
+                # No perpétuo OKX: se rate > 0, long paga short.
+                # SHORT recebe crédito (+), LONG paga débito (-).
+                mult = 1.0 if is_short_dir else -1.0
+                funding_delta = round(t_notional * rate * mult * cycle_diff, 2)
+                prev_accrued = float(curr_meta.get("funding_accumulated_usd", 0.0) or 0.0)
+                new_accrued = round(prev_accrued + funding_delta, 2)
+                curr_meta["funding_accumulated_usd"] = new_accrued
+                curr_meta["funding_cycles_counted"] = cycles_8h
+                curr_meta["last_funding_rate"] = rate
+                update_payload["contract_meta"] = curr_meta
+                trade.contract_meta = curr_meta
+                logger.info(f"💰 [FUNDING-8H] {symbol} {side} ({cycles_8h}x 8h): Delta={funding_delta:+.2f} USD | Total={new_accrued:+.2f} USD")
+        except Exception as f_err:
+            logger.debug(f"[FUNDING-TRACKER-ERR] {symbol}: {f_err}")
+
         if is_closed:
             update_payload["closed_at"] = closed_at
             update_payload["current_price"] = exit_price
@@ -2013,22 +2081,30 @@ class SandboxService:
             else:
                 gross_pnl = actual_exit_roi
 
-            # [V138-REAL-PARITY] Dedução rigorosa de taxas OKX e slippage:
-            # - Taxa OKX Taker: 0.05% na abertura + 0.05% no fechamento = 0.10% sobre o volume nocional
-            # - Slippage estimada em fechamento a mercado: 0.03% sobre o nocional
-            # Com alavancagem 15X: 0.13% * 15 = 1.95% de impacto no ROI da margem
-            operational_cost_roi = (0.0010 + 0.0003) * float(leverage) * 100.0
-            final_pnl = round(gross_pnl - operational_cost_roi, 4)
+            # [V217-HI-FI-REAL-FRICTION] Dedução rigorosa de taxas OKX, Slippage Dinâmico e Funding:
+            # - Taxa OKX Taker: 0.05% na abertura + 0.05% no fechamento = 0.10% sobre o volume nocional ($500 fixos sobre $500k)
+            # - Slippage dinâmico institucional por tier de profundidade real da OKX
+            trade_meta = dict(update_payload.get("contract_meta") or trade.contract_meta or {})
+            trade_margin = float(trade_meta.get("margin", 10000.0) or 10000.0)
+            trade_notional = round(trade_margin * float(leverage), 2)
+            
+            slip_rate = self.get_dynamic_slippage_rate(symbol, trade_notional)
+            fee_open_rate = 0.0005
+            fee_close_rate = 0.0005
+            total_friction_rate = fee_open_rate + fee_close_rate + (slip_rate * 2.0)
+            operational_cost_roi = total_friction_rate * float(leverage) * 100.0
+            
+            # Impacto líquido de Funding Rates
+            funding_accrued_usd = float(trade_meta.get("funding_accumulated_usd", 0.0) or 0.0)
+            funding_roi = (funding_accrued_usd / trade_margin * 100.0) if trade_margin > 0 else 0.0
+            
+            final_pnl = round(gross_pnl - operational_cost_roi + funding_roi, 4)
             update_payload["pnl_pct"] = final_pnl
 
-            # Enriquecer contract_meta com detalhamento de custos e valores USD para auditoria
-            trade_meta = dict(update_payload.get("contract_meta") or trade.contract_meta or {})
-            trade_margin = float(trade_meta.get("margin", 200.0))
-            trade_notional = round(trade_margin * float(leverage), 2)
-            fee_open_u = round(trade_notional * 0.0005, 2)
-            fee_close_u = round(trade_notional * 0.0005, 2)
-            slip_u = round(trade_notional * 0.0003, 2)
-            total_fees_u = round(fee_open_u + fee_close_u + slip_u, 2)
+            fee_open_u = round(trade_notional * fee_open_rate, 2)
+            fee_close_u = round(trade_notional * fee_close_rate, 2)
+            slip_u = round(trade_notional * (slip_rate * 2.0), 2)
+            total_fees_u = round(fee_open_u + fee_close_u + slip_u - funding_accrued_usd, 2)
             net_u = round((final_pnl / 100.0) * trade_margin, 2)
             gross_u = round((gross_pnl / 100.0) * trade_margin, 2)
 
@@ -2043,6 +2119,7 @@ class SandboxService:
                 "fee_open_usd": fee_open_u,
                 "fee_close_usd": fee_close_u,
                 "slippage_usd": slip_u,
+                "funding_accumulated_usd": funding_accrued_usd,
                 "total_fees_usd": total_fees_u
             })
             update_payload["contract_meta"] = trade_meta

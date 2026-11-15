@@ -4038,11 +4038,11 @@ class LayaRouterService:
                 active_symbols.add(f"{base_coin}USDT")
                 active_symbols.add(f"{base_coin}-USDT-SWAP")
 
-        # [V154-CAPITAL-PRESERVATION]: Consulta saldo para evitar overtrading após meta diária
+        # [V217-CAPITAL-PRESERVATION-100K]: Consulta saldo para governança de risco ($100k)
         try:
             from services.sandbox_service import sandbox_service
             from config import settings
-            base_bank = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+            base_bank = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
             current_sandbox_balance = getattr(sandbox_service, "base_balance_cache", base_bank)
         except Exception:
             base_bank = 100000.0
@@ -4527,20 +4527,20 @@ class LayaRouterService:
 
                 try:
                     from services.sandbox_service import sandbox_service
-                    realized_bal = getattr(sandbox_service, "base_balance_cache", 10000.0)
+                    realized_bal = getattr(sandbox_service, "base_balance_cache", 100000.0)
                 except Exception:
-                    realized_bal = 10000.0
+                    realized_bal = 100000.0
 
                 # [V190-STANDARDIZED-50X-LEVERAGE]
                 # Padronização Soberana em 50.0x Fixo nos 30 Titãs Institucionais
                 coin_max_lev = okx_universe_service.get_max_leverage(sym)
                 leverage = min(50.0, max(5.0, coin_max_lev))
 
-                # 2. Margem por Slot: 1.0% da banca realizada ($1.000 numa banca de $100.000)
-                # 10 slots = $10.000 em risco (10% total), mantendo 90% liquida ($90.000) como colchao contra liquidacao
+                # [V217-CROSS-MARGIN-SWING-50X-100K]: Margem fixa de $10.000,00 por ordem (Banca $100k)
+                # 2 slots iniciais em risco = $20.000 (20% da banca), preservando $80.000 (80%) como colateral garantidor livre em 50X Cruzada.
                 from config import settings
-                base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
-                margin_planned = 1000.0  # [V197-CROSS-MARGIN-SWING-50X]: Margem fixa de $1.000,00 por ordem
+                base_bank_ref = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
+                margin_planned = 10000.0  # Margem fixa de $10.000,00 por ordem (Exposição nocional de $500.000,00 em 50X)
 
                 quant_res = okx_universe_service.quantize_order_contracts(
                     symbol=sym,

@@ -33,9 +33,9 @@ async def get_unified_sandbox_state():
         scalp_trades = await database_service.get_sandbox_trades(active_only=True)
         swing_trades = await database_service.get_swing_trades(active_only=True)
         
-        # 2. Configuracoes de banca e margem
+        # 2. Configuracoes de banca e margem ($100k Institucional)
         from config import settings
-        BANCA_BASE = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+        BANCA_BASE = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         
         # 3. Contadores
         active_scalp = len(scalp_trades)
@@ -156,7 +156,7 @@ async def get_unified_sandbox_state():
             "protected_risk_slots": protected_count,
             "max_unprotected_slots": 2,
             "max_total_slots": 8,
-            "margin_per_order_usd": 1000.0,
+            "margin_per_order_usd": 10000.0,
             "target_floor_roi_pct": 300.0,
             "btc_macro_bias": btc_bias,
             # [V163] Delta Direcional e Transparência de Custos OKX
@@ -168,17 +168,17 @@ async def get_unified_sandbox_state():
             "delta_short_count": short_count,
             "delta_long_margin": round(long_margin, 2),
             "delta_short_margin": round(short_margin, 2),
-            # [V126-LOCK-IN] Telemetria do Protocolo Lock-In
+            # [V217-LOCK-IN-100K] Telemetria do Protocolo Lock-In ($100k)
             "lock_in_active": getattr(database_service, "lock_in_active", False),
-            "lock_in_trigger_balance": getattr(database_service, "lock_in_trigger_balance", 11000.0),
-            "lock_in_floor_balance": getattr(database_service, "lock_in_floor_balance", 10500.0),
+            "lock_in_trigger_balance": getattr(database_service, "lock_in_trigger_balance", 110000.0),
+            "lock_in_floor_balance": getattr(database_service, "lock_in_floor_balance", 105000.0),
             "lock_in_stop_percent": getattr(settings, "SANDBOX_LOCK_IN_STOP_PERCENT", 5.0),
-            # [V128-EQUITY-DEFENSE] Telemetria da Defesa Progressiva
+            # [V217-EQUITY-DEFENSE-100K] Telemetria da Defesa Progressiva
             "equity_defense_level": getattr(database_service, "equity_defense_level", 0),
             "equity_defense_stop_pct": getattr(database_service, "equity_defense_stop_pct", 0.0),
-            "equity_peak": round(getattr(database_service, "equity_peak", 10000.0), 2),
-            "equity_floor": round(getattr(database_service, "equity_floor", 10000.0), 2),
-            "consolidated_balance": round(getattr(database_service, "current_consolidated_balance", 10000.0), 2),
+            "equity_peak": round(getattr(database_service, "equity_peak", 100000.0), 2),
+            "equity_floor": round(getattr(database_service, "equity_floor", 85000.0), 2),
+            "consolidated_balance": round(getattr(database_service, "current_consolidated_balance", 100000.0), 2),
         }
         _last_unified_state_cache = res_dict
         _last_unified_state_ts = now
@@ -232,7 +232,7 @@ async def get_sandbox_stats():
         total_pnl_usd = 0.0
         # [V129] Banca consolidada dinâmica (Juros Compostos)
         from config import settings
-        BANCA = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 10000.0))
+        BANCA = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
         # [V119] Inicializa preventivamente as 3 estratégias para garantir telemetria consistente na UI
         strategy_stats = {
             "ALPHA SHIELD": {"total": 0, "wins": 0, "losses": 0, "pnl": 0.0, "pnl_usd": 0.0},
@@ -636,7 +636,7 @@ async def clear_sandbox():
         raise HTTPException(status_code=500, detail=f"Erro ao limpar sandbox: {str(e)}")
 
 
-@router.api_route("/reset-all", methods=["GET", "POST"], summary="Reseta integralmente a banca para $10.000, limpa histórico e posições ativas")
+@router.api_route("/reset-all", methods=["GET", "POST"], summary="Reseta integralmente a banca para $100.000, limpa histórico e posições ativas")
 async def reset_sandbox_all():
     try:
         from routes.system import reset_banca_endpoint
@@ -648,7 +648,7 @@ async def reset_sandbox_all():
             sandbox_service.active_trades.clear()
         return {
             "success": True,
-            "message": "Banca unificada resetada para $10,000.00 pristine. Histórico, defesas e posições limpos com sucesso.",
+            "message": "Banca unificada resetada para $100,000.00 pristine. Histórico, defesas e posições limpos com sucesso.",
             "data": sys_res
         }
     except Exception as e:

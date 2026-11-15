@@ -768,10 +768,10 @@
       <div class="exec-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #0ECB81; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">CONEXÃO OKX</span>
-            <span class="pill-badge pill-green" id="card-ping-badge" style="font-size: 8px;">12.8 MS</span>
+            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">MERCADO REAL (HI-FI)</span>
+            <span class="pill-badge pill-green" id="card-ping-badge" style="font-size: 8px;">FRICÇÃO ATIVA</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #0ECB81;" id="card-ping-val">SLIPPAGE ZERO</div>
+          <div style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 900; color: #0ECB81;" id="card-ping-val">SLIPPAGE & FUNDING 8H</div>
           <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Vazão contínua: <b id="card-ticks-val" style="color:#FFF;">227 ticks/s</b></div>
         </div>
 
@@ -789,8 +789,8 @@
             <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">EQUITY TOTAL</span>
             <span class="pill-badge pill-gold" style="font-size: 8px;">100% LÍQUIDO</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #FCD535;" id="card-equity-val">$17,437.61</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Lucro Líquido: <b id="card-realized-val" style="color:#0ECB81;">+$7,437.61 (+74.38%)</b></div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #FCD535;" id="card-equity-val">$100,000.00</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Lucro Líquido: <b id="card-realized-val" style="color:#0ECB81;">+$0.00 (+0.00%)</b></div>
         </div>
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #B388FF; padding: 10px 12px;">
@@ -798,8 +798,8 @@
             <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">PROTEÇÃO PATRIMONIAL</span>
             <span class="pill-badge" style="font-size: 8px; background:rgba(179,136,255,0.15); color:#B388FF; border:1px solid #B388FF;">NEVER GIVE BACK</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #B388FF;" id="card-floor-val">PISO $8,500.00</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Slots: <b id="card-slots-val" style="color:#FFF;">0 / 8 Ativos</b> (Max $2k)</div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #B388FF;" id="card-floor-val">PISO $85,000.00</div>
+          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Slots: <b id="card-slots-val" style="color:#FFF;">0 / 8 Ativos</b> (Max $20k)</div>
         </div>
       </div>
 
@@ -807,13 +807,13 @@
       <div class="single-chart-box">
         <div class="single-chart-header">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="color: var(--accent-gold); font-weight: 800; font-family: var(--font-mono); font-size: 9.5px;">EVOLUÇÃO CONTÍNUA DA BANCA ($10,000.00 BASE SOBERANA)</span>
+            <span style="color: var(--accent-gold); font-weight: 800; font-family: var(--font-mono); font-size: 9.5px;">EVOLUÇÃO CONTÍNUA DA BANCA ($100,000.00 BASE SOBERANA)</span>
             <span style="font-size: 8px; color: #848E9C; font-family: var(--font-mono);">[UPLOT 60 FPS]</span>
           </div>
           <div style="display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 8.5px;">
-            <span>PISO: <b style="color: #FCD535;" id="chart-floor-hud">$8,500.00</b></span>
+            <span>PISO: <b style="color: #FCD535;" id="chart-floor-hud">$85,000.00</b></span>
             <span style="color: #333;">|</span>
-            <span>EQUITY: <b id="chart-networth-hud" style="color: #0ECB81; font-weight: 800;">$17,437.61 USD</b></span>
+            <span>EQUITY: <b id="chart-networth-hud" style="color: #0ECB81; font-weight: 800;">$100,000.00 USD</b></span>
           </div>
         </div>
         <div id="chart-equity" class="uplot-frame"></div>
@@ -1015,8 +1015,8 @@
             auto: true,
             range: (u, min, max) => {
               if (min === max || min == null) {
-                const base = min || 17400.00;
-                return [Math.max(0, base - 1000), base + 1000];
+                const base = min || 100000.00;
+                return [Math.max(0, base - 5000), base + 5000];
               }
               const pad = Math.max(150, (max - min) * 0.15);
               return [Math.max(0, min - pad), max + pad];
@@ -1191,8 +1191,8 @@
           const eqVal = document.getElementById("card-equity-val");
           const realVal = document.getElementById("card-realized-val");
           const floorVal = document.getElementById("card-floor-val");
-          const nw = Number(rSummary.net_worth_usd || 17437.61);
-          const baseBal = Number(rSummary.base_balance_usd || 10000.0);
+          const nw = Number(rSummary.net_worth_usd || 100000.00);
+          const baseBal = Number(rSummary.base_balance_usd || 100000.0);
           const realPnl = Number(rSummary.realized_pnl_usd !== undefined ? rSummary.realized_pnl_usd : (nw - baseBal));
           const cFloor = Number(rSummary.circuit_breaker_floor || (baseBal * 0.85));
 

@@ -129,13 +129,13 @@ async def update_banca(payload: dict):
 
 @router.api_route("/banca/reset", methods=["GET", "POST"])
 async def reset_banca_endpoint():
-    """[V149-V153] Reseta de forma imediata e atômica a banca unificada do Sandbox e Cockpit para $10,000.00"""
+    """[V217] Reseta de forma imediata e atômica a banca unificada do Sandbox e Cockpit para $100,000.00 Institucional"""
     from services.database_service import database_service
     from config import settings
-    target_bal = float(getattr(settings, "OKX_SIMULATED_BALANCE", 10000.0))
+    target_bal = float(getattr(settings, "OKX_SIMULATED_BALANCE", 100000.0))
     report = []
     try:
-        # 1. Reset no SQLite (Slots, Moonbags, SandboxTrades, SandboxSwingTrades e Banca=$10000)
+        # 1. Reset no SQLite (Slots, Moonbags, SandboxTrades, SandboxSwingTrades e Banca=$100000)
         await database_service.reset_system_data()
         report.append(f"Banco SQLite zerado (Banca={target_bal:.2f}).")
 
