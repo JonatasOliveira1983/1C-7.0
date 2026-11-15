@@ -44,7 +44,7 @@ class TelemetryService:
         self._last_observed_ping = 24.5
         self._last_laya_cycle = 4.2
         self._last_laya_neural = 18.0
-        self._last_equity = 100023.16
+        self._last_equity = 17437.61
         self._last_floating = 0.0
         self._cached_slots: List[Dict[str, Any]] = []
         
@@ -61,7 +61,7 @@ class TelemetryService:
         start_ts = now - 300
         import random
         
-        cur_eq = 100023.16
+        cur_eq = 17437.61
         for i in range(300):
             t = start_ts + i
             ping = max(15.0, min(80.0, 24.0 + random.uniform(-4.0, 8.0) + (15.0 if i % 60 == 0 else 0.0)))
@@ -350,8 +350,16 @@ class TelemetryService:
         elapsed_since_scan = round(max(0.0, time.time() - last_scan_ts), 1)
         next_scan_sec = max(0.0, round(30.0 - (elapsed_since_scan % 30.0), 1))
 
-        base_bal = 100000.0
-        realized_pnl = round(self._last_equity - base_bal, 2)
+        base_bal = 10000.0
+        try:
+            from services.sandbox_service import sandbox_service
+            real_sb = getattr(sandbox_service, "base_balance_cache", None)
+            if real_sb and float(real_sb) > 0:
+                realized_pnl = round(float(real_sb) - base_bal, 2)
+            else:
+                realized_pnl = round(self._last_equity - base_bal, 2)
+        except Exception:
+            realized_pnl = round(self._last_equity - base_bal, 2)
 
         # Estratégia Quantitativa Ativa da Laya
         quant_strat = "STRAT_TRIPLE_BARRIER_50X" if laya_adx >= 25.0 else "STRAT_COINT_ZSCORE_50X"
@@ -389,8 +397,8 @@ class TelemetryService:
             "btc_info": btc_info,
             "base_balance_usd": base_bal,
             "realized_pnl_usd": realized_pnl,
-            "max_margin_usd": 8000.0,
-            "circuit_breaker_floor": 85000.0,
+            "max_margin_usd": 2000.0,
+            "circuit_breaker_floor": 8500.0,
             "net_worth_usd": self._last_equity,
             "floating_pnl_usd": self._last_floating,
             "memory_rss_mb": mem_mb,
