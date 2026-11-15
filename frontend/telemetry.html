@@ -273,9 +273,9 @@
     }
 
     .single-chart-box {
-      flex: 0 0 115px;
-      height: 115px;
-      max-height: 115px;
+      flex: 0 0 140px;
+      height: 140px;
+      max-height: 140px;
       display: flex;
       flex-direction: column;
       background: #06080C;
@@ -376,9 +376,7 @@
       display: flex;
       flex-direction: column;
       gap: 5px;
-      flex: 1 1 auto;
-      min-height: 140px;
-      max-height: 230px;
+      flex: 0 0 auto;
       overflow: hidden;
     }
 
@@ -400,9 +398,7 @@
       grid-auto-rows: min-content;
       gap: 5px;
       overflow-y: auto;
-      flex: 1 1 auto;
-      min-height: 0;
-      max-height: 195px;
+      max-height: 310px;
       padding-right: 2px;
       align-content: start;
     }
@@ -411,14 +407,14 @@
       background: #0B0E14;
       border: 1px solid #1B232D;
       border-radius: 4px;
-      padding: 5px 7px;
+      padding: 4px 6px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
       font-family: var(--font-mono);
       transition: all 0.2s ease;
       box-sizing: border-box;
-      min-height: 58px;
+      min-height: 52px;
     }
 
     .titan-chip:hover {
@@ -469,10 +465,8 @@
       gap: 4px;
       font-family: var(--font-mono);
       font-size: 8.5px;
-      height: 95px;
-      min-height: 95px;
-      max-height: 95px;
-      flex-shrink: 0;
+      flex: 1 1 160px;
+      min-height: 120px;
       overflow: hidden;
       box-sizing: border-box;
     }
@@ -484,10 +478,6 @@
       white-space: normal;
       word-break: break-word;
       line-height: 1.35;
-    }
-      text-overflow: ellipsis;
-      overflow: hidden;
-      line-height: 1.25;
     }
 
     .terminal-line .t-time {
@@ -1015,7 +1005,7 @@
 
       const optsEq = {
         width: dimEq.w,
-        height: Math.max(90, Math.min(120, dimEq.h - 18)),
+        height: Math.max(90, Math.min(135, dimEq.h - 8)),
         cursor: {
           drag: { x: true, y: false }
         },
@@ -1072,7 +1062,7 @@
         _resizeTimer = setTimeout(() => {
           if (elEq && _uPlotEquity) {
             const d = getFrameDimensions(elEq);
-            _uPlotEquity.setSize({ width: d.w, height: Math.max(340, d.h) });
+            _uPlotEquity.setSize({ width: d.w, height: Math.max(90, Math.min(135, d.h - 8)) });
           }
         }, 60);
       };
@@ -1412,7 +1402,82 @@
       if (badge) badge.textContent = `${slots.length} ORDENS`;
 
       if (slots.length === 0) {
-        container.innerHTML = `<div style="color:#555; text-align:center; padding:25px 0; font-size:9px;">MESA LIVRE • 0 ORDENS EM CUSTÓDIA</div>`;
+        container.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:8px; padding:4px 2px; font-family:var(--font-mono);">
+            <!-- Status Standby -->
+            <div style="background:#080C12; border:1px solid #1B232D; border-left:3px solid #00F0FF; border-radius:3px; padding:7px 9px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                <span style="color:#00F0FF; font-weight:800; font-size:9px; letter-spacing:0.04em;">MESA LIVRE • PRONTIDÃO TÁTICA</span>
+                <span class="pill-badge pill-cyan" style="font-size:7px;">STANDBY 50X</span>
+              </div>
+              <div style="font-size:8px; color:#848E9C; line-height:1.3;">
+                Aguardando confluência quantitativa para acionamento sniper do Lote 1 da frota.
+              </div>
+            </div>
+
+            <!-- Grade Visual da Frota (8 Slots) -->
+            <div style="background:#06080C; border:1px solid #141A22; border-radius:3px; padding:7px 9px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:8px; color:#848E9C; border-bottom:1px solid #141A22; padding-bottom:3px;">
+                <span style="font-weight:700; color:#FFF;">DISPONIBILIDADE DA FROTA</span>
+                <span style="color:var(--accent-gold); font-weight:800;">REGRA 2+2+2+2</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:4px; font-size:7.5px;">
+                <div style="background:#0B1017; border:1px dashed #0ECB81; border-radius:2px; padding:3px 5px;">
+                  <div style="color:#0ECB81; font-weight:800;">SLOT 1 • LIVRE</div>
+                  <div style="color:#848E9C;">Risco Inicial ($1k)</div>
+                </div>
+                <div style="background:#0B1017; border:1px dashed #0ECB81; border-radius:2px; padding:3px 5px;">
+                  <div style="color:#0ECB81; font-weight:800;">SLOT 2 • LIVRE</div>
+                  <div style="color:#848E9C;">Risco Inicial ($1k)</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 3 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 4 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 5 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 6 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 7 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+                <div style="background:#090B0F; border:1px solid #1B232D; border-radius:2px; padding:3px 5px; opacity:0.65;">
+                  <div style="color:#848E9C; font-weight:700;">SLOT 8 • RESERVA</div>
+                  <div style="color:#555;">Expansão Breakeven</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Parâmetros de Liquidez e Risco -->
+            <div style="background:#080B10; border:1px solid #1B232D; border-radius:3px; padding:7px 9px; display:flex; flex-direction:column; gap:3px; font-size:7.5px;">
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:#848E9C;">MARGEM COMPROMETIDA:</span>
+                <span style="color:#FFF; font-weight:700;">$0.00 / $2,000.00 (0%)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:#848E9C;">COLATERAL SOBERANO:</span>
+                <span style="color:#0ECB81; font-weight:800;">$17,437.61 (100% Livre)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:#848E9C;">PISO NUNCA RETROCEDE:</span>
+                <span style="color:#B388FF; font-weight:800;">$8,500.00 BLINDADO</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:#848E9C;">FAROL MACRO BITCOIN:</span>
+                <span style="color:#F6465D; font-weight:800;">BEAR 2H • COMPRAS VETADAS</span>
+              </div>
+            </div>
+          </div>
+        `;
         return;
       }
 
@@ -1464,17 +1529,28 @@
         const dir = (t.direction || 'HOLD').toUpperCase();
         const cExp = parseFloat(t['1c_exp'] || 0);
         const botOn = t.bot_ignition || (cExp >= 70);
+        const qualifies = t.qualifies !== false;
+        const rationale = t.rationale || '';
+        const isVetoed = !qualifies || rationale.toUpperCase().includes('VETO');
 
         let postureBadge = `<span class="pill-badge pill-gold">MONITOR</span>`;
-        if (dir === 'LONG' || dir === 'BUY') postureBadge = `<span class="pill-badge pill-green">GATILHO LONG</span>`;
-        else if (dir === 'SHORT' || dir === 'SELL') postureBadge = `<span class="pill-badge pill-red">GATILHO SHORT</span>`;
-        else if (botOn) postureBadge = `<span class="pill-badge pill-cyan">IGNIÇÃO</span>`;
+        if (dir === 'LONG' || dir === 'BUY') {
+          postureBadge = isVetoed
+            ? `<span class="pill-badge" style="background:rgba(132,142,156,0.12); border:1px solid rgba(132,142,156,0.3); color:#848E9C;">VETO BTC</span>`
+            : `<span class="pill-badge pill-green">GATILHO LONG</span>`;
+        } else if (dir === 'SHORT' || dir === 'SELL') {
+          postureBadge = isVetoed
+            ? `<span class="pill-badge pill-red" style="background:rgba(246,70,93,0.12); border:1px solid rgba(246,70,93,0.35); color:#F6465D;">VIGÍLIA SHORT</span>`
+            : `<span class="pill-badge pill-red">GATILHO SHORT</span>`;
+        } else if (botOn) {
+          postureBadge = `<span class="pill-badge pill-cyan">IGNIÇÃO</span>`;
+        }
 
         return `
           <tr>
             <td style="font-weight:700; color:#fff;"><span style="color:#848E9C; font-size:8px; margin-right:3px;">#${idx + 1}</span>${sym}</td>
             <td>${postureBadge}</td>
-            <td>${cExp > 0 ? cExp.toFixed(0) : '--'}</td>
+            <td style="font-weight:700; color:${cExp >= 70 ? '#0ECB81' : '#EAECEF'};">${cExp > 0 ? cExp.toFixed(0) : '--'}</td>
             <td><span style="color:${botOn ? 'var(--accent-green)' : 'var(--text-muted)'}; font-weight:700;">${botOn ? 'ON' : 'OFF'}</span></td>
           </tr>
         `;
