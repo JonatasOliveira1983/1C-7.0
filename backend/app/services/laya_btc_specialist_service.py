@@ -206,6 +206,55 @@ class LayaBTCSpecialistService:
         self._last_spot_fetch = now
         return self._last_spot_vs_swap
 
+    def get_btc_macro_key_levels(self, btc_price: float, klines_h1: list = None) -> Dict[str, Any]:
+        """
+        [V219-BTC-KEYZONES]
+        Mapeia os níveis estruturais e psicológicos de Suporte e Resistência do Bitcoin:
+        - Zonas redondas de liquidez institucional ($65.000, $62.500, $60.000, $67.500, $70.000).
+        - Detecta proximidade de Suporte Maior (<= 1.25% de distância).
+        - Detecta proximidade de Resistência Maior (<= 1.25% de distância).
+        """
+        if btc_price <= 0:
+            return {"in_major_support_zone": False, "major_support": 0.0, "dist_support_pct": 99.0, "major_resistance": 0.0, "dist_res_pct": 99.0}
+
+        grid_step = 2500.0
+        supp_grid = float(int(btc_price // grid_step) * grid_step)
+        res_grid = supp_grid + grid_step
+
+        recent_lows = []
+        recent_highs = []
+        if klines_h1 and len(klines_h1) >= 12:
+            try:
+                for c in klines_h1[-48:]:
+                    if isinstance(c, (list, tuple)) and len(c) >= 5:
+                        recent_lows.append(float(c[3]))
+                        recent_highs.append(float(c[2]))
+            except Exception:
+                pass
+
+        cand_low = min(recent_lows) if recent_lows else supp_grid
+        major_support = supp_grid if abs(btc_price - supp_grid) < abs(btc_price - cand_low) else cand_low
+        major_resistance = res_grid
+
+        dist_support_pct = ((btc_price - major_support) / btc_price) * 100.0 if btc_price > 0 else 99.0
+        dist_res_pct = ((major_resistance - btc_price) / btc_price) * 100.0 if btc_price > 0 else 99.0
+
+        # Se o BTC estiver a menos de 1.25% do suporte (ex: 65k a 65.8k), está em ZONA DE SUPORTE MAIOR
+        in_major_support = (0.0 <= dist_support_pct <= 1.25)
+        in_major_res = (0.0 <= dist_res_pct <= 1.25)
+
+        return {
+            "btc_price": btc_price,
+            "major_support": major_support,
+            "major_resistance": major_resistance,
+            "dist_support_pct": round(dist_support_pct, 2),
+            "dist_res_pct": round(dist_res_pct, 2),
+            "in_major_support_zone": in_major_support,
+            "in_major_resistance_zone": in_major_res,
+            "support_label": f"${major_support:,.0f}",
+            "resistance_label": f"${major_resistance:,.0f}"
+        }
+
     def classify_altcoin_climate(
         self,
         btc_change_24h: float = 0.0,
@@ -227,6 +276,19 @@ class LayaBTCSpecialistService:
         if not btc_trend_bias:
             btc_trend_bias = btc_change_24h
         # 1. PÂNICO / SANGRIA: Bitcoin em queda ou sangria de mercado
+        # [V219-BTC-KEYZONES-SUPPORT-GUARD]: Se BTC estiver em zona de suporte macro (ex: $65.000),
+        # proíbe "vender o fundo" de altcoins no rompimento seco, pois há probabilidade massiva de repique institucional!
+        is_at_support = kwargs.get("in_major_support_zone", False)
+        support_lvl = kwargs.get("support_level", 0.0)
+        if is_at_support and support_lvl > 0:
+            return {
+                "climate": "BTC_AT_MAJOR_SUPPORT",
+                "altcoin_long_allowed": False,  # Ainda vetado comprar contra a maré sem reversão 2H
+                "altcoin_short_allowed": False,  # VETO VENDER FUNDO: proíbe novos shorts colados no suporte
+                "focus": "AWAIT_LIQUIDITY_SWEEP",
+                "rationale": f"VETO VENDER FUNDO: BTC em teste de Suporte Institucional (${support_lvl:,.0f}). Proibido abrir shorts em mínimas. Aguardar repique e sweep de liquidez nas médias."
+            }
+
         # [V169-FAROL-MACRO]: Se BTC estiver em queda (< -0.4% ou 24h < -1.0%), altcoins sangram dobrado.
         # Veto total e inegociável de ordens LONG em altcoins.
         if btc_trend_bias < -0.4 or btc_change_24h < -1.0 or (btc_dominance >= 58.0 and btc_trend_bias < 0.0):
@@ -293,17 +355,22 @@ class LayaBTCSpecialistService:
         btc_dom = dom_data.get("dominance", 58.0)
         dom_trend = dom_data.get("trend", "STABLE")
         
+        effective_btc_px = btc_price or spot_data.get("swap_price", 0.0)
+        key_levels = self.get_btc_macro_key_levels(effective_btc_px)
+
         climate_data = self.classify_altcoin_climate(
             btc_change_24h=btc_change_24h,
             btc_trend_bias=btc_trend_bias,
             btc_dominance=btc_dom,
-            dominance_trend=dom_trend
+            dominance_trend=dom_trend,
+            in_major_support_zone=key_levels.get("in_major_support_zone", False),
+            support_level=key_levels.get("major_support", 0.0)
         )
 
         basis_pct = spot_data.get("basis_spread_pct", 0.0)
 
         return {
-            "btc_price": btc_price or spot_data.get("swap_price", 0.0),
+            "btc_price": effective_btc_px,
             "btc_change_24h": btc_change_24h,
             "btc_trend_bias": btc_trend_bias,
             "btc_dominance": btc_dom,
@@ -315,6 +382,11 @@ class LayaBTCSpecialistService:
             "basis_spread_pct": basis_pct,
             "spot_vs_futures_spread_pct": basis_pct,
             "lead_lag_signal": spot_data.get("lead_lag_signal", "SPOT_FUTURES_PARITY"),
+            "major_support": key_levels.get("major_support", 0.0),
+            "major_resistance": key_levels.get("major_resistance", 0.0),
+            "dist_support_pct": key_levels.get("dist_support_pct", 99.0),
+            "in_major_support_zone": key_levels.get("in_major_support_zone", False),
+            "support_label": key_levels.get("support_label", ""),
             "altcoin_climate": climate_data["climate"],
             "altcoin_long_allowed": climate_data["altcoin_long_allowed"],
             "altcoin_short_allowed": climate_data["altcoin_short_allowed"],

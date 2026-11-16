@@ -669,52 +669,45 @@ class LayaRouterService:
             is_green_candle = c_close > c_open
             body_ratio = abs(c_close - c_open) / candle_range
 
-            # --- IDENTIFICACAO DO GRAU DE ENTRADA: GRAU 2 (TESTE/SWEEP SMA21) VS GRAU 1 (REJEICAO SMA8) ---
+            # --- IDENTIFICACAO DO GRAU DE ENTRADA: GRAU 2 (LIQUIDITY SNATCH SMA21) VS GRAU 1 (REJEICAO SMA8) ---
             reached_sma21 = recent_high >= (ref_sma21 * 0.998) or (sma21 > 0 and recent_high >= (sma21 * 0.998))
 
             if reached_sma21:
-                # O preco subiu alem da SMA8 e testou a Linha Amarela (SMA21) buscando liquidez de stops retail
-                # Exaustao obrigatoria na SMA21: pavio superior expressivo OU fechamento em queda OU devolucao abaixo da SMA21
-                sma21_exhaustion = upper_wick_ratio >= 0.15 or (not is_green_candle) or c_close <= (ref_sma21 * 1.002)
-                if not sma21_exhaustion and is_green_candle and body_ratio > 0.45:
+                # [V219-LIQUIDITY-SNATCH-SWEEP-EXHAUSTION]:
+                # O preço subiu além da SMA8 e varreu os stops retail acima da Linha Amarela (SMA21).
+                # Exige rejeição e exaustão comprovadas: pavio superior expressivo (>= 28%) ou devolução bear
+                sma21_exhaustion = upper_wick_ratio >= 0.28 or (not is_green_candle and upper_wick_ratio >= 0.18) or (c_close <= ref_sma21 and upper_wick_ratio >= 0.20)
+                if not sma21_exhaustion:
                     return {
                         "has_pullback_setup": False,
                         "score_boost": 0,
-                        "reason": f"VETO_SMART_MONEY_EXPANSAO: Vela verde testando SMA21 ({ref_sma21:.4f}) com corpo forte ({body_ratio*100:.0f}%). Aguardando pavio de exaustao na Linha Amarela.",
+                        "reason": f"VETO_AGUARDANDO_SWEEP_EXAUSTAO: Preco testando SMA21 ({ref_sma21:.4f}) sem pavio de rejeicao suficiente ({upper_wick_ratio*100:.0f}% < 28%). Aguardando fim da cacada de stops.",
                         "pullback_type": "AWAITING_SMA21_EXHAUSTION"
                     }
                 
-                tier_grade = "GRAU 2 (EXAUSTAO SMA21)"
+                tier_grade = "GRAU 2 (LIQUIDITY SNATCH SMA21)"
                 tier_type = "SNIPER_SMA21_EXHAUSTION_SHORT"
-                # Stop loss blindado ACIMA do topo do sweep na SMA21
+                # Stop loss sniper blindado ACIMA do topo do sweep na SMA21 (folga reduzida de 1.0% a 1.2%, sem risco de calor)
                 major_res = max(c_high, ref_sma21, sma21)
-                sl_price = round(max(c_high * 1.008, major_res * 1.012, c_close * 1.018), 4)
-                tier_boost = 25
+                sl_price = round(max(c_high * 1.004, major_res * 1.006, c_close * 1.012), 4)
+                tier_boost = 30
             else:
                 # O preco tocou apenas na Linha Branca (SMA8).
-                # REGRA CRITICA SMART MONEY: Se vela esta subindo com forca furando a SMA8 rumo a SMA21, VETAR entrada na SMA8!
-                if is_green_candle and body_ratio > 0.40 and upper_wick_ratio < 0.30 and c_close > (sma8 * 1.0005):
+                # [V219-PATIENCIA-INSTITUCIONAL]: Se vela demonstrar qualquer ímpeto ou se o pavio for modesto (<35%),
+                # VETA a entrada na SMA8 para não tomar calor de repique. Aguarda a varredura completa na SMA21!
+                if is_green_candle or body_ratio > 0.30 or upper_wick_ratio < 0.35:
                     return {
                         "has_pullback_setup": False,
                         "score_boost": 0,
-                        "reason": f"VETO_SMART_MONEY_REPIQUE: Preco furando SMA8 ({sma8:.4f}) com forca em direcao a SMA21 ({ref_sma21:.4f}). Aguardando topo na Linha Amarela.",
-                        "pullback_type": "AWAITING_SMA21_REPIQUE"
-                    }
-                
-                # Se vela de alta pura sem rejeicao (expansao)
-                if is_green_candle and body_ratio > 0.50 and upper_wick_ratio < 0.25:
-                    return {
-                        "has_pullback_setup": False,
-                        "score_boost": 0,
-                        "reason": f"VETO_CANDLE_FORCA_COMPRADORA: Vela de alta com corpo dominante ({body_ratio*100:.0f}%) e sem pavio superior ({upper_wick_ratio*100:.0f}%). Proibido vender contra expansao verde.",
-                        "pullback_type": "BULL_BODY_IMPULSE"
+                        "reason": f"VETO_AGUARDANDO_VARREDURA_SMA21: Repique na SMA8 ({sma8:.4f}) com potencial de estender ate SMA21 ({ref_sma21:.4f}). Aguardando caçada aos stops retail na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_SWEEP"
                     }
 
                 tier_grade = "GRAU 1 (SNIPER SMA8)"
                 tier_type = "SNIPER_RETEST_SHORT"
-                # Stop loss protegido e posicionado ACIMA da Linha Amarela (SMA21) para nao ser pego no sweep
+                # Stop loss posicionado ACIMA da Linha Amarela (SMA21)
                 major_res = max(ref_sma21, sma21, sma8)
-                sl_price = round(max(c_high * 1.008, major_res * 1.012, c_close * 1.020), 4)
+                sl_price = round(max(c_high * 1.006, major_res * 1.008, c_close * 1.015), 4)
                 tier_boost = 18
 
             stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.015
@@ -814,46 +807,38 @@ class LayaRouterService:
 
             if reached_sma21:
                 # O preco caiu alem da SMA8 e testou a Linha Amarela (SMA21) buscando liquidez de stops retail
-                sma21_absorption = lower_wick_ratio >= 0.15 or (not is_red_candle) or c_close >= (ref_sma21 * 0.998)
-                if not sma21_absorption and is_red_candle and body_ratio > 0.45:
+                # [V219-LIQUIDITY-SNATCH-SWEEP-ABSORPTION]:
+                sma21_absorption = lower_wick_ratio >= 0.28 or (not is_red_candle and lower_wick_ratio >= 0.18) or (c_close >= ref_sma21 and lower_wick_ratio >= 0.20)
+                if not sma21_absorption:
                     return {
                         "has_pullback_setup": False,
                         "score_boost": 0,
-                        "reason": f"VETO_SMART_MONEY_DUMP: Vela vermelha testando SMA21 ({ref_sma21:.4f}) com corpo forte ({body_ratio*100:.0f}%). Aguardando pavio de absorcao na Linha Amarela.",
+                        "reason": f"VETO_AGUARDANDO_SWEEP_ABSORCAO: Preco testando SMA21 ({ref_sma21:.4f}) sem pavio de absorcao suficiente ({lower_wick_ratio*100:.0f}% < 28%). Aguardando fim da cacada de stops retail.",
                         "pullback_type": "AWAITING_SMA21_ABSORPTION"
                     }
 
-                tier_grade = "GRAU 2 (ABSORCAO SMA21)"
+                tier_grade = "GRAU 2 (LIQUIDITY SNATCH SMA21)"
                 tier_type = "SNIPER_SMA21_EXHAUSTION_LONG"
-                # Stop loss blindado ABAIXO do fundo do sweep na SMA21
+                # Stop loss sniper blindado ABAIXO do fundo do sweep na SMA21
                 minor_sup = min(c_low, ref_sma21, sma21)
-                sl_price = round(min(c_low * 0.992, minor_sup * 0.988, c_close * 0.982), 4)
-                tier_boost = 25
+                sl_price = round(min(c_low * 0.996, minor_sup * 0.994, c_close * 0.988), 4)
+                tier_boost = 30
             else:
                 # O preco tocou apenas na Linha Branca (SMA8).
-                # REGRA CRITICA SMART MONEY: Se vela esta caindo com forca furando a SMA8 rumo a SMA21, VETAR entrada na SMA8!
-                if is_red_candle and body_ratio > 0.40 and lower_wick_ratio < 0.30 and c_close < (sma8 * 0.9995):
+                # [V219-PATIENCIA-INSTITUCIONAL]: Se vela demonstrar queda forte ou pavio modesto (<35%), aguarda o sweep na SMA21!
+                if is_red_candle or body_ratio > 0.30 or lower_wick_ratio < 0.35:
                     return {
                         "has_pullback_setup": False,
                         "score_boost": 0,
-                        "reason": f"VETO_SMART_MONEY_REPIQUE: Preco furando SMA8 ({sma8:.4f}) com forca em direcao a SMA21 ({ref_sma21:.4f}). Aguardando fundo na Linha Amarela.",
-                        "pullback_type": "AWAITING_SMA21_REPIQUE"
-                    }
-
-                # Se vela de baixa pura sem rejeicao (expansao vendedora)
-                if is_red_candle and body_ratio > 0.50 and lower_wick_ratio < 0.25:
-                    return {
-                        "has_pullback_setup": False,
-                        "score_boost": 0,
-                        "reason": f"VETO_CANDLE_FORCA_VENDEDORA: Vela de baixa com corpo dominante ({body_ratio*100:.0f}%) e sem pavio inferior ({lower_wick_ratio*100:.0f}%).",
-                        "pullback_type": "BEAR_BODY_IMPULSE"
+                        "reason": f"VETO_AGUARDANDO_VARREDURA_SMA21: Recuo na SMA8 ({sma8:.4f}) com potencial de estender ate SMA21 ({ref_sma21:.4f}). Aguardando caçada aos stops retail na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_SWEEP"
                     }
 
                 tier_grade = "GRAU 1 (SNIPER SMA8)"
                 tier_type = "SNIPER_RETEST_LONG"
-                # Stop loss protegido e posicionado ABAIXO da Linha Amarela (SMA21)
+                # Stop loss posicionado ABAIXO da Linha Amarela (SMA21)
                 minor_sup = min(ref_sma21, sma21, sma8)
-                sl_price = round(min(c_low * 0.992, minor_sup * 0.988, c_close * 0.980), 4)
+                sl_price = round(min(c_low * 0.994, minor_sup * 0.992, c_close * 0.985), 4)
                 tier_boost = 18
 
             stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.015
@@ -3417,9 +3402,14 @@ class LayaRouterService:
         if (btc_trend_bias < -0.3 or (btc_sma_info.get("sma8", 0) < btc_sma_info.get("sma21", 0) and btc_sma_info.get("sma21", 0) > 0)):
             btc_macro_dir = "BEAR"
 
+        btc_supp_lbl = btc_intel.get("support_label", "$65,000")
+        btc_supp_dist = btc_intel.get("dist_support_pct", 0.0)
+        self._btc_in_support_zone = btc_intel.get("in_major_support_zone", False)
+        self._btc_major_support = btc_intel.get("major_support", 0.0)
+
         self.log_thought(
             "BTC-ORACLE",
-            f"Farol BTC: ${btc_px:,.0f} ({btc_chg:+.2f}%) | BTC.D: {btcd_val:.2f}% | Spread Spot x Futuros: {spread_val:+.3f}% ({lead_lag_tag}) | Clima Altcoins: {climate_tag}",
+            f"Farol BTC: ${btc_px:,.0f} ({btc_chg:+.2f}%) | Suporte Macro: {btc_supp_lbl} ({btc_supp_dist:.1f}% dist) | BTC.D: {btcd_val:.2f}% | Spread Spot x Futuros: {spread_val:+.3f}% ({lead_lag_tag}) | Clima: {climate_tag}",
             action="ORACULO",
             confidence=96
         )
@@ -3719,21 +3709,32 @@ class LayaRouterService:
             if regime_2h["regime"] == "SHORT_ONLY":
                 pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
                 if pullback_30m["has_pullback_setup"]:
-                    strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
-                    direction = "SHORT"
-                    multi_eval["qualifies"] = True
-                    multi_eval["strategy"] = strat_name
-                    multi_eval["direction"] = direction
-                    score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                    stop_loss = pullback_30m.get("stop_loss", round(price * 1.008, 4))
-                    target = pullback_30m.get("target", round(price * 0.940, 4))
-                    stop_dist = abs(stop_loss - price) / price if price > 0 else 0.008
-                    target_dist = abs(price - target) / price if price > 0 else 0.035
-                    multi_eval["stop_loss"] = stop_loss
-                    multi_eval["target"] = target
-                    multi_eval["stop_dist"] = stop_dist
-                    multi_eval["target_dist"] = target_dist
-                    rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
+                    # [V219-BTC-KEYZONES-SUPPORT-GUARD]:
+                    # Se o Bitcoin estiver colado em suporte institucional maior (ex: $65.000),
+                    # entradas em SHORT exigem OBRIGATORIAMENTE o Grau 2 (Liquidity Snatch / Sweep na SMA21).
+                    # Proíbe terminantemente vendas no Grau 1 (SMA8) para nunca vender fundo!
+                    is_btc_supp = getattr(self, "_btc_in_support_zone", False)
+                    is_grau_2 = (pullback_30m.get("pullback_type") == "SNIPER_SMA21_EXHAUSTION_SHORT")
+                    if is_btc_supp and not is_grau_2:
+                        multi_eval["qualifies"] = False
+                        supp_val = getattr(self, "_btc_major_support", 65000.0)
+                        rationale = f"VETO VENDER FUNDO (SUPORTE BTC ${supp_val:,.0f}): Repique na SMA8 insuficiente. Exigido Sweep completo na Linha Amarela (SMA21) enquanto BTC estiver em suporte."
+                    else:
+                        strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                        direction = "SHORT"
+                        multi_eval["qualifies"] = True
+                        multi_eval["strategy"] = strat_name
+                        multi_eval["direction"] = direction
+                        score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                        stop_loss = pullback_30m.get("stop_loss", round(price * 1.008, 4))
+                        target = pullback_30m.get("target", round(price * 0.940, 4))
+                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.008
+                        target_dist = abs(price - target) / price if price > 0 else 0.035
+                        multi_eval["stop_loss"] = stop_loss
+                        multi_eval["target"] = target
+                        multi_eval["stop_dist"] = stop_dist
+                        multi_eval["target_dist"] = target_dist
+                        rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {pullback_30m.get('reason')}"
                 else:
                     # Se o 2H e de baixa mas o preco esta esticado no fundo (sem repique), VETA SHORT e VETA LONG!
                     multi_eval["qualifies"] = False
