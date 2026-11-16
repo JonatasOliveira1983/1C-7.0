@@ -807,7 +807,7 @@ async def simulate_real_order(payload: SimulateOrderPayload):
             "phase": "EXECUCAO",
             "active_level": "INICIAL",
             "history": [
-                f"Laya autorizou entrada {direction} em ${entry_price} com SL em ${stop_loss} e TP em ${target} (Margem: ${payload.margin:.2f} | 15X Isolada)"
+                f"Titan Engine executou entrada {direction} em ${entry_price} com SL em ${stop_loss} e TP em ${target} (Margem: ${payload.margin:.2f} | 50X Cruzada)"
             ]
         },
         "contract_meta": {

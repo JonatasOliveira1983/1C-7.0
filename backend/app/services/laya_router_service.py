@@ -3124,7 +3124,7 @@ class LayaRouterService:
             total_fees = round(fee_open + fee_close + slippage_usd, 2)
 
             init_stop_roi = round(proj_service.calculate_roi(p, stop_loss, direction, leverage), 2)
-            trade_id = f"laya_{int(time.time() * 1000)}"
+            trade_id = f"titan_{int(time.time() * 1000)}"
 
             trade_data = {
                 "id": trade_id,
@@ -3146,7 +3146,7 @@ class LayaRouterService:
                     "stop_roi": init_stop_roi,
                     "breakeven_trigger_roi": 16.0,
                     "history": [
-                        f"[SWEEP & FLIP] Laya virou a mão para {direction} em {clean_sym} a ${p:.4f} (Stop: ${stop_loss:.4f} / {init_stop_roi:.1f}% ROI, Alvo: ${target:.4f}) com score {score}%."
+                        f"[SWEEP & FLIP] Titan Engine executou reversão para {direction} em {clean_sym} a ${p:.4f} (Stop: ${stop_loss:.4f} / {init_stop_roi:.1f}% ROI, Alvo: ${target:.4f}) com validação score {score}%."
                     ]
                 },
                 "contract_meta": {
@@ -4631,7 +4631,7 @@ class LayaRouterService:
                 be_trigger_roi = 10.0
 
                 decision_label = f"BUY ({chosen['score']}%)" if d == "LONG" else f"SELL ({chosen['score']}%)"
-                trade_id = f"laya_{int(time.time() * 1000)}"
+                trade_id = f"titan_{int(time.time() * 1000)}"
 
                 trade_data = {
                     "id": trade_id,
@@ -4653,7 +4653,7 @@ class LayaRouterService:
                         "stop_roi": init_stop_roi,
                         "breakeven_trigger_roi": be_trigger_roi,
                         "history": [
-                            f"Laya autorizou entrada {strat} {d} em {clean_sym} a ${p:.4f} (Alvo: ${target:.4f}, Stop Estrutural: ${stop_loss:.4f} / {init_stop_roi:.1f}% ROI) com score {chosen['score']}%."
+                            f"Titan Engine executou entrada {strat} {d} em {clean_sym} a ${p:.4f} (Alvo: ${target:.4f}, Stop Estrutural: ${stop_loss:.4f} / {init_stop_roi:.1f}% ROI) com validação de score {chosen['score']}%."
                         ]
                     },
                     "contract_meta": {

@@ -2404,11 +2404,11 @@
           } catch(e){}
         }
 
-        // 3.5 Linha de GATILHO RISCO ZERO (+35.0% ROI / Breakeven Protetivo Taxas V212)
+        // 3.5 Linha de GATILHO RISCO ZERO (+45.0% ROI / Breakeven Protetivo Taxas V218)
         if (!isRiskFree && !isProfitLocked && ne > 0) {
           try {
             const lev = (slotObj && slotObj.leverage) ? Number(slotObj.leverage) : 50;
-            const bePct = 35.0 / (lev * 100);
+            const bePct = 45.0 / (lev * 100);
             const rzPrice = isLong ? Number((ne * (1 + bePct)).toFixed(6)) : Number((ne * (1 - bePct)).toFixed(6));
             const rzLine = series.createPriceLine({
               price: rzPrice,
@@ -2416,7 +2416,7 @@
               lineWidth: 2,
               lineStyle: LightweightCharts.LineStyle.Dashed,
               axisLabelVisible: true,
-              title: `RISCO ZERO (+35% ROI) $${formatPriceSmart(rzPrice)}`
+              title: `RISCO ZERO (+45% ROI) $${formatPriceSmart(rzPrice)}`
             });
             priceLinesList[i].push(rzLine);
           } catch(e){}
@@ -3968,7 +3968,7 @@
                     <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 3px; background: ${direction === 'LONG' ? 'rgba(14,203,129,0.22)' : 'rgba(246,70,93,0.22)'}; border: 1px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; color: ${direction === 'LONG' ? '#0ECB81' : '#F6465D'};">
                       ${direction === 'LONG' ? '▲ LONG' : '▼ SHORT'} ${t.contract_meta?.leverage || 15}X
                     </span>
-                    <span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">• ${t.strategy || 'AUTO'}</span>
+                    <span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">• ${(t.strategy || 'TITAN_RADAR').replace(/^LAYA_/, 'TITAN_')}</span>
                   </div>
                 </div>
               </div>
@@ -4050,19 +4050,24 @@
         durationStr = `${mins}m ${secs}s`;
       }
 
-      // Laya Rationale & System 1
+      // Titan Engine Execution & Laya System 1 Cognition
       const layaDecision = meta.laya_decision || (isLong ? 'BUY (84% Convicção)' : 'SELL (79% Convicção)');
       const flowRegime = meta.flow_regime || 'TENDÊNCIA (ADX 28.5) — Order Flow Institucional Favorável';
       const whaleDoctrine = meta.whale_doctrine || 'INSTITUTIONAL_LIQUIDITY_HUNTER';
       const lsr = meta.lsr !== undefined ? meta.lsr : (isLong ? '0.78 (Absorção Short)' : '1.42 (Exaustão Long)');
       const oiDelta = meta.oi_delta_pct !== undefined ? (meta.oi_delta_pct > 0 ? '+' : '') + meta.oi_delta_pct + '%' : (isLong ? '+3.8%' : '-2.9%');
-      const rationaleText = meta.rationale || `Laya System 1: Confluência institucional detectada em ${symbol}. Absorção agressiva de liquidez e desbalanceamento de agressão a favor de ${direction} com ratio risco/retorno assimétrico favorável no Order Flow 15M.`;
+      const rationaleText = meta.rationale || `Titan Engine: Entrada calibrada em ${symbol}. Confluência estrutural 2H x 30M com validação de fluxo e score cognitivo reflexo Laya Neural a favor de ${direction}.`;
 
       // Flash State History Timeline
       const flash = t.flash_state || {};
-      const historyList = Array.isArray(flash.history) && flash.history.length > 0 
+      const rawHistory = Array.isArray(flash.history) && flash.history.length > 0 
         ? flash.history 
-        : [`Ordem executada em $${entryPrice.toFixed(4)} com SL inicial em $${stopLoss.toFixed(4)}`];
+        : [`Titan Engine executou entrada em $${entryPrice.toFixed(4)} com SL inicial em $${stopLoss.toFixed(4)}`];
+      const historyList = rawHistory.map(h => 
+        String(h)
+          .replace(/Laya autorizou entrada/gi, 'Titan Engine executou entrada')
+          .replace(/\[SWEEP & FLIP\] Laya virou a mão/gi, '[SWEEP & FLIP] Titan Engine executou reversão')
+      );
 
       // Update Modal Header
       title.textContent = `DOSSIÊ FORENSE: ${symbol} (${t.id})`;
@@ -4118,11 +4123,11 @@
           </div>
         </div>
 
-        <!-- RACIOCÍNIO & DECISÃO DE LAYA (SYSTEM 1 AI) -->
+        <!-- COMANDO TÁTICO & EXECUÇÃO QUANTITATIVA: TITAN ENGINE -->
         <div class="audit-section-box" style="border-color: rgba(255,192,0,0.3); background: rgba(255,192,0,0.02);">
           <div class="audit-section-title">
-            <span>❖ RACIOCÍNIO & DECISÃO DE LAYA (SYSTEM 1 — INTELIGÊNCIA EXECUTIVA)</span>
-            <span style="color: #00E676; font-size: 10px;">${layaDecision}</span>
+            <span>❖ COMANDO & EXECUÇÃO QUANTITATIVA: TITAN ENGINE (TITAN 360)</span>
+            <span style="color: #00E676; font-size: 10px;">Laya Neural System 1: ${layaDecision}</span>
           </div>
           
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; font-size: 11px;">
@@ -4141,7 +4146,7 @@
           </div>
 
           <div style="background: #0d1017; padding: 10px 12px; border-radius: 4px; border: 1px solid #1f232b; color: #e6edf3; font-size: 11.5px; line-height: 1.5;">
-            <span style="color: var(--accent-gold); font-weight: bold; margin-right: 6px;">[LAYA THOUGHT STREAM]:</span>
+            <span style="color: var(--accent-gold); font-weight: bold; margin-right: 6px;">[STREAM COGNITIVO LAYA NEURAL (SYSTEM 1)]:</span>
             ${rationaleText}
           </div>
         </div>
@@ -4226,7 +4231,7 @@
         <!-- TIMELINE DE MANEJO FLASH & TRAILING DEFENSE -->
         <div class="audit-section-box">
           <div class="audit-section-title">
-            <span>TIMELINE DE MANEJO & TRAILING STOP DO FLASH AGENT</span>
+            <span>TIMELINE DE MANEJO & TRAILING STOP: TITAN ENGINE</span>
             <span style="color: #8b949e; font-size: 10px;">${historyList.length} EVENTOS REGISTRADOS</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px;">

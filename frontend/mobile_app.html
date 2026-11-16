@@ -2302,16 +2302,21 @@
       const closedAtStr = formatTimestamp(t.closed_at || t.opened_at);
 
       const layaDecision = meta.laya_decision || (isLong ? 'BUY (84% Convicção)' : 'SELL (79% Convicção)');
-      const rationaleText = meta.rationale || `Laya System 1: Confluência institucional em ${symbol}. Absorção agressiva de liquidez e fluxo favorável a ${direction}.`;
+      const rationaleText = meta.rationale || `Titan Engine: Entrada calibrada em ${symbol}. Confluência estrutural 2H x 30M com validação de fluxo e score cognitivo reflexo Laya Neural a favor de ${direction}.`;
 
       const flash = t.flash_state || {};
-      const historyList = Array.isArray(flash.history) && flash.history.length > 0 
+      const rawHistory = Array.isArray(flash.history) && flash.history.length > 0 
         ? flash.history 
-        : [`Ordem executada em $${entryPrice.toFixed(4)} com SL inicial em $${stopLoss.toFixed(4)}`];
+        : [`Titan Engine executou entrada em $${entryPrice.toFixed(4)} com SL inicial em $${stopLoss.toFixed(4)}`];
+      const historyList = rawHistory.map(h => 
+        String(h)
+          .replace(/Laya autorizou entrada/gi, 'Titan Engine executou entrada')
+          .replace(/\[SWEEP & FLIP\] Laya virou a mão/gi, '[SWEEP & FLIP] Titan Engine executou reversão')
+      );
 
       title.textContent = `DOSSIÊ: ${symbol}`;
       badgeDir.className = `slot-side-tag ${isLong ? 'side-buy' : 'side-sell'}`;
-      badgeDir.textContent = `${direction} 15X • ${status}`;
+      badgeDir.textContent = `${direction} 50X • ${status}`;
 
       content.innerHTML = `
         <div class="audit-kpi-grid">
@@ -2338,11 +2343,11 @@
 
         <div class="audit-section-box">
           <div class="audit-section-title">
-            <span>RACIOCÍNIO DE LAYA (SYSTEM 1)</span>
+            <span>COMANDO: TITAN ENGINE • LAYA SYSTEM 1</span>
             <span style="color: var(--green);">${layaDecision}</span>
           </div>
           <div style="color: var(--text-dim); font-size: 10.5px; line-height: 1.4;">
-            <b style="color: var(--gold);">[LAYA]:</b> ${rationaleText}
+            <b style="color: var(--gold);">[STREAM LAYA NEURAL]:</b> ${rationaleText}
           </div>
         </div>
 
