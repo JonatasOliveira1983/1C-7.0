@@ -1822,36 +1822,38 @@ class SandboxService:
 
         is_ignition = strat_class in ("ALT_PUMP_IGNITION", "LAYA_LIQUIDITY_HUNT", "EXPLOSION_RUNNER") or "IGNITION" in str(strat_class).upper()
 
-        # [V212-DUAL-BREAKEVEN-35-60]:
-        # 1. Breakeven Protetivo Taxas OKX: Acionado a +35.0% de ROI (+0.70% de preço a favor).
-        #    Trava +7.0% de ROI líquido (+0.14% de preço a favor), cobrindo 100% das taxas da OKX e slippage (Zero a Zero Real).
-        # 2. Breakeven Soberano Consolidado: Acionado a +60.0% de ROI (+1.20% de preço a favor).
-        #    Trava +30.0% de ROI líquido (+$300 fixos garantidos no cofre).
-        # 3. [V214-SCRATCH-GUARD-REJECTION]: Proteção contra Rejeição de Impulso Próximo ao Breakeven
-        #    Se o trade teve impulso forte (max_roi >= 20.0%), mas fraquejou antes de bater +35% e está
-        #    voltando em direção à entrada (current_roi <= 7.0%), a Laya trava o stop imediatamente em +5.0% ROI.
-        #    Isso impede que uma ordem com lucro de +20% a +34% desabe até o stop loss negativo (-50% / -$400+).
+        # [V218-DUAL-BREAKEVEN-45-60-INSTITUTIONAL-100K]:
+        # 1. Breakeven Protetivo Institucional OKX (Escala $500k nocional):
+        #    Acionado a +45.0% de ROI (+0.90% de preço a favor a 50X).
+        #    Trava +18.0% de ROI (+0.36% de preço a favor).
+        #    Isso cobre com folga integral os ~15% de atrito real institucional da OKX (taxas taker + slippage de livro em $500k),
+        #    garantindo que mesmo se o trade for estopado no Breakeven, saia no ZERO A ZERO REAL POSITIVO (+3.0% ROI líquido / +$300 fixos no cofre).
+        #    Além disso, a folga de 0.36% de preço impede que o trade seja sufocado precocemente por micro-ruído de velas de 30M,
+        #    permitindo à estrutura macro de 2H respirar rumo aos +300% de ROI.
+        # 2. Breakeven Soberano Consolidado:
+        #    Acionado a +60.0% de ROI (+1.20% de preço a favor).
+        #    Trava +30.0% de ROI líquido (+0.60% de preço a favor, +$3.000 fixos garantidos no cofre) e libera novos slots na frota.
         if max_roi >= 60.0 and current_stop_roi < 30.0:
             updated_stop_roi = 30.0
             updated_level_name = "BREAKEVEN_LUCRO_60"
             updated_phase = "ESCADINHA"
             if not any("BREAKEVEN_LUCRO_60" in str(h) for h in history[-2:]):
-                history.append(f"Breakeven Soberano (+60% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +30.0% ROI (Lucro Garantido +$300)")
+                history.append(f"Breakeven Soberano (+60% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +30.0% ROI (Lucro Garantido +$3,000)")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven +60%: stop movido para +30.0% ROI")
-        elif max_roi >= 35.0 and current_stop_roi < 7.0:
-            updated_stop_roi = 7.0
+        elif max_roi >= 45.0 and current_stop_roi < 18.0:
+            updated_stop_roi = 18.0
             updated_level_name = "BREAKEVEN_PROTETIVO_TAXAS"
             updated_phase = "ESCADINHA"
             if not any("BREAKEVEN_PROTETIVO" in str(h) for h in history[-2:]):
-                history.append(f"Breakeven Protetivo (+35% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +7.0% ROI (Taxas OKX Cobertas / Risco Zero)")
-                logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +35%: stop movido para +7.0% ROI")
-        elif max_roi >= 20.0 and current_roi <= 7.0 and current_stop_roi < 8.0:
-            updated_stop_roi = 8.0
+                history.append(f"Breakeven Protetivo (+45% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +18.0% ROI (Friccao OKX $500k Coberta / Risco Zero Real +$300)")
+                logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +45%: stop movido para +18.0% ROI")
+        elif max_roi >= 30.0 and current_roi <= 18.0 and current_stop_roi < 18.0:
+            updated_stop_roi = 18.0
             updated_level_name = "SCRATCH_GUARD_REJECTION"
             updated_phase = "ESCADINHA"
             if not any("SCRATCH_GUARD" in str(h) for h in history[-2:]):
-                history.append(f"[SCRATCH-GUARD] Rejeicao de impulso detectada: pico={max_roi:.1f}%, recuo={current_roi:.1f}% -> stop travado em +8.0% ROI (Protecao contra devolucao / Lucro liquido garantido pos-taxas OKX)")
-                logger.info(f"[SANDBOX-FLASH] {symbol} SCRATCH_GUARD ativado (pico {max_roi:.1f}%, atual {current_roi:.1f}%): stop travado em +8.0% ROI")
+                history.append(f"[SCRATCH-GUARD] Rejeicao de impulso detectada: pico={max_roi:.1f}%, recuo={current_roi:.1f}% -> stop travado em +18.0% ROI (Protecao contra devolucao / Friccao OKX Coberta)")
+                logger.info(f"[SANDBOX-FLASH] {symbol} SCRATCH_GUARD ativado (pico {max_roi:.1f}%, atual {current_roi:.1f}%): stop travado em +18.0% ROI")
 
         ladder = proj_service.get_stop_ladder(max_roi, is_ranging=is_ranging, strategy_class=strat_class)
         active_level = proj_service.get_active_level(max_roi, ladder, is_ranging=is_ranging, strategy_class=strat_class)

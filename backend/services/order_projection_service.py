@@ -76,9 +76,9 @@ ORDER_STOP_LADDER_LAYA_REVERSION: List[StopLevel] = [
 ]
 
 ORDER_STOP_LADDER_SWING: List[StopLevel] = [
-    # [V212-DUAL-BREAKEVEN-35-60] Degrau 1: Breakeven Protetivo Taxas OKX a +35% ROI / Trava +7% ROI (+0.14% preço)
-    StopLevel("ESCADINHA", "BREAKEVEN_PROTETIVO_TAXAS", 35.0, 7.0, "RISCO_ZERO"),
-    # Degrau 2: Breakeven Soberano a +60% ROI / Trava +30% ROI líquido (+$300 fixos)
+    # [V218-DUAL-BREAKEVEN-45-60] Degrau 1: Breakeven Protetivo Taxas OKX a +45% ROI / Trava +18% ROI (+0.36% preço / Zero a Zero Real)
+    StopLevel("ESCADINHA", "BREAKEVEN_PROTETIVO_TAXAS", 45.0, 18.0, "RISCO_ZERO"),
+    # Degrau 2: Breakeven Soberano a +60% ROI / Trava +30% ROI líquido (+$3.000 fixos)
     StopLevel("ESCADINHA", "BREAKEVEN_LUCRO_60",   60.0,   30.0,  "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "PROTECAO_LUCRO_100",  100.0,   50.0,  "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "LUCRO_CONSOLIDADO_200", 200.0, 100.0, "PROFIT_LOCK"),
@@ -89,7 +89,7 @@ ORDER_STOP_LADDER_SWING: List[StopLevel] = [
 ]
 
 ORDER_STOP_LADDER_SWING_LATERAL: List[StopLevel] = [
-    StopLevel("ESCADINHA", "BREAKEVEN_PROTETIVO_LATERAL", 35.0, 7.0, "RISCO_ZERO"),
+    StopLevel("ESCADINHA", "BREAKEVEN_PROTETIVO_LATERAL", 45.0, 18.0, "RISCO_ZERO"),
     StopLevel("ESCADINHA", "BREAKEVEN_LATERAL",   60.0,   30.0,  "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "PRE_UNIT1_LATERAL",   100.0,  50.0,  "PROFIT_LOCK"),
     StopLevel("ESCADINHA", "UNIT1_GARANTIDO",     150.0,  80.0,  "PROFIT_LOCK"),

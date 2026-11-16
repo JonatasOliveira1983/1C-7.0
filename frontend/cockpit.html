@@ -2404,11 +2404,11 @@
           } catch(e){}
         }
 
-        // 3.5 Linha de GATILHO RISCO ZERO (+35.0% ROI / Breakeven Protetivo Taxas V212)
+        // 3.5 Linha de GATILHO RISCO ZERO (+45.0% ROI / Breakeven Protetivo Taxas V218)
         if (!isRiskFree && !isProfitLocked && ne > 0) {
           try {
             const lev = (slotObj && slotObj.leverage) ? Number(slotObj.leverage) : 50;
-            const bePct = 35.0 / (lev * 100);
+            const bePct = 45.0 / (lev * 100);
             const rzPrice = isLong ? Number((ne * (1 + bePct)).toFixed(6)) : Number((ne * (1 - bePct)).toFixed(6));
             const rzLine = series.createPriceLine({
               price: rzPrice,
@@ -2416,7 +2416,7 @@
               lineWidth: 2,
               lineStyle: LightweightCharts.LineStyle.Dashed,
               axisLabelVisible: true,
-              title: `RISCO ZERO (+35% ROI) $${formatPriceSmart(rzPrice)}`
+              title: `RISCO ZERO (+45% ROI) $${formatPriceSmart(rzPrice)}`
             });
             priceLinesList[i].push(rzLine);
           } catch(e){}
