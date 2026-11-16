@@ -1,34 +1,34 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 8.3.1 (V216 - TITAN ENGINE & LAYA NEURAL 0.4.31 SOVEREIGN TELEMETRY & CLEANUP)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.4.0 (V218 - TITAN DUAL BREAKEVEN 45/60, DUAL-TIER ENGINE, OPENVIKING, MCP & RAG)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-14. VERSION no codigo: `backend/main.py` VERSION="V216-SOVEREIGN-TELEMETRY-CLEAN". DEPLOYMENT_ID="V216_TITAN_SOVEREIGN_TELEMETRY". Invariantes V216 Escritas em Pedra: 1) Nomenclatura Soberana & Unificação de UI: O motor quantitativo de trading e execução é o TITAN ENGINE (TITAN RADAR / TITAN 360), unificado em todas as interfaces (`cockpit.html`, `laya.html`, `telemetry.html`, `shell.js`), enquanto a Laya atua estritamente como a Rede Neural System 1 de decisão reflexa, calibração Bayesiana e cognição (v0.4.31). 2) Sinal de Vida em Tempo Real na Telemetria: Heartbeat regressivo contínuo de 30s animado, stream ao vivo de pensamento cognitivo da Laya com tags coloridas por regime/ação, status explícito do Farol BTC 2H (BEAR/BULL com regras invioláveis de veto/permissão de compras) e composição visual da frota 2+2+2+2 no painel `/telemetria`. 3) Purga Canônica de Motores Legados: Extirpação completa de `sandbox_scalping_engine.py` (VWAP Sniper 1m/5m) do pipeline de execução em favor da estratégia única vencedora `LAYA_PULLBACK_HUNTER_2H_30M`. 4) Scratch Guard contra Rejeição de Impulso (`SCRATCH_GUARD_REJECTION`): Se o trade atingir impulso >= +20.0% ROI mas recuar para <= +7.0% ROI antes de bater no Breakeven de +35%, o stop sobe instantaneamente para +8.0% ROI (garantindo lucro líquido positivo de +3.0% após taxas da OKX). 5) Subordinação Soberana Swing 2H & Pullback Hunter 30M (`LAYA_PULLBACK_HUNTER_2H_30M`): Filtro macro estrito no 2H (SMA 8 x SMA 21), confluência de candle no 30M com toque físico real na SMA8 e rejeição genuína de pavio, com Stop Estrutural preservado no 2H além da SMA 21 com fôlego livre de 50X Margem Cruzada. 6) Arquitetura Dual Breakeven (+35% / +60%): Degrau 1 com Breakeven Protetivo Taxas OKX a +35% ROI travando +7.0% de ROI; Degrau 2 com Breakeven Soberano a +60% ROI travando +30% ROI líquido (+$300 fixos). 7) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`).*
+*Verificado contra o codigo em 2026-11-16. VERSION no codigo: `backend/main.py` VERSION="V218-TITAN-DUAL-BREAKEVEN-45-60-SOVEREIGN". DEPLOYMENT_ID="V218_TITAN_SOVEREIGN_SYSTEM". Invariantes V218 Escritas em Pedra: 1) Nomenclatura Soberana & Unificação de UI: O motor quantitativo de trading e execução é o TITAN ENGINE (TITAN RADAR / TITAN 360), unificado em todas as interfaces (`cockpit.html`, `laya.html`, `telemetry.html`, `mobile_app.html`, `shell.js`), enquanto a Laya atua estritamente como a Rede Neural System 1 de decisão reflexa, calibração Bayesiana e cognição (v0.4.31). 2) Sinal de Vida em Tempo Real na Telemetria: Heartbeat regressivo contínuo de 30s animado, stream ao vivo de pensamento cognitivo da Laya com tags coloridas por regime/ação, status explícito do Farol BTC 2H (BEAR/BULL com regras invioláveis de veto/permissão de compras) e composição visual da frota 2+2+2+2 no painel `/telemetria`. 3) Purga Canônica de Motores Legados: Extirpação completa de `sandbox_scalping_engine.py` (VWAP Sniper 1m/5m) do pipeline de execução em favor da estratégia única vencedora `LAYA_PULLBACK_HUNTER_2H_30M`. 4) Arquitetura Dual-Tier Titan Engine: Grau 1 (Sniper SMA 8 - Linha Branca) com Veto Anti-Surge Smart Money contra repiques retail e Grau 2 (Sniper SMA 21 - Linha Amarela / Sweep de Liquidez e Exaustão). 5) Dual Breakeven Institucional V218 (+45% / +60%): Degrau 1 com Breakeven Protetivo Fricção OKX a +45.0% ROI (+0.90% no preço em 50X) travando o stop em +18.0% de ROI (+0.36% de preço), cobrindo integralmente fricção real de ordens de $500k nocionais (taxas taker 0.10% + slippage de livro 0.03% - 0.10%), garantindo Risco Zero Real e lucro no cofre (+$300 a +$900); Degrau 2 com Breakeven Soberano Consolidado a +60.0% ROI (+1.20% no preço), travando stop em +30.0% ROI líquido (+$3.000 fixos no cofre) e liberando novos slots de expansão na frota. 6) Trailing Dinâmico com Gap Elástico de 50% de ROI a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`), garantindo 1.0% de respiro livre no preço para buscar o Alvo Chão de +300% de ROI (+$30.000) sem asfixia prematura. 7) Margem Cruzada Soberana 50X em banca de $100.000,00 USD como colateral garantidor, com alocação fixa de $10.000,00 por ordem ($500.000 nocional) e fôlego técnico de 12h a 24h no gráfico de 2H. 8) Protocolos Soberanos de IA: OpenViking Context Engine (`viking://` L0/L1/L2), MCP 2.x Starlette Mount (`/mcp` com 16 ferramentas oficiais), RAGService Híbrido (Segundo Cérebro) e Pipeline de Fine-Tuning ML (`/api/v1/ml/*`).*
 ---
 
 ## 1. Visao Geral
 
-1Crypten e um sistema de trading automatizado para criptomoedas na OKX. Roda um app FastAPI unico (`backend.main:app`) que executa em paralelo o motor real e dois laboratorios de forward-testing (Scalping Lab e Swing Lab).
+1Crypten e um sistema de trading quantitativo e institucional automatizado para contratos perpétuos na OKX. Roda sob um app FastAPI unico (`backend.main:app`, porta 8085) que orquestra a frota soberana do Titan Engine com supervisão cognitiva da Laya Neural System 1 e auditoria forense do Hermes.
 
 - **Entry point (unico)**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` (Procfile / railway.json / Dockerfile). **Nao existe `main.py` na raiz.**
 - **Backend**: FastAPI (Python 3.12-slim)
 - **Frontend & Design System**: HTML/JS standalone no padrão **Binance Design System** (`#0B0E11` Deep Canvas, `#1E2329` Cards, `#2B3139` Borders, `#FCD535` Iconic Yellow, `#0ECB81` Green, `#F6465D` Red) integrado com o motor matemático de **Thinking Orbs** em 15 pontos estratégicos da UI (`backend/app/static/cockpit.html`, `frontend/cockpit.html`, `hermes.html`, `market.html`, `mobile_app.html`).
 - **Exchange**: OKX (SWAP / Portfolio Margin). Modo `PAPER` (simulado) ou `REAL`, via `OKX_EXECUTION_MODE`.
-- **[V127/V145/V165/V166] Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas do Scalping Lab / Day Trade). Em **REAL**, a OKX recebe as ordens scalping/swing do Sandbox (via `SWING_MIRROR_MODE`/espelhamento) e o Cockpit representa a banca real da OKX. Ver Secao 8.6.
+- **Semantica PAPER vs REAL (espelho do Cockpit)**: Em **PAPER**, o Cockpit (`cockpit.html`) representa o **Sandbox** — tanto o *Net Worth* (Banca Simulada Consolidada via `get_sandbox_unified_balance`) quanto o *Painel de Custodia* (ordens ativas da frota de 8 slots). Em **REAL**, a OKX recebe as ordens e o Cockpit representa a banca real da OKX.
 - **Plataforma**: Railway + Docker
 - **Persistencia & Memória Unificada**: PostgreSQL (SSOT) + Firebase (Firestore/RTDB) + SQLite WAL (`local_sniper.db`) + Obsidian Vault (`vault_galaxy/` para voz, chat e diários).
-- **[V168] Banco de Dados de Contexto OpenViking (`viking://`)**: Sistema de arquivos virtual cognitivo com Progressive Disclosure em 3 camadas: L0 (Abstract executivo ~100 tokens), L1 (Overview operacional ~1.5k tokens) e L2 (Detail completo). O Hermes e os agentes de desenvolvimento navegam deterministicamente pelas raízes `viking://resources/`, `viking://user/memories/` e `viking://agent/skills/`.
+- **Banco de Dados de Contexto OpenViking (`viking://`)**: Sistema de arquivos virtual cognitivo com Progressive Disclosure em 3 camadas: L0 (Abstract executivo ~100 tokens), L1 (Overview operacional ~1.5k tokens) e L2 (Detail completo). O Hermes e os agentes navegam pelas raízes `viking://resources/`, `viking://user/memories/` e `viking://agent/skills/`.
 - **Memória Auto-Evolutiva de Trading**: Ao fechar qualquer trade (Stop, TP, Trailing Stop ou Emergência), o sistema sintetiza automaticamente o caso em `viking://user/memories/cases/` e persiste no Obsidian Vault (`vault_galaxy/journal/`), eliminando a necessidade de o operador humano lembrar o sistema de regras ou erros passados.
-- **Protocolos de IA & RAG**: OpenViking Context Engine + RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 16 Ferramentas), Consciência Laya (laya-multilingual CPU) e Hermes Intelligence Orchestrator.
+- **Protocolos de IA & RAG**: OpenViking Context Engine + RAG Semântico (`RAGService`), Model Context Protocol (`mcp_bridge.py` MCP 2.x - 16 Ferramentas), Laya Neural System 1 (v0.4.31) e Hermes Intelligence Orchestrator.
+- **Pipeline de Fine-Tuning & Datasets ML**: Geração contínua de datasets JSONL para calibração RLCD da Laya e adaptação temporal do Kronos via rotas `/api/v1/ml/*`.
 - **Precisão & Quantização Inviolável**: Motor `OKXUniverseService` com suporte a 507 pares perpétuos da OKX, garantindo tick size exato (`format_price_by_tick`), lot size e quantização correta de contratos (`quantize_order_contracts`).
-- **Tríplice Confluência Alt Pump Ignition**: Motor institucional que detecta rotação do BTC para Altcoins (`evaluate_alt_pump_ignition`), cruzando queda de BTC.D, correlação Pearson < 0.45 e expansão algorítmica `1c_exp >= 70.0`.
 
 ### 1.1 Diagrama de Arquitetura do Sistema
 
 ```mermaid
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
-        UI_Cockpit["cockpit.html (Titan Engine & Titan Radar + Dual Breakeven 35/60 + 8 Slots Swing 2H)"]
+        UI_Cockpit["cockpit.html (Titan Engine & Titan Radar + Dual Breakeven 45/60 + 8 Slots Swing 2H)"]
         UI_Titan360["laya.html (TITAN 360 - Radar Quantitativo Soberano 507 Pares / 30 Titãs)"]
         UI_Telemetry["telemetry.html (Telemetria Titan Engine + Escudo Tático + uPlot 60 FPS)"]
         UI_Plutus["plutus.html (Método ARCA Renda Perpétua + Universal Shell)"]
@@ -45,7 +45,8 @@ flowchart TD
         R_Kronos["/api/v1/hermes/laya/kronos-projection"]
         R_Viking["/api/v1/hermes/viking/tree, /read, /search, /sync & /commit-lesson"]
         R_RAG["/api/v1/hermes/rag/search & /status & /reindex"]
-        R_ML["/api/v1/ml/status & /dataset-stats & /generate-dataset"]
+        R_ML["/api/v1/ml/status & /dataset-stats & /generate-dataset & /train-laya"]
+        R_MCP["/api/v1/mcp/tools (Catálogo 16 Ferramentas)"]
         R_Intel["/api/v1/market/screener-matrix & /ai-context (1C-EXP & 1C-RANGE)"]
         R_Precision["/api/v1/market/contract-specs (TickSz & LotSz Audit)"]
         R_Heatmap["/api/v1/hermes/laya/liquidation-heatmap (Coinglass Matrix & Whale Magnet)"]
@@ -57,10 +58,12 @@ flowchart TD
         OpenViking_Engine["OpenViking Context Engine (viking:// Virtual FS - L0/L1/L2 Progressive Disclosure)"]
         RAG_Engine["RAGService (BM25 / TF-IDF Second Brain: Blueprints + Vault)"]
         LayaNeural["Laya Neural v0.4.31 (Rede Neural System 1, Cognição Reflexa & Calibração RLCD)"]
+        ML_Trainer["ML Fine-Tuning Pipeline (Dataset Generator JSONL + LoRA / Adapter)"]
     end
 
     subgraph Decision_Engines["Tactical & Decision Engines"]
-        TitanEngine["Titan Engine (Motor Quantitativo Soberano, Alocação $10.000 Cross 50X)"]
+        TitanEngine["Titan Engine (Comandante Quantitativo, Alocação $10.000 Cross 50X)"]
+        TitanDualTier["Dual-Tier Engine: Grau 1 SMA8 Sniper vs Grau 2 SMA21 Sweep Exaustão"]
         TitanRadar["Titan Radar (Scanner Universal 507 Pares OKX + Farol BTC 2H)"]
         AltPump["AltPumpIgnition Engine (Triple Confluence: BTC.D Drop + Pearson < 0.45 + 1C-EXP >= 70)"]
         BTCSpecialist["BTCSpecialist (Farol BTC 2H: SMA 8 x SMA 21 & Veto Bull/Bear)"]
@@ -69,14 +72,14 @@ flowchart TD
         LayaFlow["LayaFlowService (OKX Rubik LSR & OI Delta)"]
         OKXUniverse["OKXUniverseService (507 Pares OKX + TickSz/LotSz/CtVal Engine)"]
         MarketIntel["MarketIntelEngine (Universal Screener 507 Pares, 1C-EXP, 1C-RANGE)"]
-        StopLadder["OrderProjectionService (Dual Breakeven V212 35/60 & Elastic Trailing 50%)"]
-        SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.5%)"]
+        StopLadder["OrderProjectionService (Dual Breakeven V218 45/60 & Elastic Trailing 50%)"]
+        SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.8%)"]
         CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
         TelemetryEngine["TelemetryService (Sub-ms Ingestion, Throughput, Net Worth Tick-a-Tick)"]
     end
 
-    subgraph Sandbox_Labs["Dual-Engine Execution Labs"]
-        ScalpLab["SandboxService (Day Trade H1 / 8 Slots - $100 Margin Each)"]
+    subgraph Sandbox_Labs["Execution Fleet Labs"]
+        ScalpLab["SandboxService (Frota Soberana 8 Slots 50X Margem Cruzada - $10k Cada)"]
         SwingLab["SandboxSwingService (Swing Lab - Paused / SWING_SCAN_ENABLED=False)"]
     end
 
@@ -104,39 +107,43 @@ flowchart TD
     MCP_Bridge --> ScalpLab
     MCP_Bridge --> DB_SQLite
     MCP_Bridge --> RAG_Engine
+    MCP_Bridge --> OpenViking_Engine
     MCP_Bridge --> MarketIntel
     MCP_Bridge --> OKXUniverse
     R_RAG --> RAG_Engine
     RAG_Engine --> DB_Galaxy
     RAG_Engine --> Docs_Blueprints
 
+    OpenViking_Engine --> DB_Galaxy
+    OpenViking_Engine --> Docs_Blueprints
+    R_Viking --> OpenViking_Engine
+    R_ML --> ML_Trainer
+    R_MCP --> MCP_Bridge
+
     R_Slots --> ScalpLab
     R_State --> DB_SQLite
-    R_Pulse --> LayaRouter
+    R_Pulse --> TitanEngine
     R_Intel --> MarketIntel
     R_Precision --> OKXUniverse
 
-    LayaRouter --> AltPump
-    LayaRouter --> BTCSpecialist
-    LayaRouter --> SignalGen
-    LayaRouter --> OKXUniverse
-    LayaRouter --> MarketIntel
-    AltPump --> BTCSpecialist
-    AltPump --> SignalGen
-    AltPump --> MarketIntel
-    LayaRouter --> LayaFlow
-    LayaRouter --> Kronos
-    LayaRouter --> RAG_Engine
-    LayaRouter --> SanityGate
-    LayaRouter --> CoinglassHeatmap
-    R_Heatmap --> CoinglassHeatmap
-    LayaRouter --> CoinglassHeatmap
+    TitanEngine --> TitanDualTier
+    TitanEngine --> TitanRadar
+    TitanEngine --> AltPump
+    TitanEngine --> BTCSpecialist
+    TitanEngine --> SignalGen
+    TitanEngine --> OKXUniverse
+    TitanEngine --> MarketIntel
+    TitanEngine --> LayaFlow
+    TitanEngine --> Kronos
+    TitanEngine --> RAG_Engine
+    TitanEngine --> SanityGate
+    TitanEngine --> CoinglassHeatmap
     R_Heatmap --> CoinglassHeatmap
     SanityGate --> ScalpLab
 
     CoinGecko --> BTCSpecialist
     OKX_WS --> ScalpLab
-    OKX_WS --> LayaRouter
+    OKX_WS --> TitanEngine
     OKX_REST --> OKXUniverse
     OKX_REST --> MarketIntel
 
@@ -145,7 +152,7 @@ flowchart TD
     ScalpLab --> DB_SQLite
     DB_SQLite -.-> DB_Postgres
 
-    UI_Observatory --> R_Telemetry
+    UI_Telemetry --> R_Telemetry
     R_Telemetry --> TelemetryEngine
     TelemetryEngine --> OKX_WS
     TelemetryEngine --> ScalpLab
@@ -174,24 +181,29 @@ flowchart TD
 
 | Constante | Valor | Fonte |
 |-----------|-------|-------|
-| `LEVERAGE` (Laya Soberana) | 50x (Cross Margin Soberana) | `MASTER_ARCHITECTURE.md` / AGENTS.md |
+| `LEVERAGE` (Titan Soberano) | 50x (Cross Margin Soberana) | `MASTER_ARCHITECTURE.md` / AGENTS.md |
 | `BANCA_BASE_SOBERANA` | $100,000.00 USD Pristine | `config.py` / `database_service.py` |
 | `PISO_SOBERANO_PROTEGIDO` | $85,000.00 USD (85% da banca base) | `sandbox_service.py` / Never Give Back |
 | `MAX_FLEET_SLOTS` | 8 Slots Simultâneos (2 em risco vivo + 6 em expansão Breakeven) | `laya_router_service.py` / V206 |
 | `UNPROTECTED_RISK_LIMIT` | 2 Ordens em Risco Simultâneo ($20.000 margem = 20% banca) | `laya_router_service.py` / V206 |
 | `FLEET_DISPATCH_CADENCE` | 45 Segundos entre aberturas | `laya_router_service.py` / V204 |
-| `MARGIN_PER_TRADE` (Laya) | $10.000.00 Fixo por Ordem (50X Cruzada = $500k nocional) | `laya_router_service.py` / V217 |
+| `MARGIN_PER_TRADE` (Titan) | $10.000.00 Fixo por Ordem (50X Cruzada = $500k nocional) | `laya_router_service.py` / V217 |
+| `BREAKEVEN_1_TRIGGER_ROI` | +45.0% ROI (+0.90% no preço em 50X) | `order_projection_service.py` / V218 |
+| `BREAKEVEN_1_LOCK_ROI` | +18.0% ROI (+0.36% no preço / Risco Zero Real +$300 a +$900) | `order_projection_service.py` / V218 |
+| `BREAKEVEN_2_TRIGGER_ROI` | +60.0% ROI (+1.20% no preço em 50X) | `order_projection_service.py` / V218 |
+| `BREAKEVEN_2_LOCK_ROI` | +30.0% ROI (+0.60% no preço / +$3.000.00 fixos garantidos) | `order_projection_service.py` / V218 |
+| `ELASTIC_TRAILING_GAP` | 50.0% ROI de folga a partir de +100% ROI (`max(50.0, max_roi - 50.0)`) | `sandbox_service.py` / V217 |
 | `ALVO_CHAO_MIN_ROI` | +300% ROI (+$30.000.00 por ordem) | `order_projection_service.py` / V217 |
 | `PROFIT_LOCK_CHAO_ROI` | +200% ROI (+$20.000.00 fixos garantidos) | `order_projection_service.py` / V217 |
 | `STRUCTURAL_STOP_DIST` | Até 3.8% de preço (Buffer estrutural topo/fundo 2H/4H) | `laya_router_service.py` / V197 |
 | `STOP_LOSS_QUARANTINE` | 7200s (2 Horas Anti-Reincidência) | `laya_router_service.py:885` / V159 |
 | `WHITELIST_TITANS_30` | Top 30 Altcoins de Elite Institucional + BTC Flagship | `okx_universe_service.py:42` / V215 |
 | `BTC_ROLE` | Ativo Flagship Negociável + Farol Macro 2H Soberano | `laya_router_service.py` / V215 |
-| `RISK_ZERO_TRIGGER_ROI` | +60.0% → +30.0% ROI (Breakeven Soberano com trava líquida de +$3.000.00) | `order_projection_service.py` / V217 |
 | `SWING_SCAN_ENABLED` | **False (PAUSADO / GATE SOBERANO)** | `config.py:166` / V146 |
-| `MCP_MOUNT` | `/mcp` (`/mcp/sse`, `/mcp/tools` - 16 Ferramentas) | `backend/main.py:806` / V144 |
+| `MCP_MOUNT` | `/mcp` (`/mcp/sse`, `/mcp/tools` - 16 Ferramentas) | `backend/main.py:707` / V144 |
 | `RAG_ROUTER` | `/api/v1/hermes/rag` (`/search`, `/status`, `/reindex`) | `backend/routes/rag_routes.py` |
-| `OPENVIKING_FS` | `viking://` Virtual FS (L0/L1/L2 Progressive Disclosure) | `backend/services/openviking_service.py` |
+| `ML_ROUTER` | `/api/v1/ml` (`/generate-dataset`, `/train-laya`, `/status`) | `backend/app/api/v1/endpoints/ml.py` |
+| `OPENVIKING_FS` | `viking://` Virtual FS (L0/L1/L2 Progressive Disclosure) | `backend/services/openviking_context_service.py` |
 
 ### 2.1 Motor Soberano Laya V160 (Metodologia Encryptos: Top 30 Altcoins & BTC Oráculo)
 1. **Top 30 Altcoins de Elite Institucional da OKX**:
@@ -260,13 +272,45 @@ flowchart TD
    - Ferramenta MCP `get_contract_precision_audit(symbol)` disponível para agentes externos e Claude Desktop.
    - Comando `auditar contrato <SIMBOLO>` no Hermes para inspeção operacional instantânea pelo trader.
 
-**Status Operacional Atual [V165-UNIVERSAL-ENCRYPTOS-PRECISION]**:
-- **Scalping Lab (Laya Soberana)**: 100% ativo com alavancagem de **15x**, stops de -7.5% ROI e trailing stop Never Give Back (50% do pico de lucro).
-- **Swing Lab**: Pausado soberanamente (`SWING_SCAN_ENABLED=False`) para estancar drawdown e concentrar 100% dos slots e capital no Scalping.
-- **RAG & MCP**: RAG indexando blueprints 01 a 09 e cofre Obsidian; MCP 2.x montado nativamente em `/mcp` com 10 ferramentas registradas.
-- **Precisão OKX**: 100% dos 507 pares quantizados e formatados matematicamente.
+### 2.4 Arquitetura Dual Breakeven V218 (+45% / +60%), Fricção Real & Gap Elástico 50%
+1. **Degrau 1 — Breakeven Protetivo Fricção OKX $500k (+45.0% ROI / Trava +18.0% ROI)**:
+   - Disparo: Acionado quando o ROI atinge **`+45.0%`** (+0.90% de variação favorável no preço do ativo sob 50X Margem Cruzada).
+   - Trava de Stop: O Stop Loss é puxado instantaneamente para **`+18.0% ROI`** (+0.36% de preço a favor).
+   - Cobertura de Fricção Institucional: Em contratos nocionais de $500.000,00 ($10.000 de margem a 50X), taxas de taker (0.05% abertura + 0.05% fechamento = 0.10% = 5.0% de ROI) somadas ao slippage real de livro (0.03% a 0.10% = 1.5% a 5.0% de ROI) totalizam de 6.5% a 10.0% de fricção. A trava de +18.0% garante **Risco Zero Real** com lucro líquido positivo garantido no cofre de **+$300,00 a +$900,00 USD**, eliminando permanentemente a anomalia de trades que ficavam positivos e sofriam reversão para stop loss cheio (-100%).
+2. **Degrau 2 — Breakeven Soberano Consolidado (+60.0% ROI / Trava +30.0% ROI)**:
+   - Disparo: Acionado quando o ROI atinge **`+60.0%`** (+1.20% de deslocamento de preço em 50X).
+   - Trava de Stop: Stop travado rigidamente em **`+30.0% ROI líquido`** (+0.60% de preço).
+   - Garantia de Cofre: Lucro líquido imutável de **+$3.000,00 USD** fixos garantidos no cofre.
+   - Destravamento da Frota: A ordem atinge o status soberano de **Risco Zero Consolidado**, liberando imediatamente vaga para a abertura de novos slots na regra de expansão autofinanciada 2+2+2+2.
+3. **Trailing Dinâmico com Gap Elástico de 50% de ROI**:
+   - Ativação: A partir de **`+100.0% de ROI`** (+2.0% de preço a favor), o trailing stop dinâmico passa a rastrear o preço:
+     `trail_stop_roi = max(50.0, max_roi - 50.0)`
+   - Elasticidade: Concede exatamente **50.0% de ROI de folga** (1.0% de oscilação livre de preço no gráfico de 2H/30M), impedindo que correções sadias de tendência estopem precocemente posições antes do Alvo Chão.
+4. **Alvo Chão Obrigatório (+300.0% ROI / +$30.000,00)**:
+   - Toda ordem vencedora persegue como alvo mínimo de realização institucional os **+300.0% de ROI** (+6.0% de preço a 50X).
+   - Ao bater +300% de ROI, trava pelo menos **+200.0% de ROI fixos** (+$20.000,00 garantidos no cofre), mantendo o trailing livre para surfar até a exaustão macro no gráfico de 4H.
 
-> **[V127] Saldo exibido em PAPER**: `OKX_SIMULATED_BALANCE` e a base do Guardiao/sizing em PAPER, mas o *Net Worth* do Cockpit em PAPER NAO e `OKX_SIMULATED_BALANCE` — e a **Banca Simulada Consolidada do Sandbox** (`get_sandbox_unified_balance`, `database_service.py`: `BANCA_BASE` $10.000 + Σ(pnl_pct/100 × $200) sobre TODOS os trades Scalp+Swing). Ver Secao 8.6.
+### 2.5 Arquitetura Dual-Tier Titan Engine (Grau 1 SMA 8 Sniper vs Grau 2 SMA 21 Sweep Exaustão)
+1. **Grau 1 (Sniper SMA 8 - Linha Branca)**:
+   - Condição: Preço toca a SMA 8 de 2H e imprime rejeição imediata com pavio de absorção no tempo de 30M/2H.
+   - Proteção de Stop: Stop loss ancorado com margem de segurança além da SMA 21 de 2H (Linha Amarela).
+   - Veto Anti-Surge Smart Money (`VETO_SMART_MONEY_REPIQUE`): Se a vela furar a SMA 8 com corpo direcional forte (> 40% do candle sem pavio), o Titan Engine detecta que o Smart Money está varrendo liquidez em direção à SMA 21. A entrada na SMA 8 é vetada, aguardando o teste na SMA 21.
+2. **Grau 2 (Sniper SMA 21 - Linha Amarela / Sweep de Liquidez)**:
+   - Condição: O Smart Money empurra o repique até a SMA 21 de 2H para estopar o varejo que entrou adiantado. O Titan Engine monitora a exaustão na SMA 21 (pavio pronunciado ou devolução).
+   - Execução Sniper: A entrada ocorre no ápice do sweep na SMA 21 com preço altamente favorável e stop protegido com folga além do topo da varredura.
+
+### 2.6 Unificação Soberana de Responsabilidades (Titan vs Laya vs Hermes)
+- **TITAN ENGINE (TITAN RADAR / TITAN 360)**: É o **comandante quantitativo soberano e executor tático**. Detém o radar de 507 pares da OKX, o Farol BTC 2H, os filtros matemáticos de médias (SMA 8 x SMA 21), a gestão da Margem Cruzada 50X ($100k bankroll), a alocação de slots (2+2+2+2), o disparo de ordens e o manejo dinâmico de trailing stops.
+- **LAYA NEURAL (SYSTEM 1 v0.4.31)**: Atua estritamente como a **rede neural cognitiva reflexa**. Avalia desbalanceamento de agressão de order flow, Long/Short Ratio da OKX Rubik, delta de Open Interest, sentiment e pontuação bayesiana de convicção (score 0-100%).
+- **HERMES**: Atua como o **orquestrador executivo e auditor forense**. Realiza auditoria contínua de compliance contra `MASTER_ARCHITECTURE.md`, expõe a interface de comando natural e navega no cofre de conhecimento via OpenViking e RAG.
+
+**Status Operacional Atual [V218-TITAN-SOVEREIGN-FLEET]**:
+- **Frota Ativa (Titan Engine)**: 100% sob **50X Margem Cruzada**, banca base de **$100.000,00 USD**, lote fixo de $10.000,00 ($500.000 nocional) e até 8 slots simultâneos na regra 2+2+2+2.
+- **Dual Breakeven V218**: Degrau 1 a +45% (trava +18%) e Degrau 2 a +60% (trava +30%), Alvo Chão de +300% ROI.
+- **Protocolos de IA**: OpenViking Context Engine (`viking://`), Servidor MCP 2.x Starlette Mount (`/mcp` com 16 ferramentas), RAGService Híbrido e Pipeline de Fine-Tuning ML (`/api/v1/ml/*`).
+- **Precisão OKX**: 100% dos 507 pares da OKX com quantização exata de tick size e lot size.
+
+> **Semântica PAPER vs REAL**: Em PAPER, o Cockpit espelha a Banca Simulada Realizada do Sandbox (`get_sandbox_unified_balance`); em REAL, a OKX recebe as ordens e o Cockpit reflete o saldo real.
 
 > Nota: `bankroll.py` le `settings.MARGIN_PER_TRADE_*` (0.50) e `settings.MAX_SLOTS_*` (16). Comentarios legados em `bankroll.py` citam "$2.00/$1.00" e "20/40" — esses valores NAO refletem o config atual.
 
@@ -648,7 +692,7 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
 | PORT | 8085 |
 | Entry (todos) | `uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1` |
 | Health Check | `GET /api/health` |
-| VERSION / DEPLOYMENT_ID | `V124.7` / `V124.7_M30_SWING` (`backend/main.py:68-69`) |
+| VERSION / DEPLOYMENT_ID | `V218-TITAN-DUAL-BREAKEVEN-45-60-SOVEREIGN` / `V218_TITAN_SOVEREIGN_SYSTEM` (`backend/main.py:83-84`) |
 
 ---
 
@@ -1315,6 +1359,173 @@ Em modo `PAPER`, o Cockpit (`cockpit.html`) espelha o Sandbox integralmente, par
     - **Tocaia de Re-entrada (Reset & Re-entry)**:
         * Em vez de aplicar a quarentena longa de 2 horas (7200s usada apenas para Stop Loss com perda), trades encerrados pelo Scratch Guard entram em quarentena tática curta de **5 minutos (300s)** para aguardar o término da vela de rejeição e o repique em suporte (SMA 21 no 30M/2H).
         * Quando o ativo reestabelecer o alinhamento técnico, a Laya re-entra com preço médio descontado e novo fôlego.
+
+67. **[V216-SOVEREIGN-TELEMETRY-CLEAN] Telemetria em Tempo Real, Heartbeat 30s e Purga Canônica de Scalping Legado** (2026-11-14):
+    - **Sinal de Vida em Tempo Real na Telemetria (`/telemetria`)**:
+        * Heartbeat visual animado com contagem regressiva contínua de 30 segundos, exibição viva do stream cognitivo de pensamento da Laya com tags coloridas por regime/ação, status explícito do Farol BTC 2H (SMA 8 x 21) com permissão/veto direcional e composição viva da frota 2+2+2+2.
+    - **Purga de Motores Legados**:
+        * Extirpação completa de `sandbox_scalping_engine.py` (VWAP Sniper M1/M5) do ciclo de execução em favor da estratégia única vencedora `LAYA_PULLBACK_HUNTER_2H_30M`.
+
+68. **[V217-DUAL-TIER-TITAN-ENGINE] Arquitetura Dual-Tier do Titan Engine: Grau 1 SMA8 Sniper vs Grau 2 SMA21 Sweep** (2026-11-15):
+    - **Grau 1 (Sniper SMA8 - Linha Branca)**:
+        * Disparo imediato no toque e rejeição na SMA 8 de 2H com confirmação de pavio no 30M e stop protegido além da SMA 21 (Linha Amarela).
+    - **Veto Anti-Surge Smart Money (`VETO_SMART_MONEY_REPIQUE`)**:
+        * Vetamento sumário caso a vela fure a SMA 8 com corpo direcional forte (> 40% sem pavio) buscando liquidez de stops retail na SMA 21.
+    - **Grau 2 (Sniper SMA21 - Linha Amarela / Sweep de Liquidez)**:
+        * Monitoramento da varredura na SMA 21 de 2H. A entrada ocorre na exaustão/sweep do topo da Linha Amarela com preço descontado e stop blindado acima da varredura.
+    - **Trailing Gap Elástico de 50% de ROI**:
+        * Ativado a partir de +100% de ROI (`trail_stop_roi = max(50.0, max_roi - 50.0)`), concedendo 1.0% de respiro livre no preço para buscar o Alvo Chão de +300% de ROI sem estrangulamento precoce.
+
+69. **[V218-INSTITUTIONAL-DUAL-BREAKEVEN-45-60] Dual Breakeven Institucional (+45% Fricção OKX / +60% Soberano)** (2026-11-16):
+    - **Degrau 1 (Breakeven Protetivo Fricção OKX $500k)**:
+        * Dispara em **+45.0% de ROI** (+0.90% de preço a favor em 50X), travando o stop em **+18.0% de ROI** (+0.36% de preço a favor).
+        * Cobre integralmente taxas taker (0.10%) e slippage real de livro (0.03% - 0.10% em nocionais de $500k), garantindo Risco Zero Real e saldo líquido positivo no cofre (+$300 a +$900).
+    - **Degrau 2 (Breakeven Soberano Consolidado)**:
+        * Dispara em **+60.0% de ROI** (+1.20% de preço a favor em 50X), travando o stop em **+30.0% de ROI líquido** (+$3.000,00 fixos no cofre).
+        * Libera imediatamente novos slots de expansão na frota na regra 2+2+2+2.
+
+70. **[V218-TITAN-UNIFIED-AUDIT-REPORTS] Unificação de Relatórios, Dossiê Forense e Atribuição Soberana ao Titan Engine** (2026-11-16):
+    - **Dossiê Forense Institucional (`cockpit.html`, `cockpit_v2.html`, `mobile_app.html`)**:
+        * Cabeçalho e comando tático formalmente atribuídos ao **TITAN ENGINE (TITAN 360)**, com a Laya Neural identificada estritamente como **Stream Cognitivo Neural (System 1)**.
+    - **Sanitização de Histórico e Timelines**:
+        * Histórico de eventos e flash timeline atualizados para registrar `"Titan Engine executou entrada..."` e `"[SWEEP & FLIP] Titan Engine executou reversão..."`.
+        * Identificadores de trades atualizados de `laya_<timestamp>` para `titan_<timestamp>`.
+
+---
+
+## 15. Sistema OpenViking (`viking://`) Context Database Engine
+
+O OpenViking é o sistema de arquivos virtual e banco de dados de contexto hierárquico do 1Crypten, projetado para conceder memória episódica, factual e procedural aos agentes de IA (Hermes, Antigravity, Claude Code, Cursor) eliminando alucinações e perda de contexto operacional entre sessões.
+
+### 15.1 Arquitetura e Paradigma do Virtual Filesystem
+O OpenViking mapeia toda a inteligência do sistema sob o protocolo `viking://`, organizado deterministicamente em três raízes canônicas:
+- **`viking://resources/` (Conhecimento Factual & Arquitetura)**:
+  - `viking://resources/architecture`: Mapeamento de `MASTER_ARCHITECTURE.md` e regras invioláveis.
+  - `viking://resources/blueprints`: Especificações técnicas canônicas de `docs/blueprint/` (01 a 09).
+  - `viking://resources/rules`: Regras da metodologia Superpowers e diretrizes de trading.
+- **`viking://user/memories/` (Memória Episódica & Auto-Evolutiva)**:
+  - `viking://user/memories/cases/`: Dossiês de casos reais de trades (desfechos, MFE, MAE, lições aprendidas).
+  - `viking://user/memories/patterns/`: Catálogo de assinaturas gráficas, sweeps de liquidez e armadilhas de Smart Money.
+  - `viking://user/memories/preferences`: Perfil de risco e preferências do operador da mesa.
+- **`viking://agent/skills/` (Memória Procedural & SOPs)**:
+  - `viking://agent/skills/`: Protocolos operacionais padrão de `.agents/skills/` (TDD, Debugging Forense, Auditoria Executiva Hermes, Verificação Pré-Conclusão).
+
+### 15.2 Progressive Disclosure em Três Níveis (L0, L1, L2)
+Para otimizar o uso do context window e garantir tempos de resposta ultrarrápidos, cada nó do OpenViking (`VikingNode`) expõe seu conteúdo em três níveis granulares:
+1. **L0 (Executive Abstract — ~100 a 300 caracteres)**:
+   - Resumo ultracompacto para tomada de decisão em frações de segundo. Utilizado em loops de alta frequência, verificações de guard rails e checagem de invariantes de risco.
+2. **L1 (Operational Overview — ~1.000 a 2.000 caracteres)**:
+   - Visão operacional consolidada. Contém parâmetros técnicos exatos, fórmulas, thresholds de breakeven, métricas de entrada/saída e regras táticas.
+3. **L2 (Full Detail — Arquivo Completo)**:
+   - Documento completo, código-fonte, evidências empíricas de teste, logs forenses e transcrições de execução.
+
+### 15.3 Memória Auto-Evolutiva de Trading (Async Lesson Synthesis)
+Ao fechar qualquer trade na OKX (seja por Breakeven, Trailing Stop, Alvo Chão, Time-Stop ou Stop Loss):
+1. O evento é capturado assincronamente pelo serviço `openviking_context_service.py`.
+2. O sistema calcula as métricas forenses da operação: Maximum Favorable Excursion (MFE), Maximum Adverse Excursion (MAE), tempo total de custódia, custos de fricção (taxas + slippage) e desvios em relação à projeção original.
+3. Uma lição aprendida estruturada é gerada e gravada em dois destinos simultâneos:
+   - **OpenViking Node**: Indexado em `viking://user/memories/cases/{trade_id}` para recuperação imediata por agentes.
+   - **Obsidian Vault**: Persistido no diário de bordo executivo (`vault_galaxy/journal/YYYY-MM-DD.md`), construindo o histórico cognitivo permanente do sistema sem intervenção manual.
+
+### 15.4 Endpoints da API OpenViking
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/api/v1/hermes/viking/tree` | Retorna a árvore hierárquica completa do virtual filesystem `viking://` |
+| `GET` | `/api/v1/hermes/viking/read` | Lê um nó específico por URI (`?uri=viking://...&level=0\|1\|2`) |
+| `GET` | `/api/v1/hermes/viking/search` | Realiza busca semântica e por tags em nós indexados (`?query=...&level=1`) |
+| `POST` | `/api/v1/hermes/viking/commit-lesson` | Grava uma nova lição ou síntese cognitiva diretamente no cofre de memórias |
+| `POST` | `/api/v1/hermes/viking/sync` | Força a sincronização a quente entre o disco local e o grafo OpenViking |
+
+---
+
+## 16. Model Context Protocol (MCP 2.x) Bridge
+
+O 1Crypten implementa suporte oficial e nativo ao **Model Context Protocol (MCP)**, permitindo que agentes de inteligência artificial locais e externos (Hermes, Claude Desktop, Antigravity, Cursor, n8n, AIOS) interajam diretamente com o motor de trading, risco, mercado e memória através de um conjunto tipado e seguro de ferramentas.
+
+### 16.1 Arquitetura do Bridge e Montagem ASGI
+- **Framework**: Implementado em `backend/services/mcp_bridge.py` utilizando `FastMCP` (SDK 1.x) com suporte retrocompatível para `MCPServer` (SDK 2.x).
+- **Montagem Nativa**: Montado como uma sub-aplicação ASGI diretamente no FastAPI em `/mcp` (`backend/main.py:707`), disponibilizando endpoints SSE (`/mcp/sse`), transporte de mensagens (`/mcp/messages`) e catálogo de schemas.
+- **Catálogo de Descoberta**: Exposto publicamente na rota `GET /api/v1/mcp/tools` para auto-descoberta rápida por agentes sem overhead de handshake SSE.
+
+### 16.2 Arsenal das 16 Ferramentas Oficiais Registradas
+| # | Ferramenta MCP | Categoria | Descrição Técnica |
+|---|---|---|---|
+| 1 | `get_balance` | Execução & Risco | Retorna a banca unificada, equity em tempo real, margem livre e colateral garantidor em Margem Cruzada 50X. |
+| 2 | `get_positions` | Execução & Risco | Lista as posições ativas da frota (até 8 slots), preço de entrada, stop loss atual, target, ROI e PnL em USD. |
+| 3 | `get_radar_signals` | Inteligência | Consulta os sinais ativos do Titan Radar em tempo real para os 507 pares da OKX com scores e filtros. |
+| 4 | `evaluate_asset` | Inteligência | Executa avaliação completa quantitativa e reflexa sob demanda para um ativo e direção específicos. |
+| 5 | `get_system_snapshot` | Telemetria | Retorna snapshot global do sistema: modo (PAPER/REAL), contadores de trades, uptime e status dos feeds. |
+| 6 | `quarantine_symbol` | Gestão de Risco | Aplica quarentena manual ou preventiva a um ativo (padrão 7200s anti-reincidência ou 300s Scratch Guard). |
+| 7 | `get_quarantines` | Gestão de Risco | Lista todos os pares perpétuos atualmente em quarentena com timestamps de expiração. |
+| 8 | `query_rag` | Segundo Cérebro | Executa busca semântica de alta velocidade no Segundo Cérebro (Blueprints, manuais e regras da metodologia). |
+| 9 | `get_market_intel_screener` | Screener Macro | Retorna a matriz do Screener Universal (507 pares OKX) com métricas `1C-EXP`, `1C-RANGE` e aceleração institucional. |
+| 10 | `get_contract_precision_audit` | Precisão OKX | Audita especificações contratuais de um par na OKX: `tickSize`, `lotSize`, `minSz`, `ctVal` e `ctMult`. |
+| 11 | `viking_tree` | OpenViking | Navega na árvore hierárquica do sistema de arquivos virtual `viking://`. |
+| 12 | `viking_read` | OpenViking | Lê nós contextuais do OpenViking com Progressive Disclosure nos níveis L0 (Abstract), L1 (Overview) ou L2 (Detail). |
+| 13 | `viking_search` | OpenViking | Busca semântica e por relevância em nós de conhecimento e memórias de trade do OpenViking. |
+| 14 | `viking_commit_lesson` | OpenViking | Grava novas sínteses operacionais, lições aprendidas e casos forenses no Obsidian Vault e OpenViking. |
+| 15 | `get_laya_sovereign_intelligence` | Laya Neural | Acessa o stream de pensamento cognitivo da Laya Neural System 1, regime de fluxo e score de convicção. |
+| 16 | `get_liquidity_zones_heatmap` | Order Flow | Consulta o mapa de calor de liquidação Coinglass/OKX, muralhas de liquidez e vetor de atração do ímã de baleias. |
+
+---
+
+## 17. RAG Semântico Híbrido (`RAGService` & Segundo Cérebro)
+
+O `RAGService` (`backend/services/rag_service.py`) provê indexação semântica e recuperação de documentos em sub-milissegundos (< 5ms) para alimentar o Hermes e os agentes cognitivos com a verdade canônica do sistema.
+
+### 17.1 Motor de Indexação e Recuperação BM25 / TF-IDF
+- **Algoritmo de Ranqueamento**: Combinação híbrida de Term Frequency (TF) normalizado e Inverse Document Frequency (IDF) ponderado no estilo BM25, com boosting para termos em títulos e cabeçalhos.
+- **Chunking Semântico**: Fragmentação inteligente baseada em seções de Markdown, preservando títulos, tabelas e blocos conceituais inteiros sem quebra arbitrária de sentenças.
+- **Tokenização Limpa**: Filtro contra stop-words e caracteres especiais, normalizando termos em português e inglês para cobertura técnica bilíngue.
+
+### 17.2 Fontes de Conhecimento Indexadas
+1. **`MASTER_ARCHITECTURE.md`**: Invariantes de risco, constantes soberanas, escadinhas de stop e governança operacional.
+2. **`docs/blueprint/` (Blueprints 01 a 09)**: Especificações técnicas de motores de cálculo, feeds de dados e camadas de persistência.
+3. **`vault_galaxy/` (Obsidian Vault)**:
+   - `journal/`: Diários de bordo executivos com lições aprendidas de trades passados.
+   - `trades/`: Registros históricos estruturados de ordens institucionais.
+   - `strategies/`: Documentação de setups operacionais (`LAYA_PULLBACK_HUNTER_2H_30M`, Sweep & Flip, etc.).
+4. **`.agents/rules/`**: Metodologia Superpowers (`superpowers_methodology.md`), diretrizes TDD e `AGENTS.md`.
+
+### 17.3 Rotas da API RAG (`/api/v1/hermes/rag`)
+- `GET /api/v1/hermes/rag/search?query=...&top_k=4`: Realiza consulta ranqueada por relevância, retornando título, conteúdo, score e caminho de origem do chunk.
+- `GET /api/v1/hermes/rag/status`: Retorna telemetria do índice: total de chunks indexados, contagem de termos únicos, timestamp da última indexação e status de memória.
+- `POST /api/v1/hermes/rag/reindex`: Dispara a reindexação completa a quente de todos os diretórios sem necessidade de reinício do processo Uvicorn.
+
+---
+
+## 18. Pipeline de Fine-Tuning, Datasets JSONL & Calibração RLCD
+
+O módulo de Machine Learning do 1Crypten (`backend/app/ml/fine_tuning/` e `/api/v1/ml`) gerencia o ciclo contínuo de calibração, treinamento e refinamento da **Laya Neural System 1** (v0.4.31) e do adaptador temporal do **Kronos**.
+
+### 18.1 Metodologia RLCD (Reinforcement Learning from AI Cognition & Decisions)
+Em vez de depender de rotulagem humana manual lenta, o sistema opera sob calibração autônoma RLCD:
+1. Durante o runtime, para cada avaliação do Titan Radar, o vetor de estado de mercado é registrado:
+   `[ADX_2H, Delta_LSR, Delta_OI, Dist_SMA8, Dist_SMA21, BTC_Macro_Regime, Wick_Ratio, Volume_Ratio]`.
+2. A decisão reflexa da Laya Neural (`BUY`, `SELL`, `HOLD`) e seu score de convicção (0 a 100%) são gravados em conjunto com o identificador da ordem.
+3. Ao término do trade, o desfecho real de mercado (Lucro Líquido no Breakeven/Trailing vs Perda no Stop Loss) atua como o sinal de recompensa (Reward Signal).
+4. O gerador de datasets classifica operações vencedoras (especialmente as que atingiram Alvo Chão de +300% ROI) como pares positivos de alta recompensa e falsos rompimentos como penalizações severas.
+
+### 18.2 Gerador Canônico de Datasets (`dataset_generator.py`)
+- **Geração Formatada JSONL**: Produz arquivos prontos para fine-tuning em frameworks padrão (HuggingFace, PyTorch, LoRA, OpenAI fine-tuning format):
+  `{"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "<vetor_mercado>"}, {"role": "assistant", "content": "<decisao_calibrada>"}]}`
+- **Datasets Separados**:
+  - `laya_decision_dataset.jsonl`: Focado na decisão direcional, timing de pullback e veto contra Smart Money.
+  - `kronos_trajectory_dataset.jsonl`: Focado na projeção de trajetórias temporais de velas futuras.
+
+### 18.3 Treinadores de Calibração e Pesos
+- **`laya_finetune_trainer.py`**:
+  - Ajusta a matriz de pesos neurais reflexos da Laya, salvando os coeficientes em `laya_calibrated_weights.json`.
+  - Recalibra as prioridades Bayesianas de modo que a Laya aumente o rigor do filtro reflexo quando a taxa de acerto em pullbacks cair abaixo do threshold estatístico de 75%.
+- **`kronos_adapter_trainer.py`**:
+  - Ajusta a camada adaptativa do KronosScorer para refinar previsões de volatilidade e envelopes de expansão intradiária.
+
+### 18.4 Endpoints de Controle ML (`/api/v1/ml`)
+- `POST /api/v1/ml/generate-dataset`: Gera datasets atualizados no disco a partir do histórico consolidado de trades (`data/fine_tuning/`).
+- `GET /api/v1/ml/dataset-stats`: Retorna métricas estatísticas dos datasets presentes no disco (total de amostras, balanceamento de classes, tamanho em bytes).
+- `POST /api/v1/ml/train-laya`: Dispara o pipeline de calibração/fine-tuning dos pesos da Laya Neural System 1.
+- `POST /api/v1/ml/train-kronos`: Dispara o treinamento do adaptador temporal do Kronos.
+- `GET /api/v1/ml/status`: Consulta o status atual dos modelos de IA, data da última calibração e versões de pesos carregadas em memória.
 
 ---
 
