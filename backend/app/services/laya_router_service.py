@@ -627,11 +627,10 @@ class LayaRouterService:
 
         # Em regime SHORT:
         if macro_direction == "SHORT":
-            # --- CAMADA 1: AS 3 BARREIRAS MECANICAS INEGOCIAVEIS ---
-            
-            # [V208-UNIFIED-SNIPER-A-PLUS-B]
+            # --- ARQUITETURA DUAL-TIER TITAN ENGINE: GRAU 1 (SMA8) VS GRAU 2 (SMA21 EXAUSTAO) ---
             sma8_2h = float(kwargs.get("sma8_2h", 0.0))
             sma21_2h = float(kwargs.get("sma21_2h", 0.0))
+            ref_sma21 = sma21_2h if sma21_2h > 0 else sma21
 
             # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M na janela de repique)
             recent_high = max(float(c.get("high", c_close)) for c in parsed[-3:])
@@ -656,43 +655,67 @@ class LayaRouterService:
                         "pullback_type": "VACUUM_BELOW_SMA8"
                     }
 
-            # Barreira 1b: Se preco ja rompeu acima da SMA21 com folga, o repique virou reversao de alta local
-            if sma21_2h > 0 and c_close > (sma21_2h * 1.004):
+            # Barreira 1b: Se preco ja rompeu muito acima da SMA21 (>0.8%), o repique virou reversao macro de alta
+            if c_close > (ref_sma21 * 1.008):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_ROMPIMENTO_ALTA: Preco ultrapassou a SMA21 2H ({sma21_2h:.4f}). Gatilho desarmado.",
-                    "pullback_type": "PULLBACK_INVALIDATED"
-                }
-            elif c_close > (sma21 * 1.004):
-                return {
-                    "has_pullback_setup": False,
-                    "score_boost": 0,
-                    "reason": f"VETO_ROMPIMENTO_ALTA: Preco ultrapassou a SMA21 ({sma21:.4f}) em {((c_close-sma21)/sma21)*100:.2f}%. Gatilho desarmado.",
+                    "reason": f"VETO_ROMPIMENTO_ALTA: Preco ultrapassou a SMA21 ({ref_sma21:.4f}) em {((c_close-ref_sma21)/ref_sma21)*100:.2f}%. Gatilho desarmado.",
                     "pullback_type": "PULLBACK_INVALIDATED"
                 }
 
-            # Barreira 2: Anti-Candle de Forca Compradora (Exaustao Obrigatoria no 30M)
             upper_wick = c_high - max(c_open, c_close)
             upper_wick_ratio = upper_wick / candle_range
             is_green_candle = c_close > c_open
             body_ratio = abs(c_close - c_open) / candle_range
 
-            if is_green_candle and body_ratio > 0.50 and upper_wick_ratio < 0.25:
-                return {
-                    "has_pullback_setup": False,
-                    "score_boost": 0,
-                    "reason": f"VETO_CANDLE_FORCA_COMPRADORA: Vela de alta com corpo dominante ({body_ratio*100:.0f}%) e sem pavio superior ({upper_wick_ratio*100:.0f}%). Proibido vender contra expansao verde.",
-                    "pullback_type": "BULL_BODY_IMPULSE"
-                }
+            # --- IDENTIFICACAO DO GRAU DE ENTRADA: GRAU 2 (TESTE/SWEEP SMA21) VS GRAU 1 (REJEICAO SMA8) ---
+            reached_sma21 = recent_high >= (ref_sma21 * 0.998) or (sma21 > 0 and recent_high >= (sma21 * 0.998))
 
-            # Barreira 3: Calculo e Posicionamento do Stop Loss ACIMA da Linha Amarela (SMA21 2H Soberana)
-            major_res = max(sma8, sma21, sma21_2h if sma21_2h > 0 else 0.0)
-            sl_price = round(max(c_high * 1.004, major_res * 1.006, (sma8 + abs(sma21 - sma8) * 1.25)), 4)
-            if sma21_2h > 0 and sl_price <= sma21_2h:
-                sl_price = round(sma21_2h * 1.006, 4)
-            elif sl_price <= major_res:
-                sl_price = round(major_res * 1.006, 4)
+            if reached_sma21:
+                # O preco subiu alem da SMA8 e testou a Linha Amarela (SMA21) buscando liquidez de stops retail
+                # Exaustao obrigatoria na SMA21: pavio superior expressivo OU fechamento em queda OU devolucao abaixo da SMA21
+                sma21_exhaustion = upper_wick_ratio >= 0.15 or (not is_green_candle) or c_close <= (ref_sma21 * 1.002)
+                if not sma21_exhaustion and is_green_candle and body_ratio > 0.45:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_SMART_MONEY_EXPANSAO: Vela verde testando SMA21 ({ref_sma21:.4f}) com corpo forte ({body_ratio*100:.0f}%). Aguardando pavio de exaustao na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_EXHAUSTION"
+                    }
+                
+                tier_grade = "GRAU 2 (EXAUSTAO SMA21)"
+                tier_type = "SNIPER_SMA21_EXHAUSTION_SHORT"
+                # Stop loss blindado ACIMA do topo do sweep na SMA21
+                major_res = max(c_high, ref_sma21, sma21)
+                sl_price = round(max(c_high * 1.008, major_res * 1.012, c_close * 1.018), 4)
+                tier_boost = 25
+            else:
+                # O preco tocou apenas na Linha Branca (SMA8).
+                # REGRA CRITICA SMART MONEY: Se vela esta subindo com forca furando a SMA8 rumo a SMA21, VETAR entrada na SMA8!
+                if is_green_candle and body_ratio > 0.40 and upper_wick_ratio < 0.30 and c_close > (sma8 * 1.0005):
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_SMART_MONEY_REPIQUE: Preco furando SMA8 ({sma8:.4f}) com forca em direcao a SMA21 ({ref_sma21:.4f}). Aguardando topo na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_REPIQUE"
+                    }
+                
+                # Se vela de alta pura sem rejeicao (expansao)
+                if is_green_candle and body_ratio > 0.50 and upper_wick_ratio < 0.25:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_CANDLE_FORCA_COMPRADORA: Vela de alta com corpo dominante ({body_ratio*100:.0f}%) e sem pavio superior ({upper_wick_ratio*100:.0f}%). Proibido vender contra expansao verde.",
+                        "pullback_type": "BULL_BODY_IMPULSE"
+                    }
+
+                tier_grade = "GRAU 1 (SNIPER SMA8)"
+                tier_type = "SNIPER_RETEST_SHORT"
+                # Stop loss protegido e posicionado ACIMA da Linha Amarela (SMA21) para nao ser pego no sweep
+                major_res = max(ref_sma21, sma21, sma8)
+                sl_price = round(max(c_high * 1.008, major_res * 1.012, c_close * 1.020), 4)
+                tier_boost = 18
 
             stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.015
             max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
@@ -704,11 +727,13 @@ class LayaRouterService:
                     "pullback_type": "STOP_TOO_FAR"
                 }
 
-            # --- CAMADA 2: CESTO DE CONFLUÊNCIAS INTELIGENTES (CHECKLIST PONDERADO) ---
+            # --- CAMADA 2: CESTO DE CONFLUÊNCIAS INTELIGENTES ---
             confluences = []
-            if upper_wick_ratio >= 0.20:
+            if reached_sma21:
+                confluences.append("SWEEP_EXAUSTAO_SMA21")
+            if upper_wick_ratio >= 0.15:
                 confluences.append(f"PAVIO_REJEICAO({upper_wick_ratio*100:.0f}%)")
-            elif c_close < c_open and upper_wick_ratio >= 0.12:
+            elif c_close < c_open and upper_wick_ratio >= 0.10:
                 confluences.append(f"REJEICAO_BEAR({upper_wick_ratio*100:.0f}%)")
             if lsr >= 0.85:
                 confluences.append(f"LSR_LIVRE({lsr:.2f})")
@@ -730,9 +755,9 @@ class LayaRouterService:
             tgt_price = round(min(c_low * 0.970, c_close * 0.940), 4)
             return {
                 "has_pullback_setup": True,
-                "score_boost": 15 + len(confluences) * 2,
-                "reason": f"GATILHO_SNIPER_SHORT: Toque na SMA8 ({sma8:.4f}) com {len(confluences)} confluencias ({', '.join(confluences)}) | Stop blindado acima da SMA21 em {sl_price:.4f}",
-                "pullback_type": "SNIPER_RETEST_SHORT",
+                "score_boost": tier_boost + len(confluences) * 2,
+                "reason": f"GATILHO_SNIPER_SHORT [{tier_grade}]: Repique com {len(confluences)} confluencias ({', '.join(confluences)}) | Stop blindado em {sl_price:.4f}",
+                "pullback_type": tier_type,
                 "sma8_30m": round(sma8, 6),
                 "sma21_30m": round(sma21, 6),
                 "stop_loss": sl_price,
@@ -742,8 +767,10 @@ class LayaRouterService:
 
         # Em regime LONG:
         elif macro_direction == "LONG":
+            # --- ARQUITETURA DUAL-TIER TITAN ENGINE: GRAU 1 (SMA8) VS GRAU 2 (SMA21 ABSORCAO) ---
             sma8_2h = float(kwargs.get("sma8_2h", 0.0))
             sma21_2h = float(kwargs.get("sma21_2h", 0.0))
+            ref_sma21 = sma21_2h if sma21_2h > 0 else sma21
 
             # Barreira 1: Proximidade Estrita e Toque Real na Linha Branca (SMA8 2H/30M na janela de recuo)
             recent_low = min(float(c.get("low", c_close)) for c in parsed[-3:])
@@ -768,18 +795,12 @@ class LayaRouterService:
                         "pullback_type": "VACUUM_ABOVE_SMA8"
                     }
 
-            if sma21_2h > 0 and c_close < (sma21_2h * 0.996):
+            # Barreira 1b: Se preco perdeu muito abaixo da SMA21 (>0.8%), o recuo virou reversao macro de baixa
+            if c_close < (ref_sma21 * 0.992):
                 return {
                     "has_pullback_setup": False,
                     "score_boost": 0,
-                    "reason": f"VETO_ROMPIMENTO_BAIXA: Preco perdeu a SMA21 2H ({sma21_2h:.4f}). Gatilho LONG desarmado.",
-                    "pullback_type": "PULLBACK_INVALIDATED"
-                }
-            elif c_close < (sma21 * 0.996):
-                return {
-                    "has_pullback_setup": False,
-                    "score_boost": 0,
-                    "reason": f"VETO_ROMPIMENTO_BAIXA: Preco perdeu a SMA21 ({sma21:.4f}). Gatilho LONG desarmado.",
+                    "reason": f"VETO_ROMPIMENTO_BAIXA: Preco perdeu a SMA21 ({ref_sma21:.4f}) em {((ref_sma21-c_close)/ref_sma21)*100:.2f}%. Gatilho LONG desarmado.",
                     "pullback_type": "PULLBACK_INVALIDATED"
                 }
 
@@ -788,20 +809,52 @@ class LayaRouterService:
             is_red_candle = c_close < c_open
             body_ratio = abs(c_open - c_close) / candle_range
 
-            if is_red_candle and body_ratio > 0.50 and lower_wick_ratio < 0.25:
-                return {
-                    "has_pullback_setup": False,
-                    "score_boost": 0,
-                    "reason": f"VETO_CANDLE_FORCA_VENDEDORA: Vela de baixa com corpo dominante ({body_ratio*100:.0f}%) e sem pavio inferior ({lower_wick_ratio*100:.0f}%).",
-                    "pullback_type": "BEAR_BODY_IMPULSE"
-                }
+            # --- IDENTIFICACAO DO GRAU DE ENTRADA: GRAU 2 (TESTE/SWEEP SMA21) VS GRAU 1 (ABSORCAO SMA8) ---
+            reached_sma21 = recent_low <= (ref_sma21 * 1.002) or (sma21 > 0 and recent_low <= (sma21 * 1.002))
 
-            minor_sup = min(sma8, sma21, sma21_2h if sma21_2h > 0 else 999999.0)
-            sl_price = round(min(c_low * 0.996, minor_sup * 0.994, (sma8 - abs(sma21 - sma8) * 1.25)), 4)
-            if sma21_2h > 0 and sl_price >= sma21_2h:
-                sl_price = round(sma21_2h * 0.994, 4)
-            elif sl_price >= minor_sup:
-                sl_price = round(minor_sup * 0.994, 4)
+            if reached_sma21:
+                # O preco caiu alem da SMA8 e testou a Linha Amarela (SMA21) buscando liquidez de stops retail
+                sma21_absorption = lower_wick_ratio >= 0.15 or (not is_red_candle) or c_close >= (ref_sma21 * 0.998)
+                if not sma21_absorption and is_red_candle and body_ratio > 0.45:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_SMART_MONEY_DUMP: Vela vermelha testando SMA21 ({ref_sma21:.4f}) com corpo forte ({body_ratio*100:.0f}%). Aguardando pavio de absorcao na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_ABSORPTION"
+                    }
+
+                tier_grade = "GRAU 2 (ABSORCAO SMA21)"
+                tier_type = "SNIPER_SMA21_EXHAUSTION_LONG"
+                # Stop loss blindado ABAIXO do fundo do sweep na SMA21
+                minor_sup = min(c_low, ref_sma21, sma21)
+                sl_price = round(min(c_low * 0.992, minor_sup * 0.988, c_close * 0.982), 4)
+                tier_boost = 25
+            else:
+                # O preco tocou apenas na Linha Branca (SMA8).
+                # REGRA CRITICA SMART MONEY: Se vela esta caindo com forca furando a SMA8 rumo a SMA21, VETAR entrada na SMA8!
+                if is_red_candle and body_ratio > 0.40 and lower_wick_ratio < 0.30 and c_close < (sma8 * 0.9995):
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_SMART_MONEY_REPIQUE: Preco furando SMA8 ({sma8:.4f}) com forca em direcao a SMA21 ({ref_sma21:.4f}). Aguardando fundo na Linha Amarela.",
+                        "pullback_type": "AWAITING_SMA21_REPIQUE"
+                    }
+
+                # Se vela de baixa pura sem rejeicao (expansao vendedora)
+                if is_red_candle and body_ratio > 0.50 and lower_wick_ratio < 0.25:
+                    return {
+                        "has_pullback_setup": False,
+                        "score_boost": 0,
+                        "reason": f"VETO_CANDLE_FORCA_VENDEDORA: Vela de baixa com corpo dominante ({body_ratio*100:.0f}%) e sem pavio inferior ({lower_wick_ratio*100:.0f}%).",
+                        "pullback_type": "BEAR_BODY_IMPULSE"
+                    }
+
+                tier_grade = "GRAU 1 (SNIPER SMA8)"
+                tier_type = "SNIPER_RETEST_LONG"
+                # Stop loss protegido e posicionado ABAIXO da Linha Amarela (SMA21)
+                minor_sup = min(ref_sma21, sma21, sma8)
+                sl_price = round(min(c_low * 0.992, minor_sup * 0.988, c_close * 0.980), 4)
+                tier_boost = 18
 
             stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.015
             max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
@@ -813,10 +866,13 @@ class LayaRouterService:
                     "pullback_type": "STOP_TOO_FAR"
                 }
 
+            # --- CAMADA 2: CESTO DE CONFLUÊNCIAS INTELIGENTES ---
             confluences = []
-            if lower_wick_ratio >= 0.20:
+            if reached_sma21:
+                confluences.append("SWEEP_ABSORCAO_SMA21")
+            if lower_wick_ratio >= 0.15:
                 confluences.append(f"PAVIO_ABSORCAO({lower_wick_ratio*100:.0f}%)")
-            elif c_close > c_open and lower_wick_ratio >= 0.12:
+            elif c_close > c_open and lower_wick_ratio >= 0.10:
                 confluences.append(f"ABSORCAO_BULL({lower_wick_ratio*100:.0f}%)")
             if lsr <= 1.35:
                 confluences.append(f"LSR_LIVRE({lsr:.2f})")
@@ -838,9 +894,9 @@ class LayaRouterService:
             tgt_price = round(max(c_high * 1.030, c_close * 1.060), 4)
             return {
                 "has_pullback_setup": True,
-                "score_boost": 15 + len(confluences) * 2,
-                "reason": f"GATILHO_SNIPER_LONG: Toque na SMA8 ({sma8:.4f}) com {len(confluences)} confluencias | Stop protegido abaixo da SMA21 em {sl_price:.4f}",
-                "pullback_type": "SNIPER_RETEST_LONG",
+                "score_boost": tier_boost + len(confluences) * 2,
+                "reason": f"GATILHO_SNIPER_LONG [{tier_grade}]: Recuo com {len(confluences)} confluencias ({', '.join(confluences)}) | Stop blindado em {sl_price:.4f}",
+                "pullback_type": tier_type,
                 "sma8_30m": round(sma8, 6),
                 "sma21_30m": round(sma21, 6),
                 "stop_loss": sl_price,
