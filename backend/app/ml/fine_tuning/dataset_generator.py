@@ -134,7 +134,8 @@ class DatasetGenerator:
             scenario = random.choice([
                 "ARMADILHA_SARDINHA", "ABSORCAO_BALEIA", "ROMPIMENTO_INSTITUCIONAL", "CONSOLIDACAO",
                 "BTC_DUMP_VETO_LONG", "TREND_ALIGNMENT_SHORT", "EXPANSAO_VOLATILIDADE_1C_EXP",
-                "CANAL_LATERAL_1C_RANGE", "IGNITION_BALEIAS", "V210_PULLBACK_HUNTER_2H_30M"
+                "CANAL_LATERAL_1C_RANGE", "IGNITION_BALEIAS", "V210_PULLBACK_HUNTER_2H_30M",
+                "V220_CONSOLIDATION_CEILING_SNIPER"
             ])
 
             if scenario == "EXPANSAO_VOLATILIDADE_1C_EXP":
@@ -177,6 +178,15 @@ class DatasetGenerator:
                 conf = 0.95
                 pnl = 0.0
                 rationale = "Preço esticado abaixo da VWAP mas Bitcoin em forte queda livre. Compra na faca caindo estritamente vetada."
+            elif scenario == "V220_CONSOLIDATION_CEILING_SNIPER":
+                range_pos = round(random.uniform(0.62, 0.85), 2)
+                lsr = round(random.uniform(1.10, 1.45), 2)
+                oi_delta = round(random.uniform(-0.5, 1.2), 2)
+                decision = "SELL"
+                regime = "V220_CONSOLIDATION_CEILING_SNIPER"
+                conf = 0.98
+                pnl = round(random.uniform(4.5, 12.0), 2)
+                rationale = f"V220 Consolidation Ceiling Sniper: Preço no topo da acumulação 2H (range_pos={range_pos*100:.1f}% >= 62%). Entrada SHORT sniper com Stop Loss estrutural mantido com fôlego técnico além do swing high de 2H."
             elif scenario == "V210_PULLBACK_HUNTER_2H_30M":
                 lsr = round(random.uniform(1.20, 1.65), 2)
                 oi_delta = round(random.uniform(0.5, 2.5), 2)
