@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 8.4.3 (V221 - TITAN BTC FIRST NAVIO ALMIRANTE & SIMBIOSE DIRECIONAL 100% DA FROTA)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.4.4 (V222 - TITAN MACRO TREND LOCK & PURGA DEFINITIVA DA ÁGUIA FUSION)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-17. VERSION no codigo: `backend/main.py` VERSION="V221-TITAN-BTC-FIRST-SYMBIONT-FLEET". DEPLOYMENT_ID="V221_TITAN_SOVEREIGN_SYSTEM". Invariantes V221 Escritas em Pedra: 1) Protocolo Navio Almirante (BTC First Obrigatório): Com mesa zerada (0 trades ativos), nenhuma altcoin tem permissão de abrir ordem isoladamente (`VETO_AGUARDANDO_NAVIO_ALMIRANTE_BTC`). A primeira ordem da frota (Slot 1) é privativa do Bitcoin (`BTC-USDT-SWAP`), que valida o fluxo e a direção macro. 2) Simbiose Direcional Inviolável (100% da Frota no Mesmo Sentido): Com a ordem do BTC aberta (LONG ou SHORT), 100% dos slots subsequentes (Slot 2 até Slot 8) devem abrir estritamente na MESMA DIREÇÃO do BTC (`VETO_DESALINHAMENTO_DIRECIONAL_BTC`), eliminando a anomalia de hedges canibais. 3) Expansão Autofinanciada 2+2+2+2: Máximo de 2 ordens sob risco desprotegido ($20.000 = 20% da banca em 50X Margem Cruzada); o Slot 3 só abre quando o BTC ou a altcoin pioneira atingir Risco Zero (+45% ou +60% ROI). 4) Kill Switch de Órfãs: Encerramento imediato preventivo a mercado no zero a zero de qualquer altcoin que fique posicionada na contramão se o BTC reverter. 5) Tática Consolidation Ceiling Sniper: Entrada no teto da caixa 2H (>= 62% da amplitude) com preservação plena do respiro técnico do Stop Loss de 2H além da SMA 21 e topo estrutural.*
+*Verificado contra o codigo em 2026-11-17. VERSION no codigo: `backend/main.py` VERSION="V222-TITAN-MACRO-TREND-LOCK-SOVEREIGN". DEPLOYMENT_ID="V222_TITAN_SOVEREIGN_SYSTEM". Invariantes V222 Escritas em Pedra: 1) Trava Macro de Tendência (Macro Trend Lock): Em regime macro de baixa de 2H/4H ou consolidação abaixo da SMA 21 de 2H, repiques intradiários de 15M/30M são sumariamente PROIBIDOS de abrir LONG (`VETO MACRO TENDÊNCIA BAIXA`). Repiques em baixa servem exclusivamente para buscar vendas sniper de SHORT no teto da consolidação. 2) Purga Canônica da Águia Fusion: A estratégia legada `LAYA_AGUIA_FUSION` foi permanentemente extirpada do ciclo de abertura; autoridade soberana e exclusiva para `LAYA_PULLBACK_HUNTER_2H_30M`. 3) Protocolo Navio Almirante (BTC First Obrigatório): Com mesa zerada (0 trades ativos), nenhuma altcoin tem permissão de abrir ordem isoladamente (`VETO_AGUARDANDO_NAVIO_ALMIRANTE_BTC`). A primeira ordem da frota (Slot 1) é privativa do Bitcoin (`BTC-USDT-SWAP`), que valida o fluxo e a direção macro. 4) Simbiose Direcional Inviolável (100% da Frota no Mesmo Sentido): Com a ordem do BTC aberta (LONG ou SHORT), 100% dos slots subsequentes (Slot 2 até Slot 8) devem abrir estritamente na MESMA DIREÇÃO do BTC (`VETO_DESALINHAMENTO_DIRECIONAL_BTC`), eliminando a anomalia de hedges canibais. 5) Expansão Autofinanciada 2+2+2+2: Máximo de 2 ordens sob risco desprotegido ($20.000 = 20% da banca em 50X Margem Cruzada); o Slot 3 só abre quando o BTC ou a altcoin pioneira atingir Risco Zero (+45% ou +60% ROI). 6) Kill Switch de Órfãs: Encerramento imediato preventivo a mercado no zero a zero de qualquer altcoin que fique posicionada na contramão se o BTC reverter. 7) Tática Consolidation Ceiling Sniper: Entrada no teto da caixa 2H (>= 62% da amplitude) com preservação plena do respiro técnico do Stop Loss de 2H além da SMA 21 e topo estrutural.*
 ---
 
 ## 1. Visao Geral
@@ -336,13 +336,27 @@ flowchart TD
 4. **Kill Switch de Órfãs (Flush Protetivo)**:
    - Se o Bitcoin inverter de regime macro ou encerrar seu ciclo, quaisquer altcoins remanescentes na direção contrária são imediatamente encerradas a mercado ou puxadas para breakeven, eliminando perdas por descompasso.
 
-**Status Operacional Atual [V221-TITAN-SOVEREIGN-FLEET]**:
+### 2.10 Titan Macro Trend Lock & Purga Canônica da Águia Fusion [V222]
+1. **Trava Macro de Tendência (Macro Trend Lock)**:
+   - *Fundamento de Mercado*: Comprar repiques intradiários (15M ou 30M) quando o ativo maior (Bitcoin) está em tendência de baixa nos timeframes superiores (1H, 2H e 4H) ou acumulando abaixo da média de 2H é uma armadilha clássica de Smart Money. O repique atrai compradores de varejo para capturar liquidez e desaba em seguida.
+   - *Regra Inegociável*: É TERMINANTEMENTE PROIBIDO abrir ordens em LONG (no Bitcoin ou em qualquer altcoin) quando o regime macro não for expressamente BULL (`btc_macro_dir != "BULL"` ou preço abaixo da SMA 21 de 2H). Veto automático disparado: `VETO MACRO TENDÊNCIA BAIXA`. Compras só são autorizadas se o Bitcoin romper formalmente a resistência macro do caixote de consolidação com confirmação técnica.
+   - *Finalidade do Repique em Baixa*: Repiques intradiários em mercados de baixa servem exclusivamente para caçar entradas sniper de SHORT no topo do repique (Grau 2 na SMA 21 de 2H).
+2. **Purga Canônica da Águia Fusion (`LAYA_AGUIA_FUSION` Extirpada)**:
+   - A estratégia legado `LAYA_AGUIA_FUSION` operava cruzamentos intradiários de 15M e possuía isenções de liquidez que induziam compras de topo contra a maré macro.
+   - Foi permanentemente purgada e descontinuada de todo o pipeline de abertura de ordens.
+   - Autoridade soberana e exclusiva concedida à estratégia `LAYA_PULLBACK_HUNTER_2H_30M`.
+3. **Consolidation Ceiling Sniper Preservado**:
+   - Em caixas de acumulação de 2H, o SHORT exige teste do terço superior (`range_pos_2h >= 62.0%`).
+   - Stop Loss estrutural mantido com fôlego livre além do topo do range de 2H (`high_2h_window * 1.006`), garantindo espaço técnico sem estrangulamento precoce.
+
+**Status Operacional Atual [V222-TITAN-SOVEREIGN-FLEET]**:
 - **Frota Ativa (Titan Engine)**: 100% sob **50X Margem Cruzada**, banca base de **$100.000,00 USD**, lote fixo de $10.000,00 ($500.000 nocional) e até 8 slots simultâneos na regra 2+2+2+2.
+- **Protocolo V222**: Titan Macro Trend Lock (proibição de LONGs em repique de baixa) + Purga Definitiva da Águia Fusion + Exclusividade Soberana `LAYA_PULLBACK_HUNTER_2H_30M`.
 - **Protocolo V221**: Navio Almirante (BTC First no Slot 1) + Simbiose Direcional 100% (altcoins estritamente no mesmo sentido do BTC) + Kill Switch de Órfãs.
 - **Tática de Execução V220**: Consolidation Ceiling Sniper (entrada obrigatória no teto >= 62% da caixa 2H) com preservação plena do fôlego estrutural do Stop Loss de 2H.
 - **Tática de Liquidez V219**: Liquidity Snatch Entry (paciência para caçada aos stops retail) com stops sniper de 1.0%-1.2%.
 - **Farol BTC Key Zones V219**: Monitoramento de Suportes/Resistências Macro do BTC e Veto de Vender Fundo.
-- **Dual Breakeven V218/V219/V220/V221**: Degrau 1 a +45% (trava +18%) e Degrau 2 a +60% (trava +30%), Alvo Chão de +300% ROI.
+- **Dual Breakeven V218/V219/V220/V221/V222**: Degrau 1 a +45% (trava +18%) e Degrau 2 a +60% (trava +30%), Alvo Chão de +300% ROI.
 - **Protocolos de IA**: OpenViking Context Engine (`viking://`), Servidor MCP 2.x Starlette Mount (`/mcp` com 16 ferramentas), RAGService Híbrido e Pipeline de Fine-Tuning ML (`/api/v1/ml/*`).
 - **Precisão OKX**: 100% dos 507 pares da OKX com quantização exata de tick size e lot size.
 

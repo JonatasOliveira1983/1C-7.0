@@ -1,7 +1,7 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 8.4.3 (V221-TITAN-BTC-FIRST-SYMBIONT-FLEET)  
+> **Versão**: 8.4.4 (V222-TITAN-MACRO-TREND-LOCK-SOVEREIGN)  
 > **Data de Atualização**: 17/11/2026  
 > **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 

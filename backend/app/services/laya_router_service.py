@@ -2173,21 +2173,10 @@ class LayaRouterService:
         # [V215]: BTC é tanto o Farol Macro quanto ativo flagship negociável da frota Titan 50X
         setup_res = None
 
-        # CAMADA 0 [V187-BRUNO-PHENIX-SOVEREIGN-FUSION]: Prioridade Absoluta Águia + Encryptos
-        if candles_1h and len(candles_1h) >= 8:
-            fusion_eval = self.evaluate_aguia_encryptos_fusion(
-                symbol=symbol,
-                current_price=current_price,
-                candles_1h=candles_1h,
-                bot_ignition=bot_ignition,
-                c_exp=c_exp,
-                btc_trend_bias=btc_trend_bias,
-                lsr=lsr,
-                acc_range=acc_range,
-                candles_15m=candles_15m
-            )
-            if fusion_eval.get("qualifies"):
-                setup_res = fusion_eval
+        # [V222-PURGA-CANONICA-AGUIA-FUSION]:
+        # A estratégia LAYA_AGUIA_FUSION foi descontinuada e purgada do pipeline de abertura.
+        # Nenhuma ordem é aberta por cruzamento intradiário de 15M. Apenas LAYA_PULLBACK_HUNTER_2H_30M tem autoridade de abertura.
+        setup_res = None
 
         # CAMADA 1: AVALIA ROMPIMENTO DE 1H (SE NÃO HOUVER FUSÃO DIRETA)
         if not setup_res:
@@ -3763,7 +3752,15 @@ class LayaRouterService:
                         rationale = f"VETO 2H SHORT_ONLY: {pullback_30m.get('reason')}"
             
             elif regime_2h["regime"] == "LONG_ONLY":
-                if range_pos_2h > 38.0:
+                # REGRA CRÍTICA V222 (TRAVA MACRO DE ALTA):
+                # Compras (LONG) exigem OBRIGATORIAMENTE que o Bitcoin esteja em regime BULL confirmado (SMA 8 > SMA 21 no 2H)
+                # E que o preço tenha rompido estruturalmente a resistência do caixote de acumulação anterior!
+                # Proibido comprar repique intradiário em tendência macro de baixa de 2H/4H!
+                is_btc_bull_macro = (btc_macro_dir == "BULL") or (clean_sym == "BTCUSDT" and regime_2h.get("diff_pct", 0) >= 0.35)
+                if not is_btc_bull_macro:
+                    multi_eval["qualifies"] = False
+                    rationale = f"VETO MACRO TENDÊNCIA BAIXA: Proibido abrir LONG. O Bitcoin não rompeu resistência macro (Status: {btc_macro_dir}). Repique em baixa serve apenas para SHORT."
+                elif range_pos_2h > 38.0:
                     multi_eval["qualifies"] = False
                     rationale = f"VETO TOPO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H. Proibido comprar no topo da caixa. Aguardando recuo testar o piso da consolidação (faixa inferior <= 38%)."
                 else:
@@ -3788,6 +3785,47 @@ class LayaRouterService:
                     else:
                         multi_eval["qualifies"] = False
                         rationale = f"VETO 2H LONG_ONLY: {pullback_30m.get('reason')}"
+            else:
+                # [V222-TRAVA-MERCADO-NEUTRO-OU-CONSOLIDACAO]:
+                # Em consolidação/neutralidade sem rompimento confirmado:
+                # Se o preço estiver abaixo da SMA 21 de 2H ou se o BTC não for expressamente BULL:
+                # O regime é forçado para SHORT_ONLY no teto (>= 62% do range de 2H).
+                # Compras (LONG) são sumariamente VETADAS!
+                if price <= regime_2h.get("sma21", price) or btc_macro_dir != "BULL":
+                    if range_pos_2h < 62.0:
+                        multi_eval["qualifies"] = False
+                        rationale = f"VETO MEIO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H. Proibido vender no meio da caixa. Aguardando repique testar o teto da consolidação (>= 62%)."
+                    else:
+                        pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
+                        if pullback_30m["has_pullback_setup"]:
+                            strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                            direction = "SHORT"
+                            multi_eval["qualifies"] = True
+                            multi_eval["strategy"] = strat_name
+                            multi_eval["direction"] = direction
+                            score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                            calc_sl = pullback_30m.get("stop_loss", round(price * 1.018, 4))
+                            stop_loss = max(calc_sl, round(high_2h_window * 1.006, 4))
+                            target = pullback_30m.get("target", round(price * 0.940, 4))
+                            stop_dist = abs(stop_loss - price) / price if price > 0 else 0.018
+                            target_dist = abs(price - target) / price if price > 0 else 0.035
+                            multi_eval["stop_loss"] = stop_loss
+                            multi_eval["target"] = target
+                            multi_eval["stop_dist"] = stop_dist
+                            multi_eval["target_dist"] = target_dist
+                            rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {pullback_30m.get('reason')} [Teto 2H: {range_pos_2h:.0f}%]"
+                        else:
+                            multi_eval["qualifies"] = False
+                            rationale = f"VETO 2H CONSOLIDAÇÃO: Sem gatilho de exaustão no teto."
+                else:
+                    multi_eval["qualifies"] = False
+                    rationale = f"VETO 2H INDEFINIDO: Sem tendência clara e sem rompimento estrutural de resistência."
+
+            # [V222-EXCLUSIVIDADE-SOBERANA-PULLBACK-HUNTER]:
+            # Apenas a estratégia LAYA_PULLBACK_HUNTER_2H_30M pode abrir novas posições na frota.
+            if strat_name != "LAYA_PULLBACK_HUNTER_2H_30M":
+                multi_eval["qualifies"] = False
+                rationale = f"VETO ESTRATÉGIA LEGADA: {strat_name} descontinuada para abertura. Exclusivo LAYA_PULLBACK_HUNTER_2H_30M."
 
             # 2. Confluencia ao Ima de Liquidez (Respeitando a Subordinacao 2H)
             if multi_eval["qualifies"] and strat_name not in ("LAYA_AGUIA_FUSION", "LAYA_PULLBACK_HUNTER_2H_30M"):
@@ -4269,36 +4307,14 @@ class LayaRouterService:
                 if c_score < self.MIN_ENTRY_SCORE:
                     continue
 
-                # 3. TRAVA 2: Exigência de ROBÔS INSTITUCIONAIS ATIVOS para setups gerais
-                # Setups soberanos (Pullback Hunter 2H/30M e Águia Fusion) já possuem gate microestrutural próprio
-                if c_strat not in ("LAYA_PULLBACK_HUNTER_2H_30M", "LAYA_AGUIA_FUSION"):
-                    if not c_bot and not cand.get("alt_pump_ignition") and not cand.get("is_dump_ignition"):
-                        continue
+                # 3. TRAVA SOBERANA V222: Apenas LAYA_PULLBACK_HUNTER_2H_30M tem autoridade de abertura
+                if c_strat != "LAYA_PULLBACK_HUNTER_2H_30M":
+                    continue
 
-                # 4. TRAVA 3: Veto Rígido de Compra de Topo e Venda de Fundo (Apenas para estratégias sem validação microestrutural)
-                # Setups soberanos (Pullback Hunter 2H/30M, Águia Fusion, Smart Money) já possuem sua própria validação
-                # microestrutural de repique/retração e rejeição de pavio, não devendo ser asfixiados pelo range estático diário de 24h.
-                if c_strat not in ("LAYA_PULLBACK_HUNTER_2H_30M", "LAYA_AGUIA_FUSION", "LAYA_SMART_MONEY_H1", "LAYA_LIQUIDITY_HUNT"):
-                    if c_dir == "SHORT":
-                        # NUNCA vender fundo (<45% de range) a menos que haja dump ignition institucional
-                        if c_range < 45.0 and not cand.get("is_dump_ignition"):
-                            continue
-                        # Proibido vender miolo neutro (45% a 55%) sem confirmação institucional
-                        if (45.0 <= c_range < 55.0) and not cand.get("is_dump_ignition"):
-                            continue
-
-                    if c_dir == "LONG":
-                        # NUNCA comprar topo (>=65.0% de range) a menos que haja rompimento comprovado com pump ignition
-                        if c_range >= 65.0 and not cand.get("is_pump_ignition"):
-                            continue
-                        # Proibido comprar miolo neutro (35% a 65%) sem aceleração compradora
-                        if (35.0 < c_range < 65.0) and not cand.get("is_pump_ignition"):
-                            continue
-
-                # 5. Farol Macro e Clima (Aplicável a 100% das estratégias sem exceção)
+                # 4. Farol Macro e Clima (Aplicável a 100% das estratégias sem exceção)
                 if True:
-                    # Tolerância Zero para compras de altcoin sem BTC em alta confirmada
-                    if btc_trend_bias <= 0.0 and c_dir == "LONG":
+                    # Tolerância Zero para compras sem BTC em regime BULL estrutural confirmado
+                    if c_dir == "LONG" and (btc_macro_dir != "BULL" or btc_trend_bias <= 0.0):
                         continue
                     if btc_trend_bias > 1.0 and c_dir == "SHORT":
                         continue
@@ -4308,25 +4324,22 @@ class LayaRouterService:
                         if not btc_intel.get("altcoin_short_allowed", True) and c_dir == "SHORT":
                             continue
 
-                # 6. Bilateral Spike Guard
+                # 5. Bilateral Spike Guard
                 if c_dir == "SHORT" and cand.get("is_pump_ignition"):
                     continue
                 if c_dir == "LONG" and cand.get("is_dump_ignition"):
                     continue
 
-                # 7. Limite de Cluster
+                # 6. Limite de Cluster
                 if self.is_cluster_limit_reached(c_clean, active_symbols, max_per_cluster=3):
                     continue
 
                 eligible.append(cand)
-            # [DIVERSITY & ROTATION & PRIORIDADE ALT PUMP IGNITION]
-            # Prioridade absoluta para Alt Pump Ignition, depois rotação e score
+            # [DIVERSITY & ROTATION & PRIORIDADE SOBERANA PULLBACK HUNTER 2H/30M]
             last_traded = getattr(self, "_last_traded_pair", None)
             eligible.sort(
                 key=lambda x: (
                     3 if x.get("strategy") == "LAYA_PULLBACK_HUNTER_2H_30M" else 0,
-                    2 if x.get("strategy") == "LAYA_AGUIA_FUSION" else 0,
-                    1 if x.get("alt_pump_ignition") else 0,
                     1 if (x.get("direction") == "SHORT" and btc_trend_bias < -0.4) else 0,
                     1 if x.get("bot_ignition") else 0,
                     x.get("1c_exp", 0.0) or 0.0,
