@@ -4171,6 +4171,25 @@ class LayaRouterService:
             rem_cadence = int(fleet_cadence_seconds - time_since_last_open)
             self.log_thought("CADENCIA", f"[CADENCIA ATIVA]: Aguardando {rem_cadence}s para proxima abertura (cadencia de {int(fleet_cadence_seconds)}s entre ordens).", action="CADENCIA_HOLD", confidence=95)
         elif len(active_trades) < max_allowed_slots:
+            # [V221-PROTOCOLO-NAVIO-ALMIRANTE-BTC-FIRST]:
+            # Se a mesa estiver zerada (0 trades ativos), a primeira ordem da frota (Slot 1)
+            # deve ser EXCLUSIVAMENTE o Bitcoin (BTC-USDT-SWAP). Nenhuma altcoin pode abrir vaga antes do BTC!
+            is_empty_fleet = (len(active_trades) == 0)
+
+            # [V221-SIMBIOSE-DIRECIONAL-100%]:
+            # Se já houver trades ativos, a direção da frota é ancorada pelo BTC (ou pelo trade pioneiro).
+            # 100% dos slots subsequentes (2 a 8) DEVEM seguir a mesma direção do Navio Almirante.
+            fleet_direction = None
+            if not is_empty_fleet:
+                btc_active = next((t for t in active_trades if "BTC" in str(getattr(t, "symbol", "") or (t.get("symbol") if isinstance(t, dict) else "")).upper()), None)
+                if btc_active:
+                    btc_side = str(getattr(btc_active, "side", "") or getattr(btc_active, "direction", "") or (btc_active.get("direction") if isinstance(btc_active, dict) else "") or "").upper()
+                    fleet_direction = "SHORT" if ("SHORT" in btc_side or "SELL" in btc_side) else "LONG"
+                else:
+                    first_t = active_trades[0]
+                    f_side = str(getattr(first_t, "side", "") or getattr(first_t, "direction", "") or (first_t.get("direction") if isinstance(first_t, dict) else "") or "").upper()
+                    fleet_direction = "SHORT" if ("SHORT" in f_side or "SELL" in f_side) else "LONG"
+
             eligible = []
             for cand in self.candidate_setups.values():
                 c_clean = cand.get("clean_sym", "")
@@ -4179,6 +4198,16 @@ class LayaRouterService:
                 c_bot = cand.get("bot_ignition", False) or cand.get("alt_pump_ignition", False) or cand.get("is_dump_ignition", False)
                 c_range = float(cand.get("1c_range", 50.0) or 50.0)
                 c_strat = cand.get("strategy", "")
+                c_sym = cand.get("symbol", "")
+                is_btc_cand = ("BTC" in c_sym.upper() or c_clean == "BTCUSDT")
+
+                # [V221-TRAVA-BTC-FIRST]: Se a frota estiver zerada, a primeira ordem é PRIVATIVA do Bitcoin
+                if is_empty_fleet and not is_btc_cand:
+                    continue
+
+                # [V221-SIMBIOSE-DIRECIONAL-100%]: Se a frota já tem direção ancorada, veta qualquer direção oposta
+                if fleet_direction and c_dir != fleet_direction:
+                    continue
 
                 # 1. Checagens básicas de custódia e cooldown
                 if (cand["symbol"] in active_symbols 
@@ -5129,6 +5158,24 @@ class LayaRouterService:
                 # Coleta dados de fluxo e 5M
                 flow_data = self.whale_flow_cache.get(sym) or self.whale_flow_cache.get(clean_sym + "USDT") or {}
                 lsr_val = float(flow_data.get("lsr", 1.0) or 1.0)
+
+                # [V221-KILL-SWITCH-ORPHAN-FLUSH]:
+                # Se houver trade ativo no Bitcoin e a altcoin estiver posicionada na DIREÇÃO CONTRÁRIA do BTC,
+                # encerra imediatamente a altcoin para estancar o risco de canibalização e desalinhamento direcional!
+                btc_trade = next((t for t in active_trades if "BTC" in str(getattr(t, "symbol", "") or "")), None)
+                if btc_trade and "BTC" not in sym.upper():
+                    btc_dir_raw = str(getattr(btc_trade, "direction", "") or getattr(btc_trade, "side", "")).upper()
+                    btc_dir_norm = "SHORT" if ("SHORT" in btc_dir_raw or "SELL" in btc_dir_raw) else "LONG"
+                    if direction != btc_dir_norm:
+                        self.log_thought(
+                            clean_sym,
+                            f"⚡ [V221 KILL SWITCH - PURGA DE ÓRFÃ]: Encerramento preventivo de {sym} em {direction}! Navio Almirante (BTC) virou para {btc_dir_norm}. Proibido manter altcoin na contramão do BTC.",
+                            action="ORPHAN_FLUSH",
+                            confidence=99
+                        )
+                        await sandbox_service.close_active_trade(trade.id, reason="V221_ORPHAN_FLUSH_BTC_OPPOSITE", exit_price=curr_price)
+                        exit_results.append({"trade_id": trade.id, "symbol": sym, "action": "ORPHAN_FLUSH", "roi": current_roi})
+                        continue
 
                 # Avaliação de microestrutura 5M
                 ltf_status = "NORMAL"
