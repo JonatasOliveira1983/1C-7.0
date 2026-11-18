@@ -542,8 +542,7 @@
 
     /* uPlot Tooltip & Legend Overrides */
     .uplot { font-family: var(--font-mono) !important; }
-    .u-legend { font-size: 8px !important; color: var(--text-muted) !important; padding: 0 4px !important; }
-    .u-legend th, .u-legend td { padding: 1px 3px !important; }
+    .uplot .u-legend, .u-legend { display: none !important; }
     .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
     .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
   
@@ -985,6 +984,9 @@
       const optsEq = {
         width: dimEq.w,
         height: Math.max(340, dimEq.h),
+        legend: {
+          show: false
+        },
         cursor: {
           drag: { x: true, y: false }
         },

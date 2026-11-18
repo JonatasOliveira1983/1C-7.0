@@ -273,15 +273,15 @@
     }
 
     .single-chart-box {
-      flex: 0 0 140px;
-      height: 140px;
-      max-height: 140px;
+      flex: 0 0 160px;
+      height: 160px;
+      max-height: 175px;
       display: flex;
       flex-direction: column;
       background: #06080C;
       border: 1px solid rgba(27, 35, 45, 0.7);
-      border-radius: 3px;
-      padding: 4px 8px;
+      border-radius: 4px;
+      padding: 6px 10px 4px 10px;
       overflow: hidden;
       position: relative;
       box-sizing: border-box;
@@ -294,18 +294,18 @@
       font-family: var(--font-mono);
       font-size: 8.5px;
       color: var(--text-muted);
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       flex-shrink: 0;
-      height: 14px;
-      line-height: 14px;
+      height: 18px;
+      line-height: 18px;
     }
 
     .uplot-frame {
       flex: 1;
       width: 100%;
       min-height: 0;
-      height: calc(100% - 16px);
-      max-height: calc(100% - 16px);
+      height: calc(100% - 22px);
+      max-height: calc(100% - 22px);
       overflow: hidden;
       position: relative;
     }
@@ -529,8 +529,7 @@
 
     /* uPlot Tooltip & Legend Overrides */
     .uplot { font-family: var(--font-mono) !important; }
-    .u-legend { font-size: 8px !important; color: var(--text-muted) !important; padding: 0 4px !important; }
-    .u-legend th, .u-legend td { padding: 1px 3px !important; }
+    .uplot .u-legend, .u-legend { display: none !important; }
     .u-cursor-x, .u-cursor-y { border-color: rgba(255, 255, 255, 0.2) !important; }
     .u-cursor-pt { border: 2px solid var(--accent-gold) !important; background: #000 !important; }
   
@@ -1005,7 +1004,10 @@
 
       const optsEq = {
         width: dimEq.w,
-        height: Math.max(90, Math.min(135, dimEq.h - 8)),
+        height: Math.max(90, Math.min(140, dimEq.h - 4)),
+        legend: {
+          show: false
+        },
         cursor: {
           drag: { x: true, y: false }
         },
@@ -1062,7 +1064,7 @@
         _resizeTimer = setTimeout(() => {
           if (elEq && _uPlotEquity) {
             const d = getFrameDimensions(elEq);
-            _uPlotEquity.setSize({ width: d.w, height: Math.max(90, Math.min(135, d.h - 8)) });
+            _uPlotEquity.setSize({ width: d.w, height: Math.max(90, Math.min(140, d.h - 4)) });
           }
         }, 60);
       };
