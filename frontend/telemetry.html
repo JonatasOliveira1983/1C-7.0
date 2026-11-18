@@ -319,7 +319,7 @@
       background: #080B10;
       border: 1px solid #1B232D;
       border-radius: 4px;
-      padding: 6px 10px;
+      padding: 3px 8px;
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -328,11 +328,11 @@
     .flow-node {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 5px;
       background: #0E131A;
       border: 1px solid #222B38;
-      border-radius: 4px;
-      padding: 5px 8px;
+      border-radius: 3px;
+      padding: 3px 6px;
       flex: 1;
       min-width: 0;
       position: relative;
@@ -491,40 +491,98 @@
       flex-shrink: 0;
     }
 
-    /* RIGHT COLUMN - TITANS RADAR */
-    .titans-table-box {
+    /* RIGHT COLUMN - LIQUIDATION & MICROSTRUCTURE */
+    .liq-pools-scroll {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 2px;
     }
 
-    .titans-table {
+    .liq-pool-card {
+      background: #06080C;
+      border: 1px solid rgba(27, 35, 45, 0.8);
+      border-radius: 3px;
+      padding: 5px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .liq-pool-card:hover {
+      border-color: rgba(252, 213, 53, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .liq-pool-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .liq-pool-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: #848E9C;
+    }
+
+    .liq-dist-bar {
       width: 100%;
-      border-collapse: collapse;
+      height: 3px;
+      background: #141A22;
+      border-radius: 1.5px;
+      overflow: hidden;
+      margin-top: 1px;
+    }
+
+    .liq-dist-fill {
+      height: 100%;
+      border-radius: 1.5px;
+      transition: width 0.3s ease;
+    }
+
+    /* MICROSTRUCTURE DETAIL CARD */
+    .micro-detail-box {
+      background: #080B10;
+      border: 1px solid rgba(27, 35, 45, 0.8);
+      border-radius: 4px;
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
       font-family: var(--font-mono);
       font-size: 8.5px;
     }
 
-    .titans-table th {
-      text-align: left;
-      padding: 3px 5px;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--card-border);
-      font-weight: 700;
-      position: sticky;
+    .range-meter-bar {
+      position: relative;
+      width: 100%;
+      height: 7px;
+      background: linear-gradient(90deg, rgba(14,203,129,0.35) 0%, rgba(132,142,156,0.18) 38%, rgba(132,142,156,0.18) 62%, rgba(246,70,93,0.35) 100%);
+      border-radius: 3.5px;
+      border: 1px solid #1B232D;
+      overflow: hidden;
+    }
+
+    .range-meter-indicator {
+      position: absolute;
       top: 0;
-      background: var(--card-bg);
-      z-index: 10;
-    }
-
-    .titans-table td {
-      padding: 4px 5px;
-      border-bottom: 1px solid rgba(27, 35, 45, 0.4);
-      color: var(--text-main);
-    }
-
-    .titans-table tr:hover {
-      background: rgba(255, 255, 255, 0.02);
+      bottom: 0;
+      width: 5px;
+      background: var(--accent-gold);
+      box-shadow: 0 0 6px var(--accent-gold);
+      border-radius: 2.5px;
+      transition: left 0.3s ease;
     }
 
     /* uPlot Tooltip & Legend Overrides */
@@ -722,7 +780,7 @@
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">DUAL BREAKEVEN:</span>
-            <span style="color:var(--accent-cyan); font-weight:700;">+45% (ZERO TAXAS +$300) • +60% (+$3.000)</span>
+            <span style="color:var(--accent-cyan); font-weight:700;">+35% (ZERO TAXAS) • +60% (+$300)</span>
           </div>
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">TRAILING GAP ELÁSTICO:</span>
@@ -818,14 +876,14 @@
         <div id="chart-equity" class="uplot-frame"></div>
       </div>
 
-      <!-- MAPA VISUAL DO PIPELINE QUANTITATIVO EM TEMPO REAL -->
+      <!-- MAPA VISUAL DO PIPELINE QUANTITATIVO EM LINHA COMPACTA -->
       <div class="pipeline-flow-box">
         <!-- Nó 1: OKX WebSocket -->
         <div class="flow-node active-glow">
-          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#0ECB81" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
-          <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">1. OKX WEBSOCKET</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#0ECB81;" id="pipe-ping-val">11.0ms • SLIPPAGE ZERO</div>
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="14" data-color="#0ECB81" width="14" height="14" style="width:14px;height:14px;flex-shrink:0;"></canvas>
+          <div style="display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:8px;">
+            <span style="color:#848E9C;">1. WEBSOCKET:</span>
+            <span style="font-weight:800; color:#0ECB81;" id="pipe-ping-val">11ms • SLIPPAGE 0</span>
           </div>
         </div>
 
@@ -833,10 +891,10 @@
 
         <!-- Nó 2: Base Quantitativa Stanford & Funding -->
         <div class="flow-node">
-          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
-          <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">2. BASE QUANTITATIVA</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#FCD535;" id="pipe-btc-val">STANFORD Z-SCORE • FR ARB</div>
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="14" data-color="#FCD535" width="14" height="14" style="width:14px;height:14px;flex-shrink:0;"></canvas>
+          <div style="display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:8px;">
+            <span style="color:#848E9C;">2. BASE QUANT:</span>
+            <span style="font-weight:800; color:#FCD535;" id="pipe-btc-val">Z-SCORE • FR ARB</span>
           </div>
         </div>
 
@@ -844,10 +902,10 @@
 
         <!-- Nó 3: Três Barreiras de López de Prado -->
         <div class="flow-node active-glow">
-          <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#29ABE2" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
-          <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">3. TRÊS BARREIRAS (50X)</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#29ABE2;" id="pipe-laya-val">ALVO ATR • ESCADINHA • TIME</div>
+          <canvas class="thinking-orb-canvas" data-state="solving" data-size="14" data-color="#29ABE2" width="14" height="14" style="width:14px;height:14px;flex-shrink:0;"></canvas>
+          <div style="display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:8px;">
+            <span style="color:#848E9C;">3. BARREIRAS:</span>
+            <span style="font-weight:800; color:#29ABE2;" id="pipe-laya-val">50X • ESCADINHA</span>
           </div>
         </div>
 
@@ -855,10 +913,10 @@
 
         <!-- Nó 4: Defesas & Never Give Back -->
         <div class="flow-node">
-          <canvas class="thinking-orb-canvas" data-state="listening" data-size="18" data-color="#B388FF" width="18" height="18" style="width:18px;height:18px;flex-shrink:0;"></canvas>
-          <div>
-            <div style="font-family:var(--font-mono); font-size:8px; color:#848E9C; text-transform:uppercase;">4. NEVER GIVE BACK</div>
-            <div style="font-family:var(--font-mono); font-size:10px; font-weight:800; color:#B388FF;" id="pipe-guard-val">5 ESC. • PISO $8.5k</div>
+          <canvas class="thinking-orb-canvas" data-state="listening" data-size="14" data-color="#B388FF" width="14" height="14" style="width:14px;height:14px;flex-shrink:0;"></canvas>
+          <div style="display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:8px;">
+            <span style="color:#848E9C;">4. NGB:</span>
+            <span style="font-weight:800; color:#B388FF;" id="pipe-guard-val">5 ESC. • PISO $85k</span>
           </div>
         </div>
       </div>
@@ -902,30 +960,85 @@
 
     </section>
 
-    <!-- COLUNA 3: RADAR DOS TITÃS & INFRAESTRUTURA DE PROCESSAMENTO -->
+    <!-- COLUNA 3: INTELIGÊNCIA DE LIQUIDAÇÃO & MICROESTRUTURA -->
     <aside class="col-panel">
       
-      <!-- Card C: Top 30 Titãs da OKX em Monitoramento Titan (Flexível com Scroll) -->
+      <!-- Card C1: Muralhas de Liquidação e Ímãs Institucionais -->
       <div class="panel-card" style="flex: 1 1 0; min-height: 0;">
         <div class="panel-card-header">
-          <span>RADAR TITAN — TOP 30 TITÃS</span>
-          <span class="pill-badge pill-green" id="right-titans-badge">30 ATIVOS</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span>MURALHAS DE LIQUIDAÇÃO (ÍMÃS)</span>
+            <span class="pill-badge pill-gold" id="liq-pools-count">TOP ÍMÃS</span>
+          </div>
+          <span style="font-size:7.5px; color:var(--accent-cyan); font-weight:700;" id="order-flow-badge">FLOW: SHORT</span>
         </div>
 
-        <div class="titans-table-box">
-          <table class="titans-table">
-            <thead>
-              <tr>
-                <th>ATIVO</th>
-                <th>POSTURA</th>
-                <th>EXP</th>
-                <th>ROBÔS</th>
-              </tr>
-            </thead>
-            <tbody id="titans-tbody">
-              <tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">SINCRONIZANDO TITÃS...</td></tr>
-            </tbody>
-          </table>
+        <!-- Termômetro de Order Flow & CVD -->
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#06080C; border:1px solid #1B232D; border-radius:3px; padding:4px 8px; font-family:var(--font-mono); font-size:8px; flex-shrink:0;">
+          <div>
+            <span style="color:var(--text-muted);">L/S RATIO:</span>
+            <b style="color:#FFF;" id="of-lsr-val">1.08</b>
+          </div>
+          <div style="color:#222;">|</div>
+          <div>
+            <span style="color:var(--text-muted);">CVD DELTA:</span>
+            <b style="color:#F6465D;" id="of-cvd-val">-1.45%</b>
+          </div>
+          <div style="color:#222;">|</div>
+          <div>
+            <span style="color:var(--text-muted);">PRESSÃO:</span>
+            <b style="color:#F6465D;" id="of-flow-val">VENDEDORA</b>
+          </div>
+        </div>
+
+        <!-- Lista Dinâmica das Piscinas de Liquidação (Substitui Tabela Redundante) -->
+        <div class="liq-pools-scroll" id="liq-pools-container" style="margin-top:2px;">
+          <div style="color:#555; text-align:center; padding:20px 0; font-family:var(--font-mono); font-size:8.5px;">
+            MAPEANDO PISCINAS DE LIQUIDAÇÃO...
+          </div>
+        </div>
+      </div>
+
+      <!-- Card C2: Microestrutura Sniper do Ativo Selecionado -->
+      <div class="panel-card" style="flex: 0 0 auto;">
+        <div class="panel-card-header">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span id="micro-asset-title">MICROESTRUTURA: BTC</span>
+            <span class="pill-badge pill-green" id="micro-status-badge">GRAU 2 SWEEP</span>
+          </div>
+          <span style="font-size:7.5px; color:#848E9C;">CLIQUE NO TITÃ</span>
+        </div>
+
+        <div class="micro-detail-box" id="micro-detail-content">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:var(--text-muted);">POSIÇÃO NA AMPLITUDE 2H:</span>
+            <b style="color:var(--accent-gold);" id="micro-range-val">50.3% (MEIO DA CAIXA)</b>
+          </div>
+          
+          <div class="range-meter-bar">
+            <div class="range-meter-indicator" id="micro-range-indicator" style="left:50.3%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:7px; color:#64748B;">
+            <span>FUNDO (&lt;38%)</span>
+            <span>MEIO (38%-62%)</span>
+            <span>TETO (&gt;62%)</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:2px;">
+            <div style="background:#0B0E14; border:1px solid #1B232D; border-radius:3px; padding:3px 6px;">
+              <div style="color:var(--text-muted); font-size:7.5px;">PAVIO SWEEP:</div>
+              <div style="color:#FFF; font-weight:700;" id="micro-wick-val">17.4% (EXAUSTÃO)</div>
+            </div>
+            <div style="background:#0B0E14; border:1px solid #1B232D; border-radius:3px; padding:3px 6px;">
+              <div style="color:var(--text-muted); font-size:7.5px;">MÉDIAS 2H:</div>
+              <div style="color:var(--accent-gold); font-weight:700;" id="micro-smas-val">SMA8 &lt; SMA21</div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #141A22; padding-top:3px; margin-top:1px;">
+            <span style="color:var(--text-muted);">POSTURA OPERACIONAL:</span>
+            <span style="color:#E5A93C; font-weight:800;" id="micro-verdict-val">VIGÍLIA TETO 2H</span>
+          </div>
         </div>
       </div>
 
@@ -1159,8 +1272,10 @@
           // 2. Renderizar Slots em Custódia Ativa do Cockpit
           renderActiveSlots(rSummary.active_slots || []);
 
-          // 3. Renderizar Top 10 Titãs
-          renderTitans(rSummary.top_candidates || []);
+          // 3. Renderizar Inteligência de Liquidação & Order Flow
+          if (rSummary.liquidation_intel) {
+            renderLiquidationIntel(rSummary.liquidation_intel);
+          }
 
           // 4. Atualizar Métricas dos 4 Cards Executivos de Saúde & Performance
           const pingBadge = document.getElementById("card-ping-badge");
@@ -1273,6 +1388,11 @@
       const container = document.getElementById("titans-matrix-container");
       if (!container || !candidates || candidates.length === 0) return;
 
+      candidates.forEach(c => {
+        const sym = (c.clean_sym || c.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '').toUpperCase();
+        if (sym) _titansCache[sym] = c;
+      });
+
       container.innerHTML = candidates.slice(0, 30).map((c, idx) => {
         const sym = (c.clean_sym || c.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
         const dir = (c.direction || 'HOLD').toUpperCase();
@@ -1307,7 +1427,7 @@
         const barColor = score >= 80 ? '#FCD535' : (score >= 65 ? '#0ECB81' : '#848E9C');
 
         return `
-          <div class="${chipClass}" title="${sym} | Direção: ${dir} | Score: ${score} | Z-Score: ${zScoreStr} | Funding: ${frStr}">
+          <div class="${chipClass}" onclick="selectTitan('${sym}')" style="cursor:pointer;" title="${sym} • Clique para inspecionar microestrutura | Direção: ${dir} | Score: ${score} | Z-Score: ${zScoreStr} | Funding: ${frStr}">
             <!-- Linha 1: Rank, Símbolo e Direção 50X -->
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="color:#FFF; font-weight:800; font-size:10.5px; letter-spacing:0.3px;">#${idx + 1} ${sym}</span>
@@ -1516,48 +1636,174 @@
       }).join("");
     }
 
-    // Renderiza Tabela dos Top Titãs
-    function renderTitans(titans) {
-      const tbody = document.getElementById("titans-tbody");
-      if (!tbody) return;
+    // Cache dos Titãs para Interatividade de Microestrutura
+    let _titansCache = {};
+    let _selectedTitanSymbol = "BTC";
 
-      if (!titans || titans.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#555; padding:15px 0;">VARRENDO ESTRUTURAS...</td></tr>`;
-        return;
+    function selectTitan(sym) {
+      if (!sym) return;
+      _selectedTitanSymbol = sym.toUpperCase();
+      const asset = _titansCache[_selectedTitanSymbol] || _titansCache[Object.keys(_titansCache)[0]];
+      if (asset) {
+        renderMicrostructureDetail(asset);
+      }
+    }
+
+    // Renderiza Painel de Inteligência de Liquidação & Order Flow
+    function renderLiquidationIntel(liqIntel) {
+      if (!liqIntel) return;
+
+      // 1. Order Flow KPIs
+      const of = liqIntel.order_flow || {};
+      const elLsr = document.getElementById("of-lsr-val");
+      const elCvd = document.getElementById("of-cvd-val");
+      const elFlow = document.getElementById("of-flow-val");
+      const elBadge = document.getElementById("order-flow-badge");
+      
+      if (elLsr && of.btc_lsr != null) elLsr.textContent = Number(of.btc_lsr).toFixed(2);
+      if (elCvd && of.cvd_taker_delta_pct != null) {
+        const cvd = Number(of.cvd_taker_delta_pct);
+        elCvd.textContent = `${cvd >= 0 ? '+' : ''}${cvd.toFixed(2)}%`;
+        elCvd.style.color = cvd >= 0 ? "#0ECB81" : "#F6465D";
+      }
+      if (elFlow && of.taker_flow) {
+        elFlow.textContent = of.taker_flow.includes("VENDEDOR") ? "VENDEDORA" : "COMPRADORA";
+        elFlow.style.color = of.taker_flow.includes("VENDEDOR") ? "#F6465D" : "#0ECB81";
+      }
+      if (elBadge && of.dominant_bias) {
+        elBadge.textContent = `FLOW: ${of.dominant_bias}`;
+        elBadge.className = `pill-badge ${of.dominant_bias === 'BEAR' ? 'pill-red' : (of.dominant_bias === 'BULL' ? 'pill-green' : 'pill-cyan')}`;
       }
 
-      tbody.innerHTML = titans.slice(0, 30).map((t, idx) => {
-        const sym = (t.clean_sym || t.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
-        const dir = (t.direction || 'HOLD').toUpperCase();
-        const cExp = parseFloat(t['1c_exp'] || 0);
-        const botOn = t.bot_ignition || (cExp >= 70);
-        const qualifies = t.qualifies !== false;
-        const rationale = t.rationale || '';
-        const isVetoed = !qualifies || rationale.toUpperCase().includes('VETO');
+      // 2. Top Piscinas de Liquidação (Ímãs Institucionais)
+      const container = document.getElementById("liq-pools-container");
+      const countEl = document.getElementById("liq-pools-count");
+      const pools = liqIntel.top_pools || [];
 
-        let postureBadge = `<span class="pill-badge pill-gold">MONITOR</span>`;
-        if (dir === 'LONG' || dir === 'BUY') {
-          postureBadge = isVetoed
-            ? `<span class="pill-badge" style="background:rgba(132,142,156,0.12); border:1px solid rgba(132,142,156,0.3); color:#848E9C;">VETO BTC</span>`
-            : `<span class="pill-badge pill-green">GATILHO LONG</span>`;
-        } else if (dir === 'SHORT' || dir === 'SELL') {
-          postureBadge = isVetoed
-            ? `<span class="pill-badge pill-red" style="background:rgba(246,70,93,0.12); border:1px solid rgba(246,70,93,0.35); color:#F6465D;">VIGÍLIA SHORT</span>`
-            : `<span class="pill-badge pill-red">GATILHO SHORT</span>`;
-        } else if (botOn) {
-          postureBadge = `<span class="pill-badge pill-cyan">IGNIÇÃO</span>`;
+      if (countEl) countEl.textContent = `${pools.length} ÍMÃS ATIVOS`;
+
+      if (container) {
+        if (pools.length === 0) {
+          container.innerHTML = `<div style="color:#555; text-align:center; padding:15px 0; font-family:var(--font-mono); font-size:8.5px;">SEM MURALHAS NO RADAR</div>`;
+        } else {
+          container.innerHTML = pools.map((p, idx) => {
+            const sym = (p.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+            const isDown = p.region === 'ABAIXO';
+            const badgeClass = isDown ? 'pill-red' : 'pill-green';
+            const badgeText = isDown ? 'ÍMÃ BAIXA' : 'ÍMÃ ALTA';
+            const barFillColor = isDown ? '#F6465D' : '#0ECB81';
+            const distPct = Number(p.distance_pct || 0);
+            const distBarWidth = Math.min(100, Math.max(10, 100 - distPct * 15));
+
+            return `
+              <div class="liq-pool-card" onclick="selectTitan('${sym}')" title="Clique para inspecionar ${sym}">
+                <div class="liq-pool-head">
+                  <div style="display:flex; align-items:center; gap:5px;">
+                    <span style="color:#FFF; font-weight:800;">${sym}</span>
+                    <span class="pill-badge ${badgeClass}" style="font-size:7px;">${badgeText}</span>
+                  </div>
+                  <span style="color:var(--accent-gold); font-weight:800;">$${p.wall_vol_m}M USD</span>
+                </div>
+                <div class="liq-pool-body">
+                  <span>Muralha em: <b style="color:#FFF;">$${Number(p.wall_price).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}</b></span>
+                  <span>Dist: <b style="color:${isDown ? '#F6465D' : '#0ECB81'};">${distPct.toFixed(2)}%</b></span>
+                </div>
+                <div class="liq-dist-bar">
+                  <div class="liq-dist-fill" style="width:${distBarWidth}%; background:${barFillColor};"></div>
+                </div>
+              </div>
+            `;
+          }).join("");
         }
+      }
 
-        return `
-          <tr>
-            <td style="font-weight:700; color:#fff;"><span style="color:#848E9C; font-size:8px; margin-right:3px;">#${idx + 1}</span>${sym}</td>
-            <td>${postureBadge}</td>
-            <td style="font-weight:700; color:${cExp >= 70 ? '#0ECB81' : '#EAECEF'};">${cExp > 0 ? cExp.toFixed(0) : '--'}</td>
-            <td><span style="color:${botOn ? 'var(--accent-green)' : 'var(--text-muted)'}; font-weight:700;">${botOn ? 'ON' : 'OFF'}</span></td>
-          </tr>
-        `;
-      }).join("");
+      // 3. Atualizar detalhe de microestrutura se o ativo estiver na lista
+      const curAsset = _titansCache[_selectedTitanSymbol] || pools[0];
+      if (curAsset) {
+        renderMicrostructureDetail(curAsset);
+      }
     }
+
+    // Renderiza Card de Microestrutura Sniper
+    function renderMicrostructureDetail(asset) {
+      if (!asset) return;
+      const sym = (asset.clean_sym || asset.symbol || '').replace('-USDT-SWAP', '').replace('USDT', '');
+      const titleEl = document.getElementById("micro-asset-title");
+      const statusBadge = document.getElementById("micro-status-badge");
+      const rangeVal = document.getElementById("micro-range-val");
+      const rangeInd = document.getElementById("micro-range-indicator");
+      const wickVal = document.getElementById("micro-wick-val");
+      const smasVal = document.getElementById("micro-smas-val");
+      const verdictVal = document.getElementById("micro-verdict-val");
+
+      if (titleEl) titleEl.textContent = `MICROESTRUTURA: ${sym}`;
+
+      const rangePos = Number(asset.range_pos_2h != null ? asset.range_pos_2h : (asset.c_range || 50.0));
+      const clampedRange = Math.min(100, Math.max(0, rangePos));
+
+      if (rangeInd) rangeInd.style.left = `${clampedRange}%`;
+
+      let rangeLabel = "MEIO DA CAIXA";
+      let rangeColor = "var(--accent-gold)";
+      if (clampedRange >= 62.0) {
+        rangeLabel = "TETO 2H (SNIPER SHORT)";
+        rangeColor = "#F6465D";
+      } else if (clampedRange <= 38.0) {
+        rangeLabel = "FUNDO 2H (SUPORTE)";
+        rangeColor = "#0ECB81";
+      }
+
+      if (rangeVal) {
+        rangeVal.textContent = `${clampedRange.toFixed(1)}% (${rangeLabel})`;
+        rangeVal.style.color = rangeColor;
+      }
+
+      const wick = Number(asset.sweep_wick_pct != null ? asset.sweep_wick_pct : (asset.top_wick_pct || 18.5));
+      if (wickVal) {
+        wickVal.textContent = `${wick.toFixed(1)}% ${wick >= 28.0 ? 'SWEEP EXAUSTÃO' : 'NORMAL'}`;
+        wickVal.style.color = wick >= 28.0 ? '#0ECB81' : '#FFF';
+      }
+
+      const sma8 = Number(asset.sma8_2h || 0);
+      const sma21 = Number(asset.sma21_2h || 0);
+      if (smasVal) {
+        if (sma8 > 0 && sma21 > 0) {
+          smasVal.textContent = sma8 > sma21 ? "SMA8 > SMA21 (BULL)" : "SMA8 < SMA21 (BEAR)";
+          smasVal.style.color = sma8 > sma21 ? "#0ECB81" : "#F6465D";
+        } else {
+          smasVal.textContent = "REGIME 2H ATIVO";
+          smasVal.style.color = "var(--accent-gold)";
+        }
+      }
+
+      if (statusBadge) {
+        if (clampedRange >= 62.0) {
+          statusBadge.textContent = "TETO 2H APTO";
+          statusBadge.className = "pill-badge pill-red";
+        } else if (clampedRange <= 38.0) {
+          statusBadge.textContent = "FUNDO 2H";
+          statusBadge.className = "pill-badge pill-green";
+        } else {
+          statusBadge.textContent = "VETO MEIO";
+          statusBadge.className = "pill-badge pill-gold";
+        }
+      }
+
+      if (verdictVal) {
+        if (clampedRange >= 62.0) {
+          verdictVal.textContent = "VIGÍLIA SHORT NO TETO";
+          verdictVal.style.color = "#F6465D";
+        } else if (clampedRange <= 38.0) {
+          verdictVal.textContent = "VETO VENDER FUNDO";
+          verdictVal.style.color = "#0ECB81";
+        } else {
+          verdictVal.textContent = "VETO MEIO DE ACUMULAÇÃO";
+          verdictVal.style.color = "var(--accent-gold)";
+        }
+      }
+    }
+
+
 
     // Início imediato
     window.addEventListener('DOMContentLoaded', () => {

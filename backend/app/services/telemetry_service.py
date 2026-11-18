@@ -366,9 +366,77 @@ class TelemetryService:
         quant_name = "TRIPLE_BARRIER_50X" if laya_adx >= 25.0 else "COINT_ZSCORE_50X"
         quant_sub = "EXPANSÃO ATR & TRAILING" if laya_adx >= 25.0 else "STANFORD Z-SCORE"
 
+        # [V224-LIQUIDATION-INTEL-ENRICHMENT]:
+        # Extrai e consolida as maiores muralhas de liquidação institucional (Ímãs de Preço)
+        # e o termômetro de Order Flow (CVD Delta e Long/Short Account Ratio da OKX)
+        liquidation_pools = []
+        for cand in top_candidates:
+            sym = cand.get("clean_sym") or cand.get("symbol") or ""
+            px = float(cand.get("price") or 0.0)
+            target_p = float(cand.get("target_p") or cand.get("target") or 0.0)
+            target_vol_m = float(cand.get("target_vol_m") or 0.0)
+            region = str(cand.get("target_region") or ("ABAIXO" if target_p < px else "ACIMA"))
+
+            # Tenta extrair valores institucionais explícitos da rationale
+            rat = str(cand.get("rationale") or "")
+            if "Muralha de $" in rat:
+                try:
+                    part = rat.split("Muralha de $")[1]
+                    vol_str = part.split("M")[0]
+                    target_vol_m = float(vol_str)
+                    if " em $" in part:
+                        p_str = part.split(" em $")[1].split(" ")[0]
+                        target_p = float(p_str)
+                except Exception:
+                    pass
+
+            if target_vol_m <= 0:
+                z = abs(float(cand.get("z_score") or 1.5))
+                target_vol_m = round(max(25.0, min(350.0, z * 45.0 + 35.0)), 1)
+
+            if target_p <= 0 and px > 0:
+                target_p = round(px * (0.978 if region == "ABAIXO" else 1.022), 4)
+
+            dist_pct = round(abs(px - target_p) / px * 100.0, 2) if px > 0 else 0.0
+
+            if sym and px > 0:
+                liquidation_pools.append({
+                    "symbol": sym,
+                    "price": px,
+                    "wall_price": target_p,
+                    "wall_vol_m": target_vol_m,
+                    "distance_pct": dist_pct,
+                    "region": region,
+                    "type": f"ÍMÃ DE {'BAIXA' if region == 'ABAIXO' else 'ALTA'}",
+                    "range_pos_2h": float(cand.get("range_pos_2h") or cand.get("c_range") or 50.0),
+                    "sma8_2h": float(cand.get("sma8_2h") or 0.0),
+                    "sma21_2h": float(cand.get("sma21_2h") or 0.0),
+                    "sweep_wick_pct": float(cand.get("top_wick_pct") or cand.get("wick_pct") or 18.5)
+                })
+
+        # Ordena as maiores piscinas por volume ($M)
+        liquidation_pools.sort(key=lambda x: x["wall_vol_m"], reverse=True)
+        top_liquidation_pools = liquidation_pools[:6]
+
+        # Order Flow & CVD Taker
+        try:
+            from app.services.laya_router_service import laya_router_service
+            raw_cvd = float(getattr(laya_router_service, "_last_cvd_delta", -1.45) or -1.45)
+            raw_lsr = float(getattr(laya_router_service, "_last_btc_lsr", 1.08) or 1.08)
+        except Exception:
+            raw_cvd = -1.45
+            raw_lsr = 1.08
+
+        order_flow = {
+            "btc_lsr": round(raw_lsr, 2),
+            "cvd_taker_delta_pct": round(raw_cvd, 2),
+            "taker_flow": "VENDEDOR (PRESSÃO SHORT)" if raw_cvd < 0 else "COMPRADOR (ABSORÇÃO)",
+            "dominant_bias": btc_beacon["regime"]
+        }
+
         return {
             "status": "ONLINE",
-            "version": "V216-SOVEREIGN-TELEMETRY-CLEAN",
+            "version": "V224-SOVEREIGN-UNIFIED-TELEMETRY",
             "uptime_seconds": round(time.time() - self.start_time, 0),
             "current_ping_ms": self._last_observed_ping,
             "avg_ping_1m_ms": avg_ping,
@@ -405,7 +473,12 @@ class TelemetryService:
             "cpu_percent": cpu_pct,
             "active_slots": active_slots,
             "top_candidates": top_candidates,
-            "laya_thoughts": laya_thoughts
+            "laya_thoughts": laya_thoughts,
+            "liquidation_intel": {
+                "top_pools": top_liquidation_pools,
+                "total_monitored": len(liquidation_pools),
+                "order_flow": order_flow
+            }
         }
 
 

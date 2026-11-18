@@ -95,11 +95,6 @@
             <span>COCKPIT TÁTICO</span>
             <span class="sh-badge-subtle">HFT</span>
           </a>
-          <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
-            ${ICONS.laya}
-            <span>TITAN 360 (RADAR & SCANNER SOBERANO)</span>
-            <span class="sh-badge-gold">360°</span>
-          </a>
           <a href="/telemetry" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse}
             <span>TELEMETRIA (ALTA FREQUÊNCIA 60 FPS)</span>
@@ -245,9 +240,6 @@
         <nav class="desktop-nav" style="display: flex; align-items: center; gap: 2px;">
           <a href="/cockpit" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
-          </a>
-          <a href="/laya" class="nav-item ${activePage === 'laya' ? 'active' : ''}">
-            ${ICONS.laya} <span>TITAN 360</span>
           </a>
           <a href="/telemetry" class="nav-item ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.pulse} <span>TELEMETRIA</span>

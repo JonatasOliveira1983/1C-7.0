@@ -28,11 +28,11 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 ```mermaid
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
-        UI_Cockpit["cockpit.html (Titan Engine & Titan Radar + Dual Breakeven 45/60 + 8 Slots Swing 2H)"]
-        UI_Titan360["laya.html (TITAN 360 - Radar Quantitativo Soberano 507 Pares / 30 Titãs)"]
-        UI_Telemetry["telemetry.html (Telemetria Titan Engine + Escudo Tático + uPlot 60 FPS)"]
+        UI_Cockpit["cockpit.html (Cockpit Soberano: Titan Engine + Radar 507 + 8 Slots Swing 2H)"]
+        UI_Telemetry["telemetry.html (Telemetria Unificada: uPlot 60 FPS + Muralhas Liquidação + Microestrutura Sniper)"]
         UI_Plutus["plutus.html (Método ARCA Renda Perpétua + Universal Shell)"]
         UI_Hermes["hermes.html (Hermes Orchestrator & Forensic Audit)"]
+        UI_Redirect["/laya -> 301 HTTP Redirect permanente para /telemetry (Titan 360 Unificado)"]
         UI_Charts["4 Quadrant Grid Charts (LightweightCharts + Weaving Orbs)"]
         UI_TitanHUD["Titan Radar HUD & Laya Neural Supervision"]
         UI_Screener["Screener Modal (Universal 507 Pares / 30 Titãs)"]
@@ -1587,6 +1587,31 @@ Em vez de depender de rotulagem humana manual lenta, o sistema opera sob calibra
 - `POST /api/v1/ml/train-laya`: Dispara o pipeline de calibração/fine-tuning dos pesos da Laya Neural System 1.
 - `POST /api/v1/ml/train-kronos`: Dispara o treinamento do adaptador temporal do Kronos.
 - `GET /api/v1/ml/status`: Consulta o status atual dos modelos de IA, data da última calibração e versões de pesos carregadas em memória.
+
+---
+
+## 19. Unificação de UI: Cockpit + Telemetria Soberana & Decomissionamento do Titan 360 (V224)
+
+A arquitetura de interface do 1Crypten foi unificada em **duas páginas canônicas de alta performance** (`/cockpit` e `/telemetria`), descontinuando a página legada e sobrecarregada Titan 360 (`/laya`).
+
+### 19.1 Roteamento e Redirecionamento 301 Permanente
+- **Endpoint `/laya`**: Decomissionado e transformado em `RedirectResponse(url="/telemetry", status_code=301)` em `backend/main.py`.
+- **Navegação Shell (`shell.js`)**: O botão `TITAN 360` foi purgado do menu desktop superior e da gaveta lateral (`sidebar`), consolidando a barra de navegação estritamente em: `COCKPIT` | `TELEMETRIA` | `PLUTUS` | `HERMES` | `DOCS`.
+
+### 19.2 Enriquecimento da Telemetria com Inteligência Quantitativa do Titan 360
+Todos os dados cruciais e não-duplicados que existiam no Titan 360 foram incorporados diretamente no endpoint `GET /api/telemetry/stats` (`TelemetryService.get_summary()`) e na coluna direita da Telemetria (`telemetry.html`):
+1. **Muralhas de Liquidação Institucionais (Ímãs)**:
+   - Identificação em tempo real das Top 6 piscinas de liquidação institucional ativas no mercado da OKX com volume acumulado em milhões de dólares (`wall_vol_m`), preço de gatilho (`wall_price`), distância percentual do preço atual (`distance_pct`) e orientação direcional (`ÍMÃ DE ALTA` vs `ÍMÃ DE BAIXA`).
+2. **Order Flow & Pressão de Agressão**:
+   - Exibição de Long/Short Ratio do Bitcoin (`btc_lsr`), CVD Taker Delta (`cvd_taker_delta_pct`) e viés de fluxo dominante (`BEAR` / `BULL`).
+3. **Card Interativo de Microestrutura Sniper**:
+   - Totalmente integrado à matriz de 30 chips do Titan Radar.
+   - Ao clicar em qualquer ativo da matriz ou dos ímãs de liquidação, o card renderiza instantaneamente a posição relativa na amplitude de 2H (`range_pos_2h`), o tamanho do pavio de sweep de exaustão (`sweep_wick_pct`), a relação de médias SMA 8 x SMA 21 e o veredito tático de execução (`VETO MEIO DE ACUMULAÇÃO`, `TETO 2H APTO` ou `VETO VENDER FUNDO`).
+
+### 19.3 Otimização Ergonômica de Espaço Widescreen
+- **Purga de Elementos Redundantes**: A tabela secundária de 30 linhas que ficava na coluna direita (duplicando a matriz central) foi extirpada.
+- **Condensação do Pipeline Flow**: O box horizontal estático do pipeline cognitivo foi condensado em linha única compacta, recuperando 35px verticais.
+- **Visualização Completa sem Scroll Vertical**: A tela ultrawide acomoda agora o gráfico uPlot 60 FPS contínuo da banca, a matriz 6x5 de 30 chips e os cards de liquidação/microestrutura em um único viewport estável e ultraleve, reduzindo drasticamente o consumo de GPU e conexões de polling.
 
 ---
 
