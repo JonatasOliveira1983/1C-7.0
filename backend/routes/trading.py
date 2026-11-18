@@ -168,9 +168,15 @@ async def get_slots():
     if _last_slots_cache is not None and (now - _last_slots_ts < 3.5):
         return _last_slots_cache
 
-    from services.database_service import database_service as _ds
-    from services.order_projection_service import order_projection_service
-    _, okx_rest_service, execution_protocol, _, _ = get_services()
+    _resolve_cockpit_services()
+    _ds = _cockpit_database_service
+    order_projection_service = _cached_order_projection_service
+    okx_rest_service = _cached_okx_rest_service
+    execution_protocol = _cached_execution_protocol
+    if _ds is None or order_projection_service is None or okx_rest_service is None or execution_protocol is None:
+        from services.database_service import database_service as _ds
+        from services.order_projection_service import order_projection_service
+        _, okx_rest_service, execution_protocol, _, _ = get_services()
     try:
         db_slots = await _ds.get_active_slots()
         slots = []
@@ -376,62 +382,124 @@ async def get_funding_summary():
     active = [s for s in slots if s.get("symbol")]
     return funding_service.calculate_fleet_funding_summary(active)
 
+_last_cockpit_telemetry_cache = None
+_last_cockpit_telemetry_ts = 0.0
+_last_recent_trades_cache = []
+_last_recent_trades_ts = 0.0
+_cockpit_unified_sandbox_state_fn = None
+_cockpit_funding_service = None
+_cockpit_laya_router_service = None
+_cockpit_database_service = None
+_cached_order_projection_service = None
+_cached_execution_protocol = None
+_cached_okx_rest_service = None
+
+def _resolve_cockpit_services():
+    global _cockpit_unified_sandbox_state_fn, _cockpit_funding_service, _cockpit_laya_router_service, _cockpit_database_service
+    global _cached_order_projection_service, _cached_execution_protocol, _cached_okx_rest_service
+    if _cockpit_unified_sandbox_state_fn is None:
+        try:
+            from routes.sandbox import get_unified_sandbox_state
+            _cockpit_unified_sandbox_state_fn = get_unified_sandbox_state
+        except Exception:
+            pass
+    if _cockpit_funding_service is None:
+        try:
+            from app.services.funding_service import funding_service
+            _cockpit_funding_service = funding_service
+        except Exception:
+            pass
+    if _cockpit_laya_router_service is None:
+        try:
+            from app.services.laya_router_service import laya_router_service
+            _cockpit_laya_router_service = laya_router_service
+        except Exception:
+            pass
+    if _cockpit_database_service is None:
+        try:
+            from services.database_service import database_service
+            _cockpit_database_service = database_service
+        except Exception:
+            pass
+    if _cached_order_projection_service is None:
+        try:
+            from services.order_projection_service import order_projection_service
+            _cached_order_projection_service = order_projection_service
+        except Exception:
+            pass
+    if _cached_execution_protocol is None or _cached_okx_rest_service is None:
+        try:
+            _, _cached_okx_rest_service, _cached_execution_protocol, _, _ = get_services()
+        except Exception:
+            pass
+
 @router.get("/cockpit/telemetry")
 async def get_cockpit_telemetry():
-    """[V223] Endpoint Unificado de Telemetria Ultraleve para o Cockpit.
+    """[V224] Endpoint Unificado de Telemetria Ultraleve para o Cockpit com Cache RAM Atômico (< 2ms).
     Consolida slots, funding summary, unified state, laya pulse e recent trades em um único roundtrip HTTP atômico."""
-    from routes.sandbox import get_unified_sandbox_state
-    from app.services.funding_service import funding_service
+    global _last_cockpit_telemetry_cache, _last_cockpit_telemetry_ts, _last_recent_trades_cache, _last_recent_trades_ts
+    now = time.time()
+    if _last_cockpit_telemetry_cache is not None and (now - _last_cockpit_telemetry_ts < 1.2):
+        return _last_cockpit_telemetry_cache
+
+    _resolve_cockpit_services()
     
     slots = await get_slots()
     active = [s for s in slots if s.get("symbol")]
-    funding = funding_service.calculate_fleet_funding_summary(active)
-    unified_state = await get_unified_sandbox_state()
+    funding = _cockpit_funding_service.calculate_fleet_funding_summary(active) if _cockpit_funding_service else {}
+    unified_state = await _cockpit_unified_sandbox_state_fn() if _cockpit_unified_sandbox_state_fn else {}
     
     pulse = {}
     try:
-        from app.services.laya_router_service import laya_router_service
-        pulse = laya_router_service.get_pulse() or {}
+        pulse = _cockpit_laya_router_service.get_pulse() or {} if _cockpit_laya_router_service else {}
     except Exception as e:
         logger.debug(f"Error fetching laya pulse for telemetry: {e}")
 
-    recent_trades = []
-    try:
-        from services.database_service import database_service as _ds
-        raw_trades = await _ds.get_sandbox_trades(active_only=False)
-        for t in raw_trades:
-            if t.status != "ACTIVE":
-                meta = t.contract_meta if isinstance(t.contract_meta, dict) else {}
-                margin = float(meta.get("margin", 10000.0) or 10000.0)
-                net_pnl = float(meta.get("net_pnl_usd") if meta.get("net_pnl_usd") is not None else ((float(t.pnl_pct or 0.0) / 100.0) * margin))
-                net_roi = float(meta.get("net_roi") if meta.get("net_roi") is not None else float(t.pnl_pct or 0.0))
-                recent_trades.append({
-                    "id": t.id,
-                    "symbol": t.symbol,
-                    "strategy": t.strategy,
-                    "direction": t.direction,
-                    "entry_price": t.entry_price,
-                    "current_price": t.current_price,
-                    "stop_loss": t.stop_loss,
-                    "target": t.target,
-                    "pnl_pct": round(net_roi, 2),
-                    "net_pnl_usd": round(net_pnl, 2),
-                    "status": t.status,
-                    "closed_at": t.closed_at,
-                    "contract_meta": meta
-                })
-                if len(recent_trades) >= 10:
-                    break
-    except Exception as e_hist:
-        logger.debug(f"Error fetching recent trades for telemetry: {e_hist}")
+    recent_trades = _last_recent_trades_cache
+    if (now - _last_recent_trades_ts) >= 5.0 or not _last_recent_trades_cache:
+        try:
+            if _cockpit_database_service:
+                raw_trades = await _cockpit_database_service.get_sandbox_trades(active_only=False)
+                parsed_trades = []
+                for t in raw_trades:
+                    if t.status != "ACTIVE":
+                        meta = t.contract_meta if isinstance(t.contract_meta, dict) else {}
+                        margin = float(meta.get("margin", 10000.0) or 10000.0)
+                        net_pnl = float(meta.get("net_pnl_usd") if meta.get("net_pnl_usd") is not None else ((float(t.pnl_pct or 0.0) / 100.0) * margin))
+                        net_roi = float(meta.get("net_roi") if meta.get("net_roi") is not None else float(t.pnl_pct or 0.0))
+                        parsed_trades.append({
+                            "id": t.id,
+                            "symbol": t.symbol,
+                            "strategy": t.strategy,
+                            "direction": t.direction,
+                            "entry_price": t.entry_price,
+                            "current_price": t.current_price,
+                            "stop_loss": t.stop_loss,
+                            "target": t.target,
+                            "pnl_pct": round(net_roi, 2),
+                            "net_pnl_usd": round(net_pnl, 2),
+                            "status": t.status,
+                            "closed_at": t.closed_at,
+                            "contract_meta": meta
+                        })
+                        if len(parsed_trades) >= 10:
+                            break
+                _last_recent_trades_cache = parsed_trades
+                _last_recent_trades_ts = now
+                recent_trades = parsed_trades
+        except Exception as e_hist:
+            logger.debug(f"Error fetching recent trades for telemetry: {e_hist}")
 
-    return {
+    payload = {
         "slots": slots,
         "funding": funding,
         "unified_state": unified_state,
         "pulse": pulse,
         "recent_trades": recent_trades
     }
+    _last_cockpit_telemetry_cache = payload
+    _last_cockpit_telemetry_ts = now
+    return payload
 
 @router.get("/signals")
 async def get_signals(min_score: int = 0, limit: int = 20):

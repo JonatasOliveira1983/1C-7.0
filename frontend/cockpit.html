@@ -4457,31 +4457,15 @@
           if (d.funding !== undefined) renderFundingSummaryData(d.funding);
           if (d.pulse !== undefined) renderLayaPulseData(d.pulse);
           if (d.recent_trades !== undefined) renderRecentTrades(d.recent_trades);
-        } else {
-          await Promise.allSettled([
-            fetchSlots(),
-            fetchFundingSummary(),
-            fetchUnifiedState(),
-            fetchLayaPulse(),
-            fetchRecentHistory()
-          ]);
         }
       } catch (err) {
-        try {
-          await Promise.allSettled([
-            fetchSlots(),
-            fetchFundingSummary(),
-            fetchUnifiedState(),
-            fetchLayaPulse(),
-            fetchRecentHistory()
-          ]);
-        } catch(e){}
+        // Silencioso para evitar tempestade de requisições de fallback em caso de rede lenta
       } finally {
         _isPolling = false;
       }
     }
 
-    setInterval(unifiedCockpitPoll, 3000);
+    setInterval(unifiedCockpitPoll, 1000);
     setInterval(evaluateLayaForCharts, 90000);
     setInterval(updateCockpitClock, 1000);
 

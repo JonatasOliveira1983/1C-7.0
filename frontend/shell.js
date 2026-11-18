@@ -119,14 +119,14 @@
         <!-- Fleet Section -->
         <div class="sh-sec-title" style="margin-top: 18px;">AGENTES DA FROTA</div>
         <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
-          <a href="/cockpit" class="sh-link">
+          <a href="/cockpit" class="sh-link ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.captain}
-            <span>TITAN ENGINE · MOTOR QUANTITATIVO</span>
+            <span>TITAN ENGINE · COCKPIT</span>
             <span class="sh-status-pill ok">50X ON</span>
           </a>
-          <a href="/laya" class="sh-link ${activePage === 'laya' ? 'active' : ''}">
+          <a href="/telemetry" class="sh-link ${(activePage === 'observatory' || activePage === 'telemetry') ? 'active' : ''}">
             ${ICONS.laya}
-            <span>LAYA NEURAL · REDE SYSTEM 1</span>
+            <span>TELEMETRIA & LAYA NEURAL</span>
             <span class="sh-status-pill ok">v0.4.31</span>
           </a>
           <a href="/hermes" class="sh-link">
@@ -536,10 +536,6 @@
         <a href="/cockpit" class="bbar-item ${page === 'cockpit' ? 'active' : ''}">
           ${ICONS.cockpit}
           <span>Cockpit</span>
-        </a>
-        <a href="/laya" class="bbar-item ${page === 'laya' ? 'active' : ''}">
-          ${ICONS.laya}
-          <span>Titan 360</span>
         </a>
         <a href="/telemetry" class="bbar-item ${(page === 'observatory' || page === 'telemetry') ? 'active' : ''}">
           ${ICONS.pulse}

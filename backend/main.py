@@ -968,16 +968,48 @@ async def cockpit_websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket Error: {e}")
         websocket_service.disconnect(websocket)
 
-# [TELEMETRY] Endpoints de Alta Frequencia para o Observatorio uPlot
+# [TELEMETRY] Endpoints de Alta Frequencia para o Observatorio uPlot com Cache RAM Atomico (< 2ms)
+_telemetry_stats_cache = None
+_telemetry_stats_cache_ts = 0.0
+_telemetry_timeseries_cache = None
+_telemetry_timeseries_cache_ts = 0.0
+_telemetry_service_cached = None
+
+def _get_telemetry_service():
+    global _telemetry_service_cached
+    if _telemetry_service_cached is None:
+        try:
+            from app.services.telemetry_service import telemetry_service
+            _telemetry_service_cached = telemetry_service
+        except Exception:
+            pass
+    return _telemetry_service_cached
+
 @app.get("/api/telemetry/stats")
 async def get_telemetry_stats():
-    from app.services.telemetry_service import telemetry_service
-    return telemetry_service.get_summary()
+    global _telemetry_stats_cache, _telemetry_stats_cache_ts
+    now = time.time()
+    if _telemetry_stats_cache is not None and (now - _telemetry_stats_cache_ts < 0.8):
+        return _telemetry_stats_cache
+    ts = _get_telemetry_service()
+    if ts:
+        _telemetry_stats_cache = ts.get_summary()
+        _telemetry_stats_cache_ts = now
+        return _telemetry_stats_cache
+    return {}
 
 @app.get("/api/telemetry/timeseries")
 async def get_telemetry_timeseries(limit: int = 1800):
-    from app.services.telemetry_service import telemetry_service
-    return telemetry_service.get_timeseries_data(limit=limit)
+    global _telemetry_timeseries_cache, _telemetry_timeseries_cache_ts
+    now = time.time()
+    if _telemetry_timeseries_cache is not None and (now - _telemetry_timeseries_cache_ts < 5.0):
+        return _telemetry_timeseries_cache
+    ts = _get_telemetry_service()
+    if ts:
+        _telemetry_timeseries_cache = ts.get_timeseries_data(limit=limit)
+        _telemetry_timeseries_cache_ts = now
+        return _telemetry_timeseries_cache
+    return {}
 
 # Special Root Routes (Must stay in main for precedence or special handling)
 if settings.SERVE_STATIC_FRONTEND:

@@ -23,6 +23,45 @@ except ImportError:
 logger = logging.getLogger("1CRYPTEN-TELEMETRY")
 
 
+_tel_laya_router_service = None
+_tel_okx_ws_public_service = None
+_tel_sovereign_service = None
+_tel_database_service = None
+_tel_sandbox_service = None
+
+def _resolve_telemetry_services():
+    global _tel_laya_router_service, _tel_okx_ws_public_service, _tel_sovereign_service, _tel_database_service, _tel_sandbox_service
+    if _tel_laya_router_service is None:
+        try:
+            from app.services.laya_router_service import laya_router_service
+            _tel_laya_router_service = laya_router_service
+        except Exception:
+            pass
+    if _tel_okx_ws_public_service is None:
+        try:
+            from services.okx_ws_public import okx_ws_public_service
+            _tel_okx_ws_public_service = okx_ws_public_service
+        except Exception:
+            pass
+    if _tel_sovereign_service is None:
+        try:
+            from services.sovereign_service import sovereign_service
+            _tel_sovereign_service = sovereign_service
+        except Exception:
+            pass
+    if _tel_database_service is None:
+        try:
+            from services.database_service import database_service
+            _tel_database_service = database_service
+        except Exception:
+            pass
+    if _tel_sandbox_service is None:
+        try:
+            from services.sandbox_service import sandbox_service
+            _tel_sandbox_service = sandbox_service
+        except Exception:
+            pass
+
 class TelemetryService:
     def __init__(self, max_history_seconds: int = 3600):
         self.max_len = max_history_seconds
@@ -222,6 +261,7 @@ class TelemetryService:
         avg_ticks = round(sum(recent_ticks) / len(recent_ticks), 1)
 
         # Contexto tático da Laya Soberana
+        _resolve_telemetry_services()
         laya_regime = "TREND_SNIPER"
         laya_adx = 45.0
         top_candidates = []
@@ -231,58 +271,58 @@ class TelemetryService:
         btc_sma8_2h = 0.0
         btc_sma21_2h = 0.0
         try:
-            from app.services.laya_router_service import laya_router_service
-            laya_regime = getattr(laya_router_service, "regime_mode", "TREND_SNIPER")
-            laya_adx = round(float(getattr(laya_router_service, "master_adx", 45.0)), 1)
-            setups = getattr(laya_router_service, "candidate_setups", {}) or {}
-            top_candidates = list(setups.values())[:30]
-            laya_thoughts = list(getattr(laya_router_service, "thought_stream", []) or [])[-12:]
-            last_scan_ts = float(getattr(laya_router_service, "last_scan_time", 0.0) or (time.time() - 4.2))
-            btc_cache = getattr(laya_router_service, "btc_climate_cache", {}) or {}
-            if btc_cache:
-                btc_info["climate"] = btc_cache.get("regime", "ALTCOIN_BLOODBATH")
-                if btc_cache.get("price") and float(btc_cache["price"]) > 0:
-                    btc_info["price"] = round(float(btc_cache["price"]), 2)
-                if btc_cache.get("change_24h"):
-                    btc_info["change_24h"] = round(float(btc_cache["change_24h"]), 2)
-            
-            # Extrai médias 2H do BTC se disponíveis
-            for cand in top_candidates:
-                if "BTC" in str(cand.get("clean_sym", "")).upper():
-                    btc_sma8_2h = cand.get("sma8_2h", 0.0)
-                    btc_sma21_2h = cand.get("sma21_2h", 0.0)
-                    break
+            if _tel_laya_router_service:
+                laya_regime = getattr(_tel_laya_router_service, "regime_mode", "TREND_SNIPER")
+                laya_adx = round(float(getattr(_tel_laya_router_service, "master_adx", 45.0)), 1)
+                setups = getattr(_tel_laya_router_service, "candidate_setups", {}) or {}
+                top_candidates = list(setups.values())[:30]
+                laya_thoughts = list(getattr(_tel_laya_router_service, "thought_stream", []) or [])[-12:]
+                last_scan_ts = float(getattr(_tel_laya_router_service, "last_scan_time", 0.0) or (time.time() - 4.2))
+                btc_cache = getattr(_tel_laya_router_service, "btc_climate_cache", {}) or {}
+                if btc_cache:
+                    btc_info["climate"] = btc_cache.get("regime", "ALTCOIN_BLOODBATH")
+                    if btc_cache.get("price") and float(btc_cache["price"]) > 0:
+                        btc_info["price"] = round(float(btc_cache["price"]), 2)
+                    if btc_cache.get("change_24h"):
+                        btc_info["change_24h"] = round(float(btc_cache["change_24h"]), 2)
+                
+                # Extrai médias 2H do BTC se disponíveis
+                for cand in top_candidates:
+                    if "BTC" in str(cand.get("clean_sym", "")).upper():
+                        btc_sma8_2h = cand.get("sma8_2h", 0.0)
+                        btc_sma21_2h = cand.get("sma21_2h", 0.0)
+                        break
         except Exception:
             laya_thoughts = []
 
         # Sincronização do Preço Real do BTC via WebSocket Público OKX / Pulse Cache
         try:
-            from services.okx_ws_public import okx_ws_public_service
-            live_btc = float(
-                okx_ws_public_service.get_current_price("BTCUSDT", max_age_seconds=86400.0)
-                or okx_ws_public_service.get_current_price("BTC-USDT-SWAP", max_age_seconds=86400.0)
-                or getattr(okx_ws_public_service, "btc_price", 0.0)
-                or okx_ws_public_service.prices.get("BTCUSDT", 0.0)
-                or okx_ws_public_service.prices.get("BTC-USDT-SWAP", 0.0)
-                or 0.0
-            )
-            if live_btc > 0:
-                btc_info["price"] = round(live_btc, 2)
-            live_var = float(getattr(okx_ws_public_service, "btc_variation_24h", 0.0) or getattr(okx_ws_public_service, "btc_variation_1h", 0.0) or 0.0)
-            if live_var != 0:
-                btc_info["change_24h"] = round(live_var, 2)
+            if _tel_okx_ws_public_service:
+                live_btc = float(
+                    _tel_okx_ws_public_service.get_current_price("BTCUSDT", max_age_seconds=86400.0)
+                    or _tel_okx_ws_public_service.get_current_price("BTC-USDT-SWAP", max_age_seconds=86400.0)
+                    or getattr(_tel_okx_ws_public_service, "btc_price", 0.0)
+                    or _tel_okx_ws_public_service.prices.get("BTCUSDT", 0.0)
+                    or _tel_okx_ws_public_service.prices.get("BTC-USDT-SWAP", 0.0)
+                    or 0.0
+                )
+                if live_btc > 0:
+                    btc_info["price"] = round(live_btc, 2)
+                live_var = float(getattr(_tel_okx_ws_public_service, "btc_variation_24h", 0.0) or getattr(_tel_okx_ws_public_service, "btc_variation_1h", 0.0) or 0.0)
+                if live_var != 0:
+                    btc_info["change_24h"] = round(live_var, 2)
         except Exception:
             pass
 
         # Fallback via Sovereign Service Pulse Cache
         if btc_info["price"] <= 0:
             try:
-                from services.sovereign_service import sovereign_service
-                pulse = getattr(sovereign_service, "_pulse_cache", {}) or {}
-                if pulse.get("btc_price") and float(pulse["btc_price"]) > 0:
-                    btc_info["price"] = round(float(pulse["btc_price"]), 2)
-                if pulse.get("btc_var_24h") and btc_info["change_24h"] == 0:
-                    btc_info["change_24h"] = round(float(pulse["btc_var_24h"]), 2)
+                if _tel_sovereign_service:
+                    pulse = getattr(_tel_sovereign_service, "_pulse_cache", {}) or {}
+                    if pulse.get("btc_price") and float(pulse["btc_price"]) > 0:
+                        btc_info["price"] = round(float(pulse["btc_price"]), 2)
+                    if pulse.get("btc_var_24h") and btc_info["change_24h"] == 0:
+                        btc_info["change_24h"] = round(float(pulse["btc_var_24h"]), 2)
             except Exception:
                 pass
 
@@ -306,10 +346,10 @@ class TelemetryService:
         # Contexto dos Slots em Custódia e Análise da Frota 2+2+2+2
         active_slots = self._cached_slots
         try:
-            from services.database_service import database_service
-            live_slots = getattr(database_service, "_last_active_slots_cache", [])
-            if live_slots:
-                active_slots = live_slots
+            if _tel_database_service:
+                live_slots = getattr(_tel_database_service, "_last_active_slots_cache", [])
+                if live_slots:
+                    active_slots = live_slots
         except Exception:
             pass
 
@@ -352,10 +392,12 @@ class TelemetryService:
 
         base_bal = 10000.0
         try:
-            from services.sandbox_service import sandbox_service
-            real_sb = getattr(sandbox_service, "base_balance_cache", None)
-            if real_sb and float(real_sb) > 0:
-                realized_pnl = round(float(real_sb) - base_bal, 2)
+            if _tel_sandbox_service:
+                real_sb = getattr(_tel_sandbox_service, "base_balance_cache", None)
+                if real_sb and float(real_sb) > 0:
+                    realized_pnl = round(float(real_sb) - base_bal, 2)
+                else:
+                    realized_pnl = round(self._last_equity - base_bal, 2)
             else:
                 realized_pnl = round(self._last_equity - base_bal, 2)
         except Exception:
@@ -420,9 +462,12 @@ class TelemetryService:
 
         # Order Flow & CVD Taker
         try:
-            from app.services.laya_router_service import laya_router_service
-            raw_cvd = float(getattr(laya_router_service, "_last_cvd_delta", -1.45) or -1.45)
-            raw_lsr = float(getattr(laya_router_service, "_last_btc_lsr", 1.08) or 1.08)
+            if _tel_laya_router_service:
+                raw_cvd = float(getattr(_tel_laya_router_service, "_last_cvd_delta", -1.45) or -1.45)
+                raw_lsr = float(getattr(_tel_laya_router_service, "_last_btc_lsr", 1.08) or 1.08)
+            else:
+                raw_cvd = -1.45
+                raw_lsr = 1.08
         except Exception:
             raw_cvd = -1.45
             raw_lsr = 1.08

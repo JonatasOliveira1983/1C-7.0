@@ -92,17 +92,19 @@ class OKXRest:
 
             if response.status_code == 429:
                 retry_after = self._parse_retry_after(response)
-                async with self._public_http_lock:
-                    self._public_429_streak = min(self._public_429_streak + 1, 5)
-                    cooldown = retry_after or min(
-                        self._public_429_base_cooldown * self._public_429_streak,
-                        12.0,
+                is_auxiliary = any(k in label.lower() for k in ("account-ratio", "rubik", "open-interest", "funding-history"))
+                if not is_auxiliary:
+                    async with self._public_http_lock:
+                        self._public_429_streak = min(self._public_429_streak + 1, 5)
+                        cooldown = retry_after or min(
+                            self._public_429_base_cooldown * self._public_429_streak,
+                            12.0,
+                        )
+                        self._public_cooldown_until = max(self._public_cooldown_until, time.time() + cooldown)
+                    logger.warning(
+                        f"⚠️ [OKX-429-GATE] {label} limitado. "
+                        f"Cooldown global {cooldown:.1f}s | streak={self._public_429_streak}"
                     )
-                    self._public_cooldown_until = max(self._public_cooldown_until, time.time() + cooldown)
-                logger.warning(
-                    f"⚠️ [OKX-429-GATE] {label} limitado. "
-                    f"Cooldown global {cooldown:.1f}s | streak={self._public_429_streak}"
-                )
             elif response.status_code < 500:
                 self._public_429_streak = max(0, self._public_429_streak - 1)
 
@@ -1836,7 +1838,7 @@ class OKXRest:
             from services.okx_service import okx_service
             inst_id = okx_service.to_okx_inst_id(symbol)
             url = f"https://www.okx.com/api/v5/public/open-interest?instId={inst_id}"
-            response = await self._public_rate_limited_get(url, timeout=4.0, label=f"open-interest:{symbol}")
+            response = await self._public_rate_limited_get(url, timeout=2.0, label=f"open-interest:{symbol}")
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == "0" and data.get("data"):
@@ -1847,8 +1849,11 @@ class OKXRest:
                         "raw_ts": data["data"][0].get("ts", str(int(time.time() * 1000))),
                     }
                     return oi
+            # Em caso de resposta vazia ou erro da OKX, cacheia por 300s para evitar flood
+            self._open_interest_cache[cache_key] = {"oi": 0.0, "ts": time.time() + 300.0, "raw_ts": "0"}
         except Exception as e:
             logger.debug(f"Open Interest unavailable on OKX for {symbol}: {e}")
+            self._open_interest_cache[cache_key] = {"oi": 0.0, "ts": time.time() + 300.0, "raw_ts": "0"}
         return 0.0
 
     async def get_open_interest_history(self, symbol: str, interval: str = "5min", limit: int = 5) -> List[Dict[str, Any]]:
@@ -1928,7 +1933,7 @@ class OKXRest:
                 )
                 response = await self._public_rate_limited_get(
                     url,
-                    timeout=10.0,
+                    timeout=2.0,
                     label=f"account-ratio:{ccy}:{okx_period}",
                     min_interval=self._rubik_min_interval,
                 )
@@ -1958,14 +1963,14 @@ class OKXRest:
                         ccy,
                     )
         except Exception as e:
-            logger.error(f"Error fetching Account Ratio from OKX for {symbol}: {e}")
+            logger.debug(f"Account ratio unavailable for {symbol}: {e}")
             try:
-                self._account_ratio_cache[cache_key] = (time.time(), 1.0)
+                self._account_ratio_cache[cache_key] = (time.time() + 300.0, 1.0)
             except Exception:
                 pass
             return 1.0
         try:
-            self._account_ratio_cache[cache_key] = (time.time(), 1.0)
+            self._account_ratio_cache[cache_key] = (time.time() + 300.0, 1.0)
         except Exception:
             pass
         return 1.0

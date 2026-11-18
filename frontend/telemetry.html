@@ -1199,7 +1199,7 @@
       _isTelemetryFetching = true;
       try {
         _timeseriesCounter++;
-        const shouldFetchSeries = forceSeries || (_timeseriesCounter === 1) || (_timeseriesCounter % 5 === 0);
+        const shouldFetchSeries = forceSeries || (_timeseriesCounter === 1) || (_timeseriesCounter % 15 === 0);
 
         const promises = [fetch('/api/telemetry/stats').then(r => r.json())];
         if (shouldFetchSeries) {
