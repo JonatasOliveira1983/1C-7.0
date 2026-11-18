@@ -62,7 +62,7 @@
       border-bottom: 1px solid var(--card-border);
       padding: 0 14px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       box-sizing: border-box;
       z-index: 10;
     }
@@ -76,19 +76,20 @@
     .hud-stat-label {
       color: var(--text-muted);
       text-transform: uppercase;
-      font-size: 8.5px;
+      font-size: 10.5px;
       letter-spacing: 0.5px;
     }
 
     .hud-stat-val {
       color: var(--text-main);
       font-weight: 700;
+      font-size: 12px;
     }
 
     .pill-badge {
-      font-size: 8.5px;
+      font-size: 10px;
       font-weight: 700;
-      padding: 1px 6px;
+      padding: 2px 6px;
       border-radius: 2px;
     }
 
@@ -148,7 +149,7 @@
       align-items: center;
       padding-bottom: 5px;
       border-bottom: 1px solid rgba(27, 35, 45, 0.8);
-      font-size: 9.5px;
+      font-size: 11.5px;
       font-weight: 700;
       font-family: var(--font-mono);
       letter-spacing: 0.5px;
@@ -385,7 +386,7 @@
       justify-content: space-between;
       align-items: center;
       font-family: var(--font-mono);
-      font-size: 8.5px;
+      font-size: 10.5px;
       color: var(--text-muted);
       border-bottom: 1px solid #141A22;
       padding-bottom: 3px;
@@ -442,7 +443,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 700;
     }
 
@@ -450,7 +451,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 7.5px;
+      font-size: 9.5px;
       color: #848E9C;
     }
 
@@ -464,7 +465,7 @@
       flex-direction: column;
       gap: 4px;
       font-family: var(--font-mono);
-      font-size: 8.5px;
+      font-size: 10.5px;
       flex: 1 1 160px;
       min-height: 120px;
       overflow: hidden;
@@ -506,12 +507,12 @@
       background: #06080C;
       border: 1px solid rgba(27, 35, 45, 0.8);
       border-radius: 3px;
-      padding: 5px 8px;
+      padding: 6px 9px;
       display: flex;
       flex-direction: column;
       gap: 3px;
       font-family: var(--font-mono);
-      font-size: 8.5px;
+      font-size: 10.5px;
       transition: all 0.15s ease;
       cursor: pointer;
     }
@@ -526,13 +527,14 @@
       justify-content: space-between;
       align-items: center;
       font-weight: 700;
+      font-size: 11px;
     }
 
     .liq-pool-body {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 8px;
+      font-size: 9.5px;
       color: #848E9C;
     }
 
@@ -561,7 +563,7 @@
       flex-direction: column;
       gap: 5px;
       font-family: var(--font-mono);
-      font-size: 8.5px;
+      font-size: 10.5px;
     }
 
     .range-meter-bar {
@@ -765,7 +767,7 @@
           <span class="pill-badge pill-gold">50X CRUZADA</span>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:8.5px;">
+        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:10.5px;">
           <div style="display:flex; justify-content:space-between; border-bottom:1px solid #141A22; padding-bottom:3px;">
             <span style="color:var(--text-muted);">MARGEM:</span>
             <span style="color:var(--accent-gold); font-weight:800;">50.0X CRUZADA SOBERANA ($1k/LOTE)</span>
@@ -803,11 +805,11 @@
     <section class="charts-main-panel" style="display: flex; flex-direction: column; gap: 8px;">
       
       <!-- SINAL DE VIDA TITAN // HEARTBEAT & VARREDURA CONTÍNUA 30S -->
-      <div style="background:#06080C; border:1px solid #1B232D; border-left:3px solid #00F0FF; border-radius:4px; padding:6px 12px; display:flex; align-items:center; justify-content:space-between; font-family:var(--font-mono); font-size:8.5px;">
+      <div style="background:#06080C; border:1px solid #1B232D; border-left:3px solid #00F0FF; border-radius:4px; padding:6px 12px; display:flex; align-items:center; justify-content:space-between; font-family:var(--font-mono); font-size:10.5px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00F0FF; box-shadow:0 0 8px #00F0FF;"></span>
           <span style="color:#00F0FF; font-weight:800; letter-spacing:0.05em;">VARREDURA CONTÍNUA TITAN 30S:</span>
-          <span style="color:#FFF;">Próximo ciclo em <b id="scan-countdown-sec" style="color:#00F0FF; font-size:10px; font-weight:900;">30.0s</b></span>
+          <span style="color:#FFF;">Próximo ciclo em <b id="scan-countdown-sec" style="color:#00F0FF; font-size:12px; font-weight:900;">30.0s</b></span>
           <div style="width:70px; height:4px; background:#141A22; border-radius:2px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:4px;">
             <div id="scan-progress-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #00F0FF, #0ECB81); transition:width 1s linear;"></div>
           </div>
@@ -825,37 +827,37 @@
       <div class="exec-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #0ECB81; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">MERCADO REAL (HI-FI)</span>
-            <span class="pill-badge pill-green" id="card-ping-badge" style="font-size: 8px;">FRICÇÃO ATIVA</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">MERCADO REAL (HI-FI)</span>
+            <span class="pill-badge pill-green" id="card-ping-badge" style="font-size: 9.5px;">FRICÇÃO ATIVA</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 900; color: #0ECB81;" id="card-ping-val">SLIPPAGE & FUNDING 8H</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Vazão contínua: <b id="card-ticks-val" style="color:#FFF;">227 ticks/s</b></div>
+          <div style="font-family: var(--font-mono); font-size: 16px; font-weight: 900; color: #0ECB81;" id="card-ping-val">SLIPPAGE & FUNDING 8H</div>
+          <div style="font-family: var(--font-mono); font-size: 9.5px; color: #848E9C; margin-top: 2px;">Vazão contínua: <b id="card-ticks-val" style="color:#FFF;">227 ticks/s</b></div>
         </div>
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #29ABE2; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">MODELO QUANT TITAN</span>
-            <span class="pill-badge pill-cyan" id="card-laya-badge" style="font-size: 8px;">TRIPLE BARRIER</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">MODELO QUANT TITAN</span>
+            <span class="pill-badge pill-cyan" id="card-laya-badge" style="font-size: 9.5px;">TRIPLE BARRIER</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 13.5px; font-weight: 900; color: #29ABE2;" id="card-laya-mode">TRIPLE_BARRIER_50X</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Sub: <b id="card-submodel-val" style="color:#FFF;">Z-SCORE & PULLBACK</b> • ADX: <b id="card-adx-val" style="color:#FFF;">37.4</b></div>
+          <div style="font-family: var(--font-mono); font-size: 16px; font-weight: 900; color: #29ABE2;" id="card-laya-mode">TRIPLE_BARRIER_50X</div>
+          <div style="font-family: var(--font-mono); font-size: 9.5px; color: #848E9C; margin-top: 2px;">Sub: <b id="card-submodel-val" style="color:#FFF;">Z-SCORE & PULLBACK</b> • ADX: <b id="card-adx-val" style="color:#FFF;">37.4</b></div>
         </div>
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #FCD535; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">EQUITY TOTAL</span>
-            <span class="pill-badge pill-gold" style="font-size: 8px;">100% LÍQUIDO</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">EQUITY TOTAL</span>
+            <span class="pill-badge pill-gold" style="font-size: 9.5px;">100% LÍQUIDO</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #FCD535;" id="card-equity-val">$100,000.00</div>
-          <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Lucro Líquido: <b id="card-realized-val" style="color:#0ECB81;">+$0.00 (+0.00%)</b></div>
+          <div style="font-family: var(--font-mono); font-size: 18px; font-weight: 900; color: #FCD535;" id="card-equity-val">$100,000.00</div>
+          <div style="font-family: var(--font-mono); font-size: 9.5px; color: #848E9C; margin-top: 2px;">Lucro Líquido: <b id="card-realized-val" style="color:#0ECB81;">+$0.00 (+0.00%)</b></div>
         </div>
 
         <div class="panel-card" style="background: #0B0E14; border: 1px solid #1B232D; border-left: 3px solid #B388FF; padding: 10px 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">PROTEÇÃO PATRIMONIAL</span>
-            <span class="pill-badge" style="font-size: 8px; background:rgba(179,136,255,0.15); color:#B388FF; border:1px solid #B388FF;">NEVER GIVE BACK</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">PROTEÇÃO PATRIMONIAL</span>
+            <span class="pill-badge" style="font-size: 9.5px; background:rgba(179,136,255,0.15); color:#B388FF; border:1px solid #B388FF;">NEVER GIVE BACK</span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 900; color: #B388FF;" id="card-floor-val">PISO $85,000.00</div>
+          <div style="font-family: var(--font-mono); font-size: 18px; font-weight: 900; color: #B388FF;" id="card-floor-val">PISO $85,000.00</div>
           <div style="font-family: var(--font-mono); font-size: 8px; color: #848E9C; margin-top: 2px;">Slots: <b id="card-slots-val" style="color:#FFF;">0 / 8 Ativos</b> (Max $20k)</div>
         </div>
       </div>

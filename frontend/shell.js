@@ -63,10 +63,10 @@
         <div style="display: flex; align-items: center; gap: 10px;">
           <div style="width: 14px; height: 14px; background: #FFC000; transform: rotate(45deg); flex-shrink: 0;"></div>
           <div>
-            <div style="font-weight: 900; font-size: 13px; letter-spacing: 0.12em; color: #FFFFFF; text-transform: uppercase;">
-              1CRYPTEN <span style="color: #FFC000;">7.9.3</span> <span style="font-size: 9px; color: #00F0FF; padding: 1px 4px; background: rgba(0, 240, 255, 0.15); border: 1px solid #00F0FF; border-radius: 2px;">V216 SOBERANA</span>
+            <div style="font-weight: 900; font-size: 15px; letter-spacing: 0.12em; color: #FFFFFF; text-transform: uppercase;">
+              1CRYPTEN <span style="color: #FFC000;">7.9.3</span> <span style="font-size: 10.5px; color: #00F0FF; padding: 2px 5px; background: rgba(0, 240, 255, 0.15); border: 1px solid #00F0FF; border-radius: 2px;">V216 SOBERANA</span>
             </div>
-            <div style="font-family: var(--font-mono); font-size: 9px; color: #777777; letter-spacing: 0.08em; text-transform: uppercase;">
+            <div style="font-family: var(--font-mono); font-size: 11px; color: #777777; letter-spacing: 0.08em; text-transform: uppercase;">
               UNIVERSAL PRECISION OS
             </div>
           </div>
@@ -78,7 +78,7 @@
 
       <!-- Quick Action -->
       <div style="padding: 12px 14px 6px 14px;">
-        <a href="/hermes" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 36px; background: #FFC000; color: #000000; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; border: 1px solid #FFC000; transition: all 0.15s ease;">
+        <a href="/hermes" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 38px; background: #FFC000; color: #000000; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; border: 1px solid #FFC000; transition: all 0.15s ease;">
           ${ICONS.chat}
           <span>CHAT HERMES AI</span>
         </a>
@@ -220,24 +220,24 @@
           </button>
 
           <a href="/" style="display: flex; align-items: center; gap: 6px; text-decoration: none;">
-            <div style="width: 9px; height: 9px; background: #FCD535; transform: rotate(45deg); flex-shrink: 0;"></div>
-            <span style="font-weight: 700; font-size: 11.5px; letter-spacing: 0.08em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
+            <div style="width: 10px; height: 10px; background: #FCD535; transform: rotate(45deg); flex-shrink: 0;"></div>
+            <span style="font-weight: 700; font-size: 13.5px; letter-spacing: 0.08em; color: #F1F5F9; text-transform: uppercase; font-family: var(--font-sans, sans-serif);">
               1CRYPTEN
             </span>
-            <span class="badge-gold" style="font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px;">V216</span>
+            <span class="badge-gold" style="font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 2px;">V216</span>
           </a>
 
-          <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 11px;">|</span>
+          <span class="shell-sep desktop-only" style="color: #1D2330; font-size: 13px;">|</span>
           
           <div class="header-fleet-pills desktop-only" style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-family: var(--font-mono, monospace); font-size: 9px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
+            <span style="font-family: var(--font-mono, monospace); font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em;">
               TITAN • LAYA NEURAL • HERMES • PLUTUS
             </span>
           </div>
         </div>
 
         <!-- Center: Navigation (Desktop Only) -->
-        <nav class="desktop-nav" style="display: flex; align-items: center; gap: 2px;">
+        <nav class="desktop-nav" style="display: flex; align-items: center; gap: 4px;">
           <a href="/cockpit" class="nav-item ${activePage === 'cockpit' ? 'active' : ''}">
             ${ICONS.cockpit} <span>COCKPIT</span>
           </a>
@@ -256,12 +256,12 @@
         </nav>
 
         <!-- Right: Realtime Net Worth & Execution Mode (Clean Single Line) -->
-        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-          <div style="display: flex; align-items: center; gap: 5px;">
-            <span class="desktop-only" style="font-size: 8.5px; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em;">EQUITY</span>
-            <span id="shell-networth" style="font-family: var(--font-mono, monospace); font-size: 11.5px; font-weight: 700; color: #FCD535; font-variant-numeric: tabular-nums;">$100,000.00</span>
+        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="desktop-only" style="font-size: 10px; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em;">EQUITY</span>
+            <span id="shell-networth" style="font-family: var(--font-mono, monospace); font-size: 13.5px; font-weight: 800; color: #FCD535; font-variant-numeric: tabular-nums;">$100,000.00</span>
           </div>
-          <span id="shell-mode" class="badge-gold" style="font-size: 8px; padding: 1px 5px; font-weight: 700;">PAPER</span>
+          <span id="shell-mode" class="badge-gold" style="font-size: 9.5px; padding: 2px 6px; font-weight: 700;">PAPER</span>
         </div>
       </div>
     `;
@@ -270,12 +270,12 @@
     const styleEl = document.createElement("style");
     styleEl.textContent = `
       .sh-ico {
-        width: 15px;
-        height: 15px;
-        min-width: 15px;
-        min-height: 15px;
-        max-width: 15px;
-        max-height: 15px;
+        width: 16px;
+        height: 16px;
+        min-width: 16px;
+        min-height: 16px;
+        max-width: 16px;
+        max-height: 16px;
         flex-shrink: 0;
         display: inline-block;
         vertical-align: middle;
@@ -305,12 +305,12 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 12px;
+        padding: 5px 12px;
         color: #888888;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.07em;
         text-decoration: none;
         border: 1px solid transparent;
         transition: all 0.15s ease;
@@ -411,7 +411,7 @@
         width: 100%;
         text-align: left;
         padding: 8px 10px;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -440,9 +440,9 @@
 
       .sh-badge-gold {
         margin-left: auto;
-        font-size: 9px;
+        font-size: 10.5px;
         font-family: var(--font-mono);
-        padding: 1px 6px;
+        padding: 2px 6px;
         background: rgba(255, 192, 0, 0.15);
         color: #FFC000;
         border: 1px solid rgba(255, 192, 0, 0.4);
@@ -451,9 +451,9 @@
 
       .sh-badge-subtle {
         margin-left: auto;
-        font-size: 9px;
+        font-size: 10.5px;
         font-family: var(--font-mono);
-        padding: 1px 6px;
+        padding: 2px 6px;
         background: #181818;
         color: #777777;
         border: 1px solid #282828;
@@ -462,9 +462,9 @@
 
       .sh-status-pill {
         margin-left: auto;
-        font-size: 8px;
+        font-size: 9.5px;
         font-family: var(--font-mono);
-        padding: 1px 5px;
+        padding: 2px 6px;
         font-weight: 800;
         letter-spacing: 0.05em;
       }

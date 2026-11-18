@@ -81,7 +81,7 @@
       .cockpit-banner-row {
         margin-bottom: 0 !important;
         padding: 3px 10px !important;
-        font-size: 9.5px !important;
+        font-size: 11.5px !important;
         flex-shrink: 0 !important;
       }
 
@@ -858,6 +858,66 @@
     }
   }
 
+  /* ==========================================================================
+     CALIBRAÇÃO TIPOGRÁFICA HARMONIOSA +20% (V224)
+     Aumento proporcional sem distorção e sem overflow vertical ultrawide
+     ========================================================================== */
+  .card-title {
+    font-size: 14.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+  }
+  .cockpit-banner-row {
+    font-size: 11.5px !important;
+  }
+  .btn-ghost, .btn-gold {
+    font-size: 12px !important;
+  }
+  .btn-tf {
+    font-size: 10.5px !important;
+    padding: 2px 5px !important;
+  }
+  #btn-chart-solo, #btn-chart-dual, #btn-chart-quad {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+  .badge-gold, .badge-cyan, .badge-up, .badge-down, .badge-ghost {
+    font-size: 10px !important;
+  }
+  .table-lamborghini th {
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+  }
+  .table-lamborghini td {
+    font-size: 12px !important;
+    padding: 6px 8px !important;
+  }
+  #banca-saldo-total {
+    font-size: 26px !important;
+  }
+  #kpi-floor, #side-floating-pnl, #side-margin-allocated, #kpi-funding-8h, #kpi-funding-24h {
+    font-size: 13.5px !important;
+  }
+  #kpi-slots {
+    font-size: 13px !important;
+  }
+  #custody-laya-intention-strip {
+    font-size: 12px !important;
+  }
+  #laya-thought-stream {
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+  .laya-tactical-hud {
+    font-size: 10.5px !important;
+  }
+  .input-lamborghini {
+    font-size: 12px !important;
+  }
+  #recent-trades-list {
+    font-size: 12px !important;
+  }
+
   </style>
 </head>
 <body>
@@ -869,20 +929,20 @@
     <div class="cockpit-banner-row" style="display: flex; align-items: center; justify-content: space-between; background: #181A20; border: 1px solid #2B3139; border-left: 3px solid var(--accent-gold); padding: 7px 14px; margin-bottom: 8px; border-radius: 4px; flex-wrap: wrap; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <canvas class="thinking-orb-canvas" data-state="solving" data-size="20" data-color="#FCD535" width="20" height="20" style="width:20px;height:20px;"></canvas>
-        <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #fff;">1CRYPTEN COCKPIT</span>
-        <span class="badge-gold" style="font-size: 8.5px; font-weight: 700; padding: 2px 6px;">V205 SOBERANA</span>
-        <span id="laya-header-badge" class="badge-cyan" style="font-size: 9.5px; font-weight: 700; padding: 2px 8px;">TITAN ENGINE • ONLINE (AUTÔNOMO)</span>
-        <span id="kpi-regime-badge" class="badge-gold" style="font-size: 9px; padding: 2px 6px;">LATERAL</span>
-        <span id="kpi-btc-bias" class="badge-up" style="font-size: 9px; padding: 2px 6px;">BTC NEUTRO</span>
+        <span style="font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #fff;">1CRYPTEN COCKPIT</span>
+        <span class="badge-gold" style="font-size: 10.5px; font-weight: 700; padding: 2px 6px;">V224 SOBERANA</span>
+        <span id="laya-header-badge" class="badge-cyan" style="font-size: 11.5px; font-weight: 700; padding: 2px 8px;">TITAN ENGINE • ONLINE (AUTÔNOMO)</span>
+        <span id="kpi-regime-badge" class="badge-gold" style="font-size: 11px; padding: 2px 6px;">LATERAL</span>
+        <span id="kpi-btc-bias" class="badge-up" style="font-size: 11px; padding: 2px 6px;">BTC NEUTRO</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
         <span>ADX ORÁCULO: <b id="kpi-adx" style="color: #fff;">24.2</b></span>
         <span style="color: #333;">|</span>
         <span>TREND: <b id="kpi-btc-var" style="color: #fff;">+0.12%</b></span>
         <span style="color: #333;">|</span>
         <span>GATING: <b id="kpi-gating" style="color: var(--accent-gold);">ESTÁVEL</b></span>
         <span style="color: #333;">|</span>
-        <span>KRONOS: <b id="kpi-kronos-score" style="color: #B388FF;">50.0 PTS</b> <span style="font-size: 8.5px; color: #888;">(AAAI 2026)</span></span>
+        <span>KRONOS: <b id="kpi-kronos-score" style="color: #B388FF;">50.0 PTS</b> <span style="font-size: 10px; color: #888;">(AAAI 2026)</span></span>
         <span style="color: #333;">|</span>
         <span>NEVER GIVE BACK: <b style="color: #0ECB81;">ARMADO (5 ESCADINHAS)</b></span>
         <span style="color: #333;">|</span>
@@ -1122,55 +1182,55 @@
           <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; padding: 1px 2px;">
             <div>
               <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 1px;">
-                <span style="font-size: 8px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
-                <span style="font-size: 7.5px; color: #0ECB81; background: rgba(14, 203, 129, 0.12); border: 1px solid rgba(14, 203, 129, 0.3); border-radius: 2px; padding: 0 4px; font-weight: 700; font-family: var(--font-mono);">100% LÍQUIDO</span>
+                <span style="font-size: 10px; color: #848E9C; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">EQUITY TOTAL EM TEMPO REAL</span>
+                <span style="font-size: 9px; color: #0ECB81; background: rgba(14, 203, 129, 0.12); border: 1px solid rgba(14, 203, 129, 0.3); border-radius: 2px; padding: 1px 5px; font-weight: 700; font-family: var(--font-mono);">100% LÍQUIDO</span>
               </div>
-              <span id="side-balance" class="metric-value font-mono" style="font-size: 24px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$100,000.00</span>
+              <span id="side-balance" class="metric-value font-mono" style="font-size: 28px; font-weight: 900; color: #FCD535; line-height: 1.0; letter-spacing: -0.02em; text-shadow: 0 0 12px rgba(252, 213, 53, 0.25);">$100,000.00</span>
             </div>
             <div style="text-align: right;">
-              <span style="display: block; font-size: 7.5px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 1px;">PERFORMANCE</span>
-              <span id="side-pnl" class="badge-up" style="font-size: 11px; font-weight: 800; padding: 2px 6px;">+0.00%</span>
+              <span style="display: block; font-size: 9.5px; color: #848E9C; text-transform: uppercase; font-weight: 700; margin-bottom: 1px;">PERFORMANCE</span>
+              <span id="side-pnl" class="badge-up" style="font-size: 13px; font-weight: 800; padding: 2px 7px;">+0.00%</span>
             </div>
           </div>
 
           <!-- Grid Unificado da Banca & Risco (8 Métricas Essenciais Consolidando Topo e Lado) -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #0B0E11; padding: 4px 8px; border: 1px solid #2B3139; border-radius: 3px; font-family: var(--font-mono);">
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
-              <b id="side-base-balance" style="color: #EAECEF; font-size: 11.5px;">$100,000.00</b>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">SALDO BASE</span>
+              <b id="side-base-balance" style="color: #EAECEF; font-size: 13.5px;">$100,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: flex; align-items: center; gap: 3px; font-size: 8px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO <span style="font-size: 7px; color: #0ECB81; font-weight: 700;">(PÓS-TAXAS)</span></span>
-              <b id="side-realized-pnl" style="color: #0ECB81; font-size: 11.5px;">+$0.00</b>
+              <span style="color: #848E9C; display: flex; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">LUCRO REALIZADO <span style="font-size: 8.5px; color: #0ECB81; font-weight: 700;">(PÓS-TAXAS)</span></span>
+              <b id="side-realized-pnl" style="color: #0ECB81; font-size: 13.5px;">+$0.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
-              <b id="kpi-peak" style="color: #FFF; font-size: 11.5px;">$100,000.00</b>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">PICO MÁXIMO</span>
+              <b id="kpi-peak" style="color: #FFF; font-size: 13.5px;">$100,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
-              <b id="kpi-floor" style="color: #FCD535; font-size: 11.5px;">$85,000.00</b>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">PISO PROTEGIDO</span>
+              <b id="kpi-floor" style="color: #FCD535; font-size: 13.5px;">$85,000.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
-              <b id="side-floating-pnl" style="color: #aaa; font-size: 11.5px;">$0.00</b>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">PNL FLUTUANTE</span>
+              <b id="side-floating-pnl" style="color: #aaa; font-size: 13.5px;">$0.00</b>
             </div>
             <div style="border-bottom: 1px solid #1c2128; padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">MARGEM EM RISCO</span>
-              <b id="side-margin-allocated" style="color: #29ABE2; font-size: 11.5px;">$0.00 (0%)</b>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">MARGEM EM RISCO</span>
+              <b id="side-margin-allocated" style="color: #29ABE2; font-size: 13.5px;">$0.00 (0%)</b>
             </div>
             <div style="padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">ALOCAÇÃO DE LOTES (50X CRUZADA)</span>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">ALOCAÇÃO DE LOTES (50X CRUZADA)</span>
               <div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
-                <b id="kpi-slots" style="color: #FFF; font-size: 11px;">
+                <b id="kpi-slots" style="color: #FFF; font-size: 13px;">
                   LOTE 1: <span id="kpi-unprotected-slots" style="color:#FCD535; font-weight: 900;">0</span>/2 EM RISCO • TOTAL: <span id="kpi-scalp-slots" style="color:#0ECB81; font-weight: 900;">0</span>/8
                 </b>
-                <span id="kpi-slots-sub" style="font-size: 7.5px; color: #848E9C; font-family: var(--font-mono);">$10,000/ORDEM • ALVO CHÃO 300% (+$30,000)</span>
+                <span id="kpi-slots-sub" style="font-size: 9px; color: #848E9C; font-family: var(--font-mono);">$10,000/ORDEM • ALVO CHÃO 300% (+$30,000)</span>
               </div>
             </div>
             <div style="padding: 2px 0;">
-              <span style="color: #848E9C; display: block; font-size: 8px; font-weight: 600; text-transform: uppercase;">TETO DE RISCO MESA</span>
-              <span id="kpi-risk-cap" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">RISK: 0% / 8%</span>
+              <span style="color: #848E9C; display: block; font-size: 9.5px; font-weight: 600; text-transform: uppercase;">TETO DE RISCO MESA</span>
+              <span id="kpi-risk-cap" class="badge-gold" style="font-size: 10px; padding: 1px 5px;">RISK: 0% / 8%</span>
             </div>
           </div>
 
@@ -1179,24 +1239,24 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
               <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #FCD535;"></span>
-                <span style="color: #EAECEF; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">TAXA DE FINANCIAMENTO OKX</span>
+                <span style="color: #EAECEF; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">TAXA DE FINANCIAMENTO OKX</span>
               </div>
               <div style="display: flex; align-items: center; gap: 4px;">
-                <span style="font-size: 7.5px; color: #848E9C;">SETTLEMENT:</span>
-                <span id="funding-countdown-badge" class="badge-gold" style="font-size: 8px; padding: 1px 4px; font-weight: 700;">--:--:--</span>
+                <span style="font-size: 9px; color: #848E9C;">SETTLEMENT:</span>
+                <span id="funding-countdown-badge" class="badge-gold" style="font-size: 10px; padding: 1px 5px; font-weight: 700;">--:--:--</span>
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
               <div>
-                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">PRÓXIMO CICLO (8H)</span>
-                <b id="kpi-funding-8h" style="color: #0ECB81; font-size: 11px;">$0.00</b>
+                <span style="color: #848E9C; display: block; font-size: 9px; font-weight: 600; text-transform: uppercase;">PRÓXIMO CICLO (8H)</span>
+                <b id="kpi-funding-8h" style="color: #0ECB81; font-size: 13px;">$0.00</b>
               </div>
               <div>
-                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">PROJEÇÃO DIÁRIA (24H)</span>
-                <b id="kpi-funding-24h" style="color: #0ECB81; font-size: 11px;">$0.00</b>
+                <span style="color: #848E9C; display: block; font-size: 9px; font-weight: 600; text-transform: uppercase;">PROJEÇÃO DIÁRIA (24H)</span>
+                <b id="kpi-funding-24h" style="color: #0ECB81; font-size: 13px;">$0.00</b>
               </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px dashed #1c2128; font-size: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px dashed #1c2128; font-size: 9.5px;">
               <span id="kpi-funding-detail" style="color: #848E9C;">0 POSIÇÕES RECEBENDO / 0 PAGANDO</span>
               <span id="kpi-funding-status" style="color: #0ECB81; font-weight: 700;">FLUXO NEUTRO</span>
             </div>
@@ -1207,20 +1267,20 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
               <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #29ABE2;"></span>
-                <span style="color: #EAECEF; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">DELTA DIRECIONAL & COMISSÕES</span>
+                <span style="color: #EAECEF; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">DELTA DIRECIONAL & COMISSÕES</span>
               </div>
-              <span id="kpi-delta-warning" class="badge-gold" style="font-size: 8px; padding: 1px 4px; font-weight: 700;">EQUILIBRADO</span>
+              <span id="kpi-delta-warning" class="badge-gold" style="font-size: 10px; padding: 1px 5px; font-weight: 700;">EQUILIBRADO</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
               <div>
-                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">EXPOSIÇÃO DA FROTA</span>
-                <b id="kpi-fleet-delta" style="color: #FFF; font-size: 10.5px;">50% L / 50% S</b>
+                <span style="color: #848E9C; display: block; font-size: 9px; font-weight: 600; text-transform: uppercase;">EXPOSIÇÃO DA FROTA</span>
+                <b id="kpi-fleet-delta" style="color: #FFF; font-size: 12.5px;">50% L / 50% S</b>
               </div>
               <div>
-                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 600; text-transform: uppercase;">TAXAS OKX JÁ DEDUZIDAS</span>
+                <span style="color: #848E9C; display: block; font-size: 9px; font-weight: 600; text-transform: uppercase;">TAXAS OKX JÁ DEDUZIDAS</span>
                 <div style="display: flex; align-items: baseline; gap: 4px;">
-                  <b id="kpi-total-fees" style="color: #848E9C; font-size: 10.5px;">-$0.00</b>
-                  <span style="font-size: 7px; color: #0ECB81; font-weight: 700; background: rgba(14,203,129,0.12); border: 1px solid rgba(14,203,129,0.25); border-radius: 2px; padding: 0 3px;">PAGO</span>
+                  <b id="kpi-total-fees" style="color: #848E9C; font-size: 12.5px;">-$0.00</b>
+                  <span style="font-size: 8.5px; color: #0ECB81; font-weight: 700; background: rgba(14,203,129,0.12); border: 1px solid rgba(14,203,129,0.25); border-radius: 2px; padding: 1px 4px;">PAGO</span>
                 </div>
               </div>
             </div>
@@ -1233,11 +1293,11 @@
           <div class="card-lamborghini-header" style="padding-bottom: 4px; margin-bottom: 4px; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <canvas class="thinking-orb-canvas" data-state="solving" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas>
-              <span class="card-title" style="color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;">TITAN ENGINE • COMANDO TÁTICO</span>
+              <span class="card-title" style="color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.08em;">TITAN ENGINE • COMANDO TÁTICO</span>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <button onclick="openLayaThoughtModal()" class="btn-ghost" style="padding: 1px 7px; font-size: 8.5px; font-weight: 800; border-color: rgba(252, 213, 53, 0.6); color: #FCD535; border-radius: 2px; background: rgba(252, 213, 53, 0.12); cursor: pointer;" title="Abrir Balão de Consciência Cognitiva da Laya">❖ BALÃO COGNITIVO</button>
-              <span id="laya-status-badge" class="badge-gold" style="font-size: 8.5px; padding: 1px 5px;">SOBERANA • ONLINE</span>
+              <button onclick="openLayaThoughtModal()" class="btn-ghost" style="padding: 2px 8px; font-size: 10.5px; font-weight: 800; border-color: rgba(252, 213, 53, 0.6); color: #FCD535; border-radius: 2px; background: rgba(252, 213, 53, 0.12); cursor: pointer;" title="Abrir Balão de Consciência Cognitiva da Laya">❖ BALÃO COGNITIVO</button>
+              <span id="laya-status-badge" class="badge-gold" style="font-size: 10px; padding: 2px 6px;">SOBERANA • ONLINE</span>
             </div>
           </div>
 
@@ -1336,22 +1396,22 @@
           <div class="card-lamborghini-header" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: nowrap; gap: 6px;">
               <div style="display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; overflow: hidden;">
-                <span class="card-title" style="white-space: nowrap; font-size: 11px;">
+                <span class="card-title" style="white-space: nowrap; font-size: 13.5px;">
                   <canvas class="thinking-orb-canvas" data-state="working" data-size="16" data-color="#FCD535" width="16" height="16" style="width:16px;height:16px;"></canvas> CUSTÓDIA SWING 2H (8 SLOTS)
                 </span>
-                <span id="active-slots-count" class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; flex-shrink: 0;">0/8</span>
-                <span id="custody-protected-badge" class="badge-cyan" style="font-size: 8px; font-weight: 800; padding: 1px 5px; flex-shrink: 0; display: none;">0 RISCO ZERO</span>
-                <span id="custody-unprotected-badge" class="badge-gold" style="font-size: 8px; font-weight: 800; padding: 1px 5px; flex-shrink: 0;">0/2 RISCO</span>
-                <span id="custody-free-badge" class="badge-up" style="font-size: 8px; font-weight: 800; padding: 1px 5px; flex-shrink: 0;">1 VAGO</span>
+                <span id="active-slots-count" class="badge-gold" style="font-size: 10px; font-weight: 800; padding: 2px 6px; flex-shrink: 0;">0/8</span>
+                <span id="custody-protected-badge" class="badge-cyan" style="font-size: 10px; font-weight: 800; padding: 2px 6px; flex-shrink: 0; display: none;">0 RISCO ZERO</span>
+                <span id="custody-unprotected-badge" class="badge-gold" style="font-size: 10px; font-weight: 800; padding: 2px 6px; flex-shrink: 0;">0/2 RISCO</span>
+                <span id="custody-free-badge" class="badge-up" style="font-size: 10px; font-weight: 800; padding: 2px 6px; flex-shrink: 0;">1 VAGO</span>
               </div>
               <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                <button onclick="emergencyCloseAll()" class="btn-ghost" style="padding: 2px 8px; font-size: 8.5px; font-weight: 800; border-color: #f6465d; color: #f6465d; background: rgba(246, 70, 93, 0.12); letter-spacing: 0.04em; white-space: nowrap;" title="Fecha todas as ordens abertas a mercado imediatamente em caso de emergência">
+                <button onclick="emergencyCloseAll()" class="btn-ghost" style="padding: 3px 10px; font-size: 10.5px; font-weight: 800; border-color: #f6465d; color: #f6465d; background: rgba(246, 70, 93, 0.12); letter-spacing: 0.04em; white-space: nowrap;" title="Fecha todas as ordens abertas a mercado imediatamente em caso de emergência">
                   FLATTEN ALL
                 </button>
               </div>
             </div>
             <!-- Sub-faixa Tática de Intenções da Laya integrada ao Painel de Custódia -->
-            <div id="custody-laya-intention-strip" style="display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; background: rgba(24, 26, 32, 0.85); border: 1px solid rgba(252, 213, 53, 0.25); border-left: 3px solid var(--accent-gold); padding: 4px 8px; border-radius: 3px; gap: 6px;">
+            <div id="custody-laya-intention-strip" style="display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 12px; background: rgba(24, 26, 32, 0.85); border: 1px solid rgba(252, 213, 53, 0.25); border-left: 3px solid var(--accent-gold); padding: 5px 10px; border-radius: 3px; gap: 6px;">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 <span style="color: var(--accent-gold); font-weight: 800; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
                   <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00F0FF; box-shadow: 0 0 6px #00F0FF;"></span>
@@ -1359,7 +1419,7 @@
                 </span>
                 <span id="custody-laya-intention-txt" style="color: #FFFFFF; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">CARREGANDO INTENÇÃO TÁTICA...</span>
               </div>
-              <div style="font-size: 8.5px; color: #848E9C; flex-shrink: 0;">
+              <div style="font-size: 10.5px; color: #848E9C; flex-shrink: 0;">
                 EXPANSÃO 2+2+2+2
               </div>
             </div>
@@ -1400,11 +1460,11 @@
               <canvas class="thinking-orb-canvas" data-state="solving" data-size="18" data-color="#FCD535" width="18" height="18" style="width:18px;height:18px;"></canvas> HISTÓRICO DE AUDITORIA & ÚLTIMOS TRADES
             </span>
             <div style="display: flex; gap: 8px;">
-              <button onclick="fetchRecentHistory()" class="btn-ghost" style="padding: 3px 8px; font-size: 9px;">RECARREGAR</button>
-              <button onclick="openResetModal()" class="btn-ghost" style="padding: 3px 8px; font-size: 9px; border-color: #f6465d; color: #f6465d;">RESETAR HISTÓRICO</button>
+              <button onclick="fetchRecentHistory()" class="btn-ghost" style="padding: 3px 10px; font-size: 11px;">RECARREGAR</button>
+              <button onclick="openResetModal()" class="btn-ghost" style="padding: 3px 10px; font-size: 11px; border-color: #f6465d; color: #f6465d;">RESETAR HISTÓRICO</button>
             </div>
           </div>
-          <div id="recent-trades-list" style="display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
+          <div id="recent-trades-list" style="display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 12.5px;">
             <div style="color: var(--text-muted); text-align: center; padding: 20px;">Carregando histórico...</div>
           </div>
         </div>
@@ -2894,26 +2954,26 @@
             if (isBE) {
               stopBadgeHtml = `
                 <div style="display:flex; flex-direction:column; gap:2px;">
-                  <span class="badge-cyan" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(0, 240, 255, 0.35); border: 1px solid #00f0ff;">
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>BREAKEVEN
+                  <span class="badge-cyan" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(0, 240, 255, 0.35); border: 1px solid #00f0ff;">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>BREAKEVEN
                   </span>
-                  <b class="font-mono" style="color: #00f0ff; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
-                  <span style="font-size: 7.5px; color: #00f0ff; font-weight: 700; letter-spacing: 0.03em;">RISCO ZERO</span>
+                  <b class="font-mono" style="color: #00f0ff; font-size: 14.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                  <span style="font-size: 9px; color: #00f0ff; font-weight: 700; letter-spacing: 0.03em;">RISCO ZERO</span>
                 </div>`;
             } else if (isTrail) {
               stopBadgeHtml = `
                 <div style="display:flex; flex-direction:column; gap:2px;">
-                  <span class="badge-up" style="font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(14, 203, 129, 0.35); border: 1px solid #0ECB81;">
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>TRAILING STOP
+                  <span class="badge-up" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 2px; width: fit-content; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(14, 203, 129, 0.35); border: 1px solid #0ECB81;">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>TRAILING STOP
                   </span>
-                  <b class="font-mono" style="color: #0ECB81; font-size: 12.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
-                  <span style="font-size: 7.5px; color: #0ECB81; font-weight: 700; letter-spacing: 0.03em;">LUCRO TRAVADO</span>
+                  <b class="font-mono" style="color: #0ECB81; font-size: 14.5px; font-weight: 800;">$${formatPriceSmart(s.current_stop)}</b>
+                  <span style="font-size: 9px; color: #0ECB81; font-weight: 700; letter-spacing: 0.03em;">LUCRO TRAVADO</span>
                 </div>`;
             } else {
               stopBadgeHtml = `
                 <div style="display:flex; flex-direction:column; gap:2px;">
-                  <span style="font-size: 8px; color: #848E9C; font-weight: 700;">DEFESA INICIAL</span>
-                  <b class="font-mono" style="color: #F6465D; font-size: 12px; font-weight: 700;">$${formatPriceSmart(s.current_stop || s.entry_price)}</b>
+                  <span style="font-size: 9.5px; color: #848E9C; font-weight: 700;">DEFESA INICIAL</span>
+                  <b class="font-mono" style="color: #F6465D; font-size: 14px; font-weight: 700;">$${formatPriceSmart(s.current_stop || s.entry_price)}</b>
                 </div>`;
             }
 
@@ -2921,42 +2981,42 @@
               <tr class="clickable-row" data-sym="${s.symbol}" onclick="selectSlotForChart(window._activeSlotsData[${idx}], 0)" title="Clique para focar este slot com linhas completas no G1" style="${isSelected ? 'background: rgba(255, 192, 0, 0.12);' : ''}">
                 <td style="padding: 10px 8px;">
                   <div style="display: flex; align-items: baseline; gap: 5px;">
-                    <b style="color: #FFFFFF; font-size: 16px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
-                    <span style="font-size: 10px; color: #848E9C; font-family: var(--font-mono);">SWAP</span>
+                    <b style="color: #FFFFFF; font-size: 18px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
+                    <span style="font-size: 11.5px; color: #848E9C; font-family: var(--font-mono);">SWAP</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">
-                    <span style="font-size: 8.5px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR)</span>
-                    <button class="btn-ghost" style="padding: 1px 5px; font-size: 8px; font-weight: 800; border-color: rgba(255,192,0,0.5); color: #FCD535; border-radius: 2px; background: rgba(255,192,0,0.08);" onclick="event.stopPropagation(); openLayaThoughtModal(window._activeSlotsData[${idx}])" title="Ver Consciência Cognitiva da Laya para este Trade">❖ LAYA AI</button>
+                    <span style="font-size: 10px; color: var(--accent-gold); font-family: var(--font-mono); font-weight: 700;">➔ G1 (FOCAR)</span>
+                    <button class="btn-ghost" style="padding: 1px 6px; font-size: 9.5px; font-weight: 800; border-color: rgba(255,192,0,0.5); color: #FCD535; border-radius: 2px; background: rgba(255,192,0,0.08);" onclick="event.stopPropagation(); openLayaThoughtModal(window._activeSlotsData[${idx}])" title="Ver Consciência Cognitiva da Laya para este Trade">❖ LAYA AI</button>
                   </div>
                 </td>
-                <td><span class="badge-gold" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">${s.slot_type === 'SWING' ? 'SWING 2H' : 'SWING 2H'}</span></td>
+                <td><span class="badge-gold" style="font-size: 11.5px; font-weight: 700; padding: 2px 7px;">${s.slot_type === 'SWING' ? 'SWING 2H' : 'SWING 2H'}</span></td>
                 <td>
-                  <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 900; padding: 5px 12px; border-radius: 4px; letter-spacing: 0.06em; background: ${isLong ? 'rgba(14, 203, 129, 0.22)' : 'rgba(246, 70, 93, 0.22)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'}; text-shadow: 0 0 8px ${isLong ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'};">
+                  <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 14.5px; font-weight: 900; padding: 5px 12px; border-radius: 4px; letter-spacing: 0.06em; background: ${isLong ? 'rgba(14, 203, 129, 0.22)' : 'rgba(246, 70, 93, 0.22)'}; border: 1.5px solid ${isLong ? '#0ECB81' : '#F6465D'}; color: ${isLong ? '#0ECB81' : '#F6465D'}; text-shadow: 0 0 8px ${isLong ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'};">
                     ${isLong ? '▲ LONG' : '▼ SHORT'} ${s.leverage || 50}X
                   </span>
                 </td>
-                <td class="font-mono" style="font-size: 12px; font-weight: 600; color: #DDD;">$${formatPriceSmart(s.entry_price)}</td>
-                <td class="font-mono" style="font-size: 12px; font-weight: 800; color: #FFF;">$${formatPriceSmart(s.current_price || s.entry_price)}</td>
+                <td class="font-mono" style="font-size: 14px; font-weight: 600; color: #DDD;">$${formatPriceSmart(s.entry_price)}</td>
+                <td class="font-mono" style="font-size: 14px; font-weight: 800; color: #FFF;">$${formatPriceSmart(s.current_price || s.entry_price)}</td>
                 <td>${stopBadgeHtml}</td>
-                <td><span class="${pnlClass}" style="font-size: 13px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
+                <td><span class="${pnlClass}" style="font-size: 14.5px; font-weight: 900; padding: 4px 8px; border-radius: 3px;">${pnlSign}${Number(s.pnl_percent || 0).toFixed(2)}%</span></td>
                 <td>
-                  <div style="font-family: var(--font-mono); font-size: 11px;">
+                  <div style="font-family: var(--font-mono); font-size: 12.5px;">
                     <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
-                      <span style="font-size: 8.5px; font-weight: 800; padding: 1px 4px; border-radius: 2px; ${fBadgeStyle}">${fAction}</span>
+                      <span style="font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 2px; ${fBadgeStyle}">${fAction}</span>
                       <b style="color: #FFF;">${fRate}</b>
                     </div>
-                    <span style="font-size: 9px; color: ${isReceiving ? '#0ECB81' : '#F6465D'}; font-weight: 700;">8h: ${f8h}</span>
-                    <span style="font-size: 8px; color: #848E9C; margin-left: 3px;">(24h: ${f24h})</span>
+                    <span style="font-size: 10.5px; color: ${isReceiving ? '#0ECB81' : '#F6465D'}; font-weight: 700;">8h: ${f8h}</span>
+                    <span style="font-size: 9.5px; color: #848E9C; margin-left: 3px;">(24h: ${f24h})</span>
                   </div>
                 </td>
-                <td><span class="${isBE ? 'badge-cyan' : (isTrail ? 'badge-up' : 'badge-ghost')}" style="font-size: 10px; font-weight: 700;">${isBE ? 'BREAKEVEN ATIVO' : (isTrail ? 'TRAILING ATIVO' : (s.status_risco || 'LIVRE'))}</span></td>
+                <td><span class="${isBE ? 'badge-cyan' : (isTrail ? 'badge-up' : 'badge-ghost')}" style="font-size: 11.5px; font-weight: 700;">${isBE ? 'BREAKEVEN ATIVO' : (isTrail ? 'TRAILING ATIVO' : (s.status_risco || 'LIVRE'))}</span></td>
                 <td>
                   ${(s.strategy === 'ALT_PUMP_IGNITION' || (s.contract_meta && s.contract_meta.alt_pump_ignition))
-                    ? `<span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(240, 185, 11, 0.15); color: #F0B90B; border: 1px solid rgba(240, 185, 11, 0.4); padding: 2px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px; letter-spacing: 0.5px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>ALT IGNITION</span>`
-                    : `<span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">${s.strategy || 'LAYA_RANGE_REVERSAL'}</span>`}
+                    ? `<span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(240, 185, 11, 0.15); color: #F0B90B; border: 1px solid rgba(240, 185, 11, 0.4); padding: 2px 6px; border-radius: 3px; font-weight: 800; font-size: 11px; letter-spacing: 0.5px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>ALT IGNITION</span>`
+                    : `<span style="color: #848E9C; font-size: 12px; font-weight: 600;">${s.strategy || 'LAYA_RANGE_REVERSAL'}</span>`}
                 </td>
                 <td>
-                  <button class="btn-ghost" style="padding: 4px 8px; font-size: 10px; font-weight: 700; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR</button>
+                  <button class="btn-ghost" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; border-color: #f6465d; color: #f6465d;" onclick="event.stopPropagation(); closeSlot('${s.symbol}')">FECHAR</button>
                 </td>
               </tr>
             `;
