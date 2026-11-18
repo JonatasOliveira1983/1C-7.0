@@ -1204,6 +1204,7 @@ class DatabaseService:
                     session.add(obj)
                     await session.commit()
                     self._active_trades_cache = None
+                    self._trigger_telemetry_invalidation()
                     logger.info(f"🧪 Sandbox trade {trade_data.get('id')} saved in Postgres.")
                     return True
                 else:
@@ -1211,6 +1212,7 @@ class DatabaseService:
                         setattr(obj, k, v)
                     await session.commit()
                     self._active_trades_cache = None
+                    self._trigger_telemetry_invalidation()
                     return True
             except Exception as e:
                 logger.error(f"Error saving sandbox trade in database: {e}")
@@ -1245,6 +1247,19 @@ class DatabaseService:
                 logger.error(f"Error getting sandbox trade {trade_id}: {e}")
             return None
 
+    def _trigger_telemetry_invalidation(self):
+        """[V223] Purgar caches de telemetria em tempo real para sincronização atômica instantânea."""
+        try:
+            from routes.sandbox import invalidate_unified_state_cache
+            invalidate_unified_state_cache()
+        except Exception:
+            pass
+        try:
+            from routes.trading import invalidate_slots_cache
+            invalidate_slots_cache()
+        except Exception:
+            pass
+
     async def update_sandbox_trade(self, trade_id: str, data: dict):
         async with self.AsyncSessionLocal() as session:
             try:
@@ -1258,6 +1273,7 @@ class DatabaseService:
                             setattr(obj, k, v)
                     await session.commit()
                     self._active_trades_cache = None
+                    self._trigger_telemetry_invalidation()
                     return True
             except Exception as e:
                 logger.error(f"Error updating sandbox trade {trade_id}: {e}")
@@ -1270,6 +1286,7 @@ class DatabaseService:
                 await session.execute(q)
                 await session.commit()
                 self._active_trades_cache = None
+                self._trigger_telemetry_invalidation()
                 logger.info("🧪 Sandbox trades database table cleared.")
                 # [V129] Reset in-memory equity defense metrics to avoid false CRITICAL alert
                 from config import settings

@@ -2732,6 +2732,9 @@
         if (sideDetails) sideDetails.open = (activeSlots.length > 0);
 
         if (activeSlots.length === 0) {
+          for (let i = 0; i < 4; i++) {
+            clearOrderLinesForChart(i);
+          }
           if (tbody) {
             tbody.innerHTML = `
               <tr>
@@ -3924,64 +3927,65 @@
 
     let _recentTradesCache = [];
 
+    function renderRecentTrades(trades) {
+      const container = document.getElementById("recent-trades-list");
+      if (!container) return;
+      if (!Array.isArray(trades) || trades.length === 0) {
+        container.innerHTML = `
+          <div style="color: #848E9C; text-align: center; padding: 20px 14px; font-size: 11px; background: #0E1014; border: 1px dashed #23272e; border-radius: 4px;">
+            <span style="color: var(--accent-gold); font-weight: 700; display: block; margin-bottom: 4px;">NENHUM TRADE ENCERRADO AINDA</span>
+            As posições abertas estão sendo monitoradas no Painel de Custódia Geral acima com Trailing Stops armados.
+          </div>`;
+        return;
+      }
+      _recentTradesCache = trades.slice(0, 10);
+      
+      container.innerHTML = _recentTradesCache.map((t, idx) => {
+        const meta = t.contract_meta || {};
+        const margin = Number(meta.margin || 10000.0);
+        const pnlUsd = Number(t.net_pnl_usd !== undefined ? t.net_pnl_usd : (meta.net_pnl_usd !== undefined ? meta.net_pnl_usd : 0));
+        const pnl = Number(t.pnl_pct !== undefined ? t.pnl_pct : (meta.net_roi !== undefined ? meta.net_roi : (margin > 0 ? (pnlUsd / margin) * 100 : 0)));
+        const isWin = pnlUsd >= 0;
+        const direction = (t.direction || t.side || 'LONG').toUpperCase();
+        const pnlUsdFormatted = (pnlUsd >= 0 ? '+$' : '-$') + Math.abs(pnlUsd).toFixed(2);
+        
+        const cleanCoin = (t.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
+        return `
+          <div class="clickable-row" onclick="openTradeAuditModal(${idx})" title="Clique para abrir Dossiê Forense Completo da Ordem" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #14171d; border: 1.5px solid #23272e; border-left: 4px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; border-radius: 4px; transition: all 0.15s ease; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 8.5px; color: var(--accent-gold); border: 1px solid rgba(255,192,0,0.3); padding: 2px 5px; border-radius: 2px; font-weight: 800;">AUDITORIA</span>
+              <div>
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                  <b style="color: #FFFFFF; font-size: 15px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
+                  <span style="font-size: 9.5px; color: #848E9C; font-family: var(--font-mono);">USDT-SWAP</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                  <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 3px; background: ${direction === 'LONG' ? 'rgba(14,203,129,0.22)' : 'rgba(246,70,93,0.22)'}; border: 1px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; color: ${direction === 'LONG' ? '#0ECB81' : '#F6465D'};">
+                    ${direction === 'LONG' ? '▲ LONG' : '▼ SHORT'} ${meta?.leverage || 50}X
+                  </span>
+                  <span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">• ${(t.strategy || 'TITAN_RADAR').replace(/^LAYA_/, 'TITAN_')}</span>
+                </div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div>
+                <span class="${isWin ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 3px 8px; border-radius: 3px;">${isWin ? '+' : ''}${pnl.toFixed(2)}%</span>
+                <span style="font-size: 12px; color: ${isWin ? '#0ECB81' : '#F6465D'}; font-weight: 800; margin-left: 6px;">(${pnlUsdFormatted})</span>
+              </div>
+              <span style="display: block; font-size: 9.5px; color: #848E9C; margin-top: 3px;">${t.status || 'CLOSED'} • Clique para Dossiê ❖</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
     async function fetchRecentHistory() {
       try {
         const res = await fetch("/api/sandbox/trades?limit=15");
         if (!res.ok) return;
         const trades = await res.json();
-        const container = document.getElementById("recent-trades-list");
-        if (!Array.isArray(trades) || trades.length === 0) {
-          container.innerHTML = `<div style="color: #777; text-align: center; padding: 16px;">Nenhum trade encerrado ainda. Sistema pronto para operar.</div>`;
-          return;
-        }
-        const closedTrades = trades.filter(t => t.status !== 'ACTIVE' && (t.closed_at || t.exit_price || String(t.status).includes('CLOSED')));
-        if (closedTrades.length === 0) {
-          container.innerHTML = `
-            <div style="color: #848E9C; text-align: center; padding: 20px 14px; font-size: 11px; background: #0E1014; border: 1px dashed #23272e; border-radius: 4px;">
-              <span style="color: var(--accent-gold); font-weight: 700; display: block; margin-bottom: 4px;">NENHUM TRADE ENCERRADO AINDA</span>
-              As posições abertas estão sendo monitoradas no Painel de Custódia Geral acima com Trailing Stops armados.
-            </div>`;
-          return;
-        }
-        _recentTradesCache = closedTrades.slice(0, 10);
-        
-        container.innerHTML = _recentTradesCache.map((t, idx) => {
-          const pnl = Number(t.pnl_pct !== undefined ? t.pnl_pct : (t.pnl_percent || 0));
-          const isWin = pnl >= 0;
-          const direction = (t.direction || t.side || 'LONG').toUpperCase();
-          const meta = t.contract_meta || {};
-          const margin = Number(meta.margin || 200.0);
-          const pnlUsd = meta.net_pnl_usd !== undefined ? Number(meta.net_pnl_usd) : ((pnl / 100.0) * margin);
-          const pnlUsdFormatted = (pnlUsd >= 0 ? '+$' : '-$') + Math.abs(pnlUsd).toFixed(2);
-          
-          const cleanCoin = (t.symbol || '').replace('-USDT-SWAP', '').replace('-SWAP', '').replace('-', '');
-          return `
-            <div class="clickable-row" onclick="openTradeAuditModal(${idx})" title="Clique para abrir Dossiê Forense Completo da Ordem" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #14171d; border: 1.5px solid #23272e; border-left: 4px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; border-radius: 4px; transition: all 0.15s ease; margin-bottom: 4px;">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 8.5px; color: var(--accent-gold); border: 1px solid rgba(255,192,0,0.3); padding: 2px 5px; border-radius: 2px; font-weight: 800;">AUDITORIA</span>
-                <div>
-                  <div style="display: flex; align-items: baseline; gap: 6px;">
-                    <b style="color: #FFFFFF; font-size: 15px; font-weight: 900; letter-spacing: 0.04em;">${cleanCoin}</b>
-                    <span style="font-size: 9.5px; color: #848E9C; font-family: var(--font-mono);">USDT-SWAP</span>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
-                    <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 3px; background: ${direction === 'LONG' ? 'rgba(14,203,129,0.22)' : 'rgba(246,70,93,0.22)'}; border: 1px solid ${direction === 'LONG' ? '#0ECB81' : '#F6465D'}; color: ${direction === 'LONG' ? '#0ECB81' : '#F6465D'};">
-                      ${direction === 'LONG' ? '▲ LONG' : '▼ SHORT'} ${t.contract_meta?.leverage || 15}X
-                    </span>
-                    <span style="color: #848E9C; font-size: 10.5px; font-weight: 600;">• ${(t.strategy || 'TITAN_RADAR').replace(/^LAYA_/, 'TITAN_')}</span>
-                  </div>
-                </div>
-              </div>
-              <div style="text-align: right;">
-                <div>
-                  <span class="${isWin ? 'badge-up' : 'badge-down'}" style="font-size: 13px; font-weight: 900; padding: 3px 8px; border-radius: 3px;">${isWin ? '+' : ''}${pnl.toFixed(2)}%</span>
-                  <span style="font-size: 12px; color: ${isWin ? '#0ECB81' : '#F6465D'}; font-weight: 800; margin-left: 6px;">(${pnlUsdFormatted})</span>
-                </div>
-                <span style="display: block; font-size: 9.5px; color: #848E9C; margin-top: 3px;">${t.status || 'CLOSED'} • Clique para Dossiê ❖</span>
-              </div>
-            </div>
-          `;
-        }).join("");
+        const closedTrades = (trades || []).filter(t => t.status !== 'ACTIVE' && (t.closed_at || t.exit_price || String(t.status).includes('CLOSED')));
+        renderRecentTrades(closedTrades);
       } catch (e) {
         console.error("Erro ao carregar historico recente:", e);
       }
@@ -4379,7 +4383,7 @@
     initOkxCandleWs();
     evaluateLayaForCharts();
 
-    // [V216] Loop unificado ultraleve de telemetria consolidada sem engarrafamento (concurrency guard)
+    // [V223] Loop unificado ultraleve de telemetria consolidada atômica sem engarrafamento (concurrency guard)
     let _isPolling = false;
     async function unifiedCockpitPoll() {
       if (_isPolling) return;
@@ -4392,12 +4396,14 @@
           if (d.unified_state !== undefined) renderUnifiedStateData(d.unified_state);
           if (d.funding !== undefined) renderFundingSummaryData(d.funding);
           if (d.pulse !== undefined) renderLayaPulseData(d.pulse);
+          if (d.recent_trades !== undefined) renderRecentTrades(d.recent_trades);
         } else {
           await Promise.allSettled([
             fetchSlots(),
             fetchFundingSummary(),
             fetchUnifiedState(),
-            fetchLayaPulse()
+            fetchLayaPulse(),
+            fetchRecentHistory()
           ]);
         }
       } catch (err) {
@@ -4406,7 +4412,8 @@
             fetchSlots(),
             fetchFundingSummary(),
             fetchUnifiedState(),
-            fetchLayaPulse()
+            fetchLayaPulse(),
+            fetchRecentHistory()
           ]);
         } catch(e){}
       } finally {
@@ -4415,7 +4422,6 @@
     }
 
     setInterval(unifiedCockpitPoll, 3000);
-    setInterval(fetchRecentHistory, 15000);
     setInterval(evaluateLayaForCharts, 90000);
     setInterval(updateCockpitClock, 1000);
 

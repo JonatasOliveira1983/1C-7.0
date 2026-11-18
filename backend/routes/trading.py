@@ -154,6 +154,12 @@ def _map_sandbox_trade_to_history(trade, lab_type: str) -> dict:
 _last_slots_cache = None
 _last_slots_ts = 0.0
 
+def invalidate_slots_cache():
+    """Invalida o cache de slots forçando releitura imediata em tempo real."""
+    global _last_slots_cache, _last_slots_ts
+    _last_slots_cache = None
+    _last_slots_ts = 0.0
+
 @router.get("/slots")
 async def get_slots():
     """[V110.999] Rota pública — lê slots globais do Postgres. Auth removida para evitar 401 com Fortress Auth."""
@@ -372,8 +378,8 @@ async def get_funding_summary():
 
 @router.get("/cockpit/telemetry")
 async def get_cockpit_telemetry():
-    """[V216] Endpoint Unificado de Telemetria Ultraleve para o Cockpit.
-    Consolida slots, funding summary, unified state e laya pulse em um único roundtrip HTTP."""
+    """[V223] Endpoint Unificado de Telemetria Ultraleve para o Cockpit.
+    Consolida slots, funding summary, unified state, laya pulse e recent trades em um único roundtrip HTTP atômico."""
     from routes.sandbox import get_unified_sandbox_state
     from app.services.funding_service import funding_service
     
@@ -389,11 +395,42 @@ async def get_cockpit_telemetry():
     except Exception as e:
         logger.debug(f"Error fetching laya pulse for telemetry: {e}")
 
+    recent_trades = []
+    try:
+        from services.database_service import database_service as _ds
+        raw_trades = await _ds.get_sandbox_trades(active_only=False)
+        for t in raw_trades:
+            if t.status != "ACTIVE":
+                meta = t.contract_meta if isinstance(t.contract_meta, dict) else {}
+                margin = float(meta.get("margin", 10000.0) or 10000.0)
+                net_pnl = float(meta.get("net_pnl_usd") if meta.get("net_pnl_usd") is not None else ((float(t.pnl_pct or 0.0) / 100.0) * margin))
+                net_roi = float(meta.get("net_roi") if meta.get("net_roi") is not None else float(t.pnl_pct or 0.0))
+                recent_trades.append({
+                    "id": t.id,
+                    "symbol": t.symbol,
+                    "strategy": t.strategy,
+                    "direction": t.direction,
+                    "entry_price": t.entry_price,
+                    "current_price": t.current_price,
+                    "stop_loss": t.stop_loss,
+                    "target": t.target,
+                    "pnl_pct": round(net_roi, 2),
+                    "net_pnl_usd": round(net_pnl, 2),
+                    "status": t.status,
+                    "closed_at": t.closed_at,
+                    "contract_meta": meta
+                })
+                if len(recent_trades) >= 10:
+                    break
+    except Exception as e_hist:
+        logger.debug(f"Error fetching recent trades for telemetry: {e_hist}")
+
     return {
         "slots": slots,
         "funding": funding,
         "unified_state": unified_state,
-        "pulse": pulse
+        "pulse": pulse,
+        "recent_trades": recent_trades
     }
 
 @router.get("/signals")
