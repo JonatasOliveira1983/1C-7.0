@@ -1234,6 +1234,42 @@
             </div>
           </div>
 
+          <!-- PAINEL SOBERANO DE PROTEÇÕES E GOVERNANÇA INSTITUCIONAL (OPÇÃO B) -->
+          <div id="sovereign-protection-panel" style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span id="prot-indicator-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #0ECB81; box-shadow: 0 0 6px rgba(14,203,129,0.6);"></span>
+                <span style="color: #EAECEF; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">GOVERNANÇA & ESCUDO SOBERANO</span>
+              </div>
+              <span id="prot-global-badge" class="badge-green" style="font-size: 8px; padding: 1px 6px; border-radius: 2px; font-weight: 800; text-transform: uppercase;">100% BLINDADO</span>
+            </div>
+
+            <!-- Grid de 4 Pilares de Proteção -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 8.5px;">
+              <div style="background: rgba(27, 35, 45, 0.4); padding: 3px 5px; border-radius: 2px; border: 1px solid #1E2329;">
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 700; text-transform: uppercase;">PISO SOBERANO</span>
+                <b id="prot-floor-display" style="color: #0ECB81; font-size: 9.5px;">$140,089 (80% COFRE)</b>
+              </div>
+              <div style="background: rgba(27, 35, 45, 0.4); padding: 3px 5px; border-radius: 2px; border: 1px solid #1E2329;">
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 700; text-transform: uppercase;">CIRCUIT BREAKER</span>
+                <b id="prot-cb-display" style="color: #0ECB81; font-size: 9.5px;">ESTÁVEL (0 STOPS)</b>
+              </div>
+              <div style="background: rgba(27, 35, 45, 0.4); padding: 3px 5px; border-radius: 2px; border: 1px solid #1E2329;">
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 700; text-transform: uppercase;">CEILING SNIPER</span>
+                <b id="prot-ceiling-display" style="color: #00F0FF; font-size: 9.5px;">TETO 2H (&ge; 62%)</b>
+              </div>
+              <div style="background: rgba(27, 35, 45, 0.4); padding: 3px 5px; border-radius: 2px; border: 1px solid #1E2329;">
+                <span style="color: #848E9C; display: block; font-size: 7.5px; font-weight: 700; text-transform: uppercase;">RISCO ATIVO (2+2+2+2)</span>
+                <b id="prot-risk-display" style="color: #FCD535; font-size: 9.5px;">0/2 EM RISCO (LIVRE)</b>
+              </div>
+            </div>
+
+            <!-- Diretriz de Proteção Ativa em Linha Única -->
+            <div id="prot-banner-directive" style="margin-top: 4px; padding: 2px 5px; background: rgba(14, 203, 129, 0.08); border-left: 2px solid #0ECB81; border-radius: 1px; font-size: 7.5px; color: #EAECEF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              DEFESA PATRIMONIAL ATIVA • PISO BLOQUEIA DEVOLUÇÃO DE LUCRO
+            </div>
+          </div>
+
           <!-- PAINEL TAXA DE FINANCIAMENTO OKX (CUSTO / RECEITA PASSIVA) -->
           <div style="margin-top: 5px; background: #0B0E11; border: 1px solid #2B3139; border-radius: 3px; padding: 5px 8px; font-family: var(--font-mono);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #1c2128; padding-bottom: 3px;">
@@ -4546,6 +4582,115 @@
       }
     }
 
+    // [V226-PROTECTION-HUD] Renderizador dinâmico do painel de governança e escudos de proteção institucional
+    function renderSovereignProtectionHUD(d) {
+      if (!d) return;
+      const u = d.unified_state || {};
+      const pulse = d.pulse || {};
+      const mb = d.market_breadth || {};
+
+      // 1. Piso Soberano (Never Give Back)
+      const floorVal = u.equity_floor !== undefined ? Number(u.equity_floor) : 140089.55;
+      const floorEl = document.getElementById("prot-floor-display");
+      if (floorEl) {
+        floorEl.textContent = "$" + floorVal.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " (80% COFRE)";
+      }
+
+      // 2. Circuit Breaker Anti-Tilt
+      const gating = pulse.gating_status || "ESTAVEL";
+      const cbEl = document.getElementById("prot-cb-display");
+      const globalBadge = document.getElementById("prot-global-badge");
+      const dotEl = document.getElementById("prot-indicator-dot");
+      const bannerDir = document.getElementById("prot-banner-directive");
+
+      let isDefensive = false;
+      let defText = "DEFESA PATRIMONIAL ATIVA • PISO BLOQUEIA DEVOLUÇÃO DE LUCRO";
+      let defColor = "#0ECB81";
+
+      if (gating.includes("TRAVA") || gating.includes("DEFESA")) {
+        isDefensive = true;
+        if (cbEl) {
+          cbEl.textContent = gating;
+          cbEl.style.color = "#F6465D";
+        }
+        defText = "CIRCUIT BREAKER ATIVO • " + gating + " (ANTI-TILT ARMADO)";
+        defColor = "#F6465D";
+      } else {
+        if (cbEl) {
+          cbEl.textContent = "ESTÁVEL (0 STOPS)";
+          cbEl.style.color = "#0ECB81";
+        }
+      }
+
+      // 3. Ceiling Sniper
+      const ceilingEl = document.getElementById("prot-ceiling-display");
+      if (ceilingEl) {
+        if (mb.regime === "CHOP_CONSOLIDATION" || (pulse.master_adx && pulse.master_adx < 20)) {
+          ceilingEl.textContent = "TETO 2H (>= 62%)";
+          ceilingEl.style.color = "#00F0FF";
+        } else {
+          ceilingEl.textContent = "SNIPER REPIQUE 2H";
+          ceilingEl.style.color = "#0ECB81";
+        }
+      }
+
+      // 4. Risco Ativo (2+2+2+2)
+      const unprot = u.unprotected_risk_slots !== undefined ? u.unprotected_risk_slots : (pulse.unprotected_risk_slots || 0);
+      const riskEl = document.getElementById("prot-risk-display");
+      if (riskEl) {
+        if (unprot >= 2) {
+          riskEl.textContent = "2/2 CHEIO (AGUARDA BE)";
+          riskEl.style.color = "#F6465D";
+          isDefensive = true;
+          defText = "TETO DE RISCO (2/2) • EXPANSÃO BLOQUEADA ATÉ RISCO ZERO (+60% ROI)";
+          defColor = "#FCD535";
+        } else {
+          riskEl.textContent = `${unprot}/2 EM RISCO (LIVRE)`;
+          riskEl.style.color = "#FCD535";
+        }
+      }
+
+      // 5. Badge Global de Governança
+      const defLvl = u.equity_defense_level || 0;
+      if (defLvl >= 3 || isDefensive) {
+        if (globalBadge) {
+          globalBadge.className = "badge-red";
+          globalBadge.textContent = defLvl >= 3 ? `DEFESA L${defLvl} (CRÍTICO)` : "DEFESA ATIVA";
+          globalBadge.style.color = "#F6465D";
+          globalBadge.style.background = "rgba(246,70,93,0.15)";
+          globalBadge.style.border = "1px solid rgba(246,70,93,0.4)";
+        }
+        if (dotEl) {
+          dotEl.style.background = defColor;
+          dotEl.style.boxShadow = `0 0 8px ${defColor}`;
+        }
+        if (bannerDir) {
+          bannerDir.style.background = defColor === "#F6465D" ? "rgba(246,70,93,0.12)" : "rgba(252,213,53,0.12)";
+          bannerDir.style.borderLeftColor = defColor;
+          bannerDir.style.color = "#FFF";
+          bannerDir.textContent = defText;
+        }
+      } else {
+        if (globalBadge) {
+          globalBadge.className = "badge-green";
+          globalBadge.textContent = "100% BLINDADO";
+          globalBadge.style.color = "#0ECB81";
+          globalBadge.style.background = "rgba(14,203,129,0.15)";
+          globalBadge.style.border = "1px solid rgba(14,203,129,0.4)";
+        }
+        if (dotEl) {
+          dotEl.style.background = "#0ECB81";
+          dotEl.style.boxShadow = "0 0 6px rgba(14,203,129,0.6)";
+        }
+        if (bannerDir) {
+          bannerDir.style.background = "rgba(14,203,129,0.08)";
+          bannerDir.style.borderLeftColor = "#0ECB81";
+          bannerDir.style.color = "#EAECEF";
+          bannerDir.textContent = defText;
+        }
+      }
+    }
+
     // [V223] Loop unificado ultraleve de telemetria consolidada atômica sem engarrafamento (concurrency guard)
     let _isPolling = false;
     async function unifiedCockpitPoll() {
@@ -4561,6 +4706,7 @@
           if (d.pulse !== undefined) renderLayaPulseData(d.pulse);
           if (d.recent_trades !== undefined) renderRecentTrades(d.recent_trades);
           if (d.market_breadth !== undefined) renderTitanBreadthGauge(d.market_breadth);
+          renderSovereignProtectionHUD(d);
         }
       } catch (err) {
         // Silencioso para evitar tempestade de requisições de fallback em caso de rede lenta
