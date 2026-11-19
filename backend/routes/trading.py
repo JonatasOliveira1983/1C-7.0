@@ -490,12 +490,22 @@ async def get_cockpit_telemetry():
         except Exception as e_hist:
             logger.debug(f"Error fetching recent trades for telemetry: {e_hist}")
 
+    market_breadth = {}
+    try:
+        from app.services.market_intel_engine import market_intel_engine
+        snapshot = market_intel_engine._last_snapshot
+        matrix = snapshot.get("matrix", []) if snapshot else []
+        market_breadth = market_intel_engine.calculate_crypto_market_breadth(matrix)
+    except Exception as e_br:
+        logger.debug(f"Error computing market breadth: {e_br}")
+
     payload = {
         "slots": slots,
         "funding": funding,
         "unified_state": unified_state,
         "pulse": pulse,
-        "recent_trades": recent_trades
+        "recent_trades": recent_trades,
+        "market_breadth": market_breadth
     }
     _last_cockpit_telemetry_cache = payload
     _last_cockpit_telemetry_ts = now
