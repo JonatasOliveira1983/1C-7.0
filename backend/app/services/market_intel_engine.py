@@ -331,14 +331,25 @@ class MarketIntelEngine:
         total_lsr = 0.0
 
         for a in universe_assets:
-            rng = float(a.get("1c_range", 50.0))
-            chg = float(a.get("change_24h", 0.0))
-            exp = float(a.get("1c_exp", 50.0))
-            lsr = float(a.get("lsr", 1.0))
+            rng = float(a.get("1c_range", 50.0) or 50.0)
+            chg = float(a.get("change_24h", a.get("change24h_pct", 0.0)) or 0.0)
+            exp = float(a.get("1c_exp", 50.0) or 50.0)
+            lsr = float(a.get("lsr", 1.0) or 1.0)
+            price = float(a.get("price", 0.0) or 0.0)
+            sma21 = float(a.get("sma21_2h", 0.0) or 0.0)
+            direction = str(a.get("direction", "")).upper()
 
-            if rng >= 50.0 or chg > 0.0:
+            # 1. Altcoin Breadth vs SMA 21 de 2H (SKILL canônica crypto_market_breadth)
+            if price > 0 and sma21 > 0:
+                is_bull = (price > sma21)
+            elif chg != 0.0:
+                is_bull = (chg > 0.0 and rng >= 50.0)
+            else:
+                is_bull = (direction == "LONG" or rng >= 60.0)
+
+            if is_bull and direction != "SHORT":
                 above_mid_count += 1
-            if rng < 40.0 or chg < -1.0:
+            else:
                 bear_pressure_count += 1
 
             total_exp += exp

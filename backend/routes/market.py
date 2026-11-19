@@ -54,8 +54,13 @@ async def get_market_breadth():
     """
     try:
         from app.services.market_intel_engine import market_intel_engine
+        from app.services.laya_router_service import laya_router_service
         snapshot = market_intel_engine._last_snapshot
         matrix = snapshot.get("matrix", []) if snapshot else []
+        if not matrix and laya_router_service:
+            cands = getattr(laya_router_service, "candidate_setups", {})
+            if cands:
+                matrix = list(cands.values())
         return market_intel_engine.calculate_crypto_market_breadth(matrix)
     except Exception as e:
         logger.error(f"Erro ao calcular market breadth: {e}")
