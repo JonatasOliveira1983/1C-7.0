@@ -1,9 +1,9 @@
-# MASTER_ARCHITECTURE.md — 1Crypten 8.4.4 (V222 - TITAN MACRO TREND LOCK & PURGA DEFINITIVA DA ÁGUIA FUSION)
+# MASTER_ARCHITECTURE.md — 1Crypten 8.4.4 (V226 - 50X SNIPER RISK CAP & PURGA DO HIGH_2H_WINDOW)
 
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-17. VERSION no codigo: `backend/main.py` VERSION="V222-TITAN-MACRO-TREND-LOCK-SOVEREIGN". DEPLOYMENT_ID="V222_TITAN_SOVEREIGN_SYSTEM". Invariantes V222 Escritas em Pedra: 1) Trava Macro de Tendência (Macro Trend Lock): Em regime macro de baixa de 2H/4H ou consolidação abaixo da SMA 21 de 2H, repiques intradiários de 15M/30M são sumariamente PROIBIDOS de abrir LONG (`VETO MACRO TENDÊNCIA BAIXA`). Repiques em baixa servem exclusivamente para buscar vendas sniper de SHORT no teto da consolidação. 2) Purga Canônica da Águia Fusion: A estratégia legada `LAYA_AGUIA_FUSION` foi permanentemente extirpada do ciclo de abertura; autoridade soberana e exclusiva para `LAYA_PULLBACK_HUNTER_2H_30M`. 3) Protocolo Navio Almirante (BTC First Obrigatório): Com mesa zerada (0 trades ativos), nenhuma altcoin tem permissão de abrir ordem isoladamente (`VETO_AGUARDANDO_NAVIO_ALMIRANTE_BTC`). A primeira ordem da frota (Slot 1) é privativa do Bitcoin (`BTC-USDT-SWAP`), que valida o fluxo e a direção macro. 4) Simbiose Direcional Inviolável (100% da Frota no Mesmo Sentido): Com a ordem do BTC aberta (LONG ou SHORT), 100% dos slots subsequentes (Slot 2 até Slot 8) devem abrir estritamente na MESMA DIREÇÃO do BTC (`VETO_DESALINHAMENTO_DIRECIONAL_BTC`), eliminando a anomalia de hedges canibais. 5) Expansão Autofinanciada 2+2+2+2: Máximo de 2 ordens sob risco desprotegido ($20.000 = 20% da banca em 50X Margem Cruzada); o Slot 3 só abre quando o BTC ou a altcoin pioneira atingir Risco Zero (+45% ou +60% ROI). 6) Kill Switch de Órfãs: Encerramento imediato preventivo a mercado no zero a zero de qualquer altcoin que fique posicionada na contramão se o BTC reverter. 7) Tática Consolidation Ceiling Sniper: Entrada no teto da caixa 2H (>= 62% da amplitude) com preservação plena do respiro técnico do Stop Loss de 2H além da SMA 21 e topo estrutural.*
+*Verificado contra o codigo em 2026-11-19. VERSION no codigo: `backend/main.py` VERSION="V226-50X-SNIPER-RISK-CAP-SOVEREIGN". DEPLOYMENT_ID="V226_TITAN_SOVEREIGN_SYSTEM". Invariantes V226 Escritas em Pedra: 1) Teto Rígido Institucional de Stop Loss em 50X (`max_stop_dist = 0.0070`): Em 50X Margem Cruzada, a distância do Stop Loss é limitada a no máximo 0.70% de preço (max -35.0% de ROI / -$3.500 no lote de $10.000), extirpando a anomalia de stops a 2.61% (-135% ROI / -$13.5k). 2) Purga Canônica de high_2h_window do Stop Loss: O cálculo de stop de entradas sniper nunca mais referencia o topo de 24 horas; ancoragem estrita na microestrutura do repique de 30M / SMA 21 com folga de apenas +0.25%, respeitando o teto de 0.70%. 3) Desasfixia de Breakeven para LAYA_PULLBACK_HUNTER_2H_30M: Isenção permanente de SCRATCH_GUARD_REJECTION (+30% ROI), restaurando a relação Risco:Retorno de 1:1.5 até 1:10. 4) Calibração de Gatilhos Titan V225: Limiares de pavio e absorção calibrados em 30M e suporte a Breakdown 2H com autorização de altcoins Titãs no Slot 1 sob Farol BTC BEAR. 5) Telemetria Unificada V224: Micro-caching inteligente (1.2s TTL) em `/api/cockpit/telemetry` e redirect 301 de `/laya` para `/telemetry`. 6) Titan Macro Trend Lock V222: Proibição de LONGs em regime macro de baixa (SMA 8 < SMA 21 de 2H); purga da Águia Fusion com exclusividade da Pullback Hunter 2H/30M. 7) Navio Almirante V221: Slot 1 privativo do BTC com mesa zerada; simbiose direcional 100% da frota; expansão autofinanciada 2+2+2+2 no Risco Zero (+45%/+60% ROI).*
 ---
 
 ## 1. Visao Geral
@@ -319,8 +319,8 @@ flowchart TD
    - *Mapeamento de Amplitude de 2H*: O Titan Engine calcula a amplitude máxima e mínima dos últimos 12 candles de 2H (janela de 24 horas):
      `range_pos_2h = (c_close - low_2h_window) / (high_2h_window - low_2h_window)`
    - *Veto Inegociável de Miolo e Fundo*: Se `range_pos_2h < 62.0%` em regime SHORT, a entrada é sumariamente VETADA (`VETO_MEIO_DE_ACUMULACAO_2H`). O sistema aguarda pacientemente o preço repicar até o terço superior da amplitude (>= 62%, região do teto em ~$65.400). Simetricamente, em regime LONG, se `range_pos_2h > 38.0%`, a compra no topo é VETADA (`VETO_TOPO_DE_ACUMULACAO_2H`).
-2. **Preservação do Fôlego Estrutural do Stop Loss 2H**:
-   - *Sem Estrangulamento de Stop*: O Stop Loss na entrada no teto NÃO é colado ou enforcado artificialmente. Ele mantém folga técnica ampla e estrutural de 2H, posicionado com margem de segurança de 1.8% a 2.5% de preço além do topo da consolidação e da SMA 21 (`high_2h_window * 1.006`).
+2. **Preservação do Fôlego Estrutural do Stop Loss 2H & Calibração V226**:
+   - *Evolução Canônica do Stop Loss*: No V220 original, o stop utilizava margem técnica além do topo da consolidação (`high_2h_window * 1.006`). No V226, para proteger a banca de $100.000 em 50X Margem Cruzada, essa fórmula foi substituída pelo Teto Rígido Institucional de 0.70% (`max_stop_dist = 0.0070` = max -35.0% de ROI), ancorado no topo do sweep da vela de 30M / SMA 21 com respiro de +0.25%, eliminando perdas anômalas de -$13.5k e mantendo respiro técnico sniper.
    - *Geração Instantânea de Lucro*: Ao entrar no teto (62%-75% do range), assim que o preço volta a recuar para o centro (50%) ou piso (30%), a ordem gera imediatamente +1.5% a +2.0% de preço a favor (+75% a +100% de ROI em 50X Margem Cruzada), atingindo instantaneamente os Degraus 1 e 2 de Breakeven (+45% e +60% ROI) sem passar por calor flutuante.
 
 ### 2.9 Protocolo Navio Almirante: BTC First & Simbiose Direcional 100% da Frota [V221]
@@ -346,17 +346,43 @@ flowchart TD
    - Foi permanentemente purgada e descontinuada de todo o pipeline de abertura de ordens.
    - Autoridade soberana e exclusiva concedida à estratégia `LAYA_PULLBACK_HUNTER_2H_30M`.
 3. **Consolidation Ceiling Sniper Preservado**:
-   - Em caixas de acumulação de 2H, o SHORT exige teste do terço superior (`range_pos_2h >= 62.0%`).
-   - Stop Loss estrutural mantido com fôlego livre além do topo do range de 2H (`high_2h_window * 1.006`), garantindo espaço técnico sem estrangulamento precoce.
+   - Em caixas de acumulação de 2H, o SHORT exige teste do terço superior (`range_pos_2h >= 62.0%`). No V226, o Stop Loss estrutural é rigorosamente calibrado pela microestrutura local da rejeição com o teto rígido institucional de 0.70% (`max_stop_dist = 0.0070`), expurgando em definitivo qualquer ancoragem cega em `high_2h_window` que causava distâncias destrutivas de 2.61% (-135% ROI).
 
-**Status Operacional Atual [V222-TITAN-SOVEREIGN-FLEET]**:
+### 2.11 Unificação Soberana da Telemetria, Micro-Caching & Desativação do Titan 360 [V224]
+1. **Micro-caching Inteligente na Telemetria**:
+   - Implementação de cache de curta duração (1.2s TTL) em `/api/cockpit/telemetry` e cache atômico de `recent_trades` (5.0s TTL), reduzindo a latência média de resposta de 72 segundos para ~15-20 milissegundos.
+2. **Deprecação da Rota `/laya` com Redirecionamento HTTP 301**:
+   - A página legada Titan 360 (`/laya`) foi unificada na Telemetria Soberana (`/telemetry`), concentrando o stream cognitivo, o radar de liquidação institucional e a composição da frota 2+2+2+2.
+
+### 2.12 Calibração de Gatilhos Titan Engine & Sinergia Farol BTC BEAR [V225]
+1. **Calibração de Gatilhos Grau 1 (SMA8) e Grau 2 (SMA21)**:
+   - Limiares de pavio e absorção calibrados para captura limpa de repiques autênticos em 30M sem vetos artificiais cegos de varredura.
+2. **Breakdown 2H (Rompimento de Suporte Macro de 2H)**:
+   - Quando o ativo perde o piso da acumulação de 2H (`price <= low_2h_window * 1.003` com regime de baixa confirmado), o SHORT é autorizado de imediato, dispensando a exigência de teste no teto da consolidação.
+3. **Sinergia Direcional Altcoin sob Farol BTC BEAR**:
+   - Se a frota estiver com 0 ordens ativas e o Bitcoin estiver em BEAR confirmado, altcoins dos Titãs (`score >= 85`) são autorizadas a abrir o Slot 1 alinhadas em SHORT.
+
+### 2.13 Teto Rígido Institucional de Stop Loss 50X, Purga de high_2h_window & Desasfixia de Breakeven [V226]
+1. **Diagnóstico Forense da Anomalia ETH (-$13.516,03)**:
+   - *O Paradoxo do Risco Invertido*: No caso ETH, o stop loss foi calculado herdando a máxima de 24 horas (`high_2h_window * 1.006`), resultando em um stop a 2.61% de distância do preço de entrada ($1.762,83 -> $1.798,08). Sob alavancagem de 50X, 2.61% representou -130.5% de perda bruta + taxas/slippage, totalizando -$13.516,03 em um único lote de $10.000.
+   - *Sufocamento de Operações Lucrativas*: Simultaneamente, as operações vencedoras (BTC, LINK, TIA, ENA) eram encerradas prematuramente pelo `SCRATCH_GUARD_REJECTION` (+30% ROI) e breakeven agressivo (+18% ROI), rendendo apenas +$380 a +$1.040. Essa assimetria gerava uma relação Risco:Retorno de 1:30 invertida.
+2. **Invariantes Canônicas V226 (Escritas em Pedra)**:
+   - **Teto Rígido Institucional de Stop Loss (`max_stop_dist = 0.0070`)**: Em 50X Margem Cruzada, a distância do Stop Loss em relação ao preço de entrada é estritamente limitada a no máximo 0.70% de preço. Isso trava a perda máxima absoluta por trade em -35.0% de ROI (-$3.500 no lote de $10.000).
+   - **Purga Canônica de `high_2h_window` do Stop Loss**: O Stop Loss de entradas sniper é ancorado na microestrutura do repique atual de 30M / SMA 21 com respiro de apenas +0.25%, respeitando imperativamente o teto de 0.70%.
+   - **Desasfixia de Breakeven para `LAYA_PULLBACK_HUNTER_2H_30M`**: Isenção permanente do `SCRATCH_GUARD_REJECTION` precoce em +30% ROI para a estratégia Pullback Hunter, permitindo que a posição respire a favor da tendência para capturar os Degraus 2 a 5 (+60% a +300% de ROI = +$6.000 a +$30.000).
+   - **Relação Risco:Retorno Saudável (1:1.5 até 1:10)**: Restaurada a matemática da consistência institucional, onde ganhos de +$6k a +$30k superam com folga qualquer stop limitado a -$3.5k.
+
+**Status Operacional Atual [V226-50X-SNIPER-RISK-CAP-SOVEREIGN]**:
 - **Frota Ativa (Titan Engine)**: 100% sob **50X Margem Cruzada**, banca base de **$100.000,00 USD**, lote fixo de $10.000,00 ($500.000 nocional) e até 8 slots simultâneos na regra 2+2+2+2.
+- **Protocolo V226**: Hard Risk Cap 50X (teto rígido de stop loss em 0.70% / max -35% ROI) + Purga Canônica de `high_2h_window` + Desasfixia de Breakeven para Pullback Hunter.
+- **Protocolo V225**: Calibração de Gatilhos Titan Engine (Grau 1 e Grau 2) + Breakdown 2H + Sinergia Altcoin sob Farol BTC BEAR.
+- **Protocolo V224**: Unificação da Telemetria (/telemetry) + Micro-caching 1.2s TTL + Redirecionamento HTTP 301 de /laya.
 - **Protocolo V222**: Titan Macro Trend Lock (proibição de LONGs em repique de baixa) + Purga Definitiva da Águia Fusion + Exclusividade Soberana `LAYA_PULLBACK_HUNTER_2H_30M`.
 - **Protocolo V221**: Navio Almirante (BTC First no Slot 1) + Simbiose Direcional 100% (altcoins estritamente no mesmo sentido do BTC) + Kill Switch de Órfãs.
-- **Tática de Execução V220**: Consolidation Ceiling Sniper (entrada obrigatória no teto >= 62% da caixa 2H) com preservação plena do fôlego estrutural do Stop Loss de 2H.
+- **Tática de Execução V220**: Consolidation Ceiling Sniper (entrada obrigatória no teto >= 62% da caixa 2H).
 - **Tática de Liquidez V219**: Liquidity Snatch Entry (paciência para caçada aos stops retail) com stops sniper de 1.0%-1.2%.
 - **Farol BTC Key Zones V219**: Monitoramento de Suportes/Resistências Macro do BTC e Veto de Vender Fundo.
-- **Dual Breakeven V218/V219/V220/V221/V222**: Degrau 1 a +45% (trava +18%) e Degrau 2 a +60% (trava +30%), Alvo Chão de +300% ROI.
+- **Dual Breakeven Institucional**: Degrau 1 a +45% (trava +18%) e Degrau 2 a +60% (trava +30%), Alvo Chão de +300% ROI.
 - **Protocolos de IA**: OpenViking Context Engine (`viking://`), Servidor MCP 2.x Starlette Mount (`/mcp` com 16 ferramentas), RAGService Híbrido e Pipeline de Fine-Tuning ML (`/api/v1/ml/*`).
 - **Precisão OKX**: 100% dos 507 pares da OKX com quantização exata de tick size e lot size.
 
@@ -525,7 +551,7 @@ Exemplo: peak $10.900 → floor = $10.000 + ($900 × 0.80) = $10.720
 - Regra "só sobe": defense_stop só aplica se > stop atual da escadinha
 
 **UI** (`sandbox.html`):
-- Badge `🛡️ DEFESA` ao lado do `🔒 LOCK-IN` no card de Banca
+- Badge `[DEFESA]` ao lado de `[LOCK-IN]` no card de Banca
 - Cores: L1=azul, L2=amarelo, L3=laranja, CRITICO=vermelho+pulse
 - Trade rows: indicador `EQUITY_L1/L2/L3/CRITICO`
 - Tooltip: Pico | Piso | Banca | Stop%

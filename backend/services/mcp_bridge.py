@@ -22,13 +22,13 @@ try:
             version="7.0.0",
             description="1Crypten Autonomous Trading & Intelligence System for OKX SWAP"
         )
-        logger.info("🔌 [MCP] Initialized MCPServer (SDK 2.x)")
+        logger.info("[MCP] Initialized MCPServer (SDK 2.x)")
     except ImportError:
         from mcp.server.fastmcp import FastMCP
         mcp = FastMCP("1Crypten-OKX")
-        logger.info("🔌 [MCP] Initialized FastMCP (SDK 1.x)")
+        logger.info("[MCP] Initialized FastMCP (SDK 1.x)")
 except Exception as e:
-    logger.warning(f"⚠️ [MCP] MCP SDK not available: {e}")
+    logger.warning(f"[MCP-WARN] MCP SDK not available: {e}")
 
 
 # ---------------------------------------------------------
@@ -417,9 +417,9 @@ if mcp is not None:
             """Retorna o mapa de calor de liquidação 2D e classificação das 3 zonas Encryptos (Hunt >= 1.5%, Dead Zone 0.3%-1.5%, Exhaustion < 0.3%)."""
             return await _tool_get_liquidity_zones_heatmap(symbol)
 
-        logger.info("✅ [MCP] 16 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo Laya Sovereign Intelligence, OpenViking & Liquidity Zones Encryptos).")
+        logger.info("[MCP] 16 ferramentas oficiais do 1Crypten registradas no MCP Server (incluindo Laya Sovereign Intelligence, OpenViking & Liquidity Zones Encryptos).")
     except Exception as _e_reg:
-        logger.warning(f"⚠️ [MCP] Failed to register tools on MCP Server: {_e_reg}")
+        logger.warning(f"[MCP-WARN] Failed to register tools on MCP Server: {_e_reg}")
 
 
 def get_asgi_app():
@@ -455,7 +455,7 @@ def get_asgi_app():
                     })
                 _mcp_asgi_app.routes.append(Route("/tools", _list_tools_endpoint, methods=["GET"]))
             except Exception as _e_tools:
-                logger.warning(f"⚠️ [MCP] Erro ao injetar /tools no sse_app: {_e_tools}")
+                logger.warning(f"[MCP-WARN] Erro ao injetar /tools no sse_app: {_e_tools}")
             return _mcp_asgi_app
         # MCP 1.x
         if hasattr(mcp, "get_asgi_app"):

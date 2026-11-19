@@ -1,13 +1,13 @@
 # 1CRYPTEN 7.0 — DOCUMENTAÇÃO TÉCNICA: MCP 2.x, RAG SEMÂNTICO & FINE-TUNING PIPELINE
 
 > **Status**: Em Produção & Operacional  
-> **Versão**: 8.4.4 (V222-TITAN-MACRO-TREND-LOCK-SOVEREIGN)  
-> **Data de Atualização**: 17/11/2026  
+> **Versão**: 8.4.4 (V226-50X-SNIPER-RISK-CAP-SOVEREIGN)  
+> **Data de Atualização**: 19/11/2026  
 > **Fontes Canônicas**: `MASTER_ARCHITECTURE.md`, `backend/services/openviking_context_service.py`, `backend/services/mcp_bridge.py`, `backend/services/rag_service.py`, `backend/app/services/okx_universe_service.py`, `backend/app/services/laya_router_service.py`, `backend/app/ml/fine_tuning/`
 
 ---
 
-## 📑 Sumário Executivo
+## Sumário Executivo
 
 O ecossistema de inteligência artificial do **1Crypten** combina três pilares tecnológicos de ponta para tomada de decisão institucional, auditoria autônoma e aprendizado contínuo:
 
@@ -28,7 +28,7 @@ O ecossistema de inteligência artificial do **1Crypten** combina três pilares 
 
 ---
 
-## 1. 🔌 Model Context Protocol (MCP 2.x) Bridge
+## 1. Model Context Protocol (MCP 2.x) Bridge
 
 O **Model Context Protocol (MCP)** é o padrão aberto para interoperabilidade segura entre modelos de linguagem e ferramentas de sistemas em produção. No 1Crypten, o MCP é implementado em duas camadas complementares:
 
@@ -96,7 +96,7 @@ Accept: text/event-stream
 
 ---
 
-## 2. 🧠 RAG Semântico Unificado (Second Brain & Architecture)
+## 2. RAG Semântico Unificado (Second Brain & Architecture)
 
 O **RAG Semântico** (`backend/services/rag_service.py` e rota `backend/routes/rag_routes.py`) funciona como a memória viva e a fonte de verdade operacional do sistema, garantindo recuperação sub-milissegundo de diretrizes e regras sem latência de bancos vetoriais pesados.
 
@@ -130,7 +130,7 @@ O motor realiza varredura recursiva e particionamento inteligente em seções ca
 
 ---
 
-## 3. 🎯 Pipeline de Datasets & Fine-Tuning de IA
+## 3. Pipeline de Datasets & Fine-Tuning de IA
 
 O pipeline de Machine Learning supervisionado (`backend/app/ml/fine_tuning/`) foi projetado para calibrar a sensibilidade dos modelos decisórios de acordo com os resultados empíricos das operações reais e simuladas.
 
@@ -325,7 +325,7 @@ Na versão **V213**, foi formalizada a separação de papéis na governança do 
 
 ---
 
-## 4. 🛠️ Guia de Manutenção e Operação
+## 4. Guia de Manutenção e Operação
 
 ### Como Reindexar a Base do RAG após Novas Mudanças Arquiteturais:
 ```bash
@@ -349,19 +349,16 @@ python backend/mcp_server.py
 
 ---
 
-## 5. ✅ Checklist de Governança e Invariantes
+## 5. Checklist de Governança e Invariantes
 
 - [x] **Zero Emojis na UI e Dados**: Ícones vetoriais SVG de precisão.
+- [x] **Teto Rígido Institucional de Stop Loss 50X [V226]**: Stop Loss limitado a 0.70% de preço (`max_stop_dist = 0.0070` / max -35.0% ROI), eliminando stops de 2.61% (-135% ROI).
+- [x] **Purga Canônica de high_2h_window [V226]**: Ancoragem de stop na rejeição de 30M / SMA 21 com +0.25% de respiro.
+- [x] **Desasfixia de Breakeven [V226]**: Isenção de SCRATCH_GUARD_REJECTION em +30% para Pullback Hunter 2H/30M.
+- [x] **Invariantes V221/V222**: Navio Almirante (BTC First), Simbiose Direcional 100%, Expansão 2+2+2+2 e Macro Trend Lock.
 - [x] **Invariante Never Give Back**: Stops progressivos só avançam, nunca regridem.
-- [x] **Sub-Milissegundo no RAG**: Algoritmo BM25 em memória sem gargalos de rede ou chamadas de API externas pagas.
-- [x] **10 Ferramentas MCP Registradas**: Cobertura total de saldo, posições, ordens, inteligência, screener e precisão de contratos.
-- [x] **Segurança no MCP**: Ferramentas expostas operam estritamente sob os limites de governança do Sandbox/OKX.
-- [x] **Conexão Direta H1**: O pipeline de treino e o RAG refletem fielmente a saída de acumulação em 1H com confirmação de fluxo.
-- [x] **OKX Market Universe Integrado (V165)**: 507 contratos USDT-SWAP mapeados com `ctVal` e `tickSz` canônicos.
-- [x] **Motor de Quantização Ativo (V165)**: Preços e contratos formatados matematicamente pelo `tickSz` e `lotSz` da OKX.
-- [x] **Geometria de Alvo e Stop Blindada**: Short com alvo para baixo e Long com alvo para cima, com código legado expurgado.
-- [x] **Invariante de Alavancagem Obrigatória 15X a 20X [V172]**: Ordens autônomas da Laya exclusivamente em 15X ou 20X (sem valores intermediários). Proibido abrir ordens abaixo de 15X.
-- [x] **Invariante de 3 Zonas de Liquidez [V174]**: Hunt (>=1.5%), Dead Zone (0.3% - 1.5% Veto), Exhaustion Sweep (<0.3% com absorção >= 25%).
-- [x] **Sincronização Dinâmica WebSocket [V175]**: Inscrição atômica de ativos em custódia no stream público OKX sem REST rate limits.
-- [x] **Guarda Imediata de Preço de Stop [V175]**: Execução sub-5ms em RAM no toque de stop_price (eliminação de 429 timeouts e ACTION=SKIP).
-- [x] **Filtros de Pullback Intra-Range [V175]**: Veto de SHORT no fundo (c_range < 35%) e LONG no topo (c_range > 65%) em regime lateral.
+- [x] **Sub-Milissegundo no RAG**: Algoritmo BM25 em memória indexando MASTER_ARCHITECTURE, docs, regras e vault_galaxy sem gargalos externos.
+- [x] **16 Ferramentas MCP Registradas**: Cobertura total de saldo, posições, ordens, inteligência, OpenViking virtual filesystem (`viking://`), screener e liquidez.
+- [x] **Segurança no MCP**: Ferramentas expostas operam estritamente sob os limites de governança do Sandbox/OKX em Margem Cruzada 50X.
+- [x] **OKX Market Universe Integrado**: 507 contratos USDT-SWAP mapeados com `ctVal` e `tickSz` canônicos.
+- [x] **Motor de Quantização Ativo**: Preços e contratos formatados matematicamente pelo `tickSz` e `lotSz` da OKX.

@@ -580,6 +580,28 @@ class OpenVikingContextService:
             tags=["cases", "success", "laya_v0422", "trailing_stop", "breakeven", "turnaround"],
         )
 
+        # Caso ETH Titan V226 (Pós-Morte & Resolução Soberana do Stop 50X)
+        uri_eth_v226 = "viking://user/memories/cases/case_eth_titan_v226_resolution"
+        l0_eth_v226 = "Caso ETH-USDT-SWAP (V226): Resolução do stop anômalo de 2.61% (-139.14% ROI). Purgado high_2h_window do stop loss e travado teto rígido de 0.70% (max -35% ROI em 50X)."
+        l1_eth_v226 = (
+            "RELATÓRIO FORENSE DE TRADE (CASO ETH V226 - HARD RISK CAP 50X):\n"
+            "• Ativo: ETH-USDT-SWAP | Data: 19/11/2026 | Estratégia: LAYA_PULLBACK_HUNTER_2H_30M | Direção: SHORT | Loss: -139.14% ROI (-$13.516,03).\n"
+            "• Causa-Raiz Técnica: O cálculo de stop loss ancorava na máxima de 24 horas (high_2h_window * 1.006 = $1.798,08), distanciando o stop a 2.61% do preço de entrada ($1.762,83). Em 50X de alavancagem, 2.61% = -130.5% bruto + taxas/slippage. Simultaneamente, breakeven precoce a +18% e scratch guard a +30% sufocavam operações vencedoras (BTC, LINK, TIA, ENA) em +$380 a +$1.040, gerando relação Risco:Retorno invertida fatal de 1:30.\n"
+            "• Resolução Permanente V226:\n"
+            "  1. Hard Risk Cap Institucional 50X: Capped em max_stop_dist = 0.0070 (máximo 0.70% de preço = -35.0% de ROI máximo / -$3.500 no lote de $10k).\n"
+            "  2. Purga de high_2h_window: Stop loss ancorado na microestrutura do repique de 30M / SMA 21 com respiro de apenas +0.25%.\n"
+            "  3. Desasfixia de Breakeven: Isenção de SCRATCH_GUARD_REJECTION em +30% para a estratégia Pullback Hunter.\n"
+            "  4. Validação Empírica: Confirmada em produção na ordem AAVE com Stop Loss travado estritamente em -0.70% ($109.9960)."
+        )
+        self.nodes[uri_eth_v226] = VikingNode(
+            uri=uri_eth_v226,
+            title="Pós-Morte do Trade ETH & Resolução V226 (Hard Risk Cap 50X)",
+            l0_abstract=l0_eth_v226,
+            l1_overview=l1_eth_v226,
+            l2_detail=l1_eth_v226 + "\n\nRegistrado no Obsidian Vault em vault_galaxy/journal/2026-11-19.md.",
+            tags=["cases", "postmortem", "loss_analysis", "eth", "v226", "risk_cap", "50x"],
+        )
+
         """viking://user/memories/cases/*"""
         # Caso IRYS
         uri_irys = "viking://user/memories/cases/case_irys_postmortem"
@@ -657,6 +679,97 @@ class OpenVikingContextService:
                     l1_overview=l1_v216,
                     l2_detail=l1_v216 + "\n\nImplementado em backend/main.py, backend/app/services/telemetry_service.py, backend/app/services/laya_router_service.py e frontend/telemetry.html.",
                     tags=["resources", "architecture", "v216", "telemetry", "heartbeat", "pullback_hunter", "sovereign"]
+                )
+
+                # V221: Protocolo Navio Almirante (BTC First & Simbiose Direcional 100%)
+                uri_v221 = "viking://resources/architecture/v221_navio_almirante_btc_first"
+                l0_v221 = "V221: Protocolo Navio Almirante (BTC First no Slot 1), Simbiose Direcional 100% da Frota no mesmo sentido do BTC e Expansão Autofinanciada 2+2+2+2."
+                l1_v221 = (
+                    "INVARIANTES CANÔNICAS V221 (NAVIO ALMIRANTE & SIMBIOSE DIRECIONAL):\n"
+                    "1. Ordem Pioneira Obrigatória (BTC First): Com a mesa zerada (0 trades ativos), nenhuma altcoin abre ordem isoladamente. Slot 1 privativo do BTC.\n"
+                    "2. Simbiose Direcional Inviolável (100% da Frota no Mesmo Sentido): Aberta a ordem do BTC, slots 2 a 8 abrem rigorosamente na mesma direção do BTC, eliminando hedges canibais.\n"
+                    "3. Expansão Autofinanciada 2+2+2+2: Máximo de 2 ordens em risco ativo ($20.000); novas ordens exigem ordens anteriores no Risco Zero (+45% ou +60% ROI).\n"
+                    "4. Kill Switch de Órfãs: Encerramento imediato preventivo a mercado se o BTC inverter a tendência macro."
+                )
+                self.nodes[uri_v221] = VikingNode(
+                    uri=uri_v221,
+                    title="V221: Protocolo Navio Almirante BTC First & Simbiose Direcional",
+                    l0_abstract=l0_v221,
+                    l1_overview=l1_v221,
+                    l2_detail=l1_v221,
+                    tags=["resources", "architecture", "v221", "btc_first", "navio_almirante", "simbiose"],
+                )
+
+                # V222: Titan Macro Trend Lock & Purga da Águia Fusion
+                uri_v222 = "viking://resources/architecture/v222_macro_trend_lock"
+                l0_v222 = "V222: Titan Macro Trend Lock (proibição de LONGs em tendência de baixa macro), purga canônica da Águia Fusion e exclusividade Pullback Hunter 2H/30M."
+                l1_v222 = (
+                    "INVARIANTES CANÔNICAS V222 (MACRO TREND LOCK & PURGA ÁGUIA FUSION):\n"
+                    "1. Trava Macro de Tendência: Abaixo da SMA 21 de 2H/4H ou em regime BEAR do BTC, proibição absoluta de LONGs (VETO MACRO TENDÊNCIA BAIXA). Repiques intradiários servem exclusivamente para caçar SHORTs no teto.\n"
+                    "2. Purga da Águia Fusion: Estratégia LAYA_AGUIA_FUSION permanentemente extirpada do pipeline de execução.\n"
+                    "3. Autoridade Soberana: Execução exclusiva via LAYA_PULLBACK_HUNTER_2H_30M."
+                )
+                self.nodes[uri_v222] = VikingNode(
+                    uri=uri_v222,
+                    title="V222: Titan Macro Trend Lock & Purga da Águia Fusion",
+                    l0_abstract=l0_v222,
+                    l1_overview=l1_v222,
+                    l2_detail=l1_v222,
+                    tags=["resources", "architecture", "v222", "macro_trend_lock", "pullback_hunter"],
+                )
+
+                # V224: Unificação da Telemetria & Desativação Titan 360
+                uri_v224 = "viking://resources/architecture/v224_telemetry_unification"
+                l0_v224 = "V224: Unificação Soberana da Telemetria (/telemetry), micro-caching inteligente e desativação da página legada Titan 360 com redirect 301."
+                l1_v224 = (
+                    "INVARIANTES CANÔNICAS V224 (UNIFICAÇÃO TELEMETRIA & CACHING ATÔMICO):\n"
+                    "1. Micro-caching Inteligente (1.2s TTL) em /api/cockpit/telemetry e cache atômico de recent_trades (5.0s TTL), reduzindo a latência para ~15ms.\n"
+                    "2. Deprecação da Rota /laya com Redirecionamento HTTP 301 para /telemetry."
+                )
+                self.nodes[uri_v224] = VikingNode(
+                    uri=uri_v224,
+                    title="V224: Unificação Soberana da Telemetria & Micro-Caching",
+                    l0_abstract=l0_v224,
+                    l1_overview=l1_v224,
+                    l2_detail=l1_v224,
+                    tags=["resources", "architecture", "v224", "telemetry", "caching"],
+                )
+
+                # V225: Calibração dos Gatilhos Titan Engine & Sinergia Farol BTC BEAR
+                uri_v225 = "viking://resources/architecture/v225_titan_trigger_calibration"
+                l0_v225 = "V225: Calibração de Gatilhos Grau 1 (SMA8) e Grau 2 (SMA21), suporte a Breakdown de 2H e abertura de altcoins alinhadas em BEAR com mesa zerada."
+                l1_v225 = (
+                    "INVARIANTES CANÔNICAS V225 (CALIBRAÇÃO GATILHOS TITAN & BREAKDOWN 2H):\n"
+                    "1. Calibração dos Gatilhos Grau 1 (SMA8) e Grau 2 (SMA21): Limiares calibrados para captura limpa de repiques em 30M sem vetos artificiais cegos.\n"
+                    "2. Breakdown 2H: Rompimento do suporte de 2H autoriza SHORT imediato sem exigir repique ao teto da consolidação.\n"
+                    "3. Sinergia Direcional Altcoin sob Farol BTC BEAR: Altcoins Titãs autorizadas a abrir no Slot 1 alinhadas na maré macro."
+                )
+                self.nodes[uri_v225] = VikingNode(
+                    uri=uri_v225,
+                    title="V225: Calibração dos Gatilhos Titan Engine & Breakdown 2H",
+                    l0_abstract=l0_v225,
+                    l1_overview=l1_v225,
+                    l2_detail=l1_v225,
+                    tags=["resources", "architecture", "v225", "calibration", "breakdown", "titan_engine"],
+                )
+
+                # V226: Hard Risk Cap 50X, Purga de high_2h_window & Desasfixia de Breakeven
+                uri_v226 = "viking://resources/architecture/v226_hard_risk_cap_50x"
+                l0_v226 = "V226: Teto Rígido de Stop Loss em 50X (max 0.70% de preço / max -35% ROI), purga canônica de high_2h_window do stop loss e desasfixia de breakeven."
+                l1_v226 = (
+                    "INVARIANTES CANÔNICAS V226 (HARD RISK CAP 50X & SNIPER RISK GOVERNANCE):\n"
+                    "1. Teto Rígido Institucional de Stop Loss (max_stop_dist = 0.0070): Em 50X Margem Cruzada, distância máxima de stop loss estritamente travada em 0.70% de preço (max -35.0% de ROI / -$3.500 de perda máxima no lote de $10k).\n"
+                    "2. Purga Canônica de high_2h_window: Extirpado o cálculo de stop loss ancorado no topo de 24 horas. Stop posicionado na vela de 30M / SMA 21 com folga de +0.25%, respeitando o teto de 0.70%.\n"
+                    "3. Desasfixia de Breakeven: Isenção permanente de SCRATCH_GUARD_REJECTION (+30% ROI) para LAYA_PULLBACK_HUNTER_2H_30M, permitindo capturar os alvos institucionais de +60% a +300% de ROI (+6k a +30k USD).\n"
+                    "4. Relação Risco:Retorno Restaurada: Eliminação definitiva da assimetria invertida de 1:30, restaurando Risco:Retorno positivo de 1:1.5 até 1:10."
+                )
+                self.nodes[uri_v226] = VikingNode(
+                    uri=uri_v226,
+                    title="V226: Teto Rígido de Stop Loss 50X & Purga do high_2h_window",
+                    l0_abstract=l0_v226,
+                    l1_overview=l1_v226,
+                    l2_detail=l1_v226,
+                    tags=["resources", "architecture", "v226", "hard_risk_cap", "50x", "breakeven", "sovereign"],
                 )
             except Exception:
                 pass
