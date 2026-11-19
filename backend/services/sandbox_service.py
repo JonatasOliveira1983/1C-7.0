@@ -1847,7 +1847,7 @@ class SandboxService:
             if not any("BREAKEVEN_PROTETIVO" in str(h) for h in history[-2:]):
                 history.append(f"Breakeven Protetivo (+45% ROI) ativado: max_roi={max_roi:.1f}% -> stop subiu para +18.0% ROI (Friccao OKX $500k Coberta / Risco Zero Real +$300)")
                 logger.info(f"🧪 [SANDBOX-FLASH] {symbol} Breakeven Protetivo +45%: stop movido para +18.0% ROI")
-        elif max_roi >= 30.0 and current_roi <= 18.0 and current_stop_roi < 18.0:
+        elif max_roi >= 30.0 and current_roi <= 18.0 and current_stop_roi < 18.0 and strat_class != "LAYA_PULLBACK_HUNTER_2H_30M":
             updated_stop_roi = 18.0
             updated_level_name = "SCRATCH_GUARD_REJECTION"
             updated_phase = "ESCADINHA"

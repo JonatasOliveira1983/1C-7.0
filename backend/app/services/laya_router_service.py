@@ -687,8 +687,9 @@ class LayaRouterService:
                 
                 tier_grade = "GRAU 2 (LIQUIDITY SNATCH SMA21)"
                 tier_type = "SNIPER_SMA21_EXHAUSTION_SHORT"
-                major_res = max(c_high, ref_sma21, sma21)
-                sl_price = round(max(c_high * 1.008, major_res * 1.015, c_close * 1.020), 4)
+                # [V226-SNIPER-RISK-CAP-50X]: Stop logo acima da rejeição/sweep (+0.25%) com teto de 0.70% de preço (-35% ROI)
+                local_res = max(c_high, ref_sma21, sma21)
+                sl_price = round(min(local_res * 1.0025, c_close * 1.0070), 4)
                 tier_boost = 30
             else:
                 # [V225-SNIPER-SMA8-CALIBRATED]:
@@ -706,12 +707,12 @@ class LayaRouterService:
 
                 tier_grade = "GRAU 1 (SNIPER SMA8)"
                 tier_type = "SNIPER_RETEST_SHORT"
-                major_res = max(ref_sma21, sma21, sma8)
-                sl_price = round(max(c_high * 1.008, major_res * 1.015, c_close * 1.020), 4)
+                local_res = max(ref_sma21, sma21, sma8)
+                sl_price = round(min(local_res * 1.0025, c_close * 1.0070), 4)
                 tier_boost = 18
 
-            stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.015
-            max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
+            stop_dist_pct = (sl_price - c_close) / c_close if c_close > 0 else 0.005
+            max_stop_dist = 0.0075
             if stop_dist_pct > max_stop_dist:
                 return {
                     "has_pullback_setup": False,
@@ -819,9 +820,9 @@ class LayaRouterService:
 
                 tier_grade = "GRAU 2 (LIQUIDITY SNATCH SMA21)"
                 tier_type = "SNIPER_SMA21_EXHAUSTION_LONG"
-                # Stop loss estrutural com fôlego técnico normal de 2H
-                minor_sup = min(c_low, ref_sma21, sma21)
-                sl_price = round(min(c_low * 0.992, minor_sup * 0.985, c_close * 0.980), 4)
+                # [V226-SNIPER-RISK-CAP-50X]: Stop logo abaixo da absorção/sweep (-0.25%) com piso de 0.70% de preço (-35% ROI)
+                local_sup = min(c_low, ref_sma21, sma21)
+                sl_price = round(max(local_sup * 0.9975, c_close * 0.9930), 4)
                 tier_boost = 30
             else:
                 # O preco tocou apenas na Linha Branca (SMA8).
@@ -836,13 +837,12 @@ class LayaRouterService:
 
                 tier_grade = "GRAU 1 (SNIPER SMA8)"
                 tier_type = "SNIPER_RETEST_LONG"
-                # Stop loss posicionado ABAIXO da Linha Amarela (SMA21) com fôlego técnico normal
-                minor_sup = min(ref_sma21, sma21, sma8)
-                sl_price = round(min(c_low * 0.992, minor_sup * 0.985, c_close * 0.980), 4)
+                local_sup = min(ref_sma21, sma21, sma8)
+                sl_price = round(max(local_sup * 0.9975, c_close * 0.9930), 4)
                 tier_boost = 18
 
-            stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.015
-            max_stop_dist = 0.050 if sma21_2h > 0 else 0.035
+            stop_dist_pct = (c_close - sl_price) / c_close if c_close > 0 else 0.005
+            max_stop_dist = 0.0075
             if stop_dist_pct > max_stop_dist:
                 return {
                     "has_pullback_setup": False,
@@ -3730,12 +3730,12 @@ class LayaRouterService:
                         multi_eval["strategy"] = strat_name
                         multi_eval["direction"] = direction
                         score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                        # Stop loss estrutural com fôlego técnico normal de 2H (além da máxima da janela e SMA21)
-                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.018, 4))
-                        stop_loss = max(calc_sl, round(high_2h_window * 1.006, 4))
+                        # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
+                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
+                        stop_loss = min(calc_sl, round(price * 1.0070, 4))
                         target = pullback_30m.get("target", round(price * 0.940, 4))
-                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.018
-                        target_dist = abs(price - target) / price if price > 0 else 0.035
+                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
+                        target_dist = abs(price - target) / price if price > 0 else 0.060
                         multi_eval["stop_loss"] = stop_loss
                         multi_eval["target"] = target
                         multi_eval["stop_dist"] = stop_dist
@@ -3771,11 +3771,12 @@ class LayaRouterService:
                         multi_eval["strategy"] = strat_name
                         multi_eval["direction"] = direction
                         score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                        calc_sl = pullback_30m.get("stop_loss", round(price * 0.982, 4))
-                        stop_loss = min(calc_sl, round(low_2h_window * 0.994, 4))
+                        # [V226-SNIPER-STOP-CAP]: Stop sniper na absorção da média com piso rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
+                        calc_sl = pullback_30m.get("stop_loss", round(price * 0.9950, 4))
+                        stop_loss = max(calc_sl, round(price * 0.9930, 4))
                         target = pullback_30m.get("target", round(price * 1.060, 4))
-                        stop_dist = abs(price - stop_loss) / price if price > 0 else 0.018
-                        target_dist = abs(target - price) / price if price > 0 else 0.035
+                        stop_dist = abs(price - stop_loss) / price if price > 0 else 0.005
+                        target_dist = abs(target - price) / price if price > 0 else 0.060
                         multi_eval["stop_loss"] = stop_loss
                         multi_eval["target"] = target
                         multi_eval["stop_dist"] = stop_dist
@@ -3799,11 +3800,12 @@ class LayaRouterService:
                         multi_eval["strategy"] = strat_name
                         multi_eval["direction"] = direction
                         score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.018, 4))
-                        stop_loss = max(calc_sl, round(high_2h_window * 1.006, 4))
+                        # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
+                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
+                        stop_loss = min(calc_sl, round(price * 1.0070, 4))
                         target = pullback_30m.get("target", round(price * 0.940, 4))
-                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.018
-                        target_dist = abs(price - target) / price if price > 0 else 0.035
+                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
+                        target_dist = abs(price - target) / price if price > 0 else 0.060
                         multi_eval["stop_loss"] = stop_loss
                         multi_eval["target"] = target
                         multi_eval["stop_dist"] = stop_dist
@@ -4591,29 +4593,18 @@ class LayaRouterService:
                     )
                     continue
 
-                # [V197-CROSS-MARGIN-STRUCTURAL-STOP]: Stop estrutural real em Margem Cruzada (ate 3.8% de respiro livre 2H/4H)
+                # [V226-CROSS-MARGIN-STRUCTURAL-STOP]: Teto de risco em 50X Margem Cruzada (máx 0.70% de preço = -35% ROI / -$3.500 no lote de $10k)
                 cand_sl = cand.get("stop_loss")
                 cand_p = float(cand.get("price") or 0.0)
                 if cand_dir == "SHORT" and cand_sl and cand_p > 0 and cand_sl > cand_p:
                     cand_sl_dist = (cand_sl - cand_p) / cand_p
-                    if cand_sl_dist > 0.038:
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"[VETO DISTANCIA RESISTENCIA]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 3.8% na Margem Cruzada). Aguardar repique aproximar-se da resistencia.",
-                            action="VETO_DISTANCIA_STOP",
-                            confidence=95
-                        )
-                        continue
+                    if cand_sl_dist > 0.0075:
+                        # Auto-cap para o teto de 0.70%
+                        cand["stop_loss"] = round(cand_p * 1.0070, 4)
                 elif cand_dir == "LONG" and cand_sl and cand_p > 0 and cand_sl < cand_p:
                     cand_sl_dist = (cand_p - cand_sl) / cand_p
-                    if cand_sl_dist > 0.038:
-                        self.log_thought(
-                            cand.get("clean_sym", cand_sym),
-                            f"[VETO DISTANCIA SUPORTE]: Stop estrutural em ${cand_sl:.4f} esta a {cand_sl_dist*100:.2f}% (limite 3.8% na Margem Cruzada). Aguardar recuo aproximar-se do suporte.",
-                            action="VETO_DISTANCIA_STOP",
-                            confidence=95
-                        )
-                        continue
+                    if cand_sl_dist > 0.0075:
+                        cand["stop_loss"] = round(cand_p * 0.9930, 4)
 
                 chosen = cand
                 break
@@ -4629,9 +4620,9 @@ class LayaRouterService:
                 stop_loss = chosen.get("stop_loss")
                 target = chosen.get("target")
 
-                default_stop_dist = 0.020
-                min_stop_dist = 0.008
-                max_stop_dist = 0.038
+                default_stop_dist = 0.0060
+                min_stop_dist = 0.0030
+                max_stop_dist = 0.0070
                 default_target_dist = 0.060
                 from services.order_projection_service import proj_service
                 from app.services.okx_universe_service import okx_universe_service
