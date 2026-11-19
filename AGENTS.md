@@ -76,6 +76,8 @@
 
 ## 🛠️ Skills Disponíveis em `.agents/skills/`
 
+- **`backtest_quant_auditor`**: Protocolo de validação quantitativa e teste de estresse anti-overfitting sob 50X Margem Cruzada na OKX.
+- **`crypto_market_breadth`**: Quantificação de amplitude de mercado e regime macro nos derivativos da OKX para governança do Titan Radar e Farol BTC.
 - **`brainstorming_blueprint`**: Refina requisitos socraticamente integrando com `docs/blueprint/`.
 - **`writing_plans`**: Decompõe tarefas em microetapas de 2 a 5 minutos com comandos de teste exatos.
 - **`subagent_driven_development`**: Despacha subagentes com revisão em dois estágios (Conformidade e Invariantes).

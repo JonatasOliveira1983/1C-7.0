@@ -298,6 +298,82 @@ class MarketIntelEngine:
             )
         }
 
+    def calculate_crypto_market_breadth(self, universe_assets: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        """
+        [CRYPTO-MARKET-BREADTH-ENGINE]
+        Quantifica a amplitude e saude do mercado de derivativos da OKX em 5 componentes:
+        1. % de ativos acima do ponto medio de 2H/24h (1c_range >= 50.0 ou change_24h > 0)
+        2. % de ativos com pressao de venda (1c_range < 40.0 e change_24h < 0)
+        3. Media do 1C-EXP (compressao vs expansao)
+        4. Distribuicao do Ratio Long/Short (LSR medio)
+        5. Regime Composto: BEAR_DOMINANT, CHOP_CONSOLIDATION ou BULL_EXPANSION.
+        """
+        if not universe_assets:
+            universe_assets = self._last_snapshot.get("matrix", [])
+
+        if not universe_assets:
+            return {
+                "breadth_score": 50.0,
+                "regime": "NEUTRAL",
+                "posture": "CHOP_CONSOLIDATION",
+                "above_mid_pct": 50.0,
+                "bear_pressure_pct": 50.0,
+                "avg_exp": 50.0,
+                "avg_lsr": 1.0,
+                "total_monitored": 0,
+                "directive": "Tatica Consolidation Ceiling Sniper exigida no 2H."
+            }
+
+        total = len(universe_assets)
+        above_mid_count = 0
+        bear_pressure_count = 0
+        total_exp = 0.0
+        total_lsr = 0.0
+
+        for a in universe_assets:
+            rng = float(a.get("1c_range", 50.0))
+            chg = float(a.get("change_24h", 0.0))
+            exp = float(a.get("1c_exp", 50.0))
+            lsr = float(a.get("lsr", 1.0))
+
+            if rng >= 50.0 or chg > 0.0:
+                above_mid_count += 1
+            if rng < 40.0 or chg < -1.0:
+                bear_pressure_count += 1
+
+            total_exp += exp
+            total_lsr += lsr
+
+        above_mid_pct = round((above_mid_count / total) * 100.0, 1)
+        bear_pressure_pct = round((bear_pressure_count / total) * 100.0, 1)
+        avg_exp = round(total_exp / total, 1)
+        avg_lsr = round(total_lsr / total, 2)
+
+        # Calculo do Score Composto (0 a 100, onde 100 = forca compradora maxima e 0 = baixa extrema)
+        score = (above_mid_pct * 0.40) + ((100.0 - bear_pressure_pct) * 0.30) + (min(100.0, avg_lsr * 50.0) * 0.15) + (avg_exp * 0.15)
+        breadth_score = round(min(100.0, max(0.0, score)), 1)
+
+        if breadth_score <= 35.0:
+            regime = "BEAR_DOMINANT"
+            directive = "SHORT prioritario na frota dos Titas. Veto absoluto a compras contra a mare macro."
+        elif breadth_score >= 66.0:
+            regime = "BULL_EXPANSION"
+            directive = "Alta sustentada. Compras autorizadas apenas se BTC confirmar rompimento com fluxo."
+        else:
+            regime = "CHOP_CONSOLIDATION"
+            directive = "Mercado lateral. Exigencia de venda no teto da consolidacao (range_pos_2h >= 62%) e sweep na SMA 21."
+
+        return {
+            "breadth_score": breadth_score,
+            "regime": regime,
+            "above_mid_pct": above_mid_pct,
+            "bear_pressure_pct": bear_pressure_pct,
+            "avg_exp": avg_exp,
+            "avg_lsr": avg_lsr,
+            "total_monitored": total,
+            "directive": directive
+        }
+
 
 # Singleton export
 market_intel_engine = MarketIntelEngine()

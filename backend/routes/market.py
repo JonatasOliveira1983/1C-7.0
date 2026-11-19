@@ -45,6 +45,31 @@ async def get_elite_pairs():
 async def get_btc_regime():
     return {"regime": "BULLISH", "confidence": 0.95}
 
+@router.get("/market/breadth")
+async def get_market_breadth():
+    """
+    [CRYPTO-MARKET-BREADTH-API]
+    Retorna o diagnostico quantitativo de amplitude do mercado de derivativos da OKX,
+    indicando forca de compradores vs vendedores, pressao direcional e postura do Titan Radar.
+    """
+    try:
+        from app.services.market_intel_engine import market_intel_engine
+        snapshot = market_intel_engine._last_snapshot
+        matrix = snapshot.get("matrix", []) if snapshot else []
+        return market_intel_engine.calculate_crypto_market_breadth(matrix)
+    except Exception as e:
+        logger.error(f"Erro ao calcular market breadth: {e}")
+        return {
+            "breadth_score": 50.0,
+            "regime": "NEUTRAL",
+            "above_mid_pct": 50.0,
+            "bear_pressure_pct": 50.0,
+            "avg_exp": 50.0,
+            "avg_lsr": 1.0,
+            "total_monitored": 0,
+            "directive": "Tatica Consolidation Ceiling Sniper exigida no 2H."
+        }
+
 @router.get("/radar/pulse")
 async def get_radar_pulse():
     try:
