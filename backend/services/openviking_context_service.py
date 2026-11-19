@@ -771,6 +771,44 @@ class OpenVikingContextService:
                     l2_detail=l1_v226,
                     tags=["resources", "architecture", "v226", "hard_risk_cap", "50x", "breakeven", "sovereign"],
                 )
+
+                # V226: Painel Soberano de Governança & Escudo de Proteção (Opção B)
+                uri_v226_hud = "viking://resources/architecture/v226_sovereign_protection_hud"
+                l0_v226_hud = "V226: Painel Soberano de Governança e Escudos de Proteção na Banca Soberana (Piso $140k / 80% do topo, Circuit Breaker Anti-Tilt, Ceiling Sniper e Frota 2+2+2+2 no Risco Zero)."
+                l1_v226_hud = (
+                    "GOVERNANÇA DA BANCA SOBERANA & ESCUDOS DE PROTEÇÃO (OPÇÃO B):\n"
+                    "1. Piso Soberano Patrimonial: Proteção ativa de 80% do lucro máximo realizado ($140.089,35 garantidos no cofre). Se o patrimônio tocar o piso, o motor ativa preservação máxima e desativa novas exposições.\n"
+                    "2. Circuit Breaker Anti-Tilt: Monitoramento de paradas consecutivas. Ao atingir 2 stops sucessivos, trava a direção da frota por 45 minutos e coloca ativos estopados em quarentena de 2 horas.\n"
+                    "3. Consolidation Ceiling Sniper: Em acumulações e mercados laterais de 2H, veto estrito de venda no meio/fundo do range (range_pos_2h < 62.0%), eliminando perdas por repique em mercado lateral.\n"
+                    "4. Alocação de Risco Ativo (Frota 2+2+2+2): Limite inviolável de no máximo 2 ordens simultâneas em risco aberto ($20.000 nocional / 20% da banca). Novos slots (3 a 8) só abrem com Risco Zero (+45%/+60% ROI) já travado."
+                )
+                self.nodes[uri_v226_hud] = VikingNode(
+                    uri=uri_v226_hud,
+                    title="V226: Painel Soberano de Governança & Escudos de Proteção",
+                    l0_abstract=l0_v226_hud,
+                    l1_overview=l1_v226_hud,
+                    l2_detail=l1_v226_hud,
+                    tags=["resources", "architecture", "v226", "protection_hud", "piso_soberano", "circuit_breaker", "risk_cap"],
+                )
+
+                # V226: Manômetro de Amplitude Titan & Regime Macro OKX Universe
+                uri_v226_breadth = "viking://resources/architecture/v226_titan_market_breadth"
+                l0_v226_breadth = "V226: Manômetro de Amplitude Titan (-60° a +60°) com regime macro em tempo real sobre universo OKX (534 tickers e 31 Titãs)."
+                l1_v226_breadth = (
+                    "MANÔMETRO DE AMPLITUDE TITAN & REGIME MACRO:\n"
+                    "1. Cálculo de Amplitude: Percentual do universo monitorado (31 Titãs / 534 perpétuos da OKX) operando acima da SMA 21 no tempo gráfico de 2H.\n"
+                    "2. Regimes Classificados: BEAR_DOMINANT (< 30%), BEAR_MOMENTUM (30%-45%), NEUTRAL (45%-55%), BULL_MOMENTUM (55%-70%), BULL_DOMINANT (> 70%).\n"
+                    "3. Interface Dinâmica: Ponteiro analógico oscilando de -60° (BEAR extremo) a +60° (BULL extremo) com gradiente institucional Neon no bloco TITAN ENGINE • COMANDO TÁTICO.\n"
+                    "4. Governança Tática: Alinha a frota inteira à maré macro global dos derivativos da OKX, bloqueando compras contra fluxo e priorizando snipers alinhados."
+                )
+                self.nodes[uri_v226_breadth] = VikingNode(
+                    uri=uri_v226_breadth,
+                    title="V226: Manômetro de Amplitude Titan & Regime Macro OKX",
+                    l0_abstract=l0_v226_breadth,
+                    l1_overview=l1_v226_breadth,
+                    l2_detail=l1_v226_breadth,
+                    tags=["resources", "architecture", "v226", "market_breadth", "titan_gauge", "okx_universe"],
+                )
             except Exception:
                 pass
 

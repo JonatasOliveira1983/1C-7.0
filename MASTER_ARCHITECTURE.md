@@ -3,7 +3,7 @@
 Fonte unica de verdade arquitetural. Extraido diretamente do codigo-fonte (nao de historico de versoes).
 Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros ~8000 caracteres deste arquivo em cada resposta (`hermes_agent.py:_load_architecture_context`), portanto os fatos mais criticos ficam no topo.
 
-*Verificado contra o codigo em 2026-11-19. VERSION no codigo: `backend/main.py` VERSION="V226-50X-SNIPER-RISK-CAP-SOVEREIGN". DEPLOYMENT_ID="V226_TITAN_SOVEREIGN_SYSTEM". Invariantes V226 Escritas em Pedra: 1) Teto Rígido Institucional de Stop Loss em 50X (`max_stop_dist = 0.0070`): Em 50X Margem Cruzada, a distância do Stop Loss é limitada a no máximo 0.70% de preço (max -35.0% de ROI / -$3.500 no lote de $10.000), extirpando a anomalia de stops a 2.61% (-135% ROI / -$13.5k). 2) Purga Canônica de high_2h_window do Stop Loss: O cálculo de stop de entradas sniper nunca mais referencia o topo de 24 horas; ancoragem estrita na microestrutura do repique de 30M / SMA 21 com folga de apenas +0.25%, respeitando o teto de 0.70%. 3) Desasfixia de Breakeven para LAYA_PULLBACK_HUNTER_2H_30M: Isenção permanente de SCRATCH_GUARD_REJECTION (+30% ROI), restaurando a relação Risco:Retorno de 1:1.5 até 1:10. 4) Calibração de Gatilhos Titan V225: Limiares de pavio e absorção calibrados em 30M e suporte a Breakdown 2H com autorização de altcoins Titãs no Slot 1 sob Farol BTC BEAR. 5) Telemetria Unificada V224: Micro-caching inteligente (1.2s TTL) em `/api/cockpit/telemetry` e redirect 301 de `/laya` para `/telemetry`. 6) Titan Macro Trend Lock V222: Proibição de LONGs em regime macro de baixa (SMA 8 < SMA 21 de 2H); purga da Águia Fusion com exclusividade da Pullback Hunter 2H/30M. 7) Navio Almirante V221: Slot 1 privativo do BTC com mesa zerada; simbiose direcional 100% da frota; expansão autofinanciada 2+2+2+2 no Risco Zero (+45%/+60% ROI).*
+*Verificado contra o codigo em 2026-11-19. VERSION no codigo: `backend/main.py` VERSION="V226-50X-SNIPER-RISK-CAP-SOVEREIGN". DEPLOYMENT_ID="V226_TITAN_SOVEREIGN_SYSTEM". Invariantes V226 Escritas em Pedra: 1) Teto Rígido Institucional de Stop Loss em 50X (`max_stop_dist = 0.0070`): Em 50X Margem Cruzada, a distância do Stop Loss é limitada a no máximo 0.70% de preço (max -35.0% de ROI / -$3.500 no lote de $10.000), extirpando a anomalia de stops a 2.61% (-135% ROI / -$13.5k). 2) Purga Canônica de high_2h_window do Stop Loss: O cálculo de stop de entradas sniper nunca mais referencia o topo de 24 horas; ancoragem estrita na microestrutura do repique de 30M / SMA 21 com folga de apenas +0.25%, respeitando o teto de 0.70%. 3) Desasfixia de Breakeven para LAYA_PULLBACK_HUNTER_2H_30M: Isenção permanente de SCRATCH_GUARD_REJECTION (+30% ROI), restaurando a relação Risco:Retorno de 1:1.5 até 1:10. 4) Manômetro de Amplitude Titan (-60° a +60°): Monitoramento em tempo real do percentual de contratos acima da SMA 21 no 2H sobre o universo OKX (534 tickers e 31 Titãs) governando regimes macro e vetos de compra contra a maré. 5) Painel Soberano de Governança (Opção B): Escudos de Proteção na Banca Soberana com Piso de $140k (80% do lucro máximo protegido), Circuit Breaker anti-tilt (congelamento após 2 stops consecutivos), Consolidation Ceiling Sniper (>= 62% da caixa 2H) e Risco Ativo 2+2+2+2 no Risco Zero. 6) Calibração de Gatilhos Titan V225: Limiares de pavio e absorção calibrados em 30M e suporte a Breakdown 2H com autorização de altcoins Titãs no Slot 1 sob Farol BTC BEAR. 7) Telemetria Unificada V224: Micro-caching inteligente (1.2s TTL) em `/api/cockpit/telemetry` e redirect 301 de `/laya` para `/telemetry`. 8) Titan Macro Trend Lock V222: Proibição de LONGs em regime macro de baixa (SMA 8 < SMA 21 de 2H); purga da Águia Fusion com exclusividade da Pullback Hunter 2H/30M. 9) Navio Almirante V221: Slot 1 privativo do BTC com mesa zerada; simbiose direcional 100% da frota; expansão autofinanciada 2+2+2+2 no Risco Zero (+45%/+60% ROI).*
 ---
 
 ## 1. Visao Geral
@@ -29,6 +29,8 @@ Este e o unico documento de arquitetura do projeto — o Hermes le os primeiros 
 flowchart TD
     subgraph Frontend["Frontend Client (Binance Design & Thinking Orbs)"]
         UI_Cockpit["cockpit.html (Cockpit Soberano: Titan Engine + Radar 507 + 8 Slots Swing 2H)"]
+        UI_BreadthGauge["Painel de Bordo (Manômetro de Amplitude Titan -60° a +60°)"]
+        UI_ProtectionHUD["Governança & Escudos de Proteção (Piso $140k + Circuit Breaker + Ceiling Sniper)"]
         UI_Telemetry["telemetry.html (Telemetria Unificada: uPlot 60 FPS + Muralhas Liquidação + Microestrutura Sniper)"]
         UI_Plutus["plutus.html (Método ARCA Renda Perpétua + Universal Shell)"]
         UI_Hermes["hermes.html (Hermes Orchestrator & Forensic Audit)"]
@@ -42,6 +44,7 @@ flowchart TD
         R_Slots["/api/slots (Active Trades Mirror - 8 Slots Cap)"]
         R_State["/api/sandbox/unified-state (Equity & Net Worth)"]
         R_Pulse["/api/radar/pulse & /api/v1/hermes/laya/pulse"]
+        R_Breadth["/api/market/breadth & /api/cockpit/telemetry (Regime Macro & Amplitude)"]
         R_Kronos["/api/v1/hermes/laya/kronos-projection"]
         R_Viking["/api/v1/hermes/viking/tree, /read, /search, /sync & /commit-lesson"]
         R_RAG["/api/v1/hermes/rag/search & /status & /reindex"]
@@ -74,6 +77,7 @@ flowchart TD
         MarketIntel["MarketIntelEngine (Universal Screener 507 Pares, 1C-EXP, 1C-RANGE)"]
         StopLadder["OrderProjectionService (Dual Breakeven V218 45/60 & Elastic Trailing 50%)"]
         SanityGate["Price Sanity & Structural ATR Stop Gate (1.8% - 3.8%)"]
+        MarketBreadth["Market Breadth Engine (SMA21 2H Universe 534 Tickers / 31 Titãs)"]
         CoinglassHeatmap["CoinglassHeatmapService (Liquidation HeatMap Matrix & Whale Magnet Vector)"]
         TelemetryEngine["TelemetryService (Sub-ms Ingestion, Throughput, Net Worth Tick-a-Tick)"]
     end
@@ -100,9 +104,14 @@ flowchart TD
     UI_Cockpit --> R_Slots
     UI_Cockpit --> R_State
     UI_Cockpit --> R_Pulse
+    UI_Cockpit --> R_Breadth
+    UI_Cockpit --> UI_BreadthGauge
+    UI_Cockpit --> UI_ProtectionHUD
     UI_Cockpit --> UI_Screener
     UI_Charts --> R_Kronos
     UI_Screener --> R_Intel
+    R_Breadth --> MarketBreadth
+    MarketBreadth --> OKXUniverse
 
     MCP_Bridge --> ScalpLab
     MCP_Bridge --> DB_SQLite
@@ -371,6 +380,30 @@ flowchart TD
    - **Purga Canônica de `high_2h_window` do Stop Loss**: O Stop Loss de entradas sniper é ancorado na microestrutura do repique atual de 30M / SMA 21 com respiro de apenas +0.25%, respeitando imperativamente o teto de 0.70%.
    - **Desasfixia de Breakeven para `LAYA_PULLBACK_HUNTER_2H_30M`**: Isenção permanente do `SCRATCH_GUARD_REJECTION` precoce em +30% ROI para a estratégia Pullback Hunter, permitindo que a posição respire a favor da tendência para capturar os Degraus 2 a 5 (+60% a +300% de ROI = +$6.000 a +$30.000).
    - **Relação Risco:Retorno Saudável (1:1.5 até 1:10)**: Restaurada a matemática da consistência institucional, onde ganhos de +$6k a +$30k superam com folga qualquer stop limitado a -$3.5k.
+
+### 2.14 Painel Soberano de Governança & Escudos de Proteção da Banca [V226]
+1. **Painel de Escudos de Proteção (Opção B - Cockpit)**:
+   - Integrado de forma compacta e cirúrgica dentro do card `BANCA SOBERANA & GESTÃO DE RISCO` (`frontend/cockpit.html` e `backend/app/static/cockpit.html`).
+   - Fornece visualização em tempo real dos 4 pilares inegociáveis de preservação patrimonial:
+     - **Piso Soberano**: Trava patrimonial ativa em $140.089,35 (80% do lucro máximo realizado protegido no cofre). Em caso de drawdown de segurança, o motor impede qualquer sangramento de capital.
+     - **Circuit Breaker Anti-Tilt**: Monitoramento de paradas consecutivas. Ao acusar 2 stops sucessivos, impõe congelamento direcional temporário de 45 minutos e coloca ativos estopados em quarentena de 2 horas.
+     - **Consolidation Ceiling Sniper**: Em caixas de acumulação e mercado lateral de 2H, veto automático a vendas abaixo de 62% do range (`range_pos_2h < 62.0%`), impedindo sangramento de capital em miolo ou fundo de acumulação.
+     - **Alocação de Risco Ativo (Frota 2+2+2+2)**: Trava rígida de no máximo 2 ordens simultâneas em risco aberto ($20.000 nocional / 20% da banca). Novos slots (3 a 8) só abrem autofinanciados com Risco Zero (+45%/+60% ROI) já consolidado nas ordens precedentes.
+
+### 2.15 Manômetro de Amplitude Titan & Regime Macro OKX Universe [V226]
+1. **Cálculo Universal de Amplitude de Mercado (`market_intel_engine.py` & `/api/market/breadth`)**:
+   - Mede em tempo real o percentual de contratos perpétuos negociando acima da média móvel simples de 21 períodos no gráfico de 2 horas (`price > sma21_2h`).
+   - Sincronização atômica com os 31 Titãs institucionais e o universo total de 534 derivativos da OKX (`okx_universe_service.sync_tickers()`).
+   - Classificação estrita em 5 regimes de governança:
+     - `BEAR_DOMINANT` (< 30% acima da SMA21): Pressão vendedora massiva. SHORTs prioritários, veto total a compras contra o fluxo.
+     - `BEAR_MOMENTUM` (30% - 45%): Fraqueza generalizada. SHORTs autorizados em repiques Grau 1 e Grau 2.
+     - `NEUTRAL` (45% - 55%): Equilíbrio de mercado / consolidação. Regime seletivo com exigência de teste no teto (>= 62%).
+     - `BULL_MOMENTUM` (55% - 70%): Força compradora emergente. Apenas sob Farol BTC BULL.
+     - `BULL_DOMINANT` (> 70%): Expansão compradora generalizada.
+2. **Manômetro Visual Dinâmico no Cockpit (`TITAN ENGINE • COMANDO TÁTICO`)**:
+   - Manômetro analógico semicircular em SVG com ponteiro dinâmico rotacionando de -60° (BEAR extremo) a +60° (BULL extremo).
+   - Cores e estilização estritamente compatíveis com o padrão Lamborghini / Binance Dark (`#F6465D` Red, `#FCD535` Yellow, `#0ECB81` Green), sem emojis.
+   - Atualizado a cada 1.000 ms pelo payload otimizado de `/api/cockpit/telemetry` com latência sub-20ms.
 
 **Status Operacional Atual [V226-50X-SNIPER-RISK-CAP-SOVEREIGN]**:
 - **Frota Ativa (Titan Engine)**: 100% sob **50X Margem Cruzada**, banca base de **$100.000,00 USD**, lote fixo de $10.000,00 ($500.000 nocional) e até 8 slots simultâneos na regra 2+2+2+2.
