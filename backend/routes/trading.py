@@ -493,14 +493,17 @@ async def get_cockpit_telemetry():
     market_breadth = {}
     try:
         from app.services.market_intel_engine import market_intel_engine
-        snapshot = market_intel_engine._last_snapshot
-        matrix = snapshot.get("matrix", []) if snapshot else []
-        if not matrix and _cockpit_laya_router_service:
-            cands = getattr(_cockpit_laya_router_service, "candidate_setups", {})
-            if not cands and pulse:
-                cands = pulse.get("candidate_setups", {})
-            if cands:
-                matrix = list(cands.values())
+        from app.services.okx_universe_service import okx_universe_service
+        tickers = getattr(okx_universe_service, "_tickers_cache", {})
+        if not tickers:
+            tickers = await okx_universe_service.sync_tickers()
+        titans = getattr(okx_universe_service, "_titans_30_altcoins", [])
+        titans_data = []
+        for inst_id, t in tickers.items():
+            if inst_id.endswith("-USDT-SWAP"):
+                if inst_id in titans or any(inst_id.startswith(f"{c}-") for c in ["BTC", "ETH", "SOL", "AAVE", "XLM", "FIL", "ARB", "OP", "NEAR", "AVAX"]):
+                    titans_data.append(t)
+        matrix = titans_data if len(titans_data) >= 5 else list(tickers.values())
         market_breadth = market_intel_engine.calculate_crypto_market_breadth(matrix)
     except Exception as e_br:
         logger.debug(f"Error computing market breadth: {e_br}")
