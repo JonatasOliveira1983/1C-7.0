@@ -1643,6 +1643,18 @@ class SandboxService:
                 base = float(getattr(settings, 'OKX_SIMULATED_BALANCE', 100000.0))
                 emergency_floor = base * 0.85  # Piso de emergência de -15% ($85.000,00) caso não haja lucro travado
 
+                # [V227-HIGH-WATERMARK-RATCHET]:
+                # Se a banca consolidada estiver abaixo do equity_floor (por recuo prévio à trava dura),
+                # recalibra o pico para a banca consolidada atual, ancorando o novo piso
+                # em 80% do lucro restante. A partir daqui, o Hard Kill Switch
+                # NUNCA mais permite recuo abaixo deste novo piso!
+                if consolidated < database_service.equity_floor and database_service.equity_peak > consolidated:
+                    logger.warning(
+                        f"🛡️ [V227-FLOOR-REANCHOR] Recalibrando Piso Soberano da banca atual (${consolidated:.2f}): "
+                        f"Pico reancorado de ${database_service.equity_peak:.2f} -> ${consolidated:.2f}"
+                    )
+                    database_service.equity_peak = consolidated
+
                 if consolidated > database_service.equity_peak:
                     database_service.equity_peak = consolidated
 

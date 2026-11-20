@@ -809,6 +809,25 @@ class OpenVikingContextService:
                     l2_detail=l1_v226_breadth,
                     tags=["resources", "architecture", "v226", "market_breadth", "titan_gauge", "okx_universe"],
                 )
+
+                # V227: Hard Kill Switch do Piso Soberano, Purga de Breakdown & Circuit Breaker Anti-Repique
+                uri_v227 = "viking://resources/architecture/v227_hard_kill_switch_piso_soberano"
+                l0_v227 = "V227: Hard Kill Switch do Piso Soberano, purga canônica de breakdown 2H a seco, veto de fundo esticado (>2% abaixo da SMA21) e pausa preventiva de 30min pós-stop."
+                l1_v227 = (
+                    "INVARIANTES CANÔNICAS V227 (HARD KILL SWITCH PISO SOBERANO & ANTI-REPIQUE):\n"
+                    "1. Hard Kill Switch do Piso Soberano: Se a banca tocar ou furar o Piso Protegido (80% do lucro máximo acumulado no cofre), o router de ordens bloqueia sumariamente qualquer nova abertura sem exceção.\n"
+                    "2. Purga Canônica de Breakdown 2H a Seco: Extirpado o atalho de vender fundo rompido a seco (is_breakdown_2h). A Pullback Hunter exige obrigatoriamente teste nas médias (SMA8 ou SMA21) com rejeição confirmada.\n"
+                    "3. Veto de Fundo Esticado 2H (VETO_FUNDO_ESTICADO_SMA21): Proibido vender quando o preço estiver esticado > 2.0% abaixo da SMA 21 de 2H sem repique prévio, neutralizando bear traps armadas por Smart Money.\n"
+                    "4. Circuit Breaker Anti-Repique: Se ocorrer qualquer stop institucional na frota nos últimos 30 minutos (e 45min na direção), novas aberturas são pausadas preventivamente para evitar perdas consecutivas em série durante repiques contrários."
+                )
+                self.nodes[uri_v227] = VikingNode(
+                    uri=uri_v227,
+                    title="V227: Hard Kill Switch do Piso Soberano & Anti-Repique",
+                    l0_abstract=l0_v227,
+                    l1_overview=l1_v227,
+                    l2_detail=l1_v227,
+                    tags=["resources", "architecture", "v227", "piso_soberano", "hard_kill_switch", "anti_repique", "circuit_breaker"],
+                )
             except Exception:
                 pass
 

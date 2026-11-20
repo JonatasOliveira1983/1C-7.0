@@ -2557,7 +2557,10 @@ class LayaRouterService:
         if now < expiry:
             return True
 
-        # Consulta persistente no SQLite: se houve 2 stops nessa direção nos últimos 45min (2700s), trava!
+        # [V227-CIRCUIT-BREAKER-DIRECIONAL-INSTITUCIONAL]:
+        # 1. Se houve 1 stop recente nessa direção nos últimos 45min (2700s), trava a direção por 45min!
+        #    Impede reabrir na mesma direção imediatamente enquanto o repique contrário ainda está em andamento.
+        # 2. Se houve 2 stops nos últimos 180min (10800s), trava por 120min (7200s)!
         try:
             import sqlite3
             db_candidates = [
@@ -2569,14 +2572,21 @@ class LayaRouterService:
                     conn = sqlite3.connect(str(db_p), timeout=0.5)
                     rows = conn.execute(
                         "SELECT closed_at FROM sandbox_trades WHERE direction = ? AND status = 'CLOSED_SL' AND closed_at > ? ORDER BY closed_at DESC LIMIT 5",
-                        (dir_clean, now - 2700)
+                        (dir_clean, now - 10800)
                     ).fetchall()
                     conn.close()
-                    if len(rows) >= 2:
-                        if not hasattr(self, "_direction_cooldowns"):
-                            self._direction_cooldowns = {}
-                        self._direction_cooldowns[dir_clean] = now + 2700
-                        return True
+                    if rows:
+                        recent_sl = [r for r in rows if r[0] > (now - 2700)]
+                        if len(rows) >= 2:
+                            if not hasattr(self, "_direction_cooldowns"):
+                                self._direction_cooldowns = {}
+                            self._direction_cooldowns[dir_clean] = now + 7200
+                            return True
+                        elif len(recent_sl) >= 1:
+                            if not hasattr(self, "_direction_cooldowns"):
+                                self._direction_cooldowns = {}
+                            self._direction_cooldowns[dir_clean] = now + 2700
+                            return True
                     break
         except Exception:
             pass
@@ -3709,43 +3719,49 @@ class LayaRouterService:
                 range_pos_2h = ((price - low_2h_window) / span_2h) * 100.0
 
             if regime_2h["regime"] == "SHORT_ONLY":
-                # REGRA CRÍTICA V225: Identifica Repique em médias (Grau 1 / Grau 2) ou Rompimento de Fundo (Breakdown 2H)
+                # REGRA CRÍTICA V227: Identifica Repique em médias (Grau 1 / Grau 2). Purga breakdown a seco!
                 pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
-                is_breakdown_2h = (price <= low_2h_window * 1.003) and (regime_2h.get("diff_pct", 0) <= -0.25)
 
-                if pullback_30m["has_pullback_setup"] or is_breakdown_2h:
-                    # [V219-BTC-KEYZONES-SUPPORT-GUARD]:
-                    # Se o Bitcoin estiver colado em suporte institucional maior (ex: $65.000),
-                    # entradas em repique exigem Grau 2 (SMA21), exceto em rompimento confirmado de fundo.
-                    is_btc_supp = getattr(self, "_btc_in_support_zone", False)
-                    is_grau_2 = (pullback_30m.get("pullback_type") == "SNIPER_SMA21_EXHAUSTION_SHORT")
-                    if is_btc_supp and not is_grau_2 and not is_breakdown_2h:
+                # [V227-PURGA-BREAKDOWN-A-SECO & VETO-FUNDO-ESTICADO]:
+                # 1. Extirpado rompimento seco no fundo: a Pullback Hunter EXIGE repique com rejeição confirmada!
+                # 2. Se o preço estiver > 2.0% esticado abaixo da SMA 21 de 2H, veto absoluto de vender o fundo da exaustão!
+                sma21_val = float(regime_2h.get("sma21", 0.0) or 0.0)
+                is_overextended = (sma21_val > 0 and price < (sma21_val * 0.980))
+
+                if pullback_30m["has_pullback_setup"]:
+                    if is_overextended and pullback_30m.get("pullback_type") != "SNIPER_SMA21_EXHAUSTION_SHORT":
                         multi_eval["qualifies"] = False
-                        supp_val = getattr(self, "_btc_major_support", 65000.0)
-                        rationale = f"VETO VENDER FUNDO (SUPORTE BTC ${supp_val:,.0f}): Repique na SMA8 insuficiente. Exigido Sweep completo na Linha Amarela (SMA21) enquanto BTC estiver em suporte."
+                        rationale = f"VETO FUNDO ESTICADO 2H: Preço (${price:,.4f}) esticado >2.0% abaixo da SMA 21 (${sma21_val:,.4f}). Risco crítico de bear trap. Exigido repique de alívio na média."
                     else:
-                        strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
-                        direction = "SHORT"
-                        multi_eval["qualifies"] = True
-                        multi_eval["strategy"] = strat_name
-                        multi_eval["direction"] = direction
-                        score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                        # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
-                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
-                        stop_loss = min(calc_sl, round(price * 1.0070, 4))
-                        target = pullback_30m.get("target", round(price * 0.940, 4))
-                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
-                        target_dist = abs(price - target) / price if price > 0 else 0.060
-                        multi_eval["stop_loss"] = stop_loss
-                        multi_eval["target"] = target
-                        multi_eval["stop_dist"] = stop_dist
-                        multi_eval["target_dist"] = target_dist
-                        trigger_desc = "BREAKDOWN 2H" if is_breakdown_2h else pullback_30m.get('reason')
-                        rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {trigger_desc} [Pos 2H: {range_pos_2h:.0f}%]"
+                        is_btc_supp = getattr(self, "_btc_in_support_zone", False)
+                        is_grau_2 = (pullback_30m.get("pullback_type") == "SNIPER_SMA21_EXHAUSTION_SHORT")
+                        if is_btc_supp and not is_grau_2:
+                            multi_eval["qualifies"] = False
+                            supp_val = getattr(self, "_btc_major_support", 65000.0)
+                            rationale = f"VETO VENDER FUNDO (SUPORTE BTC ${supp_val:,.0f}): Repique na SMA8 insuficiente. Exigido Sweep completo na Linha Amarela (SMA21) enquanto BTC estiver em suporte."
+                        else:
+                            strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                            direction = "SHORT"
+                            multi_eval["qualifies"] = True
+                            multi_eval["strategy"] = strat_name
+                            multi_eval["direction"] = direction
+                            score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                            # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
+                            calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
+                            stop_loss = min(calc_sl, round(price * 1.0070, 4))
+                            target = pullback_30m.get("target", round(price * 0.940, 4))
+                            stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
+                            target_dist = abs(price - target) / price if price > 0 else 0.060
+                            multi_eval["stop_loss"] = stop_loss
+                            multi_eval["target"] = target
+                            multi_eval["stop_dist"] = stop_dist
+                            multi_eval["target_dist"] = target_dist
+                            trigger_desc = pullback_30m.get('reason')
+                            rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {trigger_desc} [Pos 2H: {range_pos_2h:.0f}%]"
                 else:
                     if range_pos_2h < 62.0:
                         multi_eval["qualifies"] = False
-                        rationale = f"VETO MEIO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H (${low_2h_window:,.1f} - ${high_2h_window:,.1f}). Sem repique nas médias e sem rompimento do fundo."
+                        rationale = f"VETO MEIO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H (${low_2h_window:,.1f} - ${high_2h_window:,.1f}). Sem repique nas médias."
                     else:
                         multi_eval["qualifies"] = False
                         rationale = f"VETO 2H SHORT_ONLY: {pullback_30m.get('reason')}"
@@ -3786,36 +3802,42 @@ class LayaRouterService:
                         multi_eval["qualifies"] = False
                         rationale = f"VETO 2H LONG_ONLY: {pullback_30m.get('reason')}"
             else:
-                # [V225-MERCADO-NEUTRO-OU-CONSOLIDACAO]:
+                # [V227-MERCADO-NEUTRO-OU-CONSOLIDACAO]:
                 # Em consolidação/neutralidade sem rompimento de alta:
                 # Se o preço estiver abaixo da SMA 21 de 2H ou se o BTC não for expressamente BULL:
-                # O regime autoriza SHORT se houver Repique válido (Grau 1 / Grau 2) ou Rompimento de Fundo (Breakdown).
+                # O regime autoriza SHORT se houver Repique autêntico em 30M (Grau 1 / Grau 2). Veto a breakdown seco!
                 if price <= regime_2h.get("sma21", price) or btc_macro_dir != "BULL":
                     pullback_30m = self.calculate_30m_pullback_trigger(clean_sym, c30m_local, price, "SHORT", lsr=lsr, btc_dominance=getattr(self, "_last_btc_dominance", 58.0), btc_trend_bias=btc_trend_bias, bot_ignition=bot_on, c_exp=c_exp, sma8_2h=regime_2h.get("sma8", 0.0), sma21_2h=regime_2h.get("sma21", 0.0))
-                    is_breakdown_2h = (price <= low_2h_window * 1.003) and (btc_macro_dir == "BEAR" or btc_trend_bias <= -0.2)
-                    if pullback_30m["has_pullback_setup"] or is_breakdown_2h:
-                        strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
-                        direction = "SHORT"
-                        multi_eval["qualifies"] = True
-                        multi_eval["strategy"] = strat_name
-                        multi_eval["direction"] = direction
-                        score = min(99, 88 + pullback_30m.get("score_boost", 0))
-                        # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
-                        calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
-                        stop_loss = min(calc_sl, round(price * 1.0070, 4))
-                        target = pullback_30m.get("target", round(price * 0.940, 4))
-                        stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
-                        target_dist = abs(price - target) / price if price > 0 else 0.060
-                        multi_eval["stop_loss"] = stop_loss
-                        multi_eval["target"] = target
-                        multi_eval["stop_dist"] = stop_dist
-                        multi_eval["target_dist"] = target_dist
-                        trigger_desc = "BREAKDOWN 2H" if is_breakdown_2h else pullback_30m.get('reason')
-                        rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {trigger_desc} [Pos 2H: {range_pos_2h:.0f}%]"
+                    sma21_val = float(regime_2h.get("sma21", 0.0) or 0.0)
+                    is_overextended = (sma21_val > 0 and price < (sma21_val * 0.980))
+
+                    if pullback_30m["has_pullback_setup"]:
+                        if is_overextended and pullback_30m.get("pullback_type") != "SNIPER_SMA21_EXHAUSTION_SHORT":
+                            multi_eval["qualifies"] = False
+                            rationale = f"VETO FUNDO ESTICADO 2H: Preço (${price:,.4f}) esticado >2.0% abaixo da SMA 21 (${sma21_val:,.4f}). Risco crítico de bear trap. Exigido repique de alívio na média."
+                        else:
+                            strat_name = "LAYA_PULLBACK_HUNTER_2H_30M"
+                            direction = "SHORT"
+                            multi_eval["qualifies"] = True
+                            multi_eval["strategy"] = strat_name
+                            multi_eval["direction"] = direction
+                            score = min(99, 88 + pullback_30m.get("score_boost", 0))
+                            # [V226-SNIPER-STOP-CAP]: Stop sniper no sweep da média com teto rígido de 0.70% de preço (= -35% ROI / -$3.500 máx de perda)
+                            calc_sl = pullback_30m.get("stop_loss", round(price * 1.0050, 4))
+                            stop_loss = min(calc_sl, round(price * 1.0070, 4))
+                            target = pullback_30m.get("target", round(price * 0.940, 4))
+                            stop_dist = abs(stop_loss - price) / price if price > 0 else 0.005
+                            target_dist = abs(price - target) / price if price > 0 else 0.060
+                            multi_eval["stop_loss"] = stop_loss
+                            multi_eval["target"] = target
+                            multi_eval["stop_dist"] = stop_dist
+                            multi_eval["target_dist"] = target_dist
+                            trigger_desc = pullback_30m.get('reason')
+                            rationale = f"PULLBACK HUNTER 2H/30M (SHORT): {regime_2h.get('reason')} | {trigger_desc} [Pos 2H: {range_pos_2h:.0f}%]"
                     else:
                         if range_pos_2h < 62.0:
                             multi_eval["qualifies"] = False
-                            rationale = f"VETO MEIO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H. Proibido vender no meio da caixa sem repique ou rompimento."
+                            rationale = f"VETO MEIO DE ACUMULAÇÃO 2H: Preço em {range_pos_2h:.1f}% da amplitude de 2H. Proibido vender no meio da caixa sem repique nas médias."
                         else:
                             multi_eval["qualifies"] = False
                             rationale = f"VETO 2H CONSOLIDAÇÃO: Sem gatilho de exaustão no teto."
@@ -4181,6 +4203,49 @@ class LayaRouterService:
         # garantindo que o sistema continue abrindo trades excelentes sem congelamento de slots.
         if daily_profit_pct > 0:
             self.log_thought("SISTEMA", f"️ [BANCA NO LUCRO]: Lucro acumulado {daily_profit_pct:+.2f}% (+${current_sandbox_balance-base_bank:.2f}). Piso Soberano ativo protegendo capital. 8 slots operacionais (Score >= {effective_min_score}%).", action="CAPITAL_FLOW", confidence=90)
+
+        # [V227-HARD-KILL-SWITCH-PISO-SOBERANO]: Se a banca tocou ou furou o Piso Soberano (80% do lucro travado),
+        # congela sumariamente a abertura de qualquer nova ordem. NENHUM centavo do cofre pode ser devolvido!
+        equity_floor_val = float(getattr(database_service, "equity_floor", 0.0) or 0.0)
+        if equity_floor_val > base_bank and current_sandbox_balance <= equity_floor_val:
+            self.log_thought(
+                "PISO_SOBERANO",
+                f"[VETO PISO SOBERANO HARD LOCK]: Banca atual (${current_sandbox_balance:,.2f}) atingiu ou perfurou o Piso Protegido (${equity_floor_val:,.2f}). Novas ordens terminantemente BLOQUEADAS para assegurar os lucros do cofre (Never Give Back).",
+                action="VETO_PISO_SOBERANO",
+                confidence=100
+            )
+            return None
+
+        # [V227-GLOBAL-STOP-COOLDOWN]: Se qualquer stop ocorreu nos últimos 30 minutos (1800s),
+        # aguarda 30 minutos de resfriamento para o mercado assentar o repique antes de novas aberturas.
+        try:
+            import sqlite3
+            from pathlib import Path as _Path
+            db_candidates = [
+                _Path(__file__).resolve().parent.parent.parent / "local_sniper.db",
+                _Path(__file__).resolve().parent.parent.parent.parent / "local_sniper.db"
+            ]
+            for db_p in db_candidates:
+                if db_p.exists():
+                    conn = sqlite3.connect(str(db_p), timeout=0.5)
+                    row = conn.execute(
+                        "SELECT closed_at FROM sandbox_trades WHERE status = 'CLOSED_SL' ORDER BY closed_at DESC LIMIT 1"
+                    ).fetchone()
+                    conn.close()
+                    if row and row[0]:
+                        time_since_stop = time.time() - float(row[0])
+                        if time_since_stop < 1800.0:
+                            rem_stop_pause = int(1800.0 - time_since_stop)
+                            self.log_thought(
+                                "CIRCUIT_BREAKER",
+                                f"[PAUSA ANTI-REPIQUE PÓS-STOP]: Stop institucional recente ocorreu há {int(time_since_stop)}s. Aguardando {rem_stop_pause}s de resfriamento para evitar perdas em série.",
+                                action="CIRCUIT_BREAKER_STOP_HOLD",
+                                confidence=98
+                            )
+                            return None
+                    break
+        except Exception:
+            pass
 
         order_opened = None
         # [CIRCUIT BREAKER GLOBAL ANTI-TILT]: Se 3 stops recentes ocorreram em <90min, congelar novas entradas
